@@ -1,0 +1,100 @@
+import { AdminRole, ExamType } from "@/generated/prisma";
+import { NotificationCenter } from "@/components/notifications/notification-center";
+import { requireAdminContext } from "@/lib/auth";
+import { EXAM_TYPE_LABEL } from "@/lib/constants";
+import { listNotificationCenterData } from "@/lib/notifications/service";
+
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+function readParam(
+  searchParams: PageProps["searchParams"],
+  key: string,
+) {
+  const value = searchParams?.[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function AdminNotificationsPage({ searchParams }: PageProps) {
+  await requireAdminContext(AdminRole.TEACHER);
+  const examType =
+    readParam(searchParams, "examType") === ExamType.GYEONGCHAE
+      ? ExamType.GYEONGCHAE
+      : ExamType.GONGCHAE;
+  const search = readParam(searchParams, "search") ?? "";
+  const data = await listNotificationCenterData({
+    examType,
+    search,
+  });
+
+  return (
+    <div className="p-8 sm:p-10">
+      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+        F-09 Notifications
+      </div>
+      <h1 className="mt-5 text-3xl font-semibold">알림 발송</h1>
+      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+        Solapi 기반 알림톡 우선 발송과 SMS 폴백을 관리합니다. 상태 변경으로 쌓인 자동
+        큐, 수신 동의, 수동 공지 발송을 한 곳에서 처리합니다.
+      </p>
+
+      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[160px_minmax(0,1fr)_140px]">
+        <div>
+          <label className="mb-2 block text-sm font-medium">직렬</label>
+          <select
+            name="examType"
+            defaultValue={examType}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            <option value={ExamType.GONGCHAE}>{EXAM_TYPE_LABEL.GONGCHAE}</option>
+            <option value={ExamType.GYEONGCHAE}>{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">수험번호 / 이름</label>
+          <input
+            type="text"
+            name="search"
+            defaultValue={search}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            placeholder="수험번호 또는 이름 검색"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="submit"
+            className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+          >
+            조회
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-8">
+        <NotificationCenter
+          filters={{ examType, search }}
+          setup={{
+            notificationReady: data.setup.notificationReady,
+            missingNotificationKeys: data.setup.missingNotificationKeys,
+          }}
+          summary={data.summary}
+          students={data.students.map((student) => ({
+            ...student,
+            consentedAt: student.consentedAt ? student.consentedAt.toISOString() : null,
+          }))}
+          pendingLogs={data.pendingLogs.map((log) => ({
+            ...log,
+            sentAt: log.sentAt.toISOString(),
+          }))}
+          historyLogs={data.historyLogs.map((log) => ({
+            ...log,
+            sentAt: log.sentAt.toISOString(),
+          }))}
+        />
+      </div>
+    </div>
+  );
+}

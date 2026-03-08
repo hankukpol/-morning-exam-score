@@ -1,0 +1,26 @@
+# local reference assets
+/참고자료/
+
+# app dependencies
+/web/node_modules/
+/web/.next/
+/web/out/
+/web/build/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+/run-local-dev.log
+/*.log
+
+# env files
+/web/.env*
+/*수파베이스*.txt
+
+# editor and OS files
+.DS_Store
+
+# TypeScript
+/web/*.tsbuildinfo

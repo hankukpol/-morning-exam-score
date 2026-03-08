@@ -1,0 +1,353 @@
+import { AdminRole, Subject } from "@/generated/prisma";
+import {
+  getAnalyticsContext,
+  readStringParam,
+} from "@/lib/analytics/ui";
+import { STATUS_LABEL } from "@/lib/analytics/presentation";
+import { requireAdminContext } from "@/lib/auth";
+import {
+  ATTEND_TYPE_LABEL,
+  EXAM_TYPE_LABEL,
+  SUBJECT_LABEL,
+} from "@/lib/constants";
+import { formatDate } from "@/lib/format";
+import {
+  getDateQueryRows,
+  getStudentHistoryRows,
+  getSubjectTrendRows,
+  type QueryMode,
+} from "@/lib/query/service";
+
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+const MODE_OPTIONS: Array<{ value: QueryMode; label: string }> = [
+  { value: "date", label: "날짜별 조회" },
+  { value: "subject", label: "과목별 조회" },
+  { value: "student", label: "수강생별 조회" },
+];
+
+export default async function AdminQueryPage({ searchParams }: PageProps) {
+  await requireAdminContext(AdminRole.VIEWER);
+  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const mode = (readStringParam(searchParams, "mode") as QueryMode | undefined) ?? "date";
+  const date = readStringParam(searchParams, "date") ?? "";
+  const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;
+  const keyword = readStringParam(searchParams, "keyword") ?? "";
+
+  const [dateRows, subjectRows, studentRows] = await Promise.all([
+    mode === "date" && date
+      ? getDateQueryRows({
+          mode,
+          periodId: selectedPeriod?.id,
+          examType,
+          date,
+        })
+      : Promise.resolve([]),
+    mode === "subject" && subject
+      ? getSubjectTrendRows({
+          mode,
+          periodId: selectedPeriod?.id,
+          examType,
+          subject,
+        })
+      : Promise.resolve([]),
+    mode === "student" && keyword.trim()
+      ? getStudentHistoryRows({
+          mode,
+          periodId: selectedPeriod?.id,
+          examType,
+          keyword,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const exportParams = new URLSearchParams();
+  exportParams.set("mode", mode);
+  exportParams.set("examType", examType);
+
+  if (selectedPeriod?.id) {
+    exportParams.set("periodId", String(selectedPeriod.id));
+  }
+
+  if (date) {
+    exportParams.set("date", date);
+  }
+
+  if (subject) {
+    exportParams.set("subject", subject);
+  }
+
+  if (keyword) {
+    exportParams.set("keyword", keyword);
+  }
+
+  const hasRows =
+    dateRows.length > 0 || subjectRows.length > 0 || studentRows.length > 0;
+
+  return (
+    <div className="p-8 sm:p-10">
+      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+        F-08 Query
+      </div>
+      <h1 className="mt-5 text-3xl font-semibold">다차원 조회</h1>
+      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+        특정 날짜 전체 성적, 과목별 추이, 수강생별 전체 이력을 한 화면에서 조회합니다.
+      </p>
+
+      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium">조회 모드</label>
+          <select
+            name="mode"
+            defaultValue={mode}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            {MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">시험 기간</label>
+          <select
+            name="periodId"
+            defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            {periods.map((period) => (
+              <option key={period.id} value={period.id}>
+                {period.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">직렬</label>
+          <select
+            name="examType"
+            defaultValue={examType}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+            <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">날짜</label>
+          <input
+            type="date"
+            name="date"
+            defaultValue={date}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">과목 / 키워드</label>
+          <div className="grid gap-2">
+            <select
+              name="subject"
+              defaultValue={subject ?? ""}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            >
+              <option value="">과목 선택</option>
+              {Object.values(Subject).map((value) => (
+                <option key={value} value={value}>
+                  {SUBJECT_LABEL[value]}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              name="keyword"
+              defaultValue={keyword}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+              placeholder="수험번호 또는 이름"
+            />
+          </div>
+        </div>
+        <div className="md:col-span-5 flex flex-wrap justify-end gap-3">
+          {hasRows ? (
+            <>
+              <a
+                href={`/api/export/query?${exportParams.toString()}&format=xlsx`}
+                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                xlsx 내보내기
+              </a>
+              <a
+                href={`/api/export/query?${exportParams.toString()}&format=csv`}
+                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                csv 내보내기
+              </a>
+            </>
+          ) : null}
+          <button
+            type="submit"
+            className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+          >
+            조회
+          </button>
+        </div>
+      </form>
+
+      {mode === "date" ? (
+        <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
+          <h2 className="text-xl font-semibold">날짜별 전체 성적</h2>
+          <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
+            <table className="min-w-full divide-y divide-ink/10 text-sm">
+              <thead className="bg-mist/80 text-left">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">시험일</th>
+                  <th className="px-4 py-3 font-semibold">과목</th>
+                  <th className="px-4 py-3 font-semibold">수험번호</th>
+                  <th className="px-4 py-3 font-semibold">이름</th>
+                  <th className="px-4 py-3 font-semibold">출결</th>
+                  <th className="px-4 py-3 font-semibold">원점수</th>
+                  <th className="px-4 py-3 font-semibold">최종점수</th>
+                  <th className="px-4 py-3 font-semibold">현재 상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/10">
+                {dateRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate">
+                      날짜를 선택하면 결과가 표시됩니다.
+                    </td>
+                  </tr>
+                ) : null}
+                {dateRows.map((row) => (
+                  <tr key={`${row.sessionId}-${row.examNumber}`}>
+                    <td className="px-4 py-3">{formatDate(row.examDate)}</td>
+                    <td className="px-4 py-3">{SUBJECT_LABEL[row.subject]}</td>
+                    <td className="px-4 py-3">{row.examNumber}</td>
+                    <td className="px-4 py-3">{row.studentName}</td>
+                    <td className="px-4 py-3">{ATTEND_TYPE_LABEL[row.attendType]}</td>
+                    <td className="px-4 py-3">{row.rawScore ?? "-"}</td>
+                    <td className="px-4 py-3">{row.finalScore ?? "-"}</td>
+                    <td className="px-4 py-3">{STATUS_LABEL[row.currentStatus]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {mode === "subject" ? (
+        <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
+          <h2 className="text-xl font-semibold">과목별 추이</h2>
+          <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
+            <table className="min-w-full divide-y divide-ink/10 text-sm">
+              <thead className="bg-mist/80 text-left">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">시험일</th>
+                  <th className="px-4 py-3 font-semibold">주차</th>
+                  <th className="px-4 py-3 font-semibold">평균</th>
+                  <th className="px-4 py-3 font-semibold">최고</th>
+                  <th className="px-4 py-3 font-semibold">최저</th>
+                  <th className="px-4 py-3 font-semibold">현장</th>
+                  <th className="px-4 py-3 font-semibold">온라인</th>
+                  <th className="px-4 py-3 font-semibold">결시</th>
+                  <th className="px-4 py-3 font-semibold">사유 결시</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/10">
+                {subjectRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-slate">
+                      과목을 선택하면 추이 결과가 표시됩니다.
+                    </td>
+                  </tr>
+                ) : null}
+                {subjectRows.map((row) => (
+                  <tr key={row.sessionId}>
+                    <td className="px-4 py-3">{formatDate(row.examDate)}</td>
+                    <td className="px-4 py-3">{row.week}주차</td>
+                    <td className="px-4 py-3">{row.averageScore ?? "-"}</td>
+                    <td className="px-4 py-3">{row.highestScore ?? "-"}</td>
+                    <td className="px-4 py-3">{row.lowestScore ?? "-"}</td>
+                    <td className="px-4 py-3">{row.normalCount}</td>
+                    <td className="px-4 py-3">{row.liveCount}</td>
+                    <td className="px-4 py-3">{row.absentCount}</td>
+                    <td className="px-4 py-3">{row.excusedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {mode === "student" ? (
+        <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
+          <h2 className="text-xl font-semibold">수강생 이력</h2>
+          <div className="mt-6 space-y-4">
+            {studentRows.length === 0 ? (
+              <div className="rounded-[28px] border border-dashed border-ink/10 p-8 text-center text-sm text-slate">
+                수험번호 또는 이름을 입력하면 결과가 표시됩니다.
+              </div>
+            ) : null}
+            {studentRows.map((student) => (
+              <article key={student.examNumber} className="rounded-[28px] border border-ink/10 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {student.examNumber} · {student.name}
+                    </h3>
+                    <p className="mt-2 text-sm text-slate">
+                      {EXAM_TYPE_LABEL[student.examType]} · 현재 상태 {STATUS_LABEL[student.currentStatus]} · {student.isActive ? "활성" : "비활성"}
+                    </p>
+                  </div>
+                  <p className="text-sm text-slate">{student.phone ?? "-"}</p>
+                </div>
+
+                <div className="mt-4 overflow-x-auto rounded-[24px] border border-ink/10">
+                  <table className="min-w-full divide-y divide-ink/10 text-sm">
+                    <thead className="bg-mist/80 text-left">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">시험일</th>
+                        <th className="px-4 py-3 font-semibold">기간</th>
+                        <th className="px-4 py-3 font-semibold">과목</th>
+                        <th className="px-4 py-3 font-semibold">출결</th>
+                        <th className="px-4 py-3 font-semibold">원점수</th>
+                        <th className="px-4 py-3 font-semibold">최종점수</th>
+                        <th className="px-4 py-3 font-semibold">메모</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink/10">
+                      {student.scores.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-8 text-center text-slate">
+                            선택한 기간의 성적 이력이 없습니다.
+                          </td>
+                        </tr>
+                      ) : null}
+                      {student.scores.map((score) => (
+                        <tr key={score.scoreId}>
+                          <td className="px-4 py-3">{formatDate(score.examDate)}</td>
+                          <td className="px-4 py-3">{score.periodName}</td>
+                          <td className="px-4 py-3">{SUBJECT_LABEL[score.subject]}</td>
+                          <td className="px-4 py-3">{ATTEND_TYPE_LABEL[score.attendType]}</td>
+                          <td className="px-4 py-3">{score.rawScore ?? "-"}</td>
+                          <td className="px-4 py-3">{score.finalScore ?? "-"}</td>
+                          <td className="px-4 py-3">{score.note ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
