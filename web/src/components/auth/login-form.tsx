@@ -20,28 +20,35 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(SAVED_EMAIL_KEY);
-    if (saved) {
-      setEmail(saved);
-      setRememberEmail(true);
+    try {
+      const saved = localStorage.getItem(SAVED_EMAIL_KEY);
+      if (saved) {
+        setEmail(saved);
+        setRememberEmail(true);
+      }
+    } catch {
+      // 일부 브라우저에서 localStorage 접근 불가
     }
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (disabled) return;
+    if (disabled || submitting) return;
 
     setSubmitting(true);
     setErrorMessage(null);
 
-    if (rememberEmail) {
-      localStorage.setItem(SAVED_EMAIL_KEY, email);
-    } else {
-      localStorage.removeItem(SAVED_EMAIL_KEY);
-    }
-
     try {
+      try {
+        if (rememberEmail) {
+          localStorage.setItem(SAVED_EMAIL_KEY, email);
+        } else {
+          localStorage.removeItem(SAVED_EMAIL_KEY);
+        }
+      } catch {
+        // localStorage 실패는 무시
+      }
+
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -52,9 +59,9 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
 
       router.replace(redirectTo || "/admin");
       router.refresh();
-    } catch (error) {
+    } catch (err) {
       setErrorMessage(
-        error instanceof Error ? error.message : "로그인 처리 중 오류가 발생했습니다.",
+        err instanceof Error ? err.message : "로그인 처리 중 오류가 발생했습니다.",
       );
     } finally {
       setSubmitting(false);
@@ -62,7 +69,7 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-2 block text-sm font-medium text-ink" htmlFor="email">
           이메일
@@ -72,7 +79,7 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
           type="email"
           autoComplete="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm text-ink outline-none transition focus:border-ember/50 focus:bg-white"
           placeholder="admin@example.com"
           required
@@ -88,25 +95,22 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm text-ink outline-none transition focus:border-ember/50 focus:bg-white"
           placeholder="••••••••"
           required
           disabled={disabled || submitting}
         />
       </div>
-      <div className="flex items-center gap-2">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate select-none">
         <input
-          id="remember-email"
           type="checkbox"
           checked={rememberEmail}
-          onChange={(event) => setRememberEmail(event.target.checked)}
-          className="h-4 w-4 rounded border-ink/20 accent-ember"
+          onChange={(e) => setRememberEmail(e.target.checked)}
+          className="h-4 w-4 rounded accent-ember"
         />
-        <label htmlFor="remember-email" className="text-sm text-slate cursor-pointer select-none">
-          아이디 저장
-        </label>
-      </div>
+        아이디 저장
+      </label>
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
