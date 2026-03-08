@@ -17,10 +17,18 @@ export function createClient() {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options) {
-        cookieStore.set({ name, value, ...options });
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch {
+          // Server Component에서는 쿠키 쓰기 불가 — 미들웨어가 처리함
+        }
       },
       remove(name: string, options) {
-        cookieStore.set({ name, value: "", ...options });
+        try {
+          cookieStore.set({ name, value: "", ...options });
+        } catch {
+          // Server Component에서는 쿠키 쓰기 불가 — 미들웨어가 처리함
+        }
       },
     },
   });
