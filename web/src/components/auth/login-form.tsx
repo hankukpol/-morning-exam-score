@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+
+const SAVED_EMAIL_KEY = "admin_saved_email";
 
 type LoginFormProps = {
   redirectTo: string;
@@ -13,25 +15,35 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberEmail, setRememberEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_EMAIL_KEY);
+    if (saved) {
+      setEmail(saved);
+      setRememberEmail(true);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (disabled) {
-      return;
-    }
+    if (disabled) return;
 
     setSubmitting(true);
     setErrorMessage(null);
 
+    if (rememberEmail) {
+      localStorage.setItem(SAVED_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(SAVED_EMAIL_KEY);
+    }
+
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         setErrorMessage(error.message);
@@ -50,10 +62,10 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <div>
         <label className="mb-2 block text-sm font-medium text-ink" htmlFor="email">
-          관리자 이메일
+          이메일
         </label>
         <input
           id="email"
@@ -83,6 +95,18 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
           disabled={disabled || submitting}
         />
       </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="remember-email"
+          type="checkbox"
+          checked={rememberEmail}
+          onChange={(event) => setRememberEmail(event.target.checked)}
+          className="h-4 w-4 rounded border-ink/20 accent-ember"
+        />
+        <label htmlFor="remember-email" className="text-sm text-slate cursor-pointer select-none">
+          아이디 저장
+        </label>
+      </div>
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
@@ -91,7 +115,7 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
       <button
         type="submit"
         disabled={disabled || submitting}
-        className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+        className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
       >
         {submitting ? "로그인 중..." : "로그인"}
       </button>
