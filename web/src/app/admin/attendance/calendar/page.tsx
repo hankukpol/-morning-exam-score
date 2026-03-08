@@ -172,6 +172,7 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
                         entries.map((entry) => (
                           <div key={entry.sessionId} className="rounded-2xl bg-white/80 p-3">
                             <p className="font-semibold text-ink">{SUBJECT_LABEL[entry.subject]}</p>
+                            <p>{entry.weekLabel}</p>
                             <p>현장 {entry.normalCount} / LIVE {entry.liveCount}</p>
                             <p>결시 {entry.absentCount} / 경고 {entry.warningCount}</p>
                             <p>탈락 {entry.dropoutCount}</p>

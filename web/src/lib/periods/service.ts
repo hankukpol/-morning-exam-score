@@ -26,6 +26,7 @@ export async function listPeriods() {
       _count: {
         select: {
           sessions: true,
+          enrollments: true,
         },
       },
     },
@@ -300,10 +301,10 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
     throw new Error("시작일은 종료일보다 빠르거나 같아야 합니다.");
   }
 
-  // 요일별 시험 배치(월=경찰학, 화=헌법/범죄학, 수=형소법, 목=누적, 금=형법)를 위해
-  // 시작일은 반드시 월요일이어야 합니다.
-  if (startDate.getDay() !== 1) {
-    throw new Error("시작일은 월요일이어야 합니다. (시험 스케줄이 월~금 요일 순서로 자동 배정됩니다.)");
+  // 요일별 시험 배치(화=경찰학, 수=헌법/범죄학, 목=형소법, 금=누적, 월=형법)를 위해
+  // 시작일은 반드시 화요일이어야 합니다.
+  if (startDate.getDay() !== 2) {
+    throw new Error("시작일은 화요일이어야 합니다. (시험 스케줄이 화~금·월 순서로 자동 배정됩니다.)");
   }
 
   if (!Number.isInteger(totalWeeks) || totalWeeks < 1 || totalWeeks > 12) {

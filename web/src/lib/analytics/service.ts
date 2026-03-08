@@ -8,11 +8,19 @@ import {
   StudentType,
   Subject,
 } from "@/generated/prisma";
+import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import {
   buildNotificationMessage,
   notificationTypeFromStatus,
 } from "@/lib/notifications/templates";
 import { getPrisma } from "@/lib/prisma";
+import {
+  formatTuesdayWeekLabel,
+  getTuesdayWeekKey,
+  getTuesdayWeekStart,
+  isSameTuesdayWeek,
+  parseTuesdayWeekKey,
+} from "@/lib/analytics/week";
 
 type DatasetSession = {
   id: number;
@@ -79,11 +87,19 @@ type StudentEntry = {
 type StudentAggregate = {
   student: DatasetStudent;
   entries: StudentEntry[];
-  weekAbsences: Map<number, number>;
+  weekAbsences: Map<string, number>;
   monthAbsences: Map<string, number>;
   monthPerfectAttendance: Map<string, boolean>;
   overallStatus: StudentStatus;
   recoveryDate: Date | null;
+};
+
+export type TuesdayWeekSummary = {
+  key: string;
+  label: string;
+  startDate: Date;
+  endDate: Date;
+  legacyWeeks: number[];
 };
 
 export type RankingRow = {
@@ -91,12 +107,62 @@ export type RankingRow = {
   name: string;
   studentType: StudentType;
   isActive: boolean;
+  currentStatus: StudentStatus;
   average: number | null;
   participationRate: number;
   overallRank: number | null;
   newRank: number | null;
   hasNormalRecord: boolean;
   perfectAttendance: boolean;
+  profile: StudentResultProfile;
+};
+
+export type StudentResultSubjectSummary = {
+  subject: Subject;
+  sessionCount: number;
+  scoredCount: number;
+  normalCount: number;
+  liveCount: number;
+  excusedCount: number;
+  absentCount: number;
+  average: number | null;
+  highest: number | null;
+  lowest: number | null;
+  latestScore: number | null;
+  latestExamDate: Date | null;
+};
+
+export type StudentResultRecentEntry = {
+  sessionId: number;
+  examDate: Date;
+  week: number;
+  subject: Subject;
+  attendType: AttendType | null;
+  score: number | null;
+};
+
+export type StudentResultProfile = {
+  examNumber: string;
+  name: string;
+  phone: string | null;
+  studentType: StudentType;
+  isActive: boolean;
+  currentStatus: StudentStatus;
+  summary: {
+    sessionCount: number;
+    scoredCount: number;
+    normalCount: number;
+    liveCount: number;
+    excusedCount: number;
+    absentCount: number;
+    participationRate: number;
+    rankingAverage: number | null;
+    bestScore: number | null;
+    latestExamDate: Date | null;
+    perfectAttendance: boolean;
+  };
+  subjects: StudentResultSubjectSummary[];
+  recentEntries: StudentResultRecentEntry[];
 };
 
 export type WeeklyGridCell = {
@@ -142,6 +208,8 @@ export type AttendanceCalendarDay = {
   date: Date;
   subject: Subject;
   isCancelled: boolean;
+  weekKey: string;
+  weekLabel: string;
   normalCount: number;
   liveCount: number;
   absentCount: number;
@@ -208,6 +276,24 @@ function assignRank(rows: Array<{ examNumber: string; average: number | null }>)
   return result;
 }
 
+function buildTuesdayWeekSummary(weekKey: string, sessions: DatasetSession[]): TuesdayWeekSummary {
+  const baseDate = sessions[0]?.examDate ?? parseTuesdayWeekKey(weekKey) ?? new Date();
+  const startDate = getTuesdayWeekStart(baseDate);
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6);
+  endDate.setHours(23, 59, 59, 999);
+
+  return {
+    key: weekKey,
+    label: formatTuesdayWeekLabel(weekKey),
+    startDate,
+    endDate,
+    legacyWeeks: Array.from(new Set(sessions.map((session) => session.week))).sort(
+      (left, right) => left - right,
+    ),
+  };
+}
+
 async function loadDataset(periodId: number, examType: ExamType) {
   const prisma = getPrisma();
   const period = await prisma.examPeriod.findUniqueOrThrow({
@@ -225,6 +311,42 @@ async function loadDataset(periodId: number, examType: ExamType) {
     prisma.student.findMany({
       where: {
         examType,
+        OR: [
+          {
+            enrollments: {
+              some: {
+                periodId,
+              },
+            },
+          },
+          {
+            scores: {
+              some: {
+                session: {
+                  periodId,
+                  examType,
+                },
+              },
+            },
+          },
+          {
+            absenceNotes: {
+              some: {
+                session: {
+                  periodId,
+                  examType,
+                },
+              },
+            },
+          },
+          {
+            pointLogs: {
+              some: {
+                periodId,
+              },
+            },
+          },
+        ],
       },
       orderBy: [{ isActive: "desc" }, { examNumber: "asc" }],
       select: {
@@ -342,7 +464,10 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
         session,
         attendType,
         displayScore: score?.finalScore ?? score?.rawScore ?? null,
-        normalizedScore: attendType === AttendType.NORMAL ? normalizeScore(score) : null,
+        normalizedScore:
+          attendType === AttendType.NORMAL || attendType === AttendType.LIVE
+            ? normalizeScore(score)
+            : null,
         isOccurred,
         grantsPerfectAttendance: approvedAbsence
           ? Boolean(absence?.attendGrantsPerfectAttendance)
@@ -351,69 +476,57 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       };
     });
 
-    const weekAbsences = new Map<number, number>();
+    const weekAbsences = new Map<string, number>();
     const monthAbsences = new Map<string, number>();
     const monthPerfectAttendance = new Map<string, boolean>();
+    let highestWarning = 0;
+    let dropoutTriggerDate: Date | null = null;
 
     for (const entry of entries) {
       if (!entry.isOccurred || entry.session.isCancelled) {
         continue;
       }
 
-      const key = monthKey(entry.session.examDate);
+      const currentMonthKey = monthKey(entry.session.examDate);
+      const currentWeekKey = getTuesdayWeekKey(entry.session.examDate);
       const wasAbsent = entry.attendType === AttendType.ABSENT;
       const breaksPerfectAttendance =
         entry.attendType === AttendType.EXCUSED && !entry.grantsPerfectAttendance;
 
-      if (!monthPerfectAttendance.has(key)) {
-        monthPerfectAttendance.set(key, true);
+      if (!monthPerfectAttendance.has(currentMonthKey)) {
+        monthPerfectAttendance.set(currentMonthKey, true);
       }
 
       if (wasAbsent) {
-        weekAbsences.set(entry.session.week, (weekAbsences.get(entry.session.week) ?? 0) + 1);
-        monthAbsences.set(key, (monthAbsences.get(key) ?? 0) + 1);
+        const nextWeekAbsenceCount = (weekAbsences.get(currentWeekKey) ?? 0) + 1;
+        const nextMonthAbsenceCount = (monthAbsences.get(currentMonthKey) ?? 0) + 1;
+
+        weekAbsences.set(currentWeekKey, nextWeekAbsenceCount);
+        monthAbsences.set(currentMonthKey, nextMonthAbsenceCount);
+
+        if (nextWeekAbsenceCount >= 3 || nextMonthAbsenceCount >= 8) {
+          dropoutTriggerDate ??= entry.session.examDate;
+        } else if (nextWeekAbsenceCount === 2) {
+          highestWarning = Math.max(highestWarning, 2);
+        } else if (nextWeekAbsenceCount === 1) {
+          highestWarning = Math.max(highestWarning, 1);
+        }
       }
 
       if (wasAbsent || breaksPerfectAttendance) {
-        monthPerfectAttendance.set(key, false);
+        monthPerfectAttendance.set(currentMonthKey, false);
       }
     }
 
     let overallStatus: StudentStatus = StudentStatus.NORMAL;
     let recoveryDate: Date | null = null;
-    let highestWarning = 0;
 
-    for (const [week, absenceCount] of weekAbsences) {
-      if (absenceCount >= 3) {
-        overallStatus = StudentStatus.DROPOUT;
-        const triggerSession = dataset.sessions.find((session) => session.week === week);
-        recoveryDate = triggerSession ? nextMonthFirstDay(triggerSession.examDate) : null;
-        break;
-      }
-
-      if (absenceCount === 2) {
-        highestWarning = Math.max(highestWarning, 2);
-      } else if (absenceCount === 1) {
-        highestWarning = Math.max(highestWarning, 1);
-      }
-    }
-
-    if (overallStatus !== StudentStatus.DROPOUT) {
-      for (const [key, absenceCount] of monthAbsences) {
-        if (absenceCount < 8) {
-          continue;
-        }
-
-        const [year, month] = key.split("-").map(Number);
-        overallStatus = StudentStatus.DROPOUT;
-        recoveryDate = new Date(year, month, 1);
-        break;
-      }
-    }
-
-    if (overallStatus !== StudentStatus.DROPOUT && highestWarning === 2) {
+    if (dropoutTriggerDate) {
+      overallStatus = StudentStatus.DROPOUT;
+      recoveryDate = nextMonthFirstDay(dropoutTriggerDate);
+    } else if (highestWarning === 2) {
       overallStatus = StudentStatus.WARNING_2;
-    } else if (overallStatus !== StudentStatus.DROPOUT && highestWarning === 1) {
+    } else if (highestWarning === 1) {
       overallStatus = StudentStatus.WARNING_1;
     }
 
@@ -432,6 +545,7 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
 function buildRankingRows(
   aggregates: StudentAggregate[],
   sessions: DatasetSession[],
+  examType: ExamType,
   view: "overall" | "new",
 ) {
   const occurredSessions = sessions.filter(
@@ -457,6 +571,7 @@ function buildRankingRows(
       name: aggregate.student.name,
       studentType: aggregate.student.studentType,
       isActive: aggregate.student.isActive,
+      currentStatus: aggregate.overallStatus,
       average: average(normalScores),
       participationRate: percentage(occurredSessions.length - absentCount, occurredSessions.length),
       overallRank: null,
@@ -466,6 +581,16 @@ function buildRankingRows(
         scopedMonthKeys.length > 0 &&
         scopedMonthKeys.every((key) => aggregate.monthPerfectAttendance.get(key) ?? false) &&
         activeEntryCount > 0,
+      profile: buildStudentResultProfile(
+        aggregate,
+        scopedEntries,
+        examType,
+        average(normalScores),
+        percentage(occurredSessions.length - absentCount, occurredSessions.length),
+        scopedMonthKeys.length > 0 &&
+          scopedMonthKeys.every((key) => aggregate.monthPerfectAttendance.get(key) ?? false) &&
+          activeEntryCount > 0,
+      ),
     };
   });
 
@@ -495,31 +620,145 @@ function buildRankingRows(
   });
 }
 
+function buildStudentResultProfile(
+  aggregate: StudentAggregate,
+  scopedEntries: StudentEntry[],
+  examType: ExamType,
+  rankingAverage: number | null,
+  participationRate: number,
+  perfectAttendance: boolean,
+): StudentResultProfile {
+  const subjects = EXAM_TYPE_SUBJECTS[examType].filter((subject) =>
+    scopedEntries.some((entry) => entry.session.subject === subject),
+  );
+  const extraSubjects = Array.from(
+    new Set(scopedEntries.map((entry) => entry.session.subject).filter((subject) => !subjects.includes(subject))),
+  );
+  const subjectOrder = [...subjects, ...extraSubjects];
+  const scoredEntries = scopedEntries.filter(
+    (entry) =>
+      (entry.attendType === AttendType.NORMAL || entry.attendType === AttendType.LIVE) &&
+      entry.normalizedScore !== null,
+  );
+  const latestEntry = [...scopedEntries]
+    .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime())[0] ?? null;
+
+  return {
+    examNumber: aggregate.student.examNumber,
+    name: aggregate.student.name,
+    phone: aggregate.student.phone,
+    studentType: aggregate.student.studentType,
+    isActive: aggregate.student.isActive,
+    currentStatus: aggregate.overallStatus,
+    summary: {
+      sessionCount: scopedEntries.length,
+      scoredCount: scoredEntries.length,
+      normalCount: scopedEntries.filter((entry) => entry.attendType === AttendType.NORMAL).length,
+      liveCount: scopedEntries.filter((entry) => entry.attendType === AttendType.LIVE).length,
+      excusedCount: scopedEntries.filter((entry) => entry.attendType === AttendType.EXCUSED).length,
+      absentCount: scopedEntries.filter((entry) => entry.attendType === AttendType.ABSENT).length,
+      participationRate,
+      rankingAverage,
+      bestScore: scoredEntries.length > 0 ? Math.max(...scoredEntries.map((entry) => entry.normalizedScore as number)) : null,
+      latestExamDate: latestEntry?.session.examDate ?? null,
+      perfectAttendance,
+    },
+    subjects: subjectOrder.map((subject) => {
+      const subjectEntries = scopedEntries
+        .filter((entry) => entry.session.subject === subject)
+        .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime());
+      const subjectScores = subjectEntries
+        .filter(
+          (entry) =>
+            (entry.attendType === AttendType.NORMAL || entry.attendType === AttendType.LIVE) &&
+            entry.normalizedScore !== null,
+        )
+        .map((entry) => entry.normalizedScore as number);
+      const latestScoredEntry =
+        subjectEntries.find(
+          (entry) =>
+            (entry.attendType === AttendType.NORMAL || entry.attendType === AttendType.LIVE) &&
+            entry.normalizedScore !== null,
+        ) ?? null;
+
+      return {
+        subject,
+        sessionCount: subjectEntries.length,
+        scoredCount: subjectScores.length,
+        normalCount: subjectEntries.filter((entry) => entry.attendType === AttendType.NORMAL).length,
+        liveCount: subjectEntries.filter((entry) => entry.attendType === AttendType.LIVE).length,
+        excusedCount: subjectEntries.filter((entry) => entry.attendType === AttendType.EXCUSED).length,
+        absentCount: subjectEntries.filter((entry) => entry.attendType === AttendType.ABSENT).length,
+        average: average(subjectScores),
+        highest: subjectScores.length > 0 ? Math.max(...subjectScores) : null,
+        lowest: subjectScores.length > 0 ? Math.min(...subjectScores) : null,
+        latestScore: latestScoredEntry?.normalizedScore ?? null,
+        latestExamDate: latestScoredEntry?.session.examDate ?? null,
+      } satisfies StudentResultSubjectSummary;
+    }),
+    recentEntries: [...scopedEntries]
+      .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime())
+      .slice(0, 8)
+      .map((entry) => ({
+        sessionId: entry.session.id,
+        examDate: entry.session.examDate,
+        week: entry.session.week,
+        subject: entry.session.subject,
+        attendType: entry.attendType,
+        score: entry.normalizedScore,
+      })),
+  };
+}
+
+export function getTuesdayWeekOptionsFromSessions(
+  sessions: DatasetSession[],
+  examType: ExamType,
+): TuesdayWeekSummary[] {
+  const grouped = new Map<string, DatasetSession[]>();
+
+  for (const session of sessions) {
+    if (session.examType !== examType) {
+      continue;
+    }
+
+    const weekKey = getTuesdayWeekKey(session.examDate);
+    const current = grouped.get(weekKey) ?? [];
+    current.push(session);
+    grouped.set(weekKey, current);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([weekKey, groupedSessions]) => buildTuesdayWeekSummary(weekKey, groupedSessions))
+    .sort((left, right) => left.startDate.getTime() - right.startDate.getTime());
+}
+
 export async function recalculateStatusCache(periodId: number, examType: ExamType) {
   const prisma = getPrisma();
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
   const calculatedAt = new Date();
 
-  await prisma.$transaction(async (tx) => {
-    for (const aggregate of aggregates) {
+  for (const aggregate of aggregates) {
+    await prisma.student.update({
+      where: { examNumber: aggregate.student.examNumber },
+      data: {
+        currentStatus: aggregate.overallStatus,
+        statusUpdatedAt: calculatedAt,
+      },
+    });
+  }
+
+  const notificationRows = aggregates
+    .filter((aggregate) => {
       const previousStatus = aggregate.student.currentStatus;
       const nextStatus = aggregate.overallStatus;
-      const notificationType =
-        previousStatus === nextStatus ? null : notificationTypeFromStatus(nextStatus);
+      return previousStatus !== nextStatus && aggregate.student.isActive;
+    })
+    .flatMap((aggregate) => {
+      const notificationType = notificationTypeFromStatus(aggregate.overallStatus);
 
-      await tx.student.update({
-        where: {
-          examNumber: aggregate.student.examNumber,
-        },
-        data: {
-          currentStatus: nextStatus,
-          statusUpdatedAt: calculatedAt,
-        },
-      });
-
-      if (!notificationType || !aggregate.student.isActive) {
-        continue;
+      if (!notificationType) {
+        return [];
       }
 
       const weekAbsenceCount = Math.max(0, ...aggregate.weekAbsences.values());
@@ -527,8 +766,8 @@ export async function recalculateStatusCache(periodId: number, examType: ExamTyp
       const canQueue =
         aggregate.student.notificationConsent && Boolean(aggregate.student.phone?.trim());
 
-      await tx.notificationLog.create({
-        data: {
+      return [
+        {
           examNumber: aggregate.student.examNumber,
           type: notificationType,
           channel: NotificationChannel.ALIMTALK,
@@ -544,30 +783,37 @@ export async function recalculateStatusCache(periodId: number, examType: ExamTyp
           failReason: canQueue
             ? null
             : aggregate.student.notificationConsent
-              ? "연락처가 없어 자동 발송 대기열에 추가하지 못했습니다."
-              : "수신 동의 미설정으로 자동 발송 대상에서 제외되었습니다.",
+              ? "전화번호가 없어 자동 발송에 실패했습니다"
+              : "학생의 동의 없이 자동 발송 대상에서 제외됩니다",
         },
-      });
-    }
-  });
+      ];
+    });
+
+  if (notificationRows.length > 0) {
+    await prisma.notificationLog.createMany({ data: notificationRows });
+  }
 
   return aggregates;
 }
 
-export async function getWeeklyGrid(periodId: number, examType: ExamType, week: number) {
+export async function getWeeklyGrid(periodId: number, examType: ExamType, weekKey: string) {
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
-  const sessions = dataset.sessions.filter((session) => session.week === week);
+  const sessions = dataset.sessions.filter((session) => getTuesdayWeekKey(session.examDate) === weekKey);
+  const week = buildTuesdayWeekSummary(weekKey, sessions);
 
   return {
     period: dataset.period,
+    week,
     sessions,
     rows: aggregates.map((aggregate) => {
-      const sessionEntries = aggregate.entries.filter((entry) => entry.session.week === week);
+      const sessionEntries = aggregate.entries.filter((entry) =>
+        isSameTuesdayWeek(entry.session.examDate, week.startDate),
+      );
       const normalScores = sessionEntries
         .filter((entry) => entry.attendType === AttendType.NORMAL && entry.normalizedScore !== null)
         .map((entry) => entry.normalizedScore as number);
-      const absentCount = aggregate.weekAbsences.get(week) ?? 0;
+      const absentCount = aggregate.weekAbsences.get(weekKey) ?? 0;
       const weekStatus =
         absentCount >= 3
           ? StudentStatus.DROPOUT
@@ -608,7 +854,7 @@ export async function getWeeklyGrid(periodId: number, examType: ExamType, week: 
           return {
             sessionId: session.id,
             subject: session.subject,
-            display: "사유",
+            display: "공결",
           };
         }
 
@@ -662,17 +908,18 @@ export async function getDropoutMonitor(periodId: number, examType: ExamType) {
 export async function getWeeklyResults(
   periodId: number,
   examType: ExamType,
-  week: number,
+  weekKey: string,
   view: "overall" | "new",
 ) {
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
-  const sessions = dataset.sessions.filter((session) => session.week === week);
+  const sessions = dataset.sessions.filter((session) => getTuesdayWeekKey(session.examDate) === weekKey);
 
   return {
     period: dataset.period,
+    week: buildTuesdayWeekSummary(weekKey, sessions),
     sessions,
-    rows: buildRankingRows(aggregates, sessions, view),
+    rows: buildRankingRows(aggregates, sessions, examType, view),
   };
 }
 
@@ -693,7 +940,7 @@ export async function getMonthlyResults(
   return {
     period: dataset.period,
     sessions,
-    rows: buildRankingRows(aggregates, sessions, view),
+    rows: buildRankingRows(aggregates, sessions, examType, view),
   };
 }
 
@@ -707,7 +954,7 @@ export async function getIntegratedResults(
 
   return {
     period: dataset.period,
-    rows: buildRankingRows(aggregates, dataset.sessions, view),
+    rows: buildRankingRows(aggregates, dataset.sessions, examType, view),
   };
 }
 
@@ -770,21 +1017,24 @@ export async function getAttendanceCalendar(
     const entries = aggregates.map((aggregate) =>
       aggregate.entries.find((entry) => entry.session.id === session.id),
     );
+    const weekKey = getTuesdayWeekKey(session.examDate);
 
     return {
       sessionId: session.id,
       date: session.examDate,
       subject: session.subject,
       isCancelled: session.isCancelled,
+      weekKey,
+      weekLabel: formatTuesdayWeekLabel(weekKey),
       normalCount: entries.filter((entry) => entry?.attendType === AttendType.NORMAL).length,
       liveCount: entries.filter((entry) => entry?.attendType === AttendType.LIVE).length,
       absentCount: entries.filter((entry) => entry?.attendType === AttendType.ABSENT).length,
       warningCount: aggregates.filter((aggregate) => {
-        const absenceCount = aggregate.weekAbsences.get(session.week) ?? 0;
+        const absenceCount = aggregate.weekAbsences.get(weekKey) ?? 0;
         return absenceCount === 1 || absenceCount === 2;
       }).length,
       dropoutCount: aggregates.filter((aggregate) => {
-        const weeklyDropout = (aggregate.weekAbsences.get(session.week) ?? 0) >= 3;
+        const weeklyDropout = (aggregate.weekAbsences.get(weekKey) ?? 0) >= 3;
         const monthlyDropout = (aggregate.monthAbsences.get(monthKey(session.examDate)) ?? 0) >= 8;
         return weeklyDropout || monthlyDropout;
       }).length,
@@ -818,7 +1068,11 @@ export async function getDashboardSummary() {
     return null;
   }
 
-  const [gongchae, gyeongchae, pendingAbsenceCount, pendingNotificationCount, todaySessions] =
+  const today = new Date();
+  const todayStart = new Date(today.setHours(0, 0, 0, 0));
+  const todayEnd = new Date(new Date().setHours(23, 59, 59, 999));
+
+  const [gongchae, gyeongchae, pendingAbsenceCount, pendingNotificationCount, todaySessions, pastSessionsWithCounts] =
     await Promise.all([
       loadDataset(activePeriod.id, ExamType.GONGCHAE),
       loadDataset(activePeriod.id, ExamType.GYEONGCHAE),
@@ -841,8 +1095,8 @@ export async function getDashboardSummary() {
         where: {
           periodId: activePeriod.id,
           examDate: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999)),
+            gte: todayStart,
+            lte: todayEnd,
           },
         },
         include: {
@@ -856,9 +1110,32 @@ export async function getDashboardSummary() {
           examDate: "asc",
         },
       }),
+      prisma.examSession.findMany({
+        where: {
+          periodId: activePeriod.id,
+          isCancelled: false,
+          examDate: {
+            lt: todayStart,
+          },
+        },
+        include: {
+          _count: {
+            select: {
+              scores: true,
+            },
+          },
+        },
+        orderBy: {
+          examDate: "desc",
+        },
+        take: 60,
+      }),
     ]);
 
   const combined = [...buildAggregates(gongchae), ...buildAggregates(gyeongchae)];
+  const missingScoredSessions = pastSessionsWithCounts.filter(
+    (session) => session._count.scores === 0,
+  );
 
   return {
     activePeriod,
@@ -872,7 +1149,9 @@ export async function getDashboardSummary() {
       warning2: combined.filter((row) => row.overallStatus === StudentStatus.WARNING_2).length,
       warning1: combined.filter((row) => row.overallStatus === StudentStatus.WARNING_1).length,
     },
+    currentWeekLabel: formatTuesdayWeekLabel(getTuesdayWeekKey(new Date())),
     pendingAbsenceCount,
     pendingNotificationCount,
+    missingScoredSessionCount: missingScoredSessions.length,
   };
 }

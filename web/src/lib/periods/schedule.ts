@@ -8,13 +8,15 @@ type SessionSeed = {
   examDate: Date;
 };
 
+// 시작일 = 화요일 기준 오프셋 (1주 = 화~다음 주 월)
+// 화(0)=헌법/범죄학, 수(1)=형소법, 목(2)=누적, 금(3)=형법, 월(6)=경찰학
 const weekdayTemplates = [
-  { offset: 0, subject: Subject.POLICE_SCIENCE, examType: "ALL" as const },
-  { offset: 1, subject: Subject.CONSTITUTIONAL_LAW, examType: ExamType.GONGCHAE },
-  { offset: 1, subject: Subject.CRIMINOLOGY, examType: ExamType.GYEONGCHAE },
-  { offset: 2, subject: Subject.CRIMINAL_PROCEDURE, examType: "ALL" as const },
-  { offset: 3, subject: Subject.CUMULATIVE, examType: "ALL" as const },
-  { offset: 4, subject: Subject.CRIMINAL_LAW, examType: "ALL" as const },
+  { offset: 0, subject: Subject.CONSTITUTIONAL_LAW, examType: ExamType.GONGCHAE },
+  { offset: 0, subject: Subject.CRIMINOLOGY, examType: ExamType.GYEONGCHAE },
+  { offset: 1, subject: Subject.CRIMINAL_PROCEDURE, examType: "ALL" as const },
+  { offset: 2, subject: Subject.CUMULATIVE, examType: "ALL" as const },
+  { offset: 3, subject: Subject.CRIMINAL_LAW, examType: "ALL" as const },
+  { offset: 6, subject: Subject.POLICE_SCIENCE, examType: "ALL" as const },
 ];
 
 function shouldCreateCriminology(examDate: Date) {

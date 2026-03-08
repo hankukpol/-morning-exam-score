@@ -46,8 +46,9 @@ type PointManagerProps = {
 
 const ATTENDANCE_POINT_AMOUNT = 10_000;
 
-export function PointManager({ filters, candidates: initialCandidates, logs }: PointManagerProps) {
+export function PointManager({ filters, candidates: initialCandidates, logs: initialLogs }: PointManagerProps) {
   const [candidates, setCandidates] = useState(initialCandidates);
+  const logs = initialLogs;
   const [selectedExamNumbers, setSelectedExamNumbers] = useState<string[]>(
     initialCandidates
       .filter((candidate) => candidate.perfectAttendance && !candidate.alreadyGranted)
@@ -385,12 +386,13 @@ export function PointManager({ filters, candidates: initialCandidates, logs }: P
                 <th className="px-4 py-3 font-semibold">금액</th>
                 <th className="px-4 py-3 font-semibold">사유</th>
                 <th className="px-4 py-3 font-semibold">지급자</th>
+                <th className="px-4 py-3 font-semibold">동작</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate">
                     지급 이력이 없습니다.
                   </td>
                 </tr>
@@ -406,6 +408,28 @@ export function PointManager({ filters, candidates: initialCandidates, logs }: P
                   <td className="px-4 py-3">{formatPoint(log.amount)}</td>
                   <td className="px-4 py-3">{log.reason}</td>
                   <td className="px-4 py-3">{log.grantedBy ?? "-"}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (!confirm(`${log.studentName}의 포인트(${formatPoint(log.amount)})를 취소하시겠습니까?`)) return;
+                        setMessage(null, null);
+                        startTransition(async () => {
+                          try {
+                            await requestJson(`/api/points/${log.id}`, { method: "DELETE" });
+                            setMessage("포인트를 취소했습니다.", null);
+                            refreshPage();
+                          } catch (error) {
+                            setMessage(null, error instanceof Error ? error.message : "포인트 취소에 실패했습니다.");
+                          }
+                        });
+                      }}
+                      className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40"
+                    >
+                      취소
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

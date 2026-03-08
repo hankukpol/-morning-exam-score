@@ -36,6 +36,12 @@ export type ParsedScoreImport = {
   metadata: Record<string, unknown>;
 };
 
+export type ParsedOfflineScoreImport = ParsedScoreImport & {
+  oxRecords: ParsedScoreRecord[];
+  oxQuestions: ParsedQuestionRecord[];
+  oxAnswers: ParsedAnswerRecord[];
+};
+
 type TableRows = Array<Array<string>>;
 
 const OFFLINE_SCORE_SHEET_NAMES = ["score"];
@@ -257,6 +263,35 @@ function buildOfflineAnswerBundle(rows: Array<Array<unknown>>) {
   };
 }
 
+function splitOfflineBundle(bundle: {
+  questions: ParsedQuestionRecord[];
+  answers: ParsedAnswerRecord[];
+}) {
+  const mcqQuestions = bundle.questions.filter(
+    (q) => q.correctAnswer !== "O" && q.correctAnswer !== "X",
+  );
+  const mcqQuestionNos = new Set(mcqQuestions.map((q) => q.questionNo));
+
+  const oxQuestionsRaw = bundle.questions.filter(
+    (q) => q.correctAnswer === "O" || q.correctAnswer === "X",
+  );
+  const oxRenumberMap = new Map(oxQuestionsRaw.map((q, i) => [q.questionNo, i + 1]));
+  const oxQuestions = oxQuestionsRaw.map((q, i) => ({
+    questionNo: i + 1,
+    correctAnswer: q.correctAnswer,
+  }));
+
+  const mcqAnswers = bundle.answers.filter((a) => mcqQuestionNos.has(a.questionNo));
+  const oxAnswers = bundle.answers
+    .filter((a) => oxRenumberMap.has(a.questionNo))
+    .map((a) => ({ ...a, questionNo: oxRenumberMap.get(a.questionNo)! }));
+
+  return {
+    main: { questions: mcqQuestions, answers: mcqAnswers },
+    ox: { questions: oxQuestions, answers: oxAnswers },
+  };
+}
+
 function parseIdentifierCell(value: string) {
   const match = value.trim().match(/^(.*?)(?:\((.*)\))?$/);
 
@@ -337,7 +372,7 @@ export function parseOfflineScoreImport(input: {
   fileName: string;
   buffer: Buffer | ArrayBuffer;
   attendType?: AttendType;
-}) {
+}): ParsedOfflineScoreImport {
   const workbook = readWorkbookFromBuffer(input.buffer);
   const scoreSheetName = findSheetName(workbook.SheetNames, OFFLINE_SCORE_SHEET_NAMES);
   const errataSheetName =
@@ -353,42 +388,58 @@ export function parseOfflineScoreImport(input: {
   const finalIndex = findColumnIndex(headers, ["최종점수", "총점", "합계"]);
   const oxIndex = findColumnIndex(headers, ["주관식추가점수", "ox점수", "가산점", "주관식"]);
 
-  const records = scoreRows
-    .slice(1)
-    .map((row, index) => {
-      const examNumber =
-        correctedIndex === -1
-          ? normalizeExamNumber(row[examIndex])
-          : inferCorrectedExamNumber(row, correctedIndex, examIndex);
-      const name = nameIndex === -1 ? "" : toCellString(row[nameIndex]);
-      const rawScore = rawIndex === -1 ? null : parseScoreNumber(row[rawIndex]);
-      const oxScore =
-        oxIndex === -1 || oxIndex === finalIndex ? null : parseScoreNumber(row[oxIndex]);
-      const finalScore = computeFinalScore(
-        rawScore,
-        oxScore,
-        finalIndex === -1 ? null : parseScoreNumber(row[finalIndex]),
-      );
+  const allRows = scoreRows.slice(1).map((row, index) => {
+    const examNumber =
+      correctedIndex === -1
+        ? normalizeExamNumber(row[examIndex])
+        : inferCorrectedExamNumber(row, correctedIndex, examIndex);
+    const name = nameIndex === -1 ? "" : toCellString(row[nameIndex]);
+    const rawScore = rawIndex === -1 ? null : parseScoreNumber(row[rawIndex]);
+    const oxScoreValue =
+      oxIndex === -1 || oxIndex === finalIndex ? null : parseScoreNumber(row[oxIndex]);
 
-      return {
-        rowKey: `offline:${index + 2}`,
-        rowNumber: index + 2,
-        examNumber,
-        name,
-        onlineId: null,
-        rawScore: rawScore ?? finalScore,
-        oxScore,
-        finalScore,
-        attendType: input.attendType ?? AttendType.NORMAL,
-        sourceType: ScoreSource.OFFLINE_UPLOAD,
-        note: null,
-      } satisfies ParsedScoreRecord;
-    })
-    .filter(
-      (record) =>
-        Boolean(record.examNumber || record.name) &&
-        (record.rawScore !== null || record.oxScore !== null || record.finalScore !== null),
-    );
+    return { examNumber, name, rawScore, oxScoreValue, rowIndex: index };
+  });
+
+  const validBase = allRows.filter((r) => Boolean(r.examNumber || r.name));
+
+  // 객관식(MCQ) 성적: rawScore만 저장, 100점 만점
+  const records: ParsedScoreRecord[] = validBase
+    .filter((r) => r.rawScore !== null)
+    .map((r) => ({
+      rowKey: `offline:${r.rowIndex + 2}`,
+      rowNumber: r.rowIndex + 2,
+      examNumber: r.examNumber,
+      name: r.name,
+      onlineId: null,
+      rawScore: r.rawScore,
+      oxScore: null,
+      finalScore: r.rawScore,
+      attendType: input.attendType ?? AttendType.NORMAL,
+      sourceType: ScoreSource.OFFLINE_UPLOAD,
+      note: null,
+    }));
+
+  // 경찰학 OX 성적: 별도 세션에 저장, 100점 만점
+  const oxRecords: ParsedScoreRecord[] = validBase.flatMap((r) =>
+    r.oxScoreValue === null
+      ? []
+      : [
+          {
+            rowKey: `offline-ox:${r.rowIndex + 2}`,
+            rowNumber: r.rowIndex + 2,
+            examNumber: r.examNumber,
+            name: r.name,
+            onlineId: null,
+            rawScore: r.oxScoreValue,
+            oxScore: null,
+            finalScore: r.oxScoreValue,
+            attendType: input.attendType ?? AttendType.NORMAL,
+            sourceType: ScoreSource.OFFLINE_UPLOAD,
+            note: null,
+          } satisfies ParsedScoreRecord,
+        ],
+  );
 
   const errataRows = errataSheetName ? getSheetRows(workbook, errataSheetName) : [];
   const bundle =
@@ -396,18 +447,23 @@ export function parseOfflineScoreImport(input: {
       ? buildOfflineAnswerBundle(errataRows)
       : { questions: [] as ParsedQuestionRecord[], answers: [] as ParsedAnswerRecord[] };
 
+  const split = splitOfflineBundle(bundle);
+
   return {
     sourceType: ScoreSource.OFFLINE_UPLOAD,
     matchingKey: "examNumber",
     records,
-    questions: bundle.questions,
-    answers: bundle.answers,
+    oxRecords,
+    questions: split.main.questions,
+    answers: split.main.answers,
+    oxQuestions: split.ox.questions,
+    oxAnswers: split.ox.answers,
     metadata: {
       fileName: input.fileName,
       scoreSheetName,
       errataSheetName,
     },
-  } satisfies ParsedScoreImport;
+  };
 }
 
 function parseOnlineScoreRows(rows: TableRows) {
@@ -426,101 +482,51 @@ function parseOnlineScoreRows(rows: TableRows) {
   }));
 }
 
-function buildOxScoreLookup(rows: TableRows) {
-  const records = parseOnlineScoreRows(rows);
-  const byOnlineId = new Map<string, number>();
-  const byName = new Map<string, number>();
-
-  for (const record of records) {
-    if (record.score === null) {
-      continue;
-    }
-
-    if (record.onlineId) {
-      byOnlineId.set(record.onlineId, record.score);
-    }
-
-    const normalizedName = normalizeName(record.name);
-    if (normalizedName) {
-      byName.set(normalizedName, record.score);
-    }
-  }
-
-  return {
-    byOnlineId,
-    byName,
-  };
-}
-
 export function parseOnlineScoreImport(input: {
   mainFileName: string;
   mainBuffer: Buffer | ArrayBuffer;
-  oxFileName?: string;
-  oxBuffer?: Buffer | ArrayBuffer;
   detailFileName?: string;
   detailBuffer?: Buffer | ArrayBuffer;
-  oxDetailFileName?: string;
-  oxDetailBuffer?: Buffer | ArrayBuffer;
   attendType?: AttendType;
 }) {
   const mainRows = maybeHtmlRows(input.mainBuffer);
   const mainRecords = parseOnlineScoreRows(mainRows);
-  const oxLookup =
-    input.oxBuffer && input.oxFileName
-      ? buildOxScoreLookup(maybeHtmlRows(input.oxBuffer))
-      : null;
 
+  // 온라인 객관식: rawScore = 파일 점수, 100점 만점 (OX는 별도 세션에 별도 업로드)
   const records = mainRecords
-    .map((record) => {
-      const oxScore =
-        oxLookup?.byOnlineId.get(record.onlineId ?? "") ??
-        oxLookup?.byName.get(normalizeName(record.name)) ??
-        null;
-      const finalScore = computeFinalScore(record.score, oxScore, null);
-
-      return {
-        rowKey: record.rowKey,
-        rowNumber: record.rowNumber,
-        examNumber: null,
-        name: record.name,
-        onlineId: record.onlineId,
-        rawScore: record.score,
-        oxScore,
-        finalScore,
-        attendType: input.attendType ?? AttendType.LIVE,
-        sourceType: ScoreSource.ONLINE_UPLOAD,
-        note: null,
-      } satisfies ParsedScoreRecord;
-    })
+    .map((record) => ({
+      rowKey: record.rowKey,
+      rowNumber: record.rowNumber,
+      examNumber: null,
+      name: record.name,
+      onlineId: record.onlineId,
+      rawScore: record.score,
+      oxScore: null,
+      finalScore: record.score,
+      attendType: input.attendType ?? AttendType.LIVE,
+      sourceType: ScoreSource.ONLINE_UPLOAD,
+      note: null,
+    }))
     .filter(
       (record) =>
         Boolean(record.onlineId || record.name) &&
-        (record.rawScore !== null || record.oxScore !== null || record.finalScore !== null),
+        record.rawScore !== null,
     );
 
   const detailBundle =
     input.detailBuffer && input.detailFileName
       ? buildOnlineDetailBundle(maybeHtmlRows(input.detailBuffer))
       : { questions: [] as ParsedQuestionRecord[], answers: [] as ParsedAnswerRecord[] };
-  const oxDetailBundle =
-    input.oxDetailBuffer && input.oxDetailFileName
-      ? buildOnlineDetailBundle(
-          maybeHtmlRows(input.oxDetailBuffer),
-          detailBundle.questions.length,
-        )
-      : { questions: [] as ParsedQuestionRecord[], answers: [] as ParsedAnswerRecord[] };
 
   return {
     sourceType: ScoreSource.ONLINE_UPLOAD,
     matchingKey: "onlineId",
     records,
-    questions: [...detailBundle.questions, ...oxDetailBundle.questions],
-    answers: [...detailBundle.answers, ...oxDetailBundle.answers],
+    questions: detailBundle.questions,
+    answers: detailBundle.answers,
     metadata: {
       mainFileName: input.mainFileName,
-      oxFileName: input.oxFileName ?? null,
       detailFileName: input.detailFileName ?? null,
-      oxDetailFileName: input.oxDetailFileName ?? null,
     },
   } satisfies ParsedScoreImport;
 }
@@ -554,14 +560,22 @@ export function parseScorePasteImport(input: {
     .map((line) => line.split("\t"));
 
   const records = rows.map((values, index) => {
-    const fourthValue = values[3]?.trim();
-    const fifthValue = values[4]?.trim();
-    const rawScore = parseScoreNumber(values[2]);
-    const oxScore = fourthValue && /^-?\d+(\.\d+)?$/.test(fourthValue) ? Number(fourthValue) : null;
-    const attendType = parseAttendType(
-      oxScore === null ? fourthValue : fifthValue,
-      input.attendType ?? AttendType.NORMAL,
-    );
+    // 7열 형식: 수험번호|성명|응시분야|지원지역|생년월일|원점수[|무시]
+    // 기존 형식: 수험번호|이름|원점수[|응시유형]
+    // OX 성적은 별도 세션을 선택하여 따로 입력 (합산 없음)
+    const isSevenColumnFormat = values.length >= 6;
+
+    let rawScore: number | null;
+    let attendType: AttendType;
+
+    if (isSevenColumnFormat) {
+      rawScore = parseScoreNumber(values[5]);
+      attendType = input.attendType ?? AttendType.NORMAL;
+    } else {
+      const fourthValue = values[3]?.trim();
+      rawScore = parseScoreNumber(values[2]);
+      attendType = parseAttendType(fourthValue, input.attendType ?? AttendType.NORMAL);
+    }
 
     return {
       rowKey: `paste:${index + 1}`,
@@ -570,8 +584,8 @@ export function parseScorePasteImport(input: {
       name: toCellString(values[1]),
       onlineId: null,
       rawScore,
-      oxScore,
-      finalScore: computeFinalScore(rawScore, oxScore, null),
+      oxScore: null,
+      finalScore: rawScore,
       attendType,
       sourceType: ScoreSource.PASTE_INPUT,
       note: null,
@@ -583,8 +597,7 @@ export function parseScorePasteImport(input: {
     matchingKey: "examNumber",
     records: records.filter(
       (record) =>
-        Boolean(record.examNumber || record.name) &&
-        (record.rawScore !== null || record.oxScore !== null || record.finalScore !== null),
+        Boolean(record.examNumber || record.name) && record.rawScore !== null,
     ),
     questions: [] as ParsedQuestionRecord[],
     answers: [] as ParsedAnswerRecord[],

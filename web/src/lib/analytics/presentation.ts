@@ -44,12 +44,17 @@ export function formatPoint(value: number) {
   return `${value.toLocaleString("ko-KR")}P`;
 }
 
-export function summarizeCountRecord(values: Record<string, number>) {
+export function summarizeCountRecord(
+  values: Record<string, number>,
+  formatKey?: (key: string) => string,
+) {
   const entries = Object.entries(values).sort(([left], [right]) => left.localeCompare(right));
 
   if (entries.length === 0) {
     return "-";
   }
 
-  return entries.map(([key, value]) => `${key}: ${value}`).join(" / ");
+  return entries
+    .map(([key, value]) => `${formatKey ? formatKey(key) : key}: ${value}`)
+    .join(" / ");
 }

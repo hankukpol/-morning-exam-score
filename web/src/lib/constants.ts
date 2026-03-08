@@ -74,7 +74,7 @@ export const SCORE_SOURCE_LABEL: Record<ScoreSource, string> = {
 };
 
 export const ABSENCE_CATEGORY_LABEL: Record<AbsenceCategory, string> = {
-  MILITARY: "군무",
+  MILITARY: "예비군",
   MEDICAL: "병원",
   FAMILY: "경조사",
   OTHER: "기타",
@@ -94,140 +94,190 @@ export const NOTICE_TARGET_LABEL: Record<NoticeTargetType, string> = {
   GYEONGCHAE: "경채",
 };
 
-export const ADMIN_NAV_ITEMS = [
+export type NavItem = {
+  href: string;
+  label: string;
+  description: string;
+  minRole: AdminRole;
+  group: string;
+};
+
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+  // 메인
   {
     href: "/admin",
     label: "대시보드",
     description: "오늘 시험, 경고/탈락, 미처리 이슈 요약",
     minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/periods",
-    label: "시험 기간",
-    description: "기간 생성, 회차 자동 생성, 취소/연기 관리",
-    minRole: AdminRole.TEACHER,
-  },
-  {
-    href: "/admin/students",
-    label: "수강생",
-    description: "명단 조회, CRUD, 붙여넣기 등록",
-    minRole: AdminRole.TEACHER,
-  },
-  {
-    href: "/admin/scores/input",
-    label: "성적 입력",
-    description: "오프라인, 온라인, 붙여넣기 업로드",
-    minRole: AdminRole.TEACHER,
-  },
-  {
-    href: "/admin/weekly",
-    label: "주간현황",
-    description: "주차별 출결, 점수, 경고 상태 확인",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/dropout",
-    label: "탈락/경고",
-    description: "주 3회, 월 8회 기준 자동 판정",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/results/weekly",
-    label: "주간 성적",
-    description: "주차별 전체/신규생 석차 집계",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/results/monthly",
-    label: "월간 성적",
-    description: "월별 평균, 참여율, 개근 집계",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/results/integrated",
-    label: "통합 성적",
-    description: "기간 전체 통합 석차와 참여율",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/points",
-    label: "포인트",
-    description: "개근 장학 자동 판정 및 수동 지급",
-    minRole: AdminRole.TEACHER,
-  },
-  {
-    href: "/admin/attendance/calendar",
-    label: "출결 캘린더",
-    description: "날짜별 경고, 결시, 탈락 현황",
-    minRole: AdminRole.VIEWER,
+    group: "메인",
   },
   {
     href: "/admin/analytics",
-    label: "성적 분석",
+    label: "성적 종합 분석",
     description: "일일, 월별, 과목별, 개인 분석 차트",
     minRole: AdminRole.VIEWER,
+    group: "메인",
   },
+
+  // 학사 관리
   {
-    href: "/admin/query",
-    label: "다차원 조회",
-    description: "날짜별, 과목별, 수강생별 통합 조회",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/notifications",
-    label: "알림 발송",
-    description: "자동 큐, 수신 동의, 수동 발송, 이력",
+    href: "/admin/periods",
+    label: "시험 기간 관리",
+    description: "기간 생성, 회차 자동 생성, 취소/연기 관리",
     minRole: AdminRole.TEACHER,
+    group: "학사 관리",
   },
   {
-    href: "/admin/absence-notes",
-    label: "사유서",
-    description: "사유 결시 등록, 승인/반려, 개근 처리",
+    href: "/admin/students",
+    label: "수강생 명단",
+    description: "명단 조회, CRUD, 붙여넣기 등록",
     minRole: AdminRole.TEACHER,
-  },
-  {
-    href: "/admin/audit-log",
-    label: "감사 로그",
-    description: "관리자 작업 이력과 변경 전후 추적",
-    minRole: AdminRole.SUPER_ADMIN,
-  },
-  {
-    href: "/admin/export",
-    label: "내보내기",
-    description: "수강생 명단과 raw 성적 다운로드",
-    minRole: AdminRole.VIEWER,
-  },
-  {
-    href: "/admin/migration",
-    label: "기존 데이터",
-    description: "F-18 기존 운영 데이터 이전",
-    minRole: AdminRole.SUPER_ADMIN,
-  },
-  {
-    href: "/admin/settings/accounts",
-    label: "관리자 계정",
-    description: "Supabase Auth 역할 연결",
-    minRole: AdminRole.SUPER_ADMIN,
+    group: "학사 관리",
   },
   {
     href: "/admin/counseling",
     label: "학생 면담",
     description: "면담 기록, 목표 점수, 최근 4주 요약",
     minRole: AdminRole.TEACHER,
+    group: "학사 관리",
   },
+  {
+    href: "/admin/absence-notes",
+    label: "사유서 심사",
+    description: "사유 결시 등록, 승인/반려, 개근 처리",
+    minRole: AdminRole.TEACHER,
+    group: "학사 관리",
+  },
+
+  // 성적/출결 연산
+  {
+    href: "/admin/scores/input",
+    label: "성적 입력 (업로드)",
+    description: "오프라인, 온라인, 붙여넣기 업로드",
+    minRole: AdminRole.TEACHER,
+    group: "성적 및 통계",
+  },
+  {
+    href: "/admin/scores/edit",
+    label: "성적 수정",
+    description: "회차별 성적 조회·수정·삭제",
+    minRole: AdminRole.TEACHER,
+    group: "성적 및 통계",
+  },
+  {
+    href: "/admin/weekly",
+    label: "주간 종합 현황",
+    description: "주차별 출결, 점수, 경고 상태 확인",
+    minRole: AdminRole.VIEWER,
+    group: "성적 및 통계",
+  },
+  {
+    href: "/admin/attendance/calendar",
+    label: "출결 캘린더",
+    description: "날짜별 경고, 결시, 탈락 현황",
+    minRole: AdminRole.VIEWER,
+    group: "성적 및 통계",
+  },
+  {
+    href: "/admin/results/weekly",
+    label: "주간 성적/석차",
+    description: "주차별 전체/신규생 석차 집계",
+    minRole: AdminRole.VIEWER,
+    group: "성적/석차 전표",
+  },
+  {
+    href: "/admin/results/monthly",
+    label: "월간 성적/석차",
+    description: "월별 평균, 참여율, 개근 집계",
+    minRole: AdminRole.VIEWER,
+    group: "성적/석차 전표",
+  },
+  {
+    href: "/admin/results/integrated",
+    label: "통합 2개월 성적",
+    description: "기간 전체 통합 석차와 참여율",
+    minRole: AdminRole.VIEWER,
+    group: "성적/석차 전표",
+  },
+
+  // 포인트 및 정책
+  {
+    href: "/admin/dropout",
+    label: "탈락/경고 확정",
+    description: "주 3회, 월 8회 기준 자동 판정",
+    minRole: AdminRole.VIEWER,
+    group: "정책 관리",
+  },
+  {
+    href: "/admin/points",
+    label: "포인트(장학) 관리",
+    description: "개근 장학 판정 및 수동 지급",
+    minRole: AdminRole.TEACHER,
+    group: "정책 관리",
+  },
+
+  // 알림 및 소통
   {
     href: "/admin/notices",
     label: "공지사항",
-    description: "학생 포털 공지 작성, 발행, 공개 제어",
+    description: "학생 포털 공지 작성, 발행",
     minRole: AdminRole.TEACHER,
+    group: "알림 및 통신",
+  },
+  {
+    href: "/admin/notifications",
+    label: "알림톡 발송 대기",
+    description: "자동 큐, 수신 동의, 발송 이력",
+    minRole: AdminRole.TEACHER,
+    group: "알림 및 통신",
+  },
+
+  // 시스템 도구
+  {
+    href: "/admin/query",
+    label: "다차원 데이터 조회",
+    description: "날짜별, 과목별, 수강생별 통합 조회",
+    minRole: AdminRole.VIEWER,
+    group: "시스템 도구",
+  },
+  {
+    href: "/admin/export",
+    label: "데이터 내보내기",
+    description: "수강생 명단과 raw 성적 다운로드",
+    minRole: AdminRole.VIEWER,
+    group: "시스템 도구",
+  },
+  {
+    href: "/admin/migration",
+    label: "구 시스템 파일 이전",
+    description: "F-18 기존 운영 데이터 이전",
+    minRole: AdminRole.SUPER_ADMIN,
+    group: "시스템 도구",
+  },
+  {
+    href: "/admin/audit-log",
+    label: "운영 감사 로그",
+    description: "관리자 작업 이력 추적",
+    minRole: AdminRole.SUPER_ADMIN,
+    group: "시스템 도구",
+  },
+
+  // 설정
+  {
+    href: "/admin/settings/accounts",
+    label: "관리자 계정",
+    description: "Supabase Auth 역할 연결",
+    minRole: AdminRole.SUPER_ADMIN,
+    group: "설정",
   },
   {
     href: "/admin/settings/notifications",
-    label: "알림 설정",
-    description: "Solapi 키, 발신번호, 템플릿 준비 상태",
+    label: "알림 연동 설정",
+    description: "Solapi 키, 발신번호 설정",
     minRole: AdminRole.SUPER_ADMIN,
+    group: "설정",
   },
-] as const;
+];
 
 export const STUDENT_MIGRATION_FIELDS = [
   { key: "examNumber", label: "수험번호", required: true },

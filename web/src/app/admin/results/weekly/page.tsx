@@ -4,11 +4,11 @@ import {
   buildHref,
   getAnalyticsContext,
   getWeekOptions,
-  readNumberParam,
   readStringParam,
 } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
 import { getWeeklyResults } from "@/lib/analytics/service";
+import { getTuesdayWeekKey } from "@/lib/analytics/week";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import Link from "next/link";
@@ -23,14 +23,16 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
   await requireAdminContext(AdminRole.VIEWER);
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
   const weekOptions = getWeekOptions(selectedPeriod, examType);
-  const requestedWeek = readNumberParam(searchParams, "week");
-  const selectedWeek = weekOptions.includes(requestedWeek ?? -1)
-    ? (requestedWeek as number)
-    : (weekOptions[0] ?? 1);
+  const requestedWeekKey = readStringParam(searchParams, "weekKey");
+  const selectedWeek =
+    weekOptions.find((option) => option.key === requestedWeekKey) ??
+    weekOptions.find((option) => option.key === getTuesdayWeekKey(new Date())) ??
+    weekOptions[weekOptions.length - 1] ??
+    null;
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data =
-    selectedPeriod && weekOptions.length > 0
-      ? await getWeeklyResults(selectedPeriod.id, examType, selectedWeek, view)
+    selectedPeriod && selectedWeek
+      ? await getWeeklyResults(selectedPeriod.id, examType, selectedWeek.key, view)
       : null;
 
   return (
@@ -38,9 +40,9 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-05-B Weekly Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">주차별 성적 공지</h1>
+      <h1 className="mt-5 text-3xl font-semibold">주간 성적 집계</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        NORMAL 응시 기록만 석차에 반영하고, LIVE 전용 응시자는 평균만 확인할 수 있게 처리합니다.
+        화요일 시작 주간 기준으로 현재까지 발생한 시험만 반영해 주간 평균과 석차를 집계합니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
@@ -70,15 +72,15 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">주차</label>
+          <label className="mb-2 block text-sm font-medium">주간 기간</label>
           <select
-            name="week"
-            defaultValue={String(selectedWeek)}
+            name="weekKey"
+            defaultValue={selectedWeek?.key ?? ""}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
           >
             {weekOptions.map((week) => (
-              <option key={week} value={week}>
-                {week}주차
+              <option key={week.key} value={week.key}>
+                {week.label}
               </option>
             ))}
           </select>
@@ -93,14 +95,14 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         </div>
       </form>
 
-      {selectedPeriod && data ? (
+      {selectedPeriod && selectedWeek && data ? (
         <>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={buildHref("/admin/results/weekly", {
                 periodId: selectedPeriod.id,
                 examType,
-                week: selectedWeek,
+                weekKey: selectedWeek.key,
                 view: "overall",
               })}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -115,7 +117,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
               href={buildHref("/admin/results/weekly", {
                 periodId: selectedPeriod.id,
                 examType,
-                week: selectedWeek,
+                weekKey: selectedWeek.key,
                 view: "new",
               })}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -129,7 +131,13 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </div>
 
           <section className="mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
-            <h2 className="text-xl font-semibold">포함 회차</h2>
+            <h2 className="text-xl font-semibold">집계 주간</h2>
+            <p className="mt-2 text-sm text-slate">
+              {data.week.label}
+              {data.week.legacyWeeks.length > 0
+                ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}`
+                : ""}
+            </p>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
               {data.sessions.map((session) => (
                 <span
@@ -148,7 +156,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          선택한 조건에 해당하는 회차가 없습니다.
+          선택한 조건에 해당하는 시험이 없습니다.
         </div>
       )}
     </div>

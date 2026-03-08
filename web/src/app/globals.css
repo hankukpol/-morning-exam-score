@@ -16,18 +16,20 @@
 
 * {
   box-sizing: border-box;
+  border-radius: 0 !important;
+  /* 강제 직각 처리 */
 }
 
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  background-color: #F3F4F6;
+  /* light gray for the overall dashboard wrapper */
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top right, rgba(197, 90, 17, 0.12), transparent 28%),
-    linear-gradient(180deg, #fcfaf7 0%, #f3eee7 100%);
+  background-color: #F3F4F6;
   color: #111827;
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -35,6 +37,28 @@ body {
   -webkit-font-smoothing: antialiased;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+@keyframes analytics-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes analytics-drawer-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 a {
@@ -52,7 +76,7 @@ button,
 input,
 select {
   font: inherit;
-  min-height: 44px;
+  min-height: 40px;
 }
 
 textarea {
@@ -61,5 +85,75 @@ textarea {
 }
 
 ::selection {
-  background: rgba(197, 90, 17, 0.18);
+  background: rgba(27, 79, 187, 0.18);
+  /* primary light */
+}
+
+/* 유틸리티 클래스 (선택 사항 적용) */
+.card-border {
+  border: 1px solid #D1D5DB;
+  background-color: white;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 대시보드 기준 일관된 표(Table) 스타일 강제 적용 */
+table {
+  width: 100%;
+  border-collapse: collapse !important;
+  text-align: left;
+  background-color: white;
+  border: 1px solid #D1D5DB !important;
+}
+
+table thead th {
+  background-color: #F8FAFC !important;
+  /* Tailwind slate-50 */
+  border-bottom: 2px solid #1B4FBB !important;
+  /* 대시보드 포인트 색상(Primary) */
+  color: #111827 !important;
+  font-weight: 700 !important;
+  padding: 12px 16px !important;
+  font-size: 0.875rem !important;
+  /* text-sm */
+}
+
+table tbody td {
+  border-bottom: 1px solid #E5E7EB !important;
+  /* Tailwind gray-200 */
+  padding: 12px 16px !important;
+  color: #374151 !important;
+  /* Tailwind gray-700 */
+  font-size: 0.875rem !important;
+}
+
+table tbody tr:hover td {
+  background-color: #F9FAFB !important;
+  /* Tailwind gray-50 */
+}
+
+/* 강제 직각 처리 컨테이너 덮어쓰기 (기존의 rounded-[28px] 등의 영향을 받는 div용) */
+.rounded-\[28px\],
+.rounded-2xl,
+.rounded-xl,
+.rounded-lg,
+.rounded-md,
+.rounded-sm,
+.rounded-full {
+  border-radius: 0 !important;
+}
+
+.shadow-sm,
+.shadow-md,
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl,
+.shadow-inner {
+  box-shadow: none !important;
+}
+
+/* 폼 요소 등에서 쓰이는 bg-mist 강제 연하게 처리 (선택사항) */
+.bg-mist {
+  background-color: white !important;
+  border: 1px solid #D1D5DB !important;
 }

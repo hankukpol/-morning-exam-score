@@ -4,6 +4,7 @@ import { requireApiAdmin } from "@/lib/api-auth";
 import {
   deactivateStudent,
   parseStudentForm,
+  reactivateStudent,
   updateStudent,
 } from "@/lib/students/service";
 
@@ -34,6 +35,29 @@ export async function PUT(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "수강생 수정에 실패했습니다." },
+      { status: 400 },
+    );
+  }
+}
+
+export async function PATCH(request: Request, { params }: RouteContext) {
+  const auth = await requireApiAdmin(AdminRole.TEACHER);
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  try {
+    const student = await reactivateStudent({
+      adminId: auth.context.adminUser.id,
+      examNumber: params.examNumber,
+      ipAddress: request.headers.get("x-forwarded-for"),
+    });
+
+    return NextResponse.json({ student });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "재활성화에 실패했습니다." },
       { status: 400 },
     );
   }

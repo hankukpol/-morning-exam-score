@@ -5,9 +5,11 @@ import {
   RadarComparisonChart,
   TrendLineChart,
 } from "@/components/analytics/charts";
+import { SubjectRankingTable } from "@/components/analytics/subject-ranking-table";
 import {
   getDailyAnalysis,
   getMonthlyStudentAnalysis,
+  getSubjectStudentRanking,
   getSubjectTrendAnalysis,
 } from "@/lib/analytics/analysis";
 import {
@@ -49,7 +51,7 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
     monthOptions.find((option) => `${option.year}-${option.month}` === monthKey) ??
     monthOptions[0];
 
-  const [dailyData, monthlyData, subjectData] = await Promise.all([
+  const [dailyData, monthlyData, subjectData, subjectRanking] = await Promise.all([
     tab === "daily"
       ? getDailyAnalysis({
           periodId: selectedPeriod?.id,
@@ -73,6 +75,13 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
           examType,
           subject,
           examNumber: examNumber || undefined,
+        })
+      : Promise.resolve([]),
+    tab === "subject"
+      ? getSubjectStudentRanking({
+          periodId: selectedPeriod?.id,
+          examType,
+          subject,
         })
       : Promise.resolve([]),
   ]);
@@ -435,6 +444,16 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </section>
+
+              <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+                <h2 className="text-xl font-semibold">전체 학생 과목별 순위</h2>
+                <p className="mt-2 text-sm text-slate">
+                  해당 기간 내 선택 과목의 평균 점수 기준 전체 학생 순위입니다.
+                </p>
+                <div className="mt-6">
+                  <SubjectRankingTable rows={subjectRanking} />
                 </div>
               </section>
             </>

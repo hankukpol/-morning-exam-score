@@ -21,6 +21,9 @@ export async function POST(request: Request) {
     const sessionId = Number(formData.get("sessionId"));
     const mode = (formData.get("mode") as Mode | null) ?? "preview";
     const attendType = formData.get("attendType") as AttendType | null;
+    const oxSessionIdRaw = Number(formData.get("oxSessionId"));
+    const oxSessionId =
+      Number.isFinite(oxSessionIdRaw) && oxSessionIdRaw > 0 ? oxSessionIdRaw : undefined;
 
     if (!Number.isFinite(sessionId) || sessionId <= 0) {
       return NextResponse.json({ error: "시험 회차를 선택하세요." }, { status: 400 });
@@ -33,19 +36,21 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     if (mode === "preview") {
-      const preview = await previewOfflineScoreUpload({
+      const result = await previewOfflineScoreUpload({
         sessionId,
+        oxSessionId,
         fileName: file.name,
         buffer,
         attendType: attendType ?? undefined,
       });
 
-      return NextResponse.json(preview);
+      return NextResponse.json(result);
     }
 
     const result = await executeOfflineScoreUpload({
       adminId: auth.context.adminUser.id,
       sessionId,
+      oxSessionId,
       fileName: file.name,
       buffer,
       attendType: attendType ?? undefined,

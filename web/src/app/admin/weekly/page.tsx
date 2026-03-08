@@ -1,17 +1,14 @@
 import { AdminRole } from "@/generated/prisma";
-import { StatusBadge } from "@/components/analytics/status-badge";
-import {
-  STATUS_ROW_CLASS,
-  formatScore,
-} from "@/lib/analytics/presentation";
+import { WeeklyGridTable } from "@/components/analytics/weekly-grid-table";
 import {
   getAnalyticsContext,
   getWeekOptions,
-  readNumberParam,
+  readStringParam,
 } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
 import { getWeeklyGrid } from "@/lib/analytics/service";
-import { EXAM_TYPE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { getTuesdayWeekKey } from "@/lib/analytics/week";
+import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -24,13 +21,15 @@ export default async function AdminWeeklyGridPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
   const weekOptions = getWeekOptions(selectedPeriod, examType);
-  const requestedWeek = readNumberParam(searchParams, "week");
-  const selectedWeek = weekOptions.includes(requestedWeek ?? -1)
-    ? (requestedWeek as number)
-    : (weekOptions[0] ?? 1);
+  const requestedWeekKey = readStringParam(searchParams, "weekKey");
+  const selectedWeek =
+    weekOptions.find((option) => option.key === requestedWeekKey) ??
+    weekOptions.find((option) => option.key === getTuesdayWeekKey(new Date())) ??
+    weekOptions[weekOptions.length - 1] ??
+    null;
   const data =
-    selectedPeriod && weekOptions.length > 0
-      ? await getWeeklyGrid(selectedPeriod.id, examType, selectedWeek)
+    selectedPeriod && selectedWeek
+      ? await getWeeklyGrid(selectedPeriod.id, examType, selectedWeek.key)
       : null;
 
   return (
@@ -38,9 +37,9 @@ export default async function AdminWeeklyGridPage({ searchParams }: PageProps) {
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-04 Weekly Grid
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">주간현황 그리드</h1>
+      <h1 className="mt-5 text-3xl font-semibold">주간 현황 그리드</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        한 주의 모든 회차를 가로로 펼쳐서 출결과 원점수를 확인하고, 경고·탈락 상태를 같은 행에서 점검합니다.
+        화요일 시작 기준으로 이번 주 시험을 묶어 출결, 점수, 경고/탈락 상태를 오늘 날짜 기준으로 즉시 확인합니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
@@ -70,15 +69,15 @@ export default async function AdminWeeklyGridPage({ searchParams }: PageProps) {
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">주차</label>
+          <label className="mb-2 block text-sm font-medium">주간 기간</label>
           <select
-            name="week"
-            defaultValue={String(selectedWeek)}
+            name="weekKey"
+            defaultValue={selectedWeek?.key ?? ""}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
           >
             {weekOptions.map((week) => (
-              <option key={week} value={week}>
-                {week}주차
+              <option key={week.key} value={week.key}>
+                {week.label}
               </option>
             ))}
           </select>
@@ -93,51 +92,26 @@ export default async function AdminWeeklyGridPage({ searchParams }: PageProps) {
         </div>
       </form>
 
-      {!selectedPeriod || weekOptions.length === 0 || !data ? (
+      {!selectedPeriod || !selectedWeek || !data ? (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          선택한 조건에 해당하는 회차가 없습니다.
+          선택한 조건에 해당하는 시험이 없습니다.
         </div>
       ) : (
-        <div className="mt-8 overflow-x-auto rounded-[28px] border border-ink/10 bg-white">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">구분</th>
-                <th className="px-4 py-3 font-semibold">정규화 평균</th>
-                <th className="px-4 py-3 font-semibold">결시 수</th>
-                <th className="px-4 py-3 font-semibold">상태</th>
-                {data.sessions.map((session) => (
-                  <th key={session.id} className="min-w-[160px] px-4 py-3 font-semibold">
-                    <div>{SUBJECT_LABEL[session.subject]}</div>
-                    <div className="mt-1 text-xs font-normal text-slate">
-                      {formatDate(session.examDate)}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {data.rows.map((row) => (
-                <tr key={row.examNumber} className={STATUS_ROW_CLASS[row.weekStatus]}>
-                  <td className="px-4 py-3 font-medium">{row.examNumber}</td>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">{STUDENT_TYPE_LABEL[row.studentType]}</td>
-                  <td className="px-4 py-3">{formatScore(row.weekAverage)}</td>
-                  <td className="px-4 py-3">{row.absentCount}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={row.weekStatus} />
-                  </td>
-                  {row.cells.map((cell) => (
-                    <td key={cell.sessionId} className="px-4 py-3">
-                      {cell.display}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-8 rounded-[28px] border border-ink/10 bg-white">
+          <div className="border-b border-ink/10 px-4 py-3 text-sm text-slate">
+            {data.week.label}
+            {data.week.legacyWeeks.length > 0
+              ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}`
+              : ""}
+          </div>
+          <WeeklyGridTable
+            rows={data.rows}
+            sessions={data.sessions.map((session) => ({
+              id: session.id,
+              subjectLabel: SUBJECT_LABEL[session.subject],
+              examDateLabel: formatDate(session.examDate),
+            }))}
+          />
         </div>
       )}
     </div>

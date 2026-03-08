@@ -31,6 +31,7 @@ model Student {
 
   absenceNotes       AbsenceNote[]
   counselingRecords  CounselingRecord[]
+  enrollments        PeriodEnrollment[]
   notifications      NotificationLog[]
   pointLogs          PointLog[]
   scores             Score[]
@@ -52,6 +53,7 @@ model ExamPeriod {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  enrollments    PeriodEnrollment[]
   monthlyResults MonthlyResult[]
   pointLogs      PointLog[]
   sessions       ExamSession[]
@@ -267,6 +269,20 @@ model Notice {
 
   @@index([targetType, isPublished])
   @@map("notices")
+}
+
+model PeriodEnrollment {
+  id         Int      @id @default(autoincrement())
+  periodId   Int
+  examNumber String
+  enrolledAt DateTime @default(now())
+
+  period  ExamPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@unique([periodId, examNumber])
+  @@index([periodId])
+  @@map("period_enrollments")
 }
 
 model WrongNoteBookmark {

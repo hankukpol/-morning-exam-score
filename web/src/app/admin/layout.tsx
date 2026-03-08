@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SetupPanel } from "@/components/setup-panel";
-import { ADMIN_NAV_ITEMS, ROLE_LABEL } from "@/lib/constants";
+import { ADMIN_NAV_ITEMS, NavItem, ROLE_LABEL } from "@/lib/constants";
 import { getSetupState } from "@/lib/env";
 import { getCurrentAdminContext, roleAtLeast } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -39,9 +39,9 @@ export default async function AdminLayout({
 
     if (user) {
       return (
-        <main className="min-h-screen px-6 py-8 sm:px-10 lg:px-16">
-          <div className="mx-auto max-w-4xl rounded-[32px] border border-ink/10 bg-white p-8 shadow-panel">
-            <div className="inline-flex rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-red-700">
+        <main className="min-h-screen px-6 py-8 sm:px-10 lg:px-16 bg-gray-50">
+          <div className="mx-auto max-w-4xl card-border p-8">
+            <div className="inline-flex border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-red-700">
               Access Denied
             </div>
             <h1 className="mt-5 text-3xl font-semibold">관리자 권한이 연결되지 않았습니다.</h1>
@@ -52,7 +52,7 @@ export default async function AdminLayout({
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/login?error=unauthorized"
-                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                className="inline-flex items-center border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 로그인 화면
               </Link>
@@ -66,12 +66,12 @@ export default async function AdminLayout({
 
   if (!context) {
     return (
-      <main className="min-h-screen px-6 py-8 sm:px-10 lg:px-16">
-        <div className="mx-auto max-w-4xl rounded-[32px] border border-ink/10 bg-white p-8 shadow-panel">
+      <main className="min-h-screen px-6 py-8 sm:px-10 lg:px-16 bg-gray-50">
+        <div className="mx-auto max-w-4xl card-border p-8">
           <p className="text-sm text-slate">로그인이 필요합니다.</p>
           <Link
             href="/login?redirectTo=/admin"
-            className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+            className="mt-4 inline-flex items-center bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
           >
             로그인하러 가기
           </Link>
@@ -80,50 +80,72 @@ export default async function AdminLayout({
     );
   }
 
-  const navigation = ADMIN_NAV_ITEMS.filter((item) =>
+  const permittedItems = ADMIN_NAV_ITEMS.filter((item) =>
     roleAtLeast(context.adminUser.role, item.minRole),
   );
 
+  // Group items
+  const groups = permittedItems.reduce((acc, item) => {
+    if (!acc[item.group]) {
+      acc[item.group] = [];
+    }
+    acc[item.group].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>);
+
   return (
-    <div className="min-h-screen px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel">
-          <Link href="/" className="inline-flex text-sm font-semibold uppercase tracking-[0.2em] text-ember">
-            Morning Mock
+    <div className="flex min-h-screen bg-[#F3F4F6] flex-col lg:flex-row">
+      <aside className="w-full lg:w-[260px] bg-[#0B1120] text-gray-300 flex-shrink-0 flex flex-col min-h-screen">
+        <div className="p-6 pb-2">
+          <Link href="/" className="inline-flex items-center space-x-2">
+            <span className="text-xl font-bold text-white tracking-tight flex items-center">
+              <div className="w-8 h-8 bg-primary text-white flex items-center justify-center mr-2 font-black text-lg">M</div>
+              Morning Mock
+            </span>
           </Link>
-          <h1 className="mt-4 text-2xl font-semibold leading-tight">
-            아침모의고사 관리자
-          </h1>
-          <div className="mt-6 rounded-3xl bg-mist p-4">
-            <p className="text-sm font-semibold">{context.adminUser.name}</p>
-            <p className="mt-1 text-sm text-slate">{context.adminUser.email}</p>
-            <p className="mt-3 inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+        </div>
+
+        <div className="px-6 pb-4 pt-4 border-b border-white/5">
+          <div className="bg-[#1E293B] p-4 border-l-2 border-primary">
+            <p className="text-sm font-semibold text-white">{context.adminUser.name}</p>
+            <p className="mt-1 text-xs text-gray-400">{context.adminUser.email}</p>
+            <span className="mt-2 inline-block flex-shrink-0 bg-primary/20 border border-primary/30 text-primary-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
               {ROLE_LABEL[context.adminUser.role]}
-            </p>
+            </span>
           </div>
+        </div>
 
-          <nav className="mt-6 space-y-3">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block rounded-3xl border border-ink/10 px-4 py-4 transition hover:border-ember/30 hover:bg-mist"
-              >
-                <p className="text-sm font-semibold">{item.label}</p>
-                <p className="mt-1 text-xs leading-6 text-slate">{item.description}</p>
-              </Link>
-            ))}
-          </nav>
+        <nav className="flex-1 px-4 py-4 space-y-6 overflow-y-auto custom-scrollbar">
+          {Object.entries(groups).map(([groupName, items]) => (
+            <div key={groupName}>
+              <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {groupName}
+              </h3>
+              <div className="space-y-1">
+                {items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/5 hover:text-white group border-l-2 border-transparent hover:border-primary"
+                  >
+                    <div className="flex-1">
+                      <div className="text-gray-300 group-hover:text-white">{item.label}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
 
-          <div className="mt-6 pt-2">
-            <SignOutButton />
-          </div>
-        </aside>
+        <div className="p-4 border-t border-white/5 bg-[#0B1120]">
+          <SignOutButton />
+        </div>
+      </aside>
 
-        <main className="rounded-[32px] border border-ink/10 bg-white shadow-panel">
-          {children}
-        </main>
-      </div>
+      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 w-full bg-gray-50">
+        {children}
+      </main>
     </div>
   );
 }

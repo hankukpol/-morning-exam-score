@@ -3,6 +3,7 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_TYPE_LABEL } from "@/lib/constants";
 import { listNotificationCenterData } from "@/lib/notifications/service";
+import { listPeriods } from "@/lib/periods/service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,10 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
       ? ExamType.GYEONGCHAE
       : ExamType.GONGCHAE;
   const search = readParam(searchParams, "search") ?? "";
-  const data = await listNotificationCenterData({
-    examType,
-    search,
-  });
+  const [data, periods] = await Promise.all([
+    listNotificationCenterData({ examType, search }),
+    listPeriods(),
+  ]);
 
   return (
     <div className="p-8 sm:p-10">
@@ -92,6 +93,19 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
           historyLogs={data.historyLogs.map((log) => ({
             ...log,
             sentAt: log.sentAt.toISOString(),
+          }))}
+          periods={periods.map((period) => ({
+            id: period.id,
+            name: period.name,
+            isActive: period.isActive,
+            sessions: period.sessions.map((session) => ({
+              id: session.id,
+              examType: session.examType,
+              week: session.week,
+              subject: session.subject,
+              examDate: session.examDate.toISOString(),
+              isCancelled: session.isCancelled,
+            })),
           }))}
         />
       </div>

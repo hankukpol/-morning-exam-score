@@ -216,6 +216,37 @@ export async function deactivateStudent(input: {
   });
 }
 
+export async function reactivateStudent(input: {
+  adminId: string;
+  examNumber: string;
+  ipAddress?: string | null;
+}) {
+  return getPrisma().$transaction(async (tx) => {
+    const before = await tx.student.findUniqueOrThrow({
+      where: { examNumber: input.examNumber },
+    });
+
+    const student = await tx.student.update({
+      where: { examNumber: input.examNumber },
+      data: { isActive: true },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "STUDENT_REACTIVATE",
+        targetType: "Student",
+        targetId: student.examNumber,
+        before: toAuditJson(before),
+        after: toAuditJson(student),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return student;
+  });
+}
+
 export function parseStudentForm(raw: Record<string, unknown>) {
   const examNumber = String(raw.examNumber ?? "").trim();
   const name = String(raw.name ?? "").trim();
@@ -372,82 +403,94 @@ async function executeStudentRecords(input: {
   duplicateStrategy: DuplicateStrategy;
   ipAddress?: string | null;
 }) {
+  const prisma = getPrisma();
   const validRows = input.rows.filter((row) => row.status !== "invalid");
+  const newRows = validRows.filter((row) => row.status === "valid");
+  const updateRows = validRows.filter((row) => row.status === "update");
 
-  return getPrisma().$transaction(async (tx) => {
-    let createdCount = 0;
-    let updatedCount = 0;
-    let skippedCount = 0;
+  let createdCount = 0;
+  let updatedCount = 0;
+  let skippedCount = 0;
 
-    for (const row of validRows) {
-      const existing = await tx.student.findUnique({
-        where: {
-          examNumber: row.record.examNumber,
-        },
-      });
-
-      if (!existing) {
-        await tx.student.create({
-          data: studentData(row.record),
-        });
-        createdCount += 1;
-        continue;
-      }
-
-      if (input.duplicateStrategy === "SKIP") {
-        skippedCount += 1;
-        continue;
-      }
-
-      const updateData =
-        input.duplicateStrategy === "OVERWRITE"
-          ? studentData(row.record)
-          : {
-              name: row.record.name || existing.name,
-              phone: row.record.phone ?? existing.phone,
-              generation: row.record.generation ?? existing.generation,
-              className: row.record.className ?? existing.className,
-              examType: row.record.examType,
-              studentType: row.record.studentType,
-              onlineId: row.record.onlineId ?? existing.onlineId,
-              registeredAt: row.record.registeredAt ?? existing.registeredAt,
-              note: row.record.note ?? existing.note,
-            };
-
-      await tx.student.update({
-        where: {
-          examNumber: row.record.examNumber,
-        },
-        data: updateData,
-      });
-      updatedCount += 1;
-    }
-
-    await tx.auditLog.create({
-      data: {
-        adminId: input.adminId,
-        action: "STUDENT_PASTE_IMPORT",
-        targetType: "Student",
-        targetId: "bulk",
-        before: toAuditJson(null),
-        after: toAuditJson({
-          duplicateStrategy: input.duplicateStrategy,
-          createdCount,
-          updatedCount,
-          skippedCount,
-          importedCount: validRows.length,
-        }),
-        ipAddress: input.ipAddress ?? null,
-      },
+  // 신규 학생 일괄 생성 (createMany = 단일 쿼리)
+  if (newRows.length > 0) {
+    await prisma.student.createMany({
+      data: newRows.map((row) => studentData(row.record)),
+      skipDuplicates: true,
     });
+    createdCount = newRows.length;
+  }
 
-    return {
-      importedCount: validRows.length,
-      createdCount,
-      updatedCount,
-      skippedCount,
-    };
+  // 중복 학생 처리
+  if (updateRows.length > 0) {
+    if (input.duplicateStrategy === "SKIP") {
+      skippedCount = updateRows.length;
+    } else {
+      // 기존 데이터 일괄 조회 (단일 쿼리)
+      const existingMap = input.duplicateStrategy === "UPDATE"
+        ? new Map(
+            (await prisma.student.findMany({
+              where: { examNumber: { in: updateRows.map((r) => r.record.examNumber) } },
+              select: {
+                examNumber: true, name: true, phone: true, generation: true,
+                className: true, onlineId: true, registeredAt: true, note: true,
+              },
+            })).map((s) => [s.examNumber, s])
+          )
+        : new Map();
+
+      // 병렬 업데이트
+      await Promise.all(
+        updateRows.map((row) => {
+          const existing = existingMap.get(row.record.examNumber);
+          const updateData =
+            input.duplicateStrategy === "OVERWRITE" || !existing
+              ? studentData(row.record)
+              : {
+                  name: row.record.name || existing.name,
+                  phone: row.record.phone ?? existing.phone,
+                  generation: row.record.generation ?? existing.generation,
+                  className: row.record.className ?? existing.className,
+                  examType: row.record.examType,
+                  studentType: row.record.studentType,
+                  onlineId: row.record.onlineId ?? existing.onlineId,
+                  registeredAt: row.record.registeredAt ?? existing.registeredAt,
+                  note: row.record.note ?? existing.note,
+                };
+          return prisma.student.update({
+            where: { examNumber: row.record.examNumber },
+            data: updateData,
+          });
+        }),
+      );
+      updatedCount = updateRows.length;
+    }
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      adminId: input.adminId,
+      action: "STUDENT_PASTE_IMPORT",
+      targetType: "Student",
+      targetId: "bulk",
+      before: toAuditJson(null),
+      after: toAuditJson({
+        duplicateStrategy: input.duplicateStrategy,
+        createdCount,
+        updatedCount,
+        skippedCount,
+        importedCount: validRows.length,
+      }),
+      ipAddress: input.ipAddress ?? null,
+    },
   });
+
+  return {
+    importedCount: validRows.length,
+    createdCount,
+    updatedCount,
+    skippedCount,
+  };
 }
 
 export async function executeStudentPasteImport(input: {

@@ -22,13 +22,32 @@ type CounselingPanelProps = {
   records: CounselingRecord[];
 };
 
+function Spinner() {
+  return (
+    <svg
+      className="mr-1.5 inline-block h-3 w-3 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      />
+    </svg>
+  );
+}
+
 export function CounselingPanel({
   examNumber,
   defaultCounselorName,
   targetScores: initialTargetScores,
   subjects,
-  records,
+  records: initialRecords,
 }: CounselingPanelProps) {
+  const [records, setRecords] = useState<CounselingRecord[]>(initialRecords);
   const [targetScores, setTargetScores] = useState<Record<string, string>>(
     Object.fromEntries(
       subjects.map((subject) => [subject, initialTargetScores[subject]?.toString() ?? ""]),
@@ -65,10 +84,6 @@ export function CounselingPanel({
     setErrorMessage(nextError);
   }
 
-  function reloadPage() {
-    window.location.reload();
-  }
-
   function saveTargets() {
     setMessage(null, null);
 
@@ -76,13 +91,10 @@ export function CounselingPanel({
       try {
         await requestJson(`/api/students/${examNumber}/targets`, {
           method: "PUT",
-          body: JSON.stringify({
-            targetScores,
-          }),
+          body: JSON.stringify({ targetScores }),
         });
 
         setNotice("목표 점수를 저장했습니다.");
-        reloadPage();
       } catch (error) {
         setMessage(
           null,
@@ -97,7 +109,7 @@ export function CounselingPanel({
 
     startTransition(async () => {
       try {
-        await requestJson("/api/counseling", {
+        const { record } = await requestJson("/api/counseling", {
           method: "POST",
           body: JSON.stringify({
             examNumber,
@@ -109,12 +121,37 @@ export function CounselingPanel({
           }),
         });
 
+        // 폼 초기화
+        setContent("");
+        setRecommendation("");
+        setNextSchedule("");
+
+        // 목록 앞에 추가
+        setRecords((prev) => [record, ...prev]);
         setNotice("면담 기록을 저장했습니다.");
-        reloadPage();
       } catch (error) {
         setMessage(
           null,
           error instanceof Error ? error.message : "면담 기록 저장에 실패했습니다.",
+        );
+      }
+    });
+  }
+
+  function deleteRecord(recordId: number) {
+    if (!confirm("이 면담 기록을 삭제하시겠습니까?")) return;
+
+    setMessage(null, null);
+
+    startTransition(async () => {
+      try {
+        await requestJson(`/api/counseling/${recordId}`, { method: "DELETE" });
+        setRecords((prev) => prev.filter((r) => r.id !== recordId));
+        setNotice("면담 기록을 삭제했습니다.");
+      } catch (error) {
+        setMessage(
+          null,
+          error instanceof Error ? error.message : "면담 기록 삭제에 실패했습니다.",
         );
       }
     });
@@ -125,7 +162,7 @@ export function CounselingPanel({
 
     startTransition(async () => {
       try {
-        await requestJson(`/api/counseling/${recordId}`, {
+        const { record } = await requestJson(`/api/counseling/${recordId}`, {
           method: "PUT",
           body: JSON.stringify({
             counselorName: String(formData.get("counselorName") ?? ""),
@@ -136,8 +173,8 @@ export function CounselingPanel({
           }),
         });
 
+        setRecords((prev) => prev.map((r) => (r.id === recordId ? record : r)));
         setNotice("면담 기록을 수정했습니다.");
-        reloadPage();
       } catch (error) {
         setMessage(
           null,
@@ -174,6 +211,7 @@ export function CounselingPanel({
             disabled={isPending}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
+            {isPending && <Spinner />}
             목표 저장
           </button>
         </div>
@@ -205,7 +243,7 @@ export function CounselingPanel({
           <div>
             <h2 className="text-xl font-semibold">면담 기록 입력</h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              저장 후 새로고침되며 아래 이력 목록에 바로 반영됩니다.
+              저장 즉시 아래 이력 목록에 반영됩니다.
             </p>
           </div>
           <button
@@ -271,6 +309,7 @@ export function CounselingPanel({
           disabled={isPending}
           className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
         >
+          {isPending && <Spinner />}
           면담 기록 저장
         </button>
       </section>
@@ -331,13 +370,23 @@ export function CounselingPanel({
                   className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
                 />
               </div>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-between">
+                <button
+                  type="button"
+                  onClick={() => deleteRecord(record.id)}
+                  disabled={isPending}
+                  className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isPending && <Spinner />}
+                  삭제
+                </button>
                 <button
                   type="button"
                   onClick={(event) => updateRecord(record.id, new FormData(event.currentTarget.form!))}
                   disabled={isPending}
                   className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  {isPending && <Spinner />}
                   수정 저장
                 </button>
               </div>

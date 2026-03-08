@@ -54,6 +54,11 @@ export type NotificationLog = $Result.DefaultSelection<Prisma.$NotificationLogPa
  */
 export type CounselingRecord = $Result.DefaultSelection<Prisma.$CounselingRecordPayload>
 /**
+ * Model CounselingAppointment
+ * 
+ */
+export type CounselingAppointment = $Result.DefaultSelection<Prisma.$CounselingAppointmentPayload>
+/**
  * Model ExamQuestion
  * 
  */
@@ -83,6 +88,11 @@ export type AuditLog = $Result.DefaultSelection<Prisma.$AuditLogPayload>
  * 
  */
 export type Notice = $Result.DefaultSelection<Prisma.$NoticePayload>
+/**
+ * Model PeriodEnrollment
+ * 
+ */
+export type PeriodEnrollment = $Result.DefaultSelection<Prisma.$PeriodEnrollmentPayload>
 /**
  * Model WrongNoteBookmark
  * 
@@ -209,6 +219,15 @@ export const StudentStatus: {
 export type StudentStatus = (typeof StudentStatus)[keyof typeof StudentStatus]
 
 
+export const AppointmentStatus: {
+  SCHEDULED: 'SCHEDULED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+};
+
+export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus]
+
+
 export const NoticeTargetType: {
   ALL: 'ALL',
   GONGCHAE: 'GONGCHAE',
@@ -266,6 +285,10 @@ export const AdminRole: typeof $Enums.AdminRole
 export type StudentStatus = $Enums.StudentStatus
 
 export const StudentStatus: typeof $Enums.StudentStatus
+
+export type AppointmentStatus = $Enums.AppointmentStatus
+
+export const AppointmentStatus: typeof $Enums.AppointmentStatus
 
 export type NoticeTargetType = $Enums.NoticeTargetType
 
@@ -470,6 +493,16 @@ export class PrismaClient<
   get counselingRecord(): Prisma.CounselingRecordDelegate<ExtArgs, ClientOptions>;
 
   /**
+   * `prisma.counselingAppointment`: Exposes CRUD operations for the **CounselingAppointment** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more CounselingAppointments
+    * const counselingAppointments = await prisma.counselingAppointment.findMany()
+    * ```
+    */
+  get counselingAppointment(): Prisma.CounselingAppointmentDelegate<ExtArgs, ClientOptions>;
+
+  /**
    * `prisma.examQuestion`: Exposes CRUD operations for the **ExamQuestion** model.
     * Example usage:
     * ```ts
@@ -528,6 +561,16 @@ export class PrismaClient<
     * ```
     */
   get notice(): Prisma.NoticeDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.periodEnrollment`: Exposes CRUD operations for the **PeriodEnrollment** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more PeriodEnrollments
+    * const periodEnrollments = await prisma.periodEnrollment.findMany()
+    * ```
+    */
+  get periodEnrollment(): Prisma.PeriodEnrollmentDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.wrongNoteBookmark`: Exposes CRUD operations for the **WrongNoteBookmark** model.
@@ -987,12 +1030,14 @@ export namespace Prisma {
     AbsenceNote: 'AbsenceNote',
     NotificationLog: 'NotificationLog',
     CounselingRecord: 'CounselingRecord',
+    CounselingAppointment: 'CounselingAppointment',
     ExamQuestion: 'ExamQuestion',
     StudentAnswer: 'StudentAnswer',
     PointLog: 'PointLog',
     AdminUser: 'AdminUser',
     AuditLog: 'AuditLog',
     Notice: 'Notice',
+    PeriodEnrollment: 'PeriodEnrollment',
     WrongNoteBookmark: 'WrongNoteBookmark'
   };
 
@@ -1012,7 +1057,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "student" | "examPeriod" | "monthlyResult" | "examSession" | "score" | "absenceNote" | "notificationLog" | "counselingRecord" | "examQuestion" | "studentAnswer" | "pointLog" | "adminUser" | "auditLog" | "notice" | "wrongNoteBookmark"
+      modelProps: "student" | "examPeriod" | "monthlyResult" | "examSession" | "score" | "absenceNote" | "notificationLog" | "counselingRecord" | "counselingAppointment" | "examQuestion" | "studentAnswer" | "pointLog" | "adminUser" | "auditLog" | "notice" | "periodEnrollment" | "wrongNoteBookmark"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1608,6 +1653,80 @@ export namespace Prisma {
           }
         }
       }
+      CounselingAppointment: {
+        payload: Prisma.$CounselingAppointmentPayload<ExtArgs>
+        fields: Prisma.CounselingAppointmentFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.CounselingAppointmentFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.CounselingAppointmentFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          findFirst: {
+            args: Prisma.CounselingAppointmentFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.CounselingAppointmentFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          findMany: {
+            args: Prisma.CounselingAppointmentFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>[]
+          }
+          create: {
+            args: Prisma.CounselingAppointmentCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          createMany: {
+            args: Prisma.CounselingAppointmentCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.CounselingAppointmentCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>[]
+          }
+          delete: {
+            args: Prisma.CounselingAppointmentDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          update: {
+            args: Prisma.CounselingAppointmentUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          deleteMany: {
+            args: Prisma.CounselingAppointmentDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.CounselingAppointmentUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.CounselingAppointmentUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>[]
+          }
+          upsert: {
+            args: Prisma.CounselingAppointmentUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CounselingAppointmentPayload>
+          }
+          aggregate: {
+            args: Prisma.CounselingAppointmentAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateCounselingAppointment>
+          }
+          groupBy: {
+            args: Prisma.CounselingAppointmentGroupByArgs<ExtArgs>
+            result: $Utils.Optional<CounselingAppointmentGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.CounselingAppointmentCountArgs<ExtArgs>
+            result: $Utils.Optional<CounselingAppointmentCountAggregateOutputType> | number
+          }
+        }
+      }
       ExamQuestion: {
         payload: Prisma.$ExamQuestionPayload<ExtArgs>
         fields: Prisma.ExamQuestionFieldRefs
@@ -2052,6 +2171,80 @@ export namespace Prisma {
           }
         }
       }
+      PeriodEnrollment: {
+        payload: Prisma.$PeriodEnrollmentPayload<ExtArgs>
+        fields: Prisma.PeriodEnrollmentFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.PeriodEnrollmentFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.PeriodEnrollmentFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          findFirst: {
+            args: Prisma.PeriodEnrollmentFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.PeriodEnrollmentFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          findMany: {
+            args: Prisma.PeriodEnrollmentFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>[]
+          }
+          create: {
+            args: Prisma.PeriodEnrollmentCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          createMany: {
+            args: Prisma.PeriodEnrollmentCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.PeriodEnrollmentCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>[]
+          }
+          delete: {
+            args: Prisma.PeriodEnrollmentDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          update: {
+            args: Prisma.PeriodEnrollmentUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          deleteMany: {
+            args: Prisma.PeriodEnrollmentDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.PeriodEnrollmentUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.PeriodEnrollmentUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>[]
+          }
+          upsert: {
+            args: Prisma.PeriodEnrollmentUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$PeriodEnrollmentPayload>
+          }
+          aggregate: {
+            args: Prisma.PeriodEnrollmentAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregatePeriodEnrollment>
+          }
+          groupBy: {
+            args: Prisma.PeriodEnrollmentGroupByArgs<ExtArgs>
+            result: $Utils.Optional<PeriodEnrollmentGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.PeriodEnrollmentCountArgs<ExtArgs>
+            result: $Utils.Optional<PeriodEnrollmentCountAggregateOutputType> | number
+          }
+        }
+      }
       WrongNoteBookmark: {
         payload: Prisma.$WrongNoteBookmarkPayload<ExtArgs>
         fields: Prisma.WrongNoteBookmarkFieldRefs
@@ -2230,12 +2423,14 @@ export namespace Prisma {
     absenceNote?: AbsenceNoteOmit
     notificationLog?: NotificationLogOmit
     counselingRecord?: CounselingRecordOmit
+    counselingAppointment?: CounselingAppointmentOmit
     examQuestion?: ExamQuestionOmit
     studentAnswer?: StudentAnswerOmit
     pointLog?: PointLogOmit
     adminUser?: AdminUserOmit
     auditLog?: AuditLogOmit
     notice?: NoticeOmit
+    periodEnrollment?: PeriodEnrollmentOmit
     wrongNoteBookmark?: WrongNoteBookmarkOmit
   }
 
@@ -2318,7 +2513,9 @@ export namespace Prisma {
 
   export type StudentCountOutputType = {
     absenceNotes: number
+    counselingAppointments: number
     counselingRecords: number
+    enrollments: number
     notifications: number
     pointLogs: number
     scores: number
@@ -2328,7 +2525,9 @@ export namespace Prisma {
 
   export type StudentCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     absenceNotes?: boolean | StudentCountOutputTypeCountAbsenceNotesArgs
+    counselingAppointments?: boolean | StudentCountOutputTypeCountCounselingAppointmentsArgs
     counselingRecords?: boolean | StudentCountOutputTypeCountCounselingRecordsArgs
+    enrollments?: boolean | StudentCountOutputTypeCountEnrollmentsArgs
     notifications?: boolean | StudentCountOutputTypeCountNotificationsArgs
     pointLogs?: boolean | StudentCountOutputTypeCountPointLogsArgs
     scores?: boolean | StudentCountOutputTypeCountScoresArgs
@@ -2357,8 +2556,22 @@ export namespace Prisma {
   /**
    * StudentCountOutputType without action
    */
+  export type StudentCountOutputTypeCountCounselingAppointmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CounselingAppointmentWhereInput
+  }
+
+  /**
+   * StudentCountOutputType without action
+   */
   export type StudentCountOutputTypeCountCounselingRecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: CounselingRecordWhereInput
+  }
+
+  /**
+   * StudentCountOutputType without action
+   */
+  export type StudentCountOutputTypeCountEnrollmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PeriodEnrollmentWhereInput
   }
 
   /**
@@ -2402,12 +2615,14 @@ export namespace Prisma {
    */
 
   export type ExamPeriodCountOutputType = {
+    enrollments: number
     monthlyResults: number
     pointLogs: number
     sessions: number
   }
 
   export type ExamPeriodCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    enrollments?: boolean | ExamPeriodCountOutputTypeCountEnrollmentsArgs
     monthlyResults?: boolean | ExamPeriodCountOutputTypeCountMonthlyResultsArgs
     pointLogs?: boolean | ExamPeriodCountOutputTypeCountPointLogsArgs
     sessions?: boolean | ExamPeriodCountOutputTypeCountSessionsArgs
@@ -2422,6 +2637,13 @@ export namespace Prisma {
      * Select specific fields to fetch from the ExamPeriodCountOutputType
      */
     select?: ExamPeriodCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * ExamPeriodCountOutputType without action
+   */
+  export type ExamPeriodCountOutputTypeCountEnrollmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PeriodEnrollmentWhereInput
   }
 
   /**
@@ -2869,7 +3091,9 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     absenceNotes?: boolean | Student$absenceNotesArgs<ExtArgs>
+    counselingAppointments?: boolean | Student$counselingAppointmentsArgs<ExtArgs>
     counselingRecords?: boolean | Student$counselingRecordsArgs<ExtArgs>
+    enrollments?: boolean | Student$enrollmentsArgs<ExtArgs>
     notifications?: boolean | Student$notificationsArgs<ExtArgs>
     pointLogs?: boolean | Student$pointLogsArgs<ExtArgs>
     scores?: boolean | Student$scoresArgs<ExtArgs>
@@ -2944,7 +3168,9 @@ export namespace Prisma {
   export type StudentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"examNumber" | "name" | "phone" | "generation" | "className" | "examType" | "studentType" | "onlineId" | "registeredAt" | "note" | "isActive" | "notificationConsent" | "consentedAt" | "targetScores" | "currentStatus" | "statusUpdatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["student"]>
   export type StudentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     absenceNotes?: boolean | Student$absenceNotesArgs<ExtArgs>
+    counselingAppointments?: boolean | Student$counselingAppointmentsArgs<ExtArgs>
     counselingRecords?: boolean | Student$counselingRecordsArgs<ExtArgs>
+    enrollments?: boolean | Student$enrollmentsArgs<ExtArgs>
     notifications?: boolean | Student$notificationsArgs<ExtArgs>
     pointLogs?: boolean | Student$pointLogsArgs<ExtArgs>
     scores?: boolean | Student$scoresArgs<ExtArgs>
@@ -2959,7 +3185,9 @@ export namespace Prisma {
     name: "Student"
     objects: {
       absenceNotes: Prisma.$AbsenceNotePayload<ExtArgs>[]
+      counselingAppointments: Prisma.$CounselingAppointmentPayload<ExtArgs>[]
       counselingRecords: Prisma.$CounselingRecordPayload<ExtArgs>[]
+      enrollments: Prisma.$PeriodEnrollmentPayload<ExtArgs>[]
       notifications: Prisma.$NotificationLogPayload<ExtArgs>[]
       pointLogs: Prisma.$PointLogPayload<ExtArgs>[]
       scores: Prisma.$ScorePayload<ExtArgs>[]
@@ -3380,7 +3608,9 @@ export namespace Prisma {
   export interface Prisma__StudentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     absenceNotes<T extends Student$absenceNotesArgs<ExtArgs> = {}>(args?: Subset<T, Student$absenceNotesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AbsenceNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    counselingAppointments<T extends Student$counselingAppointmentsArgs<ExtArgs> = {}>(args?: Subset<T, Student$counselingAppointmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     counselingRecords<T extends Student$counselingRecordsArgs<ExtArgs> = {}>(args?: Subset<T, Student$counselingRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CounselingRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    enrollments<T extends Student$enrollmentsArgs<ExtArgs> = {}>(args?: Subset<T, Student$enrollmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     notifications<T extends Student$notificationsArgs<ExtArgs> = {}>(args?: Subset<T, Student$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NotificationLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     pointLogs<T extends Student$pointLogsArgs<ExtArgs> = {}>(args?: Subset<T, Student$pointLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PointLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scores<T extends Student$scoresArgs<ExtArgs> = {}>(args?: Subset<T, Student$scoresArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScorePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -3845,6 +4075,30 @@ export namespace Prisma {
   }
 
   /**
+   * Student.counselingAppointments
+   */
+  export type Student$counselingAppointmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    where?: CounselingAppointmentWhereInput
+    orderBy?: CounselingAppointmentOrderByWithRelationInput | CounselingAppointmentOrderByWithRelationInput[]
+    cursor?: CounselingAppointmentWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: CounselingAppointmentScalarFieldEnum | CounselingAppointmentScalarFieldEnum[]
+  }
+
+  /**
    * Student.counselingRecords
    */
   export type Student$counselingRecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3866,6 +4120,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: CounselingRecordScalarFieldEnum | CounselingRecordScalarFieldEnum[]
+  }
+
+  /**
+   * Student.enrollments
+   */
+  export type Student$enrollmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    where?: PeriodEnrollmentWhereInput
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: PeriodEnrollmentScalarFieldEnum | PeriodEnrollmentScalarFieldEnum[]
   }
 
   /**
@@ -4233,6 +4511,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    enrollments?: boolean | ExamPeriod$enrollmentsArgs<ExtArgs>
     monthlyResults?: boolean | ExamPeriod$monthlyResultsArgs<ExtArgs>
     pointLogs?: boolean | ExamPeriod$pointLogsArgs<ExtArgs>
     sessions?: boolean | ExamPeriod$sessionsArgs<ExtArgs>
@@ -4274,6 +4553,7 @@ export namespace Prisma {
 
   export type ExamPeriodOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "startDate" | "endDate" | "totalWeeks" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["examPeriod"]>
   export type ExamPeriodInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    enrollments?: boolean | ExamPeriod$enrollmentsArgs<ExtArgs>
     monthlyResults?: boolean | ExamPeriod$monthlyResultsArgs<ExtArgs>
     pointLogs?: boolean | ExamPeriod$pointLogsArgs<ExtArgs>
     sessions?: boolean | ExamPeriod$sessionsArgs<ExtArgs>
@@ -4285,6 +4565,7 @@ export namespace Prisma {
   export type $ExamPeriodPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "ExamPeriod"
     objects: {
+      enrollments: Prisma.$PeriodEnrollmentPayload<ExtArgs>[]
       monthlyResults: Prisma.$MonthlyResultPayload<ExtArgs>[]
       pointLogs: Prisma.$PointLogPayload<ExtArgs>[]
       sessions: Prisma.$ExamSessionPayload<ExtArgs>[]
@@ -4692,6 +4973,7 @@ export namespace Prisma {
    */
   export interface Prisma__ExamPeriodClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
+    enrollments<T extends ExamPeriod$enrollmentsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$enrollmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     monthlyResults<T extends ExamPeriod$monthlyResultsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$monthlyResultsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MonthlyResultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     pointLogs<T extends ExamPeriod$pointLogsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$pointLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PointLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     sessions<T extends ExamPeriod$sessionsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ExamSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5117,6 +5399,30 @@ export namespace Prisma {
      * Limit how many ExamPeriods to delete.
      */
     limit?: number
+  }
+
+  /**
+   * ExamPeriod.enrollments
+   */
+  export type ExamPeriod$enrollmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    where?: PeriodEnrollmentWhereInput
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: PeriodEnrollmentScalarFieldEnum | PeriodEnrollmentScalarFieldEnum[]
   }
 
   /**
@@ -12243,6 +12549,1150 @@ export namespace Prisma {
 
 
   /**
+   * Model CounselingAppointment
+   */
+
+  export type AggregateCounselingAppointment = {
+    _count: CounselingAppointmentCountAggregateOutputType | null
+    _avg: CounselingAppointmentAvgAggregateOutputType | null
+    _sum: CounselingAppointmentSumAggregateOutputType | null
+    _min: CounselingAppointmentMinAggregateOutputType | null
+    _max: CounselingAppointmentMaxAggregateOutputType | null
+  }
+
+  export type CounselingAppointmentAvgAggregateOutputType = {
+    id: number | null
+  }
+
+  export type CounselingAppointmentSumAggregateOutputType = {
+    id: number | null
+  }
+
+  export type CounselingAppointmentMinAggregateOutputType = {
+    id: number | null
+    examNumber: string | null
+    scheduledAt: Date | null
+    counselorName: string | null
+    agenda: string | null
+    status: $Enums.AppointmentStatus | null
+    cancelReason: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type CounselingAppointmentMaxAggregateOutputType = {
+    id: number | null
+    examNumber: string | null
+    scheduledAt: Date | null
+    counselorName: string | null
+    agenda: string | null
+    status: $Enums.AppointmentStatus | null
+    cancelReason: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type CounselingAppointmentCountAggregateOutputType = {
+    id: number
+    examNumber: number
+    scheduledAt: number
+    counselorName: number
+    agenda: number
+    status: number
+    cancelReason: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type CounselingAppointmentAvgAggregateInputType = {
+    id?: true
+  }
+
+  export type CounselingAppointmentSumAggregateInputType = {
+    id?: true
+  }
+
+  export type CounselingAppointmentMinAggregateInputType = {
+    id?: true
+    examNumber?: true
+    scheduledAt?: true
+    counselorName?: true
+    agenda?: true
+    status?: true
+    cancelReason?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type CounselingAppointmentMaxAggregateInputType = {
+    id?: true
+    examNumber?: true
+    scheduledAt?: true
+    counselorName?: true
+    agenda?: true
+    status?: true
+    cancelReason?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type CounselingAppointmentCountAggregateInputType = {
+    id?: true
+    examNumber?: true
+    scheduledAt?: true
+    counselorName?: true
+    agenda?: true
+    status?: true
+    cancelReason?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type CounselingAppointmentAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which CounselingAppointment to aggregate.
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of CounselingAppointments to fetch.
+     */
+    orderBy?: CounselingAppointmentOrderByWithRelationInput | CounselingAppointmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: CounselingAppointmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` CounselingAppointments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` CounselingAppointments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned CounselingAppointments
+    **/
+    _count?: true | CounselingAppointmentCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: CounselingAppointmentAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: CounselingAppointmentSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: CounselingAppointmentMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: CounselingAppointmentMaxAggregateInputType
+  }
+
+  export type GetCounselingAppointmentAggregateType<T extends CounselingAppointmentAggregateArgs> = {
+        [P in keyof T & keyof AggregateCounselingAppointment]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateCounselingAppointment[P]>
+      : GetScalarType<T[P], AggregateCounselingAppointment[P]>
+  }
+
+
+
+
+  export type CounselingAppointmentGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CounselingAppointmentWhereInput
+    orderBy?: CounselingAppointmentOrderByWithAggregationInput | CounselingAppointmentOrderByWithAggregationInput[]
+    by: CounselingAppointmentScalarFieldEnum[] | CounselingAppointmentScalarFieldEnum
+    having?: CounselingAppointmentScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: CounselingAppointmentCountAggregateInputType | true
+    _avg?: CounselingAppointmentAvgAggregateInputType
+    _sum?: CounselingAppointmentSumAggregateInputType
+    _min?: CounselingAppointmentMinAggregateInputType
+    _max?: CounselingAppointmentMaxAggregateInputType
+  }
+
+  export type CounselingAppointmentGroupByOutputType = {
+    id: number
+    examNumber: string
+    scheduledAt: Date
+    counselorName: string
+    agenda: string | null
+    status: $Enums.AppointmentStatus
+    cancelReason: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: CounselingAppointmentCountAggregateOutputType | null
+    _avg: CounselingAppointmentAvgAggregateOutputType | null
+    _sum: CounselingAppointmentSumAggregateOutputType | null
+    _min: CounselingAppointmentMinAggregateOutputType | null
+    _max: CounselingAppointmentMaxAggregateOutputType | null
+  }
+
+  type GetCounselingAppointmentGroupByPayload<T extends CounselingAppointmentGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<CounselingAppointmentGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof CounselingAppointmentGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], CounselingAppointmentGroupByOutputType[P]>
+            : GetScalarType<T[P], CounselingAppointmentGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type CounselingAppointmentSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    examNumber?: boolean
+    scheduledAt?: boolean
+    counselorName?: boolean
+    agenda?: boolean
+    status?: boolean
+    cancelReason?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["counselingAppointment"]>
+
+  export type CounselingAppointmentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    examNumber?: boolean
+    scheduledAt?: boolean
+    counselorName?: boolean
+    agenda?: boolean
+    status?: boolean
+    cancelReason?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["counselingAppointment"]>
+
+  export type CounselingAppointmentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    examNumber?: boolean
+    scheduledAt?: boolean
+    counselorName?: boolean
+    agenda?: boolean
+    status?: boolean
+    cancelReason?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["counselingAppointment"]>
+
+  export type CounselingAppointmentSelectScalar = {
+    id?: boolean
+    examNumber?: boolean
+    scheduledAt?: boolean
+    counselorName?: boolean
+    agenda?: boolean
+    status?: boolean
+    cancelReason?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type CounselingAppointmentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "examNumber" | "scheduledAt" | "counselorName" | "agenda" | "status" | "cancelReason" | "createdAt" | "updatedAt", ExtArgs["result"]["counselingAppointment"]>
+  export type CounselingAppointmentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type CounselingAppointmentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type CounselingAppointmentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+
+  export type $CounselingAppointmentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "CounselingAppointment"
+    objects: {
+      student: Prisma.$StudentPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: number
+      examNumber: string
+      scheduledAt: Date
+      counselorName: string
+      agenda: string | null
+      status: $Enums.AppointmentStatus
+      cancelReason: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["counselingAppointment"]>
+    composites: {}
+  }
+
+  type CounselingAppointmentGetPayload<S extends boolean | null | undefined | CounselingAppointmentDefaultArgs> = $Result.GetResult<Prisma.$CounselingAppointmentPayload, S>
+
+  type CounselingAppointmentCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<CounselingAppointmentFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: CounselingAppointmentCountAggregateInputType | true
+    }
+
+  export interface CounselingAppointmentDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['CounselingAppointment'], meta: { name: 'CounselingAppointment' } }
+    /**
+     * Find zero or one CounselingAppointment that matches the filter.
+     * @param {CounselingAppointmentFindUniqueArgs} args - Arguments to find a CounselingAppointment
+     * @example
+     * // Get one CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends CounselingAppointmentFindUniqueArgs>(args: SelectSubset<T, CounselingAppointmentFindUniqueArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one CounselingAppointment that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {CounselingAppointmentFindUniqueOrThrowArgs} args - Arguments to find a CounselingAppointment
+     * @example
+     * // Get one CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends CounselingAppointmentFindUniqueOrThrowArgs>(args: SelectSubset<T, CounselingAppointmentFindUniqueOrThrowArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first CounselingAppointment that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentFindFirstArgs} args - Arguments to find a CounselingAppointment
+     * @example
+     * // Get one CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends CounselingAppointmentFindFirstArgs>(args?: SelectSubset<T, CounselingAppointmentFindFirstArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first CounselingAppointment that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentFindFirstOrThrowArgs} args - Arguments to find a CounselingAppointment
+     * @example
+     * // Get one CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends CounselingAppointmentFindFirstOrThrowArgs>(args?: SelectSubset<T, CounselingAppointmentFindFirstOrThrowArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more CounselingAppointments that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all CounselingAppointments
+     * const counselingAppointments = await prisma.counselingAppointment.findMany()
+     * 
+     * // Get first 10 CounselingAppointments
+     * const counselingAppointments = await prisma.counselingAppointment.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const counselingAppointmentWithIdOnly = await prisma.counselingAppointment.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends CounselingAppointmentFindManyArgs>(args?: SelectSubset<T, CounselingAppointmentFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a CounselingAppointment.
+     * @param {CounselingAppointmentCreateArgs} args - Arguments to create a CounselingAppointment.
+     * @example
+     * // Create one CounselingAppointment
+     * const CounselingAppointment = await prisma.counselingAppointment.create({
+     *   data: {
+     *     // ... data to create a CounselingAppointment
+     *   }
+     * })
+     * 
+     */
+    create<T extends CounselingAppointmentCreateArgs>(args: SelectSubset<T, CounselingAppointmentCreateArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many CounselingAppointments.
+     * @param {CounselingAppointmentCreateManyArgs} args - Arguments to create many CounselingAppointments.
+     * @example
+     * // Create many CounselingAppointments
+     * const counselingAppointment = await prisma.counselingAppointment.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends CounselingAppointmentCreateManyArgs>(args?: SelectSubset<T, CounselingAppointmentCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many CounselingAppointments and returns the data saved in the database.
+     * @param {CounselingAppointmentCreateManyAndReturnArgs} args - Arguments to create many CounselingAppointments.
+     * @example
+     * // Create many CounselingAppointments
+     * const counselingAppointment = await prisma.counselingAppointment.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many CounselingAppointments and only return the `id`
+     * const counselingAppointmentWithIdOnly = await prisma.counselingAppointment.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends CounselingAppointmentCreateManyAndReturnArgs>(args?: SelectSubset<T, CounselingAppointmentCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a CounselingAppointment.
+     * @param {CounselingAppointmentDeleteArgs} args - Arguments to delete one CounselingAppointment.
+     * @example
+     * // Delete one CounselingAppointment
+     * const CounselingAppointment = await prisma.counselingAppointment.delete({
+     *   where: {
+     *     // ... filter to delete one CounselingAppointment
+     *   }
+     * })
+     * 
+     */
+    delete<T extends CounselingAppointmentDeleteArgs>(args: SelectSubset<T, CounselingAppointmentDeleteArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one CounselingAppointment.
+     * @param {CounselingAppointmentUpdateArgs} args - Arguments to update one CounselingAppointment.
+     * @example
+     * // Update one CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends CounselingAppointmentUpdateArgs>(args: SelectSubset<T, CounselingAppointmentUpdateArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more CounselingAppointments.
+     * @param {CounselingAppointmentDeleteManyArgs} args - Arguments to filter CounselingAppointments to delete.
+     * @example
+     * // Delete a few CounselingAppointments
+     * const { count } = await prisma.counselingAppointment.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends CounselingAppointmentDeleteManyArgs>(args?: SelectSubset<T, CounselingAppointmentDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more CounselingAppointments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many CounselingAppointments
+     * const counselingAppointment = await prisma.counselingAppointment.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends CounselingAppointmentUpdateManyArgs>(args: SelectSubset<T, CounselingAppointmentUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more CounselingAppointments and returns the data updated in the database.
+     * @param {CounselingAppointmentUpdateManyAndReturnArgs} args - Arguments to update many CounselingAppointments.
+     * @example
+     * // Update many CounselingAppointments
+     * const counselingAppointment = await prisma.counselingAppointment.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more CounselingAppointments and only return the `id`
+     * const counselingAppointmentWithIdOnly = await prisma.counselingAppointment.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends CounselingAppointmentUpdateManyAndReturnArgs>(args: SelectSubset<T, CounselingAppointmentUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one CounselingAppointment.
+     * @param {CounselingAppointmentUpsertArgs} args - Arguments to update or create a CounselingAppointment.
+     * @example
+     * // Update or create a CounselingAppointment
+     * const counselingAppointment = await prisma.counselingAppointment.upsert({
+     *   create: {
+     *     // ... data to create a CounselingAppointment
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the CounselingAppointment we want to update
+     *   }
+     * })
+     */
+    upsert<T extends CounselingAppointmentUpsertArgs>(args: SelectSubset<T, CounselingAppointmentUpsertArgs<ExtArgs>>): Prisma__CounselingAppointmentClient<$Result.GetResult<Prisma.$CounselingAppointmentPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of CounselingAppointments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentCountArgs} args - Arguments to filter CounselingAppointments to count.
+     * @example
+     * // Count the number of CounselingAppointments
+     * const count = await prisma.counselingAppointment.count({
+     *   where: {
+     *     // ... the filter for the CounselingAppointments we want to count
+     *   }
+     * })
+    **/
+    count<T extends CounselingAppointmentCountArgs>(
+      args?: Subset<T, CounselingAppointmentCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], CounselingAppointmentCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a CounselingAppointment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends CounselingAppointmentAggregateArgs>(args: Subset<T, CounselingAppointmentAggregateArgs>): Prisma.PrismaPromise<GetCounselingAppointmentAggregateType<T>>
+
+    /**
+     * Group by CounselingAppointment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CounselingAppointmentGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends CounselingAppointmentGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: CounselingAppointmentGroupByArgs['orderBy'] }
+        : { orderBy?: CounselingAppointmentGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, CounselingAppointmentGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetCounselingAppointmentGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the CounselingAppointment model
+   */
+  readonly fields: CounselingAppointmentFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for CounselingAppointment.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__CounselingAppointmentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    student<T extends StudentDefaultArgs<ExtArgs> = {}>(args?: Subset<T, StudentDefaultArgs<ExtArgs>>): Prisma__StudentClient<$Result.GetResult<Prisma.$StudentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the CounselingAppointment model
+   */
+  interface CounselingAppointmentFieldRefs {
+    readonly id: FieldRef<"CounselingAppointment", 'Int'>
+    readonly examNumber: FieldRef<"CounselingAppointment", 'String'>
+    readonly scheduledAt: FieldRef<"CounselingAppointment", 'DateTime'>
+    readonly counselorName: FieldRef<"CounselingAppointment", 'String'>
+    readonly agenda: FieldRef<"CounselingAppointment", 'String'>
+    readonly status: FieldRef<"CounselingAppointment", 'AppointmentStatus'>
+    readonly cancelReason: FieldRef<"CounselingAppointment", 'String'>
+    readonly createdAt: FieldRef<"CounselingAppointment", 'DateTime'>
+    readonly updatedAt: FieldRef<"CounselingAppointment", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * CounselingAppointment findUnique
+   */
+  export type CounselingAppointmentFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter, which CounselingAppointment to fetch.
+     */
+    where: CounselingAppointmentWhereUniqueInput
+  }
+
+  /**
+   * CounselingAppointment findUniqueOrThrow
+   */
+  export type CounselingAppointmentFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter, which CounselingAppointment to fetch.
+     */
+    where: CounselingAppointmentWhereUniqueInput
+  }
+
+  /**
+   * CounselingAppointment findFirst
+   */
+  export type CounselingAppointmentFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter, which CounselingAppointment to fetch.
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of CounselingAppointments to fetch.
+     */
+    orderBy?: CounselingAppointmentOrderByWithRelationInput | CounselingAppointmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for CounselingAppointments.
+     */
+    cursor?: CounselingAppointmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` CounselingAppointments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` CounselingAppointments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of CounselingAppointments.
+     */
+    distinct?: CounselingAppointmentScalarFieldEnum | CounselingAppointmentScalarFieldEnum[]
+  }
+
+  /**
+   * CounselingAppointment findFirstOrThrow
+   */
+  export type CounselingAppointmentFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter, which CounselingAppointment to fetch.
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of CounselingAppointments to fetch.
+     */
+    orderBy?: CounselingAppointmentOrderByWithRelationInput | CounselingAppointmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for CounselingAppointments.
+     */
+    cursor?: CounselingAppointmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` CounselingAppointments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` CounselingAppointments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of CounselingAppointments.
+     */
+    distinct?: CounselingAppointmentScalarFieldEnum | CounselingAppointmentScalarFieldEnum[]
+  }
+
+  /**
+   * CounselingAppointment findMany
+   */
+  export type CounselingAppointmentFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter, which CounselingAppointments to fetch.
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of CounselingAppointments to fetch.
+     */
+    orderBy?: CounselingAppointmentOrderByWithRelationInput | CounselingAppointmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing CounselingAppointments.
+     */
+    cursor?: CounselingAppointmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` CounselingAppointments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` CounselingAppointments.
+     */
+    skip?: number
+    distinct?: CounselingAppointmentScalarFieldEnum | CounselingAppointmentScalarFieldEnum[]
+  }
+
+  /**
+   * CounselingAppointment create
+   */
+  export type CounselingAppointmentCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * The data needed to create a CounselingAppointment.
+     */
+    data: XOR<CounselingAppointmentCreateInput, CounselingAppointmentUncheckedCreateInput>
+  }
+
+  /**
+   * CounselingAppointment createMany
+   */
+  export type CounselingAppointmentCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many CounselingAppointments.
+     */
+    data: CounselingAppointmentCreateManyInput | CounselingAppointmentCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * CounselingAppointment createManyAndReturn
+   */
+  export type CounselingAppointmentCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * The data used to create many CounselingAppointments.
+     */
+    data: CounselingAppointmentCreateManyInput | CounselingAppointmentCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * CounselingAppointment update
+   */
+  export type CounselingAppointmentUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * The data needed to update a CounselingAppointment.
+     */
+    data: XOR<CounselingAppointmentUpdateInput, CounselingAppointmentUncheckedUpdateInput>
+    /**
+     * Choose, which CounselingAppointment to update.
+     */
+    where: CounselingAppointmentWhereUniqueInput
+  }
+
+  /**
+   * CounselingAppointment updateMany
+   */
+  export type CounselingAppointmentUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update CounselingAppointments.
+     */
+    data: XOR<CounselingAppointmentUpdateManyMutationInput, CounselingAppointmentUncheckedUpdateManyInput>
+    /**
+     * Filter which CounselingAppointments to update
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * Limit how many CounselingAppointments to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * CounselingAppointment updateManyAndReturn
+   */
+  export type CounselingAppointmentUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * The data used to update CounselingAppointments.
+     */
+    data: XOR<CounselingAppointmentUpdateManyMutationInput, CounselingAppointmentUncheckedUpdateManyInput>
+    /**
+     * Filter which CounselingAppointments to update
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * Limit how many CounselingAppointments to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * CounselingAppointment upsert
+   */
+  export type CounselingAppointmentUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * The filter to search for the CounselingAppointment to update in case it exists.
+     */
+    where: CounselingAppointmentWhereUniqueInput
+    /**
+     * In case the CounselingAppointment found by the `where` argument doesn't exist, create a new CounselingAppointment with this data.
+     */
+    create: XOR<CounselingAppointmentCreateInput, CounselingAppointmentUncheckedCreateInput>
+    /**
+     * In case the CounselingAppointment was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<CounselingAppointmentUpdateInput, CounselingAppointmentUncheckedUpdateInput>
+  }
+
+  /**
+   * CounselingAppointment delete
+   */
+  export type CounselingAppointmentDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+    /**
+     * Filter which CounselingAppointment to delete.
+     */
+    where: CounselingAppointmentWhereUniqueInput
+  }
+
+  /**
+   * CounselingAppointment deleteMany
+   */
+  export type CounselingAppointmentDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which CounselingAppointments to delete
+     */
+    where?: CounselingAppointmentWhereInput
+    /**
+     * Limit how many CounselingAppointments to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * CounselingAppointment without action
+   */
+  export type CounselingAppointmentDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CounselingAppointment
+     */
+    select?: CounselingAppointmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the CounselingAppointment
+     */
+    omit?: CounselingAppointmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CounselingAppointmentInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model ExamQuestion
    */
 
@@ -19057,6 +20507,1097 @@ export namespace Prisma {
 
 
   /**
+   * Model PeriodEnrollment
+   */
+
+  export type AggregatePeriodEnrollment = {
+    _count: PeriodEnrollmentCountAggregateOutputType | null
+    _avg: PeriodEnrollmentAvgAggregateOutputType | null
+    _sum: PeriodEnrollmentSumAggregateOutputType | null
+    _min: PeriodEnrollmentMinAggregateOutputType | null
+    _max: PeriodEnrollmentMaxAggregateOutputType | null
+  }
+
+  export type PeriodEnrollmentAvgAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+  }
+
+  export type PeriodEnrollmentSumAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+  }
+
+  export type PeriodEnrollmentMinAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    examNumber: string | null
+    enrolledAt: Date | null
+  }
+
+  export type PeriodEnrollmentMaxAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    examNumber: string | null
+    enrolledAt: Date | null
+  }
+
+  export type PeriodEnrollmentCountAggregateOutputType = {
+    id: number
+    periodId: number
+    examNumber: number
+    enrolledAt: number
+    _all: number
+  }
+
+
+  export type PeriodEnrollmentAvgAggregateInputType = {
+    id?: true
+    periodId?: true
+  }
+
+  export type PeriodEnrollmentSumAggregateInputType = {
+    id?: true
+    periodId?: true
+  }
+
+  export type PeriodEnrollmentMinAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    enrolledAt?: true
+  }
+
+  export type PeriodEnrollmentMaxAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    enrolledAt?: true
+  }
+
+  export type PeriodEnrollmentCountAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    enrolledAt?: true
+    _all?: true
+  }
+
+  export type PeriodEnrollmentAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which PeriodEnrollment to aggregate.
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of PeriodEnrollments to fetch.
+     */
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` PeriodEnrollments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` PeriodEnrollments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned PeriodEnrollments
+    **/
+    _count?: true | PeriodEnrollmentCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: PeriodEnrollmentAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: PeriodEnrollmentSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: PeriodEnrollmentMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: PeriodEnrollmentMaxAggregateInputType
+  }
+
+  export type GetPeriodEnrollmentAggregateType<T extends PeriodEnrollmentAggregateArgs> = {
+        [P in keyof T & keyof AggregatePeriodEnrollment]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregatePeriodEnrollment[P]>
+      : GetScalarType<T[P], AggregatePeriodEnrollment[P]>
+  }
+
+
+
+
+  export type PeriodEnrollmentGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PeriodEnrollmentWhereInput
+    orderBy?: PeriodEnrollmentOrderByWithAggregationInput | PeriodEnrollmentOrderByWithAggregationInput[]
+    by: PeriodEnrollmentScalarFieldEnum[] | PeriodEnrollmentScalarFieldEnum
+    having?: PeriodEnrollmentScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: PeriodEnrollmentCountAggregateInputType | true
+    _avg?: PeriodEnrollmentAvgAggregateInputType
+    _sum?: PeriodEnrollmentSumAggregateInputType
+    _min?: PeriodEnrollmentMinAggregateInputType
+    _max?: PeriodEnrollmentMaxAggregateInputType
+  }
+
+  export type PeriodEnrollmentGroupByOutputType = {
+    id: number
+    periodId: number
+    examNumber: string
+    enrolledAt: Date
+    _count: PeriodEnrollmentCountAggregateOutputType | null
+    _avg: PeriodEnrollmentAvgAggregateOutputType | null
+    _sum: PeriodEnrollmentSumAggregateOutputType | null
+    _min: PeriodEnrollmentMinAggregateOutputType | null
+    _max: PeriodEnrollmentMaxAggregateOutputType | null
+  }
+
+  type GetPeriodEnrollmentGroupByPayload<T extends PeriodEnrollmentGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<PeriodEnrollmentGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof PeriodEnrollmentGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], PeriodEnrollmentGroupByOutputType[P]>
+            : GetScalarType<T[P], PeriodEnrollmentGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type PeriodEnrollmentSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    enrolledAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["periodEnrollment"]>
+
+  export type PeriodEnrollmentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    enrolledAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["periodEnrollment"]>
+
+  export type PeriodEnrollmentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    enrolledAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["periodEnrollment"]>
+
+  export type PeriodEnrollmentSelectScalar = {
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    enrolledAt?: boolean
+  }
+
+  export type PeriodEnrollmentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "periodId" | "examNumber" | "enrolledAt", ExtArgs["result"]["periodEnrollment"]>
+  export type PeriodEnrollmentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type PeriodEnrollmentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type PeriodEnrollmentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+
+  export type $PeriodEnrollmentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "PeriodEnrollment"
+    objects: {
+      period: Prisma.$ExamPeriodPayload<ExtArgs>
+      student: Prisma.$StudentPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: number
+      periodId: number
+      examNumber: string
+      enrolledAt: Date
+    }, ExtArgs["result"]["periodEnrollment"]>
+    composites: {}
+  }
+
+  type PeriodEnrollmentGetPayload<S extends boolean | null | undefined | PeriodEnrollmentDefaultArgs> = $Result.GetResult<Prisma.$PeriodEnrollmentPayload, S>
+
+  type PeriodEnrollmentCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<PeriodEnrollmentFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: PeriodEnrollmentCountAggregateInputType | true
+    }
+
+  export interface PeriodEnrollmentDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['PeriodEnrollment'], meta: { name: 'PeriodEnrollment' } }
+    /**
+     * Find zero or one PeriodEnrollment that matches the filter.
+     * @param {PeriodEnrollmentFindUniqueArgs} args - Arguments to find a PeriodEnrollment
+     * @example
+     * // Get one PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends PeriodEnrollmentFindUniqueArgs>(args: SelectSubset<T, PeriodEnrollmentFindUniqueArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one PeriodEnrollment that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {PeriodEnrollmentFindUniqueOrThrowArgs} args - Arguments to find a PeriodEnrollment
+     * @example
+     * // Get one PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends PeriodEnrollmentFindUniqueOrThrowArgs>(args: SelectSubset<T, PeriodEnrollmentFindUniqueOrThrowArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first PeriodEnrollment that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentFindFirstArgs} args - Arguments to find a PeriodEnrollment
+     * @example
+     * // Get one PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends PeriodEnrollmentFindFirstArgs>(args?: SelectSubset<T, PeriodEnrollmentFindFirstArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first PeriodEnrollment that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentFindFirstOrThrowArgs} args - Arguments to find a PeriodEnrollment
+     * @example
+     * // Get one PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends PeriodEnrollmentFindFirstOrThrowArgs>(args?: SelectSubset<T, PeriodEnrollmentFindFirstOrThrowArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more PeriodEnrollments that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all PeriodEnrollments
+     * const periodEnrollments = await prisma.periodEnrollment.findMany()
+     * 
+     * // Get first 10 PeriodEnrollments
+     * const periodEnrollments = await prisma.periodEnrollment.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const periodEnrollmentWithIdOnly = await prisma.periodEnrollment.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends PeriodEnrollmentFindManyArgs>(args?: SelectSubset<T, PeriodEnrollmentFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a PeriodEnrollment.
+     * @param {PeriodEnrollmentCreateArgs} args - Arguments to create a PeriodEnrollment.
+     * @example
+     * // Create one PeriodEnrollment
+     * const PeriodEnrollment = await prisma.periodEnrollment.create({
+     *   data: {
+     *     // ... data to create a PeriodEnrollment
+     *   }
+     * })
+     * 
+     */
+    create<T extends PeriodEnrollmentCreateArgs>(args: SelectSubset<T, PeriodEnrollmentCreateArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many PeriodEnrollments.
+     * @param {PeriodEnrollmentCreateManyArgs} args - Arguments to create many PeriodEnrollments.
+     * @example
+     * // Create many PeriodEnrollments
+     * const periodEnrollment = await prisma.periodEnrollment.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends PeriodEnrollmentCreateManyArgs>(args?: SelectSubset<T, PeriodEnrollmentCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many PeriodEnrollments and returns the data saved in the database.
+     * @param {PeriodEnrollmentCreateManyAndReturnArgs} args - Arguments to create many PeriodEnrollments.
+     * @example
+     * // Create many PeriodEnrollments
+     * const periodEnrollment = await prisma.periodEnrollment.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many PeriodEnrollments and only return the `id`
+     * const periodEnrollmentWithIdOnly = await prisma.periodEnrollment.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends PeriodEnrollmentCreateManyAndReturnArgs>(args?: SelectSubset<T, PeriodEnrollmentCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a PeriodEnrollment.
+     * @param {PeriodEnrollmentDeleteArgs} args - Arguments to delete one PeriodEnrollment.
+     * @example
+     * // Delete one PeriodEnrollment
+     * const PeriodEnrollment = await prisma.periodEnrollment.delete({
+     *   where: {
+     *     // ... filter to delete one PeriodEnrollment
+     *   }
+     * })
+     * 
+     */
+    delete<T extends PeriodEnrollmentDeleteArgs>(args: SelectSubset<T, PeriodEnrollmentDeleteArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one PeriodEnrollment.
+     * @param {PeriodEnrollmentUpdateArgs} args - Arguments to update one PeriodEnrollment.
+     * @example
+     * // Update one PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends PeriodEnrollmentUpdateArgs>(args: SelectSubset<T, PeriodEnrollmentUpdateArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more PeriodEnrollments.
+     * @param {PeriodEnrollmentDeleteManyArgs} args - Arguments to filter PeriodEnrollments to delete.
+     * @example
+     * // Delete a few PeriodEnrollments
+     * const { count } = await prisma.periodEnrollment.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends PeriodEnrollmentDeleteManyArgs>(args?: SelectSubset<T, PeriodEnrollmentDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more PeriodEnrollments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many PeriodEnrollments
+     * const periodEnrollment = await prisma.periodEnrollment.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends PeriodEnrollmentUpdateManyArgs>(args: SelectSubset<T, PeriodEnrollmentUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more PeriodEnrollments and returns the data updated in the database.
+     * @param {PeriodEnrollmentUpdateManyAndReturnArgs} args - Arguments to update many PeriodEnrollments.
+     * @example
+     * // Update many PeriodEnrollments
+     * const periodEnrollment = await prisma.periodEnrollment.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more PeriodEnrollments and only return the `id`
+     * const periodEnrollmentWithIdOnly = await prisma.periodEnrollment.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends PeriodEnrollmentUpdateManyAndReturnArgs>(args: SelectSubset<T, PeriodEnrollmentUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one PeriodEnrollment.
+     * @param {PeriodEnrollmentUpsertArgs} args - Arguments to update or create a PeriodEnrollment.
+     * @example
+     * // Update or create a PeriodEnrollment
+     * const periodEnrollment = await prisma.periodEnrollment.upsert({
+     *   create: {
+     *     // ... data to create a PeriodEnrollment
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the PeriodEnrollment we want to update
+     *   }
+     * })
+     */
+    upsert<T extends PeriodEnrollmentUpsertArgs>(args: SelectSubset<T, PeriodEnrollmentUpsertArgs<ExtArgs>>): Prisma__PeriodEnrollmentClient<$Result.GetResult<Prisma.$PeriodEnrollmentPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of PeriodEnrollments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentCountArgs} args - Arguments to filter PeriodEnrollments to count.
+     * @example
+     * // Count the number of PeriodEnrollments
+     * const count = await prisma.periodEnrollment.count({
+     *   where: {
+     *     // ... the filter for the PeriodEnrollments we want to count
+     *   }
+     * })
+    **/
+    count<T extends PeriodEnrollmentCountArgs>(
+      args?: Subset<T, PeriodEnrollmentCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], PeriodEnrollmentCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a PeriodEnrollment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends PeriodEnrollmentAggregateArgs>(args: Subset<T, PeriodEnrollmentAggregateArgs>): Prisma.PrismaPromise<GetPeriodEnrollmentAggregateType<T>>
+
+    /**
+     * Group by PeriodEnrollment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PeriodEnrollmentGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends PeriodEnrollmentGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: PeriodEnrollmentGroupByArgs['orderBy'] }
+        : { orderBy?: PeriodEnrollmentGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, PeriodEnrollmentGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetPeriodEnrollmentGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the PeriodEnrollment model
+   */
+  readonly fields: PeriodEnrollmentFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for PeriodEnrollment.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__PeriodEnrollmentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    period<T extends ExamPeriodDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriodDefaultArgs<ExtArgs>>): Prisma__ExamPeriodClient<$Result.GetResult<Prisma.$ExamPeriodPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    student<T extends StudentDefaultArgs<ExtArgs> = {}>(args?: Subset<T, StudentDefaultArgs<ExtArgs>>): Prisma__StudentClient<$Result.GetResult<Prisma.$StudentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the PeriodEnrollment model
+   */
+  interface PeriodEnrollmentFieldRefs {
+    readonly id: FieldRef<"PeriodEnrollment", 'Int'>
+    readonly periodId: FieldRef<"PeriodEnrollment", 'Int'>
+    readonly examNumber: FieldRef<"PeriodEnrollment", 'String'>
+    readonly enrolledAt: FieldRef<"PeriodEnrollment", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * PeriodEnrollment findUnique
+   */
+  export type PeriodEnrollmentFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter, which PeriodEnrollment to fetch.
+     */
+    where: PeriodEnrollmentWhereUniqueInput
+  }
+
+  /**
+   * PeriodEnrollment findUniqueOrThrow
+   */
+  export type PeriodEnrollmentFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter, which PeriodEnrollment to fetch.
+     */
+    where: PeriodEnrollmentWhereUniqueInput
+  }
+
+  /**
+   * PeriodEnrollment findFirst
+   */
+  export type PeriodEnrollmentFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter, which PeriodEnrollment to fetch.
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of PeriodEnrollments to fetch.
+     */
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for PeriodEnrollments.
+     */
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` PeriodEnrollments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` PeriodEnrollments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of PeriodEnrollments.
+     */
+    distinct?: PeriodEnrollmentScalarFieldEnum | PeriodEnrollmentScalarFieldEnum[]
+  }
+
+  /**
+   * PeriodEnrollment findFirstOrThrow
+   */
+  export type PeriodEnrollmentFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter, which PeriodEnrollment to fetch.
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of PeriodEnrollments to fetch.
+     */
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for PeriodEnrollments.
+     */
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` PeriodEnrollments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` PeriodEnrollments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of PeriodEnrollments.
+     */
+    distinct?: PeriodEnrollmentScalarFieldEnum | PeriodEnrollmentScalarFieldEnum[]
+  }
+
+  /**
+   * PeriodEnrollment findMany
+   */
+  export type PeriodEnrollmentFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter, which PeriodEnrollments to fetch.
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of PeriodEnrollments to fetch.
+     */
+    orderBy?: PeriodEnrollmentOrderByWithRelationInput | PeriodEnrollmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing PeriodEnrollments.
+     */
+    cursor?: PeriodEnrollmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` PeriodEnrollments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` PeriodEnrollments.
+     */
+    skip?: number
+    distinct?: PeriodEnrollmentScalarFieldEnum | PeriodEnrollmentScalarFieldEnum[]
+  }
+
+  /**
+   * PeriodEnrollment create
+   */
+  export type PeriodEnrollmentCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * The data needed to create a PeriodEnrollment.
+     */
+    data: XOR<PeriodEnrollmentCreateInput, PeriodEnrollmentUncheckedCreateInput>
+  }
+
+  /**
+   * PeriodEnrollment createMany
+   */
+  export type PeriodEnrollmentCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many PeriodEnrollments.
+     */
+    data: PeriodEnrollmentCreateManyInput | PeriodEnrollmentCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * PeriodEnrollment createManyAndReturn
+   */
+  export type PeriodEnrollmentCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * The data used to create many PeriodEnrollments.
+     */
+    data: PeriodEnrollmentCreateManyInput | PeriodEnrollmentCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * PeriodEnrollment update
+   */
+  export type PeriodEnrollmentUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * The data needed to update a PeriodEnrollment.
+     */
+    data: XOR<PeriodEnrollmentUpdateInput, PeriodEnrollmentUncheckedUpdateInput>
+    /**
+     * Choose, which PeriodEnrollment to update.
+     */
+    where: PeriodEnrollmentWhereUniqueInput
+  }
+
+  /**
+   * PeriodEnrollment updateMany
+   */
+  export type PeriodEnrollmentUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update PeriodEnrollments.
+     */
+    data: XOR<PeriodEnrollmentUpdateManyMutationInput, PeriodEnrollmentUncheckedUpdateManyInput>
+    /**
+     * Filter which PeriodEnrollments to update
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * Limit how many PeriodEnrollments to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * PeriodEnrollment updateManyAndReturn
+   */
+  export type PeriodEnrollmentUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * The data used to update PeriodEnrollments.
+     */
+    data: XOR<PeriodEnrollmentUpdateManyMutationInput, PeriodEnrollmentUncheckedUpdateManyInput>
+    /**
+     * Filter which PeriodEnrollments to update
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * Limit how many PeriodEnrollments to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * PeriodEnrollment upsert
+   */
+  export type PeriodEnrollmentUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * The filter to search for the PeriodEnrollment to update in case it exists.
+     */
+    where: PeriodEnrollmentWhereUniqueInput
+    /**
+     * In case the PeriodEnrollment found by the `where` argument doesn't exist, create a new PeriodEnrollment with this data.
+     */
+    create: XOR<PeriodEnrollmentCreateInput, PeriodEnrollmentUncheckedCreateInput>
+    /**
+     * In case the PeriodEnrollment was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<PeriodEnrollmentUpdateInput, PeriodEnrollmentUncheckedUpdateInput>
+  }
+
+  /**
+   * PeriodEnrollment delete
+   */
+  export type PeriodEnrollmentDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+    /**
+     * Filter which PeriodEnrollment to delete.
+     */
+    where: PeriodEnrollmentWhereUniqueInput
+  }
+
+  /**
+   * PeriodEnrollment deleteMany
+   */
+  export type PeriodEnrollmentDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which PeriodEnrollments to delete
+     */
+    where?: PeriodEnrollmentWhereInput
+    /**
+     * Limit how many PeriodEnrollments to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * PeriodEnrollment without action
+   */
+  export type PeriodEnrollmentDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PeriodEnrollment
+     */
+    select?: PeriodEnrollmentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the PeriodEnrollment
+     */
+    omit?: PeriodEnrollmentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PeriodEnrollmentInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model WrongNoteBookmark
    */
 
@@ -20317,6 +22858,21 @@ export namespace Prisma {
   export type CounselingRecordScalarFieldEnum = (typeof CounselingRecordScalarFieldEnum)[keyof typeof CounselingRecordScalarFieldEnum]
 
 
+  export const CounselingAppointmentScalarFieldEnum: {
+    id: 'id',
+    examNumber: 'examNumber',
+    scheduledAt: 'scheduledAt',
+    counselorName: 'counselorName',
+    agenda: 'agenda',
+    status: 'status',
+    cancelReason: 'cancelReason',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type CounselingAppointmentScalarFieldEnum = (typeof CounselingAppointmentScalarFieldEnum)[keyof typeof CounselingAppointmentScalarFieldEnum]
+
+
   export const ExamQuestionScalarFieldEnum: {
     id: 'id',
     sessionId: 'sessionId',
@@ -20399,6 +22955,16 @@ export namespace Prisma {
   };
 
   export type NoticeScalarFieldEnum = (typeof NoticeScalarFieldEnum)[keyof typeof NoticeScalarFieldEnum]
+
+
+  export const PeriodEnrollmentScalarFieldEnum: {
+    id: 'id',
+    periodId: 'periodId',
+    examNumber: 'examNumber',
+    enrolledAt: 'enrolledAt'
+  };
+
+  export type PeriodEnrollmentScalarFieldEnum = (typeof PeriodEnrollmentScalarFieldEnum)[keyof typeof PeriodEnrollmentScalarFieldEnum]
 
 
   export const WrongNoteBookmarkScalarFieldEnum: {
@@ -20677,6 +23243,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'AppointmentStatus'
+   */
+  export type EnumAppointmentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AppointmentStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'AppointmentStatus[]'
+   */
+  export type ListEnumAppointmentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AppointmentStatus[]'>
+    
+
+
+  /**
    * Reference to a field of type 'PointType'
    */
   export type EnumPointTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PointType'>
@@ -20744,7 +23324,9 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Student"> | Date | string
     updatedAt?: DateTimeFilter<"Student"> | Date | string
     absenceNotes?: AbsenceNoteListRelationFilter
+    counselingAppointments?: CounselingAppointmentListRelationFilter
     counselingRecords?: CounselingRecordListRelationFilter
+    enrollments?: PeriodEnrollmentListRelationFilter
     notifications?: NotificationLogListRelationFilter
     pointLogs?: PointLogListRelationFilter
     scores?: ScoreListRelationFilter
@@ -20772,7 +23354,9 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     absenceNotes?: AbsenceNoteOrderByRelationAggregateInput
+    counselingAppointments?: CounselingAppointmentOrderByRelationAggregateInput
     counselingRecords?: CounselingRecordOrderByRelationAggregateInput
+    enrollments?: PeriodEnrollmentOrderByRelationAggregateInput
     notifications?: NotificationLogOrderByRelationAggregateInput
     pointLogs?: PointLogOrderByRelationAggregateInput
     scores?: ScoreOrderByRelationAggregateInput
@@ -20803,7 +23387,9 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Student"> | Date | string
     updatedAt?: DateTimeFilter<"Student"> | Date | string
     absenceNotes?: AbsenceNoteListRelationFilter
+    counselingAppointments?: CounselingAppointmentListRelationFilter
     counselingRecords?: CounselingRecordListRelationFilter
+    enrollments?: PeriodEnrollmentListRelationFilter
     notifications?: NotificationLogListRelationFilter
     pointLogs?: PointLogListRelationFilter
     scores?: ScoreListRelationFilter
@@ -20873,6 +23459,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"ExamPeriod"> | boolean
     createdAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     updatedAt?: DateTimeFilter<"ExamPeriod"> | Date | string
+    enrollments?: PeriodEnrollmentListRelationFilter
     monthlyResults?: MonthlyResultListRelationFilter
     pointLogs?: PointLogListRelationFilter
     sessions?: ExamSessionListRelationFilter
@@ -20887,6 +23474,7 @@ export namespace Prisma {
     isActive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    enrollments?: PeriodEnrollmentOrderByRelationAggregateInput
     monthlyResults?: MonthlyResultOrderByRelationAggregateInput
     pointLogs?: PointLogOrderByRelationAggregateInput
     sessions?: ExamSessionOrderByRelationAggregateInput
@@ -20904,6 +23492,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"ExamPeriod"> | boolean
     createdAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     updatedAt?: DateTimeFilter<"ExamPeriod"> | Date | string
+    enrollments?: PeriodEnrollmentListRelationFilter
     monthlyResults?: MonthlyResultListRelationFilter
     pointLogs?: PointLogListRelationFilter
     sessions?: ExamSessionListRelationFilter
@@ -21430,6 +24019,83 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"CounselingRecord"> | Date | string
   }
 
+  export type CounselingAppointmentWhereInput = {
+    AND?: CounselingAppointmentWhereInput | CounselingAppointmentWhereInput[]
+    OR?: CounselingAppointmentWhereInput[]
+    NOT?: CounselingAppointmentWhereInput | CounselingAppointmentWhereInput[]
+    id?: IntFilter<"CounselingAppointment"> | number
+    examNumber?: StringFilter<"CounselingAppointment"> | string
+    scheduledAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    counselorName?: StringFilter<"CounselingAppointment"> | string
+    agenda?: StringNullableFilter<"CounselingAppointment"> | string | null
+    status?: EnumAppointmentStatusFilter<"CounselingAppointment"> | $Enums.AppointmentStatus
+    cancelReason?: StringNullableFilter<"CounselingAppointment"> | string | null
+    createdAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    updatedAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }
+
+  export type CounselingAppointmentOrderByWithRelationInput = {
+    id?: SortOrder
+    examNumber?: SortOrder
+    scheduledAt?: SortOrder
+    counselorName?: SortOrder
+    agenda?: SortOrderInput | SortOrder
+    status?: SortOrder
+    cancelReason?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    student?: StudentOrderByWithRelationInput
+  }
+
+  export type CounselingAppointmentWhereUniqueInput = Prisma.AtLeast<{
+    id?: number
+    AND?: CounselingAppointmentWhereInput | CounselingAppointmentWhereInput[]
+    OR?: CounselingAppointmentWhereInput[]
+    NOT?: CounselingAppointmentWhereInput | CounselingAppointmentWhereInput[]
+    examNumber?: StringFilter<"CounselingAppointment"> | string
+    scheduledAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    counselorName?: StringFilter<"CounselingAppointment"> | string
+    agenda?: StringNullableFilter<"CounselingAppointment"> | string | null
+    status?: EnumAppointmentStatusFilter<"CounselingAppointment"> | $Enums.AppointmentStatus
+    cancelReason?: StringNullableFilter<"CounselingAppointment"> | string | null
+    createdAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    updatedAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }, "id">
+
+  export type CounselingAppointmentOrderByWithAggregationInput = {
+    id?: SortOrder
+    examNumber?: SortOrder
+    scheduledAt?: SortOrder
+    counselorName?: SortOrder
+    agenda?: SortOrderInput | SortOrder
+    status?: SortOrder
+    cancelReason?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: CounselingAppointmentCountOrderByAggregateInput
+    _avg?: CounselingAppointmentAvgOrderByAggregateInput
+    _max?: CounselingAppointmentMaxOrderByAggregateInput
+    _min?: CounselingAppointmentMinOrderByAggregateInput
+    _sum?: CounselingAppointmentSumOrderByAggregateInput
+  }
+
+  export type CounselingAppointmentScalarWhereWithAggregatesInput = {
+    AND?: CounselingAppointmentScalarWhereWithAggregatesInput | CounselingAppointmentScalarWhereWithAggregatesInput[]
+    OR?: CounselingAppointmentScalarWhereWithAggregatesInput[]
+    NOT?: CounselingAppointmentScalarWhereWithAggregatesInput | CounselingAppointmentScalarWhereWithAggregatesInput[]
+    id?: IntWithAggregatesFilter<"CounselingAppointment"> | number
+    examNumber?: StringWithAggregatesFilter<"CounselingAppointment"> | string
+    scheduledAt?: DateTimeWithAggregatesFilter<"CounselingAppointment"> | Date | string
+    counselorName?: StringWithAggregatesFilter<"CounselingAppointment"> | string
+    agenda?: StringNullableWithAggregatesFilter<"CounselingAppointment"> | string | null
+    status?: EnumAppointmentStatusWithAggregatesFilter<"CounselingAppointment"> | $Enums.AppointmentStatus
+    cancelReason?: StringNullableWithAggregatesFilter<"CounselingAppointment"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"CounselingAppointment"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"CounselingAppointment"> | Date | string
+  }
+
   export type ExamQuestionWhereInput = {
     AND?: ExamQuestionWhereInput | ExamQuestionWhereInput[]
     OR?: ExamQuestionWhereInput[]
@@ -21871,6 +24537,62 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"Notice"> | Date | string
   }
 
+  export type PeriodEnrollmentWhereInput = {
+    AND?: PeriodEnrollmentWhereInput | PeriodEnrollmentWhereInput[]
+    OR?: PeriodEnrollmentWhereInput[]
+    NOT?: PeriodEnrollmentWhereInput | PeriodEnrollmentWhereInput[]
+    id?: IntFilter<"PeriodEnrollment"> | number
+    periodId?: IntFilter<"PeriodEnrollment"> | number
+    examNumber?: StringFilter<"PeriodEnrollment"> | string
+    enrolledAt?: DateTimeFilter<"PeriodEnrollment"> | Date | string
+    period?: XOR<ExamPeriodScalarRelationFilter, ExamPeriodWhereInput>
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }
+
+  export type PeriodEnrollmentOrderByWithRelationInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    enrolledAt?: SortOrder
+    period?: ExamPeriodOrderByWithRelationInput
+    student?: StudentOrderByWithRelationInput
+  }
+
+  export type PeriodEnrollmentWhereUniqueInput = Prisma.AtLeast<{
+    id?: number
+    periodId_examNumber?: PeriodEnrollmentPeriodIdExamNumberCompoundUniqueInput
+    AND?: PeriodEnrollmentWhereInput | PeriodEnrollmentWhereInput[]
+    OR?: PeriodEnrollmentWhereInput[]
+    NOT?: PeriodEnrollmentWhereInput | PeriodEnrollmentWhereInput[]
+    periodId?: IntFilter<"PeriodEnrollment"> | number
+    examNumber?: StringFilter<"PeriodEnrollment"> | string
+    enrolledAt?: DateTimeFilter<"PeriodEnrollment"> | Date | string
+    period?: XOR<ExamPeriodScalarRelationFilter, ExamPeriodWhereInput>
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }, "id" | "periodId_examNumber">
+
+  export type PeriodEnrollmentOrderByWithAggregationInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    enrolledAt?: SortOrder
+    _count?: PeriodEnrollmentCountOrderByAggregateInput
+    _avg?: PeriodEnrollmentAvgOrderByAggregateInput
+    _max?: PeriodEnrollmentMaxOrderByAggregateInput
+    _min?: PeriodEnrollmentMinOrderByAggregateInput
+    _sum?: PeriodEnrollmentSumOrderByAggregateInput
+  }
+
+  export type PeriodEnrollmentScalarWhereWithAggregatesInput = {
+    AND?: PeriodEnrollmentScalarWhereWithAggregatesInput | PeriodEnrollmentScalarWhereWithAggregatesInput[]
+    OR?: PeriodEnrollmentScalarWhereWithAggregatesInput[]
+    NOT?: PeriodEnrollmentScalarWhereWithAggregatesInput | PeriodEnrollmentScalarWhereWithAggregatesInput[]
+    id?: IntWithAggregatesFilter<"PeriodEnrollment"> | number
+    periodId?: IntWithAggregatesFilter<"PeriodEnrollment"> | number
+    examNumber?: StringWithAggregatesFilter<"PeriodEnrollment"> | string
+    enrolledAt?: DateTimeWithAggregatesFilter<"PeriodEnrollment"> | Date | string
+  }
+
   export type WrongNoteBookmarkWhereInput = {
     AND?: WrongNoteBookmarkWhereInput | WrongNoteBookmarkWhereInput[]
     OR?: WrongNoteBookmarkWhereInput[]
@@ -21957,7 +24679,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
@@ -21985,7 +24709,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
@@ -22013,7 +24739,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
@@ -22041,7 +24769,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
@@ -22120,6 +24850,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
@@ -22134,6 +24865,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
@@ -22147,6 +24879,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
@@ -22161,6 +24894,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
@@ -22702,6 +25436,86 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type CounselingAppointmentCreateInput = {
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    student: StudentCreateNestedOneWithoutCounselingAppointmentsInput
+  }
+
+  export type CounselingAppointmentUncheckedCreateInput = {
+    id?: number
+    examNumber: string
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type CounselingAppointmentUpdateInput = {
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    student?: StudentUpdateOneRequiredWithoutCounselingAppointmentsNestedInput
+  }
+
+  export type CounselingAppointmentUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type CounselingAppointmentCreateManyInput = {
+    id?: number
+    examNumber: string
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type CounselingAppointmentUpdateManyMutationInput = {
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type CounselingAppointmentUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ExamQuestionCreateInput = {
     questionNo: number
     correctAnswer: string
@@ -23155,6 +25969,50 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type PeriodEnrollmentCreateInput = {
+    enrolledAt?: Date | string
+    period: ExamPeriodCreateNestedOneWithoutEnrollmentsInput
+    student: StudentCreateNestedOneWithoutEnrollmentsInput
+  }
+
+  export type PeriodEnrollmentUncheckedCreateInput = {
+    id?: number
+    periodId: number
+    examNumber: string
+    enrolledAt?: Date | string
+  }
+
+  export type PeriodEnrollmentUpdateInput = {
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    period?: ExamPeriodUpdateOneRequiredWithoutEnrollmentsNestedInput
+    student?: StudentUpdateOneRequiredWithoutEnrollmentsNestedInput
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PeriodEnrollmentCreateManyInput = {
+    id?: number
+    periodId: number
+    examNumber: string
+    enrolledAt?: Date | string
+  }
+
+  export type PeriodEnrollmentUpdateManyMutationInput = {
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type WrongNoteBookmarkCreateInput = {
     memo?: string | null
     createdAt?: Date | string
@@ -23331,10 +26189,22 @@ export namespace Prisma {
     none?: AbsenceNoteWhereInput
   }
 
+  export type CounselingAppointmentListRelationFilter = {
+    every?: CounselingAppointmentWhereInput
+    some?: CounselingAppointmentWhereInput
+    none?: CounselingAppointmentWhereInput
+  }
+
   export type CounselingRecordListRelationFilter = {
     every?: CounselingRecordWhereInput
     some?: CounselingRecordWhereInput
     none?: CounselingRecordWhereInput
+  }
+
+  export type PeriodEnrollmentListRelationFilter = {
+    every?: PeriodEnrollmentWhereInput
+    some?: PeriodEnrollmentWhereInput
+    none?: PeriodEnrollmentWhereInput
   }
 
   export type NotificationLogListRelationFilter = {
@@ -23376,7 +26246,15 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type CounselingAppointmentOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
   export type CounselingRecordOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type PeriodEnrollmentOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -24187,6 +27065,67 @@ export namespace Prisma {
     id?: SortOrder
   }
 
+  export type EnumAppointmentStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.AppointmentStatus | EnumAppointmentStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumAppointmentStatusFilter<$PrismaModel> | $Enums.AppointmentStatus
+  }
+
+  export type CounselingAppointmentCountOrderByAggregateInput = {
+    id?: SortOrder
+    examNumber?: SortOrder
+    scheduledAt?: SortOrder
+    counselorName?: SortOrder
+    agenda?: SortOrder
+    status?: SortOrder
+    cancelReason?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type CounselingAppointmentAvgOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type CounselingAppointmentMaxOrderByAggregateInput = {
+    id?: SortOrder
+    examNumber?: SortOrder
+    scheduledAt?: SortOrder
+    counselorName?: SortOrder
+    agenda?: SortOrder
+    status?: SortOrder
+    cancelReason?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type CounselingAppointmentMinOrderByAggregateInput = {
+    id?: SortOrder
+    examNumber?: SortOrder
+    scheduledAt?: SortOrder
+    counselorName?: SortOrder
+    agenda?: SortOrder
+    status?: SortOrder
+    cancelReason?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type CounselingAppointmentSumOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type EnumAppointmentStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.AppointmentStatus | EnumAppointmentStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumAppointmentStatusWithAggregatesFilter<$PrismaModel> | $Enums.AppointmentStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumAppointmentStatusFilter<$PrismaModel>
+    _max?: NestedEnumAppointmentStatusFilter<$PrismaModel>
+  }
+
   export type ExamQuestionSessionIdQuestionNoCompoundUniqueInput = {
     sessionId: number
     questionNo: number
@@ -24548,6 +27487,42 @@ export namespace Prisma {
     _max?: NestedEnumNoticeTargetTypeFilter<$PrismaModel>
   }
 
+  export type PeriodEnrollmentPeriodIdExamNumberCompoundUniqueInput = {
+    periodId: number
+    examNumber: string
+  }
+
+  export type PeriodEnrollmentCountOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    enrolledAt?: SortOrder
+  }
+
+  export type PeriodEnrollmentAvgOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+  }
+
+  export type PeriodEnrollmentMaxOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    enrolledAt?: SortOrder
+  }
+
+  export type PeriodEnrollmentMinOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    enrolledAt?: SortOrder
+  }
+
+  export type PeriodEnrollmentSumOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+  }
+
   export type WrongNoteBookmarkExamNumberQuestionIdCompoundUniqueInput = {
     examNumber: string
     questionId: number
@@ -24597,11 +27572,25 @@ export namespace Prisma {
     connect?: AbsenceNoteWhereUniqueInput | AbsenceNoteWhereUniqueInput[]
   }
 
+  export type CounselingAppointmentCreateNestedManyWithoutStudentInput = {
+    create?: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput> | CounselingAppointmentCreateWithoutStudentInput[] | CounselingAppointmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: CounselingAppointmentCreateOrConnectWithoutStudentInput | CounselingAppointmentCreateOrConnectWithoutStudentInput[]
+    createMany?: CounselingAppointmentCreateManyStudentInputEnvelope
+    connect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+  }
+
   export type CounselingRecordCreateNestedManyWithoutStudentInput = {
     create?: XOR<CounselingRecordCreateWithoutStudentInput, CounselingRecordUncheckedCreateWithoutStudentInput> | CounselingRecordCreateWithoutStudentInput[] | CounselingRecordUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: CounselingRecordCreateOrConnectWithoutStudentInput | CounselingRecordCreateOrConnectWithoutStudentInput[]
     createMany?: CounselingRecordCreateManyStudentInputEnvelope
     connect?: CounselingRecordWhereUniqueInput | CounselingRecordWhereUniqueInput[]
+  }
+
+  export type PeriodEnrollmentCreateNestedManyWithoutStudentInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput> | PeriodEnrollmentCreateWithoutStudentInput[] | PeriodEnrollmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutStudentInput | PeriodEnrollmentCreateOrConnectWithoutStudentInput[]
+    createMany?: PeriodEnrollmentCreateManyStudentInputEnvelope
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
   }
 
   export type NotificationLogCreateNestedManyWithoutStudentInput = {
@@ -24646,11 +27635,25 @@ export namespace Prisma {
     connect?: AbsenceNoteWhereUniqueInput | AbsenceNoteWhereUniqueInput[]
   }
 
+  export type CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput = {
+    create?: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput> | CounselingAppointmentCreateWithoutStudentInput[] | CounselingAppointmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: CounselingAppointmentCreateOrConnectWithoutStudentInput | CounselingAppointmentCreateOrConnectWithoutStudentInput[]
+    createMany?: CounselingAppointmentCreateManyStudentInputEnvelope
+    connect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+  }
+
   export type CounselingRecordUncheckedCreateNestedManyWithoutStudentInput = {
     create?: XOR<CounselingRecordCreateWithoutStudentInput, CounselingRecordUncheckedCreateWithoutStudentInput> | CounselingRecordCreateWithoutStudentInput[] | CounselingRecordUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: CounselingRecordCreateOrConnectWithoutStudentInput | CounselingRecordCreateOrConnectWithoutStudentInput[]
     createMany?: CounselingRecordCreateManyStudentInputEnvelope
     connect?: CounselingRecordWhereUniqueInput | CounselingRecordWhereUniqueInput[]
+  }
+
+  export type PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput> | PeriodEnrollmentCreateWithoutStudentInput[] | PeriodEnrollmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutStudentInput | PeriodEnrollmentCreateOrConnectWithoutStudentInput[]
+    createMany?: PeriodEnrollmentCreateManyStudentInputEnvelope
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
   }
 
   export type NotificationLogUncheckedCreateNestedManyWithoutStudentInput = {
@@ -24742,6 +27745,20 @@ export namespace Prisma {
     deleteMany?: AbsenceNoteScalarWhereInput | AbsenceNoteScalarWhereInput[]
   }
 
+  export type CounselingAppointmentUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput> | CounselingAppointmentCreateWithoutStudentInput[] | CounselingAppointmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: CounselingAppointmentCreateOrConnectWithoutStudentInput | CounselingAppointmentCreateOrConnectWithoutStudentInput[]
+    upsert?: CounselingAppointmentUpsertWithWhereUniqueWithoutStudentInput | CounselingAppointmentUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: CounselingAppointmentCreateManyStudentInputEnvelope
+    set?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    disconnect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    delete?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    connect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    update?: CounselingAppointmentUpdateWithWhereUniqueWithoutStudentInput | CounselingAppointmentUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: CounselingAppointmentUpdateManyWithWhereWithoutStudentInput | CounselingAppointmentUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: CounselingAppointmentScalarWhereInput | CounselingAppointmentScalarWhereInput[]
+  }
+
   export type CounselingRecordUpdateManyWithoutStudentNestedInput = {
     create?: XOR<CounselingRecordCreateWithoutStudentInput, CounselingRecordUncheckedCreateWithoutStudentInput> | CounselingRecordCreateWithoutStudentInput[] | CounselingRecordUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: CounselingRecordCreateOrConnectWithoutStudentInput | CounselingRecordCreateOrConnectWithoutStudentInput[]
@@ -24754,6 +27771,20 @@ export namespace Prisma {
     update?: CounselingRecordUpdateWithWhereUniqueWithoutStudentInput | CounselingRecordUpdateWithWhereUniqueWithoutStudentInput[]
     updateMany?: CounselingRecordUpdateManyWithWhereWithoutStudentInput | CounselingRecordUpdateManyWithWhereWithoutStudentInput[]
     deleteMany?: CounselingRecordScalarWhereInput | CounselingRecordScalarWhereInput[]
+  }
+
+  export type PeriodEnrollmentUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput> | PeriodEnrollmentCreateWithoutStudentInput[] | PeriodEnrollmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutStudentInput | PeriodEnrollmentCreateOrConnectWithoutStudentInput[]
+    upsert?: PeriodEnrollmentUpsertWithWhereUniqueWithoutStudentInput | PeriodEnrollmentUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: PeriodEnrollmentCreateManyStudentInputEnvelope
+    set?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    disconnect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    delete?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    update?: PeriodEnrollmentUpdateWithWhereUniqueWithoutStudentInput | PeriodEnrollmentUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: PeriodEnrollmentUpdateManyWithWhereWithoutStudentInput | PeriodEnrollmentUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
   }
 
   export type NotificationLogUpdateManyWithoutStudentNestedInput = {
@@ -24840,6 +27871,20 @@ export namespace Prisma {
     deleteMany?: AbsenceNoteScalarWhereInput | AbsenceNoteScalarWhereInput[]
   }
 
+  export type CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput> | CounselingAppointmentCreateWithoutStudentInput[] | CounselingAppointmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: CounselingAppointmentCreateOrConnectWithoutStudentInput | CounselingAppointmentCreateOrConnectWithoutStudentInput[]
+    upsert?: CounselingAppointmentUpsertWithWhereUniqueWithoutStudentInput | CounselingAppointmentUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: CounselingAppointmentCreateManyStudentInputEnvelope
+    set?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    disconnect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    delete?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    connect?: CounselingAppointmentWhereUniqueInput | CounselingAppointmentWhereUniqueInput[]
+    update?: CounselingAppointmentUpdateWithWhereUniqueWithoutStudentInput | CounselingAppointmentUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: CounselingAppointmentUpdateManyWithWhereWithoutStudentInput | CounselingAppointmentUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: CounselingAppointmentScalarWhereInput | CounselingAppointmentScalarWhereInput[]
+  }
+
   export type CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput = {
     create?: XOR<CounselingRecordCreateWithoutStudentInput, CounselingRecordUncheckedCreateWithoutStudentInput> | CounselingRecordCreateWithoutStudentInput[] | CounselingRecordUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: CounselingRecordCreateOrConnectWithoutStudentInput | CounselingRecordCreateOrConnectWithoutStudentInput[]
@@ -24852,6 +27897,20 @@ export namespace Prisma {
     update?: CounselingRecordUpdateWithWhereUniqueWithoutStudentInput | CounselingRecordUpdateWithWhereUniqueWithoutStudentInput[]
     updateMany?: CounselingRecordUpdateManyWithWhereWithoutStudentInput | CounselingRecordUpdateManyWithWhereWithoutStudentInput[]
     deleteMany?: CounselingRecordScalarWhereInput | CounselingRecordScalarWhereInput[]
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput> | PeriodEnrollmentCreateWithoutStudentInput[] | PeriodEnrollmentUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutStudentInput | PeriodEnrollmentCreateOrConnectWithoutStudentInput[]
+    upsert?: PeriodEnrollmentUpsertWithWhereUniqueWithoutStudentInput | PeriodEnrollmentUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: PeriodEnrollmentCreateManyStudentInputEnvelope
+    set?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    disconnect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    delete?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    update?: PeriodEnrollmentUpdateWithWhereUniqueWithoutStudentInput | PeriodEnrollmentUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: PeriodEnrollmentUpdateManyWithWhereWithoutStudentInput | PeriodEnrollmentUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
   }
 
   export type NotificationLogUncheckedUpdateManyWithoutStudentNestedInput = {
@@ -24924,6 +27983,13 @@ export namespace Prisma {
     deleteMany?: WrongNoteBookmarkScalarWhereInput | WrongNoteBookmarkScalarWhereInput[]
   }
 
+  export type PeriodEnrollmentCreateNestedManyWithoutPeriodInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
+    createMany?: PeriodEnrollmentCreateManyPeriodInputEnvelope
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+  }
+
   export type MonthlyResultCreateNestedManyWithoutPeriodInput = {
     create?: XOR<MonthlyResultCreateWithoutPeriodInput, MonthlyResultUncheckedCreateWithoutPeriodInput> | MonthlyResultCreateWithoutPeriodInput[] | MonthlyResultUncheckedCreateWithoutPeriodInput[]
     connectOrCreate?: MonthlyResultCreateOrConnectWithoutPeriodInput | MonthlyResultCreateOrConnectWithoutPeriodInput[]
@@ -24943,6 +28009,13 @@ export namespace Prisma {
     connectOrCreate?: ExamSessionCreateOrConnectWithoutPeriodInput | ExamSessionCreateOrConnectWithoutPeriodInput[]
     createMany?: ExamSessionCreateManyPeriodInputEnvelope
     connect?: ExamSessionWhereUniqueInput | ExamSessionWhereUniqueInput[]
+  }
+
+  export type PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
+    createMany?: PeriodEnrollmentCreateManyPeriodInputEnvelope
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
   }
 
   export type MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput = {
@@ -24972,6 +28045,20 @@ export namespace Prisma {
     decrement?: number
     multiply?: number
     divide?: number
+  }
+
+  export type PeriodEnrollmentUpdateManyWithoutPeriodNestedInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
+    upsert?: PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput | PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput[]
+    createMany?: PeriodEnrollmentCreateManyPeriodInputEnvelope
+    set?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    disconnect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    delete?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    update?: PeriodEnrollmentUpdateWithWhereUniqueWithoutPeriodInput | PeriodEnrollmentUpdateWithWhereUniqueWithoutPeriodInput[]
+    updateMany?: PeriodEnrollmentUpdateManyWithWhereWithoutPeriodInput | PeriodEnrollmentUpdateManyWithWhereWithoutPeriodInput[]
+    deleteMany?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
   }
 
   export type MonthlyResultUpdateManyWithoutPeriodNestedInput = {
@@ -25014,6 +28101,20 @@ export namespace Prisma {
     update?: ExamSessionUpdateWithWhereUniqueWithoutPeriodInput | ExamSessionUpdateWithWhereUniqueWithoutPeriodInput[]
     updateMany?: ExamSessionUpdateManyWithWhereWithoutPeriodInput | ExamSessionUpdateManyWithWhereWithoutPeriodInput[]
     deleteMany?: ExamSessionScalarWhereInput | ExamSessionScalarWhereInput[]
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput = {
+    create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
+    upsert?: PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput | PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput[]
+    createMany?: PeriodEnrollmentCreateManyPeriodInputEnvelope
+    set?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    disconnect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    delete?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    connect?: PeriodEnrollmentWhereUniqueInput | PeriodEnrollmentWhereUniqueInput[]
+    update?: PeriodEnrollmentUpdateWithWhereUniqueWithoutPeriodInput | PeriodEnrollmentUpdateWithWhereUniqueWithoutPeriodInput[]
+    updateMany?: PeriodEnrollmentUpdateManyWithWhereWithoutPeriodInput | PeriodEnrollmentUpdateManyWithWhereWithoutPeriodInput[]
+    deleteMany?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
   }
 
   export type MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput = {
@@ -25332,6 +28433,24 @@ export namespace Prisma {
     update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutCounselingRecordsInput, StudentUpdateWithoutCounselingRecordsInput>, StudentUncheckedUpdateWithoutCounselingRecordsInput>
   }
 
+  export type StudentCreateNestedOneWithoutCounselingAppointmentsInput = {
+    create?: XOR<StudentCreateWithoutCounselingAppointmentsInput, StudentUncheckedCreateWithoutCounselingAppointmentsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutCounselingAppointmentsInput
+    connect?: StudentWhereUniqueInput
+  }
+
+  export type EnumAppointmentStatusFieldUpdateOperationsInput = {
+    set?: $Enums.AppointmentStatus
+  }
+
+  export type StudentUpdateOneRequiredWithoutCounselingAppointmentsNestedInput = {
+    create?: XOR<StudentCreateWithoutCounselingAppointmentsInput, StudentUncheckedCreateWithoutCounselingAppointmentsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutCounselingAppointmentsInput
+    upsert?: StudentUpsertWithoutCounselingAppointmentsInput
+    connect?: StudentWhereUniqueInput
+    update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutCounselingAppointmentsInput, StudentUpdateWithoutCounselingAppointmentsInput>, StudentUncheckedUpdateWithoutCounselingAppointmentsInput>
+  }
+
   export type ExamSessionCreateNestedOneWithoutQuestionsInput = {
     create?: XOR<ExamSessionCreateWithoutQuestionsInput, ExamSessionUncheckedCreateWithoutQuestionsInput>
     connectOrCreate?: ExamSessionCreateOrConnectWithoutQuestionsInput
@@ -25554,6 +28673,34 @@ export namespace Prisma {
 
   export type EnumNoticeTargetTypeFieldUpdateOperationsInput = {
     set?: $Enums.NoticeTargetType
+  }
+
+  export type ExamPeriodCreateNestedOneWithoutEnrollmentsInput = {
+    create?: XOR<ExamPeriodCreateWithoutEnrollmentsInput, ExamPeriodUncheckedCreateWithoutEnrollmentsInput>
+    connectOrCreate?: ExamPeriodCreateOrConnectWithoutEnrollmentsInput
+    connect?: ExamPeriodWhereUniqueInput
+  }
+
+  export type StudentCreateNestedOneWithoutEnrollmentsInput = {
+    create?: XOR<StudentCreateWithoutEnrollmentsInput, StudentUncheckedCreateWithoutEnrollmentsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutEnrollmentsInput
+    connect?: StudentWhereUniqueInput
+  }
+
+  export type ExamPeriodUpdateOneRequiredWithoutEnrollmentsNestedInput = {
+    create?: XOR<ExamPeriodCreateWithoutEnrollmentsInput, ExamPeriodUncheckedCreateWithoutEnrollmentsInput>
+    connectOrCreate?: ExamPeriodCreateOrConnectWithoutEnrollmentsInput
+    upsert?: ExamPeriodUpsertWithoutEnrollmentsInput
+    connect?: ExamPeriodWhereUniqueInput
+    update?: XOR<XOR<ExamPeriodUpdateToOneWithWhereWithoutEnrollmentsInput, ExamPeriodUpdateWithoutEnrollmentsInput>, ExamPeriodUncheckedUpdateWithoutEnrollmentsInput>
+  }
+
+  export type StudentUpdateOneRequiredWithoutEnrollmentsNestedInput = {
+    create?: XOR<StudentCreateWithoutEnrollmentsInput, StudentUncheckedCreateWithoutEnrollmentsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutEnrollmentsInput
+    upsert?: StudentUpsertWithoutEnrollmentsInput
+    connect?: StudentWhereUniqueInput
+    update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutEnrollmentsInput, StudentUpdateWithoutEnrollmentsInput>, StudentUncheckedUpdateWithoutEnrollmentsInput>
   }
 
   export type ExamQuestionCreateNestedOneWithoutWrongNoteBookmarksInput = {
@@ -25994,6 +29141,23 @@ export namespace Prisma {
     _max?: NestedEnumNotificationChannelFilter<$PrismaModel>
   }
 
+  export type NestedEnumAppointmentStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.AppointmentStatus | EnumAppointmentStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumAppointmentStatusFilter<$PrismaModel> | $Enums.AppointmentStatus
+  }
+
+  export type NestedEnumAppointmentStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.AppointmentStatus | EnumAppointmentStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumAppointmentStatusWithAggregatesFilter<$PrismaModel> | $Enums.AppointmentStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumAppointmentStatusFilter<$PrismaModel>
+    _max?: NestedEnumAppointmentStatusFilter<$PrismaModel>
+  }
+
   export type NestedEnumPointTypeFilter<$PrismaModel = never> = {
     equals?: $Enums.PointType | EnumPointTypeFieldRefInput<$PrismaModel>
     in?: $Enums.PointType[] | ListEnumPointTypeFieldRefInput<$PrismaModel>
@@ -26107,6 +29271,37 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type CounselingAppointmentCreateWithoutStudentInput = {
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type CounselingAppointmentUncheckedCreateWithoutStudentInput = {
+    id?: number
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type CounselingAppointmentCreateOrConnectWithoutStudentInput = {
+    where: CounselingAppointmentWhereUniqueInput
+    create: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput>
+  }
+
+  export type CounselingAppointmentCreateManyStudentInputEnvelope = {
+    data: CounselingAppointmentCreateManyStudentInput | CounselingAppointmentCreateManyStudentInput[]
+    skipDuplicates?: boolean
+  }
+
   export type CounselingRecordCreateWithoutStudentInput = {
     counselorName: string
     content: string
@@ -26135,6 +29330,27 @@ export namespace Prisma {
 
   export type CounselingRecordCreateManyStudentInputEnvelope = {
     data: CounselingRecordCreateManyStudentInput | CounselingRecordCreateManyStudentInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type PeriodEnrollmentCreateWithoutStudentInput = {
+    enrolledAt?: Date | string
+    period: ExamPeriodCreateNestedOneWithoutEnrollmentsInput
+  }
+
+  export type PeriodEnrollmentUncheckedCreateWithoutStudentInput = {
+    id?: number
+    periodId: number
+    enrolledAt?: Date | string
+  }
+
+  export type PeriodEnrollmentCreateOrConnectWithoutStudentInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    create: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput>
+  }
+
+  export type PeriodEnrollmentCreateManyStudentInputEnvelope = {
+    data: PeriodEnrollmentCreateManyStudentInput | PeriodEnrollmentCreateManyStudentInput[]
     skipDuplicates?: boolean
   }
 
@@ -26319,6 +29535,37 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"AbsenceNote"> | Date | string
   }
 
+  export type CounselingAppointmentUpsertWithWhereUniqueWithoutStudentInput = {
+    where: CounselingAppointmentWhereUniqueInput
+    update: XOR<CounselingAppointmentUpdateWithoutStudentInput, CounselingAppointmentUncheckedUpdateWithoutStudentInput>
+    create: XOR<CounselingAppointmentCreateWithoutStudentInput, CounselingAppointmentUncheckedCreateWithoutStudentInput>
+  }
+
+  export type CounselingAppointmentUpdateWithWhereUniqueWithoutStudentInput = {
+    where: CounselingAppointmentWhereUniqueInput
+    data: XOR<CounselingAppointmentUpdateWithoutStudentInput, CounselingAppointmentUncheckedUpdateWithoutStudentInput>
+  }
+
+  export type CounselingAppointmentUpdateManyWithWhereWithoutStudentInput = {
+    where: CounselingAppointmentScalarWhereInput
+    data: XOR<CounselingAppointmentUpdateManyMutationInput, CounselingAppointmentUncheckedUpdateManyWithoutStudentInput>
+  }
+
+  export type CounselingAppointmentScalarWhereInput = {
+    AND?: CounselingAppointmentScalarWhereInput | CounselingAppointmentScalarWhereInput[]
+    OR?: CounselingAppointmentScalarWhereInput[]
+    NOT?: CounselingAppointmentScalarWhereInput | CounselingAppointmentScalarWhereInput[]
+    id?: IntFilter<"CounselingAppointment"> | number
+    examNumber?: StringFilter<"CounselingAppointment"> | string
+    scheduledAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    counselorName?: StringFilter<"CounselingAppointment"> | string
+    agenda?: StringNullableFilter<"CounselingAppointment"> | string | null
+    status?: EnumAppointmentStatusFilter<"CounselingAppointment"> | $Enums.AppointmentStatus
+    cancelReason?: StringNullableFilter<"CounselingAppointment"> | string | null
+    createdAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+    updatedAt?: DateTimeFilter<"CounselingAppointment"> | Date | string
+  }
+
   export type CounselingRecordUpsertWithWhereUniqueWithoutStudentInput = {
     where: CounselingRecordWhereUniqueInput
     update: XOR<CounselingRecordUpdateWithoutStudentInput, CounselingRecordUncheckedUpdateWithoutStudentInput>
@@ -26348,6 +29595,32 @@ export namespace Prisma {
     counseledAt?: DateTimeFilter<"CounselingRecord"> | Date | string
     createdAt?: DateTimeFilter<"CounselingRecord"> | Date | string
     updatedAt?: DateTimeFilter<"CounselingRecord"> | Date | string
+  }
+
+  export type PeriodEnrollmentUpsertWithWhereUniqueWithoutStudentInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    update: XOR<PeriodEnrollmentUpdateWithoutStudentInput, PeriodEnrollmentUncheckedUpdateWithoutStudentInput>
+    create: XOR<PeriodEnrollmentCreateWithoutStudentInput, PeriodEnrollmentUncheckedCreateWithoutStudentInput>
+  }
+
+  export type PeriodEnrollmentUpdateWithWhereUniqueWithoutStudentInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    data: XOR<PeriodEnrollmentUpdateWithoutStudentInput, PeriodEnrollmentUncheckedUpdateWithoutStudentInput>
+  }
+
+  export type PeriodEnrollmentUpdateManyWithWhereWithoutStudentInput = {
+    where: PeriodEnrollmentScalarWhereInput
+    data: XOR<PeriodEnrollmentUpdateManyMutationInput, PeriodEnrollmentUncheckedUpdateManyWithoutStudentInput>
+  }
+
+  export type PeriodEnrollmentScalarWhereInput = {
+    AND?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
+    OR?: PeriodEnrollmentScalarWhereInput[]
+    NOT?: PeriodEnrollmentScalarWhereInput | PeriodEnrollmentScalarWhereInput[]
+    id?: IntFilter<"PeriodEnrollment"> | number
+    periodId?: IntFilter<"PeriodEnrollment"> | number
+    examNumber?: StringFilter<"PeriodEnrollment"> | string
+    enrolledAt?: DateTimeFilter<"PeriodEnrollment"> | Date | string
   }
 
   export type NotificationLogUpsertWithWhereUniqueWithoutStudentInput = {
@@ -26501,6 +29774,27 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"WrongNoteBookmark"> | Date | string
   }
 
+  export type PeriodEnrollmentCreateWithoutPeriodInput = {
+    enrolledAt?: Date | string
+    student: StudentCreateNestedOneWithoutEnrollmentsInput
+  }
+
+  export type PeriodEnrollmentUncheckedCreateWithoutPeriodInput = {
+    id?: number
+    examNumber: string
+    enrolledAt?: Date | string
+  }
+
+  export type PeriodEnrollmentCreateOrConnectWithoutPeriodInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    create: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput>
+  }
+
+  export type PeriodEnrollmentCreateManyPeriodInputEnvelope = {
+    data: PeriodEnrollmentCreateManyPeriodInput | PeriodEnrollmentCreateManyPeriodInput[]
+    skipDuplicates?: boolean
+  }
+
   export type MonthlyResultCreateWithoutPeriodInput = {
     month: number
     year: number
@@ -26598,6 +29892,22 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    update: XOR<PeriodEnrollmentUpdateWithoutPeriodInput, PeriodEnrollmentUncheckedUpdateWithoutPeriodInput>
+    create: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput>
+  }
+
+  export type PeriodEnrollmentUpdateWithWhereUniqueWithoutPeriodInput = {
+    where: PeriodEnrollmentWhereUniqueInput
+    data: XOR<PeriodEnrollmentUpdateWithoutPeriodInput, PeriodEnrollmentUncheckedUpdateWithoutPeriodInput>
+  }
+
+  export type PeriodEnrollmentUpdateManyWithWhereWithoutPeriodInput = {
+    where: PeriodEnrollmentScalarWhereInput
+    data: XOR<PeriodEnrollmentUpdateManyMutationInput, PeriodEnrollmentUncheckedUpdateManyWithoutPeriodInput>
+  }
+
   export type MonthlyResultUpsertWithWhereUniqueWithoutPeriodInput = {
     where: MonthlyResultWhereUniqueInput
     update: XOR<MonthlyResultUpdateWithoutPeriodInput, MonthlyResultUncheckedUpdateWithoutPeriodInput>
@@ -26682,6 +29992,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
   }
@@ -26695,6 +30006,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
   }
@@ -26723,6 +30035,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
   }
@@ -26736,6 +30049,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
   }
@@ -26785,6 +30099,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
   }
@@ -26798,6 +30113,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
   }
@@ -26910,6 +30226,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
   }
@@ -26923,6 +30240,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
   }
@@ -27027,7 +30345,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
@@ -27054,7 +30374,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
@@ -27137,7 +30459,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
@@ -27164,7 +30488,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
@@ -27224,7 +30550,9 @@ export namespace Prisma {
     statusUpdatedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
@@ -27251,7 +30579,9 @@ export namespace Prisma {
     statusUpdatedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
@@ -27334,7 +30664,9 @@ export namespace Prisma {
     statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
@@ -27361,7 +30693,9 @@ export namespace Prisma {
     statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
@@ -27389,7 +30723,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
@@ -27416,7 +30752,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
@@ -27459,7 +30797,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
@@ -27486,7 +30826,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
@@ -27513,6 +30855,8 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
@@ -27540,6 +30884,8 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
@@ -27583,6 +30929,8 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
@@ -27610,6 +30958,140 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
+  }
+
+  export type StudentCreateWithoutCounselingAppointmentsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogCreateNestedManyWithoutStudentInput
+    scores?: ScoreCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentUncheckedCreateWithoutCounselingAppointmentsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
+    scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentCreateOrConnectWithoutCounselingAppointmentsInput = {
+    where: StudentWhereUniqueInput
+    create: XOR<StudentCreateWithoutCounselingAppointmentsInput, StudentUncheckedCreateWithoutCounselingAppointmentsInput>
+  }
+
+  export type StudentUpsertWithoutCounselingAppointmentsInput = {
+    update: XOR<StudentUpdateWithoutCounselingAppointmentsInput, StudentUncheckedUpdateWithoutCounselingAppointmentsInput>
+    create: XOR<StudentCreateWithoutCounselingAppointmentsInput, StudentUncheckedCreateWithoutCounselingAppointmentsInput>
+    where?: StudentWhereInput
+  }
+
+  export type StudentUpdateToOneWithWhereWithoutCounselingAppointmentsInput = {
+    where?: StudentWhereInput
+    data: XOR<StudentUpdateWithoutCounselingAppointmentsInput, StudentUncheckedUpdateWithoutCounselingAppointmentsInput>
+  }
+
+  export type StudentUpdateWithoutCounselingAppointmentsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
+  }
+
+  export type StudentUncheckedUpdateWithoutCounselingAppointmentsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
@@ -27821,7 +31303,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
@@ -27848,7 +31332,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
@@ -27925,7 +31411,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
@@ -27952,7 +31440,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
@@ -27967,6 +31457,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
   }
@@ -27980,6 +31471,7 @@ export namespace Prisma {
     isActive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
   }
@@ -28009,7 +31501,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
@@ -28036,7 +31530,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
@@ -28067,6 +31563,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
   }
@@ -28080,6 +31577,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
   }
@@ -28115,7 +31613,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
@@ -28142,7 +31642,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
@@ -28267,6 +31769,208 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type ExamPeriodCreateWithoutEnrollmentsInput = {
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    totalWeeks?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
+    pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
+    sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+  }
+
+  export type ExamPeriodUncheckedCreateWithoutEnrollmentsInput = {
+    id?: number
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    totalWeeks?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
+    pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
+    sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+  }
+
+  export type ExamPeriodCreateOrConnectWithoutEnrollmentsInput = {
+    where: ExamPeriodWhereUniqueInput
+    create: XOR<ExamPeriodCreateWithoutEnrollmentsInput, ExamPeriodUncheckedCreateWithoutEnrollmentsInput>
+  }
+
+  export type StudentCreateWithoutEnrollmentsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogCreateNestedManyWithoutStudentInput
+    scores?: ScoreCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentUncheckedCreateWithoutEnrollmentsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
+    scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentCreateOrConnectWithoutEnrollmentsInput = {
+    where: StudentWhereUniqueInput
+    create: XOR<StudentCreateWithoutEnrollmentsInput, StudentUncheckedCreateWithoutEnrollmentsInput>
+  }
+
+  export type ExamPeriodUpsertWithoutEnrollmentsInput = {
+    update: XOR<ExamPeriodUpdateWithoutEnrollmentsInput, ExamPeriodUncheckedUpdateWithoutEnrollmentsInput>
+    create: XOR<ExamPeriodCreateWithoutEnrollmentsInput, ExamPeriodUncheckedCreateWithoutEnrollmentsInput>
+    where?: ExamPeriodWhereInput
+  }
+
+  export type ExamPeriodUpdateToOneWithWhereWithoutEnrollmentsInput = {
+    where?: ExamPeriodWhereInput
+    data: XOR<ExamPeriodUpdateWithoutEnrollmentsInput, ExamPeriodUncheckedUpdateWithoutEnrollmentsInput>
+  }
+
+  export type ExamPeriodUpdateWithoutEnrollmentsInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    totalWeeks?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
+    pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
+    sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+  }
+
+  export type ExamPeriodUncheckedUpdateWithoutEnrollmentsInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    totalWeeks?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
+    pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
+    sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+  }
+
+  export type StudentUpsertWithoutEnrollmentsInput = {
+    update: XOR<StudentUpdateWithoutEnrollmentsInput, StudentUncheckedUpdateWithoutEnrollmentsInput>
+    create: XOR<StudentCreateWithoutEnrollmentsInput, StudentUncheckedCreateWithoutEnrollmentsInput>
+    where?: StudentWhereInput
+  }
+
+  export type StudentUpdateToOneWithWhereWithoutEnrollmentsInput = {
+    where?: StudentWhereInput
+    data: XOR<StudentUpdateWithoutEnrollmentsInput, StudentUncheckedUpdateWithoutEnrollmentsInput>
+  }
+
+  export type StudentUpdateWithoutEnrollmentsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
+  }
+
+  export type StudentUncheckedUpdateWithoutEnrollmentsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
+  }
+
   export type ExamQuestionCreateWithoutWrongNoteBookmarksInput = {
     questionNo: number
     correctAnswer: string
@@ -28315,7 +32019,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
@@ -28342,7 +32048,9 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
     counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
@@ -28419,7 +32127,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
@@ -28446,7 +32156,9 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
@@ -28467,6 +32179,17 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type CounselingAppointmentCreateManyStudentInput = {
+    id?: number
+    scheduledAt: Date | string
+    counselorName: string
+    agenda?: string | null
+    status?: $Enums.AppointmentStatus
+    cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type CounselingRecordCreateManyStudentInput = {
     id?: number
     counselorName: string
@@ -28476,6 +32199,12 @@ export namespace Prisma {
     counseledAt: Date | string
     createdAt?: Date | string
     updatedAt?: Date | string
+  }
+
+  export type PeriodEnrollmentCreateManyStudentInput = {
+    id?: number
+    periodId: number
+    enrolledAt?: Date | string
   }
 
   export type NotificationLogCreateManyStudentInput = {
@@ -28570,6 +32299,38 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type CounselingAppointmentUpdateWithoutStudentInput = {
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type CounselingAppointmentUncheckedUpdateWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type CounselingAppointmentUncheckedUpdateManyWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    scheduledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    counselorName?: StringFieldUpdateOperationsInput | string
+    agenda?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumAppointmentStatusFieldUpdateOperationsInput | $Enums.AppointmentStatus
+    cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type CounselingRecordUpdateWithoutStudentInput = {
     counselorName?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
@@ -28600,6 +32361,23 @@ export namespace Prisma {
     counseledAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PeriodEnrollmentUpdateWithoutStudentInput = {
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    period?: ExamPeriodUpdateOneRequiredWithoutEnrollmentsNestedInput
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateManyWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type NotificationLogUpdateWithoutStudentInput = {
@@ -28750,6 +32528,12 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type PeriodEnrollmentCreateManyPeriodInput = {
+    id?: number
+    examNumber: string
+    enrolledAt?: Date | string
+  }
+
   export type MonthlyResultCreateManyPeriodInput = {
     id?: number
     month: number
@@ -28780,6 +32564,23 @@ export namespace Prisma {
     cancelReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+  }
+
+  export type PeriodEnrollmentUpdateWithoutPeriodInput = {
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    student?: StudentUpdateOneRequiredWithoutEnrollmentsNestedInput
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateWithoutPeriodInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PeriodEnrollmentUncheckedUpdateManyWithoutPeriodInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    enrolledAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type MonthlyResultUpdateWithoutPeriodInput = {

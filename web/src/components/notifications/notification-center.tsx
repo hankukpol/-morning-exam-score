@@ -4,13 +4,14 @@ import {
   ExamType,
   NotificationType,
   StudentStatus,
+  Subject,
 } from "@/generated/prisma";
 import {
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
 } from "@/lib/analytics/presentation";
-import { EXAM_TYPE_LABEL, NOTIFICATION_TYPE_LABEL } from "@/lib/constants";
-import { formatDateTime } from "@/lib/format";
+import { EXAM_TYPE_LABEL, NOTIFICATION_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { formatDate, formatDateTime } from "@/lib/format";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
@@ -41,6 +42,22 @@ type NotificationLogRecord = {
   };
 };
 
+type SessionOption = {
+  id: number;
+  examType: string;
+  week: number;
+  subject: Subject;
+  examDate: string;
+  isCancelled: boolean;
+};
+
+type PeriodOption = {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sessions: SessionOption[];
+};
+
 type NotificationCenterProps = {
   filters: {
     examType: ExamType;
@@ -60,6 +77,7 @@ type NotificationCenterProps = {
   students: NotificationStudent[];
   pendingLogs: NotificationLogRecord[];
   historyLogs: NotificationLogRecord[];
+  periods: PeriodOption[];
 };
 
 type CenterPayload = Omit<NotificationCenterProps, "filters">;
@@ -92,6 +110,7 @@ export function NotificationCenter({
   students: initialStudents,
   pendingLogs: initialPendingLogs,
   historyLogs: initialHistoryLogs,
+  periods,
 }: NotificationCenterProps) {
   const [students, setStudents] = useState(initialStudents);
   const [pendingLogs, setPendingLogs] = useState(initialPendingLogs);
@@ -100,6 +119,7 @@ export function NotificationCenter({
   const [selectedLogIds, setSelectedLogIds] = useState(
     initialPendingLogs.map((log) => log.id),
   );
+  const activePeriod = periods.find((p) => p.isActive) ?? periods[0];
   const [manualType, setManualType] = useState<NotificationType>(NotificationType.NOTICE);
   const [manualMessage, setManualMessage] = useState("");
   const [manualExamNumbers, setManualExamNumbers] = useState("");
@@ -107,6 +127,17 @@ export function NotificationCenter({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // 미입력자 알림
+  const [missingPeriodId, setMissingPeriodId] = useState<string>(
+    activePeriod?.id?.toString() ?? "",
+  );
+  const [missingSessionId, setMissingSessionId] = useState<string>("");
+  const [missingStudents, setMissingStudents] = useState<
+    Array<{ examNumber: string; name: string; notificationConsent: boolean }> | null
+  >(null);
+  const [missingMessage, setMissingMessage] = useState("");
+  const missingSessions =
+    periods.find((p) => p.id === Number(missingPeriodId))?.sessions ?? [];
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -279,6 +310,69 @@ export function NotificationCenter({
           null,
           error instanceof Error ? error.message : "수동 알림 발송에 실패했습니다.",
         );
+      }
+    });
+  }
+
+  function previewMissingStudents() {
+    if (!missingSessionId) {
+      setMessage(null, "회차를 선택하세요.");
+      return;
+    }
+
+    setMessage(null, null);
+
+    startTransition(async () => {
+      try {
+        const result = await requestJson(
+          `/api/notifications/missing-scores?sessionId=${missingSessionId}`,
+        );
+        setMissingStudents(result.students);
+        if (result.students.length === 0) {
+          setMessage("미입력 수강생이 없습니다.", null);
+        }
+      } catch (error) {
+        setMessage(null, error instanceof Error ? error.message : "조회에 실패했습니다.");
+      }
+    });
+  }
+
+  function sendMissingNotification() {
+    if (!missingStudents || missingStudents.length === 0) return;
+
+    const examNumbers = missingStudents.map((s) => s.examNumber);
+
+    if (
+      !window.confirm(
+        `${examNumbers.length}명에게 성적 미입력 안내 알림을 발송하시겠습니까?`,
+      )
+    ) {
+      return;
+    }
+
+    setMessage(null, null);
+
+    startTransition(async () => {
+      try {
+        const result = await requestJson("/api/notifications/send", {
+          method: "POST",
+          body: JSON.stringify({
+            type: NotificationType.NOTICE,
+            message: missingMessage.trim() || "오늘 시험 성적이 아직 등록되지 않았습니다. 확인 부탁드립니다.",
+            examType: filters.examType,
+            examNumbers,
+          }),
+        });
+
+        setMissingStudents(null);
+        setMissingSessionId("");
+        await refreshCenter();
+        setMessage(
+          `발송 완료 ${result.sentCount}건, 실패 ${result.failedCount}건, 제외 ${result.skippedCount}건`,
+          null,
+        );
+      } catch (error) {
+        setMessage(null, error instanceof Error ? error.message : "발송에 실패했습니다.");
       }
     });
   }
@@ -573,6 +667,117 @@ export function NotificationCenter({
           </table>
         </div>
       </section>
+
+      {/* 성적 미입력자 알림 */}
+      {periods.length > 0 ? (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <h2 className="text-xl font-semibold">성적 미입력자 알림</h2>
+          <p className="mt-3 text-sm leading-7 text-slate">
+            특정 회차에 성적이 없는 등록 수강생을 찾아 공지 알림을 발송합니다.
+          </p>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-2 block text-sm font-medium">시험 기간</label>
+              <select
+                value={missingPeriodId}
+                onChange={(event) => {
+                  setMissingPeriodId(event.target.value);
+                  setMissingSessionId("");
+                  setMissingStudents(null);
+                }}
+                className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+              >
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.name}
+                    {period.isActive ? " (현재)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">회차</label>
+              <select
+                value={missingSessionId}
+                onChange={(event) => {
+                  setMissingSessionId(event.target.value);
+                  setMissingStudents(null);
+                }}
+                className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+              >
+                <option value="">-- 회차 선택 --</option>
+                {missingSessions.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {formatDate(session.examDate)} · {session.week}주차 ·{" "}
+                    {SUBJECT_LABEL[session.subject]}
+                    {session.isCancelled ? " [취소]" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={previewMissingStudents}
+                disabled={isPending || !missingSessionId}
+                className="w-full rounded-full border border-ink/10 px-4 py-3 text-sm font-semibold transition hover:border-forest/30 hover:text-forest disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                미입력 수강생 조회
+              </button>
+            </div>
+          </div>
+
+          {missingStudents !== null && missingStudents.length > 0 ? (
+            <div className="mt-6">
+              <div className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                <p className="text-sm font-semibold">
+                  미입력 수강생 {missingStudents.length}명
+                </p>
+                <p className="mt-1 text-xs text-slate">
+                  수신 동의 미설정자에게는 발송이 제외됩니다.
+                </p>
+                <div className="mt-3 max-h-40 overflow-y-auto rounded-xl border border-ink/10 bg-white p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {missingStudents.map((student) => (
+                      <span
+                        key={student.examNumber}
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${
+                          student.notificationConsent
+                            ? "border-forest/20 bg-forest/10 text-forest"
+                            : "border-ink/10 bg-mist text-slate"
+                        }`}
+                      >
+                        {student.examNumber} {student.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium">
+                  알림 메시지 (비워두면 기본 메시지 사용)
+                </label>
+                <textarea
+                  rows={3}
+                  value={missingMessage}
+                  onChange={(event) => setMissingMessage(event.target.value)}
+                  className="w-full rounded-[20px] border border-ink/10 px-4 py-3 text-sm"
+                  placeholder="오늘 시험 성적이 아직 등록되지 않았습니다. 확인 부탁드립니다."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={sendMissingNotification}
+                disabled={isPending}
+                className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+              >
+                {missingStudents.length}명에게 알림 발송
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }

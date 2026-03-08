@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma";
 import {
   AttendType,
   ExamType,
+  StudentType,
   Subject,
 } from "@/generated/prisma";
 import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
@@ -23,13 +24,7 @@ type ScoreWithStudent = ScoreLike & {
 };
 
 function normalizeScoreValue(score: Pick<ScoreLike, "finalScore" | "rawScore">) {
-  const value = score.finalScore ?? score.rawScore;
-
-  if (value === null) {
-    return null;
-  }
-
-  return value > 100 ? value / 2 : value;
+  return score.finalScore ?? score.rawScore;
 }
 
 function average(values: number[]) {
@@ -285,9 +280,14 @@ export async function getMonthlyStudentAnalysis(input: {
 
   const start = new Date(input.year, input.month - 1, 1);
   const end = new Date(input.year, input.month, 1);
-  const student = await getPrisma().student.findUnique({
+  const search = input.examNumber.trim();
+  const student = await getPrisma().student.findFirst({
     where: {
-      examNumber: input.examNumber,
+      examType: input.examType,
+      OR: [
+        { examNumber: search },
+        { name: search },
+      ],
     },
   });
 
@@ -424,6 +424,17 @@ export async function getSubjectTrendAnalysis(input: {
     return [];
   }
 
+  const search = input.examNumber?.trim();
+  let resolvedExamNumber = search;
+
+  if (search && !/^\d/.test(search)) {
+    const found = await getPrisma().student.findFirst({
+      where: { examType: input.examType, name: search },
+      select: { examNumber: true },
+    });
+    resolvedExamNumber = found?.examNumber ?? search;
+  }
+
   const sessions = await getPrisma().examSession.findMany({
     where: {
       periodId: input.periodId,
@@ -450,8 +461,8 @@ export async function getSubjectTrendAnalysis(input: {
   return sessions.map((session) => {
     const values = scoreValues(session.scores);
     const studentScore =
-      input.examNumber
-        ? session.scores.find((score) => score.examNumber === input.examNumber) ?? null
+      resolvedExamNumber
+        ? session.scores.find((score) => score.examNumber === resolvedExamNumber) ?? null
         : null;
 
     return {
@@ -467,6 +478,111 @@ export async function getSubjectTrendAnalysis(input: {
       studentScore: studentScore ? normalizeScoreValue(studentScore) : null,
       studentName: studentScore?.student.name ?? null,
     };
+  });
+}
+
+export type SubjectStudentRankingRow = {
+  examNumber: string;
+  name: string;
+  studentType: StudentType;
+  isActive: boolean;
+  sessionCount: number;
+  totalSessions: number;
+  attendanceRate: number;
+  average: number | null;
+  highest: number | null;
+  lowest: number | null;
+  rank: number | null;
+};
+
+export async function getSubjectStudentRanking(input: {
+  periodId?: number;
+  examType: ExamType;
+  subject?: Subject;
+}): Promise<SubjectStudentRankingRow[]> {
+  if (!input.subject) {
+    return [];
+  }
+
+  const sessions = await getPrisma().examSession.findMany({
+    where: {
+      periodId: input.periodId,
+      examType: input.examType,
+      subject: input.subject,
+      isCancelled: false,
+    },
+    include: {
+      scores: {
+        include: {
+          student: {
+            select: {
+              name: true,
+              studentType: true,
+              isActive: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { examDate: "asc" },
+  });
+
+  const totalSessions = sessions.length;
+
+  const studentMap = new Map<string, {
+    examNumber: string;
+    name: string;
+    studentType: StudentType;
+    isActive: boolean;
+    scores: number[];
+    sessionCount: number;
+  }>();
+
+  for (const session of sessions) {
+    for (const score of session.scores) {
+      if (score.attendType !== AttendType.NORMAL && score.attendType !== AttendType.LIVE) {
+        continue;
+      }
+      const value = normalizeScoreValue(score);
+      if (value === null) {
+        continue;
+      }
+      const existing = studentMap.get(score.examNumber) ?? {
+        examNumber: score.examNumber,
+        name: score.student.name,
+        studentType: score.student.studentType,
+        isActive: score.student.isActive,
+        scores: [],
+        sessionCount: 0,
+      };
+      existing.scores.push(value);
+      existing.sessionCount++;
+      studentMap.set(score.examNumber, existing);
+    }
+  }
+
+  const sorted = Array.from(studentMap.values())
+    .map((s) => ({
+      examNumber: s.examNumber,
+      name: s.name,
+      studentType: s.studentType,
+      isActive: s.isActive,
+      sessionCount: s.sessionCount,
+      totalSessions,
+      attendanceRate:
+        totalSessions === 0 ? 0 : Math.round((s.sessionCount / totalSessions) * 1000) / 10,
+      average: average(s.scores),
+      highest: s.scores.length > 0 ? Math.max(...s.scores) : null,
+      lowest: s.scores.length > 0 ? Math.min(...s.scores) : null,
+    }))
+    .sort((a, b) => (b.average ?? -1) - (a.average ?? -1));
+
+  let rank = 1;
+  return sorted.map((row, index) => {
+    if (index > 0 && row.average !== sorted[index - 1].average) {
+      rank = index + 1;
+    }
+    return { ...row, rank: row.average !== null ? rank : null };
   });
 }
 

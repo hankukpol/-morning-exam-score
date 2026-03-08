@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     week: weekValue ? Number(weekValue) : undefined,
     subject: (searchParams.get("subject") as Subject | null) ?? undefined,
     examNumber: searchParams.get("examNumber") ?? undefined,
+    query: searchParams.get("query") ?? undefined,
     date: dateValue ? new Date(dateValue) : undefined,
   });
 

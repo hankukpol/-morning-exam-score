@@ -1,4 +1,6 @@
 import { ExamType } from "@/generated/prisma";
+import { formatTuesdayWeekLabel, getTuesdayWeekKey, getTuesdayWeekStart } from "@/lib/analytics/week";
+import { type TuesdayWeekSummary } from "@/lib/analytics/service";
 import { listPeriods } from "@/lib/periods/service";
 
 type SearchParamValue = string | string[] | undefined;
@@ -38,18 +40,56 @@ export async function getAnalyticsContext(searchParams?: SearchParams) {
   };
 }
 
-export function getWeekOptions(period: PeriodRecord | null, examType: ExamType) {
+export function getWeekOptions(period: PeriodRecord | null, examType: ExamType): TuesdayWeekSummary[] {
   if (!period) {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      period.sessions
-        .filter((session) => session.examType === examType)
-        .map((session) => session.week),
-    ),
-  ).sort((left, right) => left - right);
+  const grouped = new Map<
+    string,
+    {
+      key: string;
+      startDate: Date;
+      endDate: Date;
+      legacyWeeks: number[];
+    }
+  >();
+
+  for (const session of period.sessions) {
+    if (session.examType !== examType) {
+      continue;
+    }
+
+    const key = getTuesdayWeekKey(session.examDate);
+    const existing = grouped.get(key);
+
+    if (existing) {
+      if (!existing.legacyWeeks.includes(session.week)) {
+        existing.legacyWeeks.push(session.week);
+        existing.legacyWeeks.sort((left, right) => left - right);
+      }
+      continue;
+    }
+
+    const startDate = getTuesdayWeekStart(session.examDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+
+    grouped.set(key, {
+      key,
+      startDate,
+      endDate,
+      legacyWeeks: [session.week],
+    });
+  }
+
+  return Array.from(grouped.values())
+    .map((option) => ({
+      ...option,
+      label: formatTuesdayWeekLabel(option.key),
+    }))
+    .sort((left, right) => left.startDate.getTime() - right.startDate.getTime());
 }
 
 export function getMonthOptions(period: PeriodRecord | null, examType: ExamType) {

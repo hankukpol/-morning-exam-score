@@ -27,9 +27,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const mainFile = formData.get("mainFile");
-    const oxFile = formData.get("oxFile");
     const detailFile = formData.get("detailFile");
-    const oxDetailFile = formData.get("oxDetailFile");
     const sessionId = Number(formData.get("sessionId"));
     const mode = (formData.get("mode") as Mode | null) ?? "preview";
     const attendType = formData.get("attendType") as AttendType | null;
@@ -44,25 +42,16 @@ export async function POST(request: Request) {
     }
 
     const mainBuffer = Buffer.from(await mainFile.arrayBuffer());
-    const oxBuffer = oxFile instanceof File ? Buffer.from(await oxFile.arrayBuffer()) : undefined;
     const detailBuffer =
       detailFile instanceof File ? Buffer.from(await detailFile.arrayBuffer()) : undefined;
-    const oxDetailBuffer =
-      oxDetailFile instanceof File
-        ? Buffer.from(await oxDetailFile.arrayBuffer())
-        : undefined;
 
     if (mode === "preview") {
       const preview = await previewOnlineScoreUpload({
         sessionId,
         mainFileName: mainFile.name,
         mainBuffer,
-        oxFileName: oxFile instanceof File ? oxFile.name : undefined,
-        oxBuffer,
         detailFileName: detailFile instanceof File ? detailFile.name : undefined,
         detailBuffer,
-        oxDetailFileName: oxDetailFile instanceof File ? oxDetailFile.name : undefined,
-        oxDetailBuffer,
         resolutions,
         attendType: attendType ?? undefined,
       });
@@ -75,12 +64,8 @@ export async function POST(request: Request) {
       sessionId,
       mainFileName: mainFile.name,
       mainBuffer,
-      oxFileName: oxFile instanceof File ? oxFile.name : undefined,
-      oxBuffer,
       detailFileName: detailFile instanceof File ? detailFile.name : undefined,
       detailBuffer,
-      oxDetailFileName: oxDetailFile instanceof File ? oxDetailFile.name : undefined,
-      oxDetailBuffer,
       resolutions,
       attendType: attendType ?? undefined,
       ipAddress: request.headers.get("x-forwarded-for"),

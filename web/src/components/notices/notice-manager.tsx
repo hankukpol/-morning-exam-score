@@ -23,12 +23,12 @@ type NoticeManagerProps = {
   };
 };
 
-type PublishedFilterLabel = "all" | "published" | "draft";
+type PublishedFilterLabel = "전체" | "게시됨" | "임시저장";
 
 const TARGET_OPTIONS: Array<{ value: NoticeTargetType; label: string }> = [
-  { value: NoticeTargetType.ALL, label: "All students" },
-  { value: NoticeTargetType.GONGCHAE, label: "Gongchae" },
-  { value: NoticeTargetType.GYEONGCHAE, label: "Gyeongchae" },
+  { value: NoticeTargetType.ALL, label: "전체 수강생" },
+  { value: NoticeTargetType.GONGCHAE, label: "공채" },
+  { value: NoticeTargetType.GYEONGCHAE, label: "경채" },
 ];
 
 function sortNotices(notices: NoticeRecord[]) {
@@ -128,14 +128,14 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
 
   function publishedFilterLabel() {
     if (filters.published === true) {
-      return "published";
+      return "게시됨";
     }
 
     if (filters.published === false) {
-      return "draft";
+      return "임시저장";
     }
 
-    return "all";
+    return "전체";
   }
 
   function setMessage(nextNotice: string | null, nextError: string | null) {
@@ -177,15 +177,15 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
             published.notificationError
               ? `${
                   editingId
-                    ? "Notice updated and published."
-                    : "Notice created and published."
-                } Notification failed: ${published.notificationError}`
+                    ? "공지사항이 수정 및 게시되었습니다."
+                    : "공지사항이 작성 및 게시되었습니다."
+                } 알림 발송 실패: ${published.notificationError}`
               : editingId
-                ? "Notice updated and published."
-                : "Notice created and published.",
+                ? "공지사항이 수정 및 게시되었습니다."
+                : "공지사항이 작성 및 게시되었습니다.",
           );
         } else {
-          setNoticeMessage(editingId ? "Notice updated." : "Notice created.");
+          setNoticeMessage(editingId ? "공지사항이 수정되었습니다." : "공지사항이 작성되었습니다.");
         }
 
         setNotices(nextNotices);
@@ -193,7 +193,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         resetForm();
       } catch (error) {
         setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "Failed to save notice.");
+        setErrorMessage(error instanceof Error ? error.message : "공지사항 저장에 실패했습니다.");
       }
     });
   }
@@ -216,21 +216,21 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         );
         setNoticeMessage(
           payload.notificationError
-            ? `${nextPublished ? "Notice published." : "Notice moved back to draft."} Notification failed: ${payload.notificationError}`
+            ? `${nextPublished ? "공지사항이 게시되었습니다." : "임시저장으로 변경되었습니다."} 알림 발송 실패: ${payload.notificationError}`
             : nextPublished
-              ? "Notice published."
-              : "Notice moved back to draft.",
+              ? "공지사항이 게시되었습니다."
+              : "임시저장으로 변경되었습니다.",
         );
         setErrorMessage(null);
       } catch (error) {
         setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "Failed to update publish state.");
+        setErrorMessage(error instanceof Error ? error.message : "게시 상태 변경에 실패했습니다.");
       }
     });
   }
 
   function removeNotice(id: number) {
-    if (!window.confirm("Delete this notice?")) {
+    if (!window.confirm("이 공지사항을 삭제하시겠습니까?")) {
       return;
     }
 
@@ -248,11 +248,11 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
           resetForm();
         }
 
-        setNoticeMessage("Notice deleted.");
+        setNoticeMessage("공지사항이 삭제되었습니다.");
         setErrorMessage(null);
       } catch (error) {
         setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "Failed to delete notice.");
+        setErrorMessage(error instanceof Error ? error.message : "공지사항 삭제에 실패했습니다.");
       }
     });
   }
@@ -265,12 +265,12 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">
-              {editingId ? "Edit notice" : "Create notice"}
+              {editingId ? "공지사항 수정" : "공지사항 작성"}
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              Current filter: target {filters.targetType ? targetLabel(filters.targetType) : "all"}
+              현재 필터: 대상 {filters.targetType ? targetLabel(filters.targetType) : "전체"}
               {" / "}
-              status {currentPublishedFilter}
+              상태 {currentPublishedFilter}
             </p>
           </div>
           <label className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm">
@@ -279,7 +279,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               checked={notifyOnPublish}
               onChange={(event) => setNotifyOnPublish(event.target.checked)}
             />
-            <span>Send notification when publishing</span>
+            <span>게시 시 알림 발송</span>
           </label>
         </div>
 
@@ -296,7 +296,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
 
         <div className="mt-6 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
           <div>
-            <label className="mb-2 block text-sm font-medium">Target</label>
+            <label className="mb-2 block text-sm font-medium">대상</label>
             <select
               value={targetType}
               onChange={(event) => setTargetType(event.target.value as NoticeTargetType)}
@@ -310,24 +310,24 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">Title</label>
+            <label className="mb-2 block text-sm font-medium">제목</label>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              placeholder="Notice title"
+              placeholder="공지사항 제목"
             />
           </div>
         </div>
 
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-medium">Content</label>
+          <label className="mb-2 block text-sm font-medium">내용</label>
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
             rows={10}
             className="w-full rounded-[28px] border border-ink/10 px-4 py-3 text-sm leading-7"
-            placeholder="Markdown or plain text notice content"
+            placeholder="공지사항 내용 (마크다운 또는 일반 텍스트)"
           />
         </div>
 
@@ -338,7 +338,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               checked={publishOnSave}
               onChange={(event) => setPublishOnSave(event.target.checked)}
             />
-            <span>Publish right after saving</span>
+            <span>저장 후 즉시 게시</span>
           </label>
           <button
             type="button"
@@ -346,7 +346,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
             disabled={isPending}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
-            {editingId ? "Update notice" : "Create notice"}
+            {editingId ? "수정 저장" : "공지사항 작성"}
           </button>
           {editingId ? (
             <button
@@ -355,7 +355,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               disabled={isPending}
               className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
             >
-              Cancel edit
+              수정 취소
             </button>
           ) : null}
         </div>
@@ -364,9 +364,9 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold">Notice list</h2>
+            <h2 className="text-xl font-semibold">공지사항 목록</h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              Showing {notices.length} notice{notices.length === 1 ? "" : "s"} in the current filter.
+              현재 필터 {notices.length}개
             </p>
           </div>
         </div>
@@ -374,7 +374,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         <div className="mt-6 space-y-4">
           {notices.length === 0 ? (
             <div className="rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              No notices match the current filter.
+              조건에 맞는 공지사항이 없습니다.
             </div>
           ) : null}
 
@@ -393,15 +393,15 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                           : "border-amber-200 bg-amber-50 text-amber-700"
                       }`}
                     >
-                      {notice.isPublished ? "Published" : "Draft"}
+                      {notice.isPublished ? "게시됨" : "임시저장"}
                     </span>
                   </div>
                   <h3 className="mt-4 text-xl font-semibold">{notice.title}</h3>
                   <p className="mt-2 text-xs text-slate">
-                    Created {formatDateTime(notice.createdAt)}
+                    작성 {formatDateTime(notice.createdAt)}
                     {" / "}
-                    Updated {formatDateTime(notice.updatedAt)}
-                    {notice.publishedAt ? ` / Published ${formatDateTime(notice.publishedAt)}` : ""}
+                    수정 {formatDateTime(notice.updatedAt)}
+                    {notice.publishedAt ? ` / 게시 ${formatDateTime(notice.publishedAt)}` : ""}
                   </p>
                 </div>
 
@@ -411,7 +411,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     onClick={() => startEdit(notice)}
                     className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
                   >
-                    Edit
+                    수정
                   </button>
                   <button
                     type="button"
@@ -419,7 +419,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     disabled={isPending}
                     className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest"
                   >
-                    {notice.isPublished ? "Move to draft" : "Publish"}
+                    {notice.isPublished ? "임시저장으로" : "게시"}
                   </button>
                   <button
                     type="button"
@@ -427,7 +427,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     disabled={isPending}
                     className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-400"
                   >
-                    Delete
+                    삭제
                   </button>
                 </div>
               </div>

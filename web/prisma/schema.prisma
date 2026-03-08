@@ -29,8 +29,10 @@ model Student {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  absenceNotes       AbsenceNote[]
-  counselingRecords  CounselingRecord[]
+  absenceNotes            AbsenceNote[]
+  counselingAppointments  CounselingAppointment[]
+  counselingRecords       CounselingRecord[]
+  enrollments             PeriodEnrollment[]
   notifications      NotificationLog[]
   pointLogs          PointLog[]
   scores             Score[]
@@ -52,6 +54,7 @@ model ExamPeriod {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  enrollments    PeriodEnrollment[]
   monthlyResults MonthlyResult[]
   pointLogs      PointLog[]
   sessions       ExamSession[]
@@ -171,6 +174,24 @@ model CounselingRecord {
   @@map("counseling_records")
 }
 
+model CounselingAppointment {
+  id            Int               @id @default(autoincrement())
+  examNumber    String
+  scheduledAt   DateTime
+  counselorName String
+  agenda        String?
+  status        AppointmentStatus @default(SCHEDULED)
+  cancelReason  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@index([examNumber, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("counseling_appointments")
+}
+
 model ExamQuestion {
   id                 Int      @id @default(autoincrement())
   sessionId          Int
@@ -269,6 +290,20 @@ model Notice {
   @@map("notices")
 }
 
+model PeriodEnrollment {
+  id         Int      @id @default(autoincrement())
+  periodId   Int
+  examNumber String
+  enrolledAt DateTime @default(now())
+
+  period  ExamPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@unique([periodId, examNumber])
+  @@index([periodId])
+  @@map("period_enrollments")
+}
+
 model WrongNoteBookmark {
   id         Int      @id @default(autoincrement())
   examNumber String
@@ -362,6 +397,12 @@ enum StudentStatus {
   WARNING_1
   WARNING_2
   DROPOUT
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 enum NoticeTargetType {

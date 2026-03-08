@@ -1,7 +1,7 @@
 import { AdminRole, StudentStatus } from "@/generated/prisma";
 import { StatusBadge } from "@/components/analytics/status-badge";
 import {
-  summarizeCountRecord,
+  STATUS_ROW_CLASS,
 } from "@/lib/analytics/presentation";
 import { getDropoutMonitor } from "@/lib/analytics/service";
 import {
@@ -25,6 +25,27 @@ const STATUS_FILTER_OPTIONS = [
   { value: StudentStatus.WARNING_1, label: "1차 경고" },
   { value: StudentStatus.NORMAL, label: "정상" },
 ] as const;
+
+const CARD_BORDER_CLASS: Record<StudentStatus, string> = {
+  NORMAL: "border-ink/10",
+  WARNING_1: "border-amber-200",
+  WARNING_2: "border-orange-300",
+  DROPOUT: "border-red-300",
+};
+
+function formatWeekChip(weekKey: string) {
+  const parts = weekKey.split("-");
+  if (parts.length !== 3) return weekKey;
+  const start = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return `${start.getMonth() + 1}/${start.getDate()}~${end.getMonth() + 1}/${end.getDate()}`;
+}
+
+function formatMonthChip(monthKey: string) {
+  const [, month] = monthKey.split("-");
+  return `${parseInt(month ?? "0")}월`;
+}
 
 export default async function AdminDropoutPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
@@ -101,47 +122,94 @@ export default async function AdminDropoutPage({ searchParams }: PageProps) {
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
           시험 기간을 먼저 선택하세요.
         </div>
+      ) : rows.length === 0 ? (
+        <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-center text-sm text-slate">
+          해당 조건의 학생이 없습니다.
+        </div>
       ) : (
-        <div className="mt-8 overflow-x-auto rounded-[28px] border border-ink/10 bg-white">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">구분</th>
-                <th className="px-4 py-3 font-semibold">활성</th>
-                <th className="px-4 py-3 font-semibold">현재 상태</th>
-                <th className="px-4 py-3 font-semibold">복귀 가능일</th>
-                <th className="px-4 py-3 font-semibold">주차별 결시</th>
-                <th className="px-4 py-3 font-semibold">월별 결시</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate">
-                    해당 조건의 학생이 없습니다.
-                  </td>
-                </tr>
-              ) : null}
-              {rows.map((row) => (
-                <tr key={row.examNumber}>
-                  <td className="px-4 py-3 font-medium">{row.examNumber}</td>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">{STUDENT_TYPE_LABEL[row.studentType]}</td>
-                  <td className="px-4 py-3">{row.isActive ? "활성" : "비활성"}</td>
-                  <td className="px-4 py-3">
+        <div className="mt-8 space-y-3">
+          <p className="text-sm text-slate">총 {rows.length}명</p>
+          {rows.map((row) => {
+            const weekEntries = Object.entries(row.weekAbsences).sort(([a], [b]) =>
+              a.localeCompare(b),
+            );
+            const monthEntries = Object.entries(row.monthAbsences).sort(([a], [b]) =>
+              a.localeCompare(b),
+            );
+            const hasAbsences = weekEntries.length > 0 || monthEntries.length > 0;
+
+            return (
+              <article
+                key={row.examNumber}
+                className={`rounded-[28px] border p-5 ${CARD_BORDER_CLASS[row.status]} ${STATUS_ROW_CLASS[row.status]}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-semibold">{row.examNumber}</span>
+                    <span className="text-base font-semibold">{row.name}</span>
+                    <span className="text-sm text-slate">{STUDENT_TYPE_LABEL[row.studentType]}</span>
+                    {!row.isActive && (
+                      <span className="rounded-full border border-slate/20 bg-slate/10 px-2 py-0.5 text-xs text-slate">
+                        비활성
+                      </span>
+                    )}
                     <StatusBadge status={row.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {row.recoveryDate ? formatDate(row.recoveryDate) : "-"}
-                  </td>
-                  <td className="px-4 py-3">{summarizeCountRecord(row.weekAbsences)}</td>
-                  <td className="px-4 py-3">{summarizeCountRecord(row.monthAbsences)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  {row.recoveryDate ? (
+                    <span className="text-sm text-slate">
+                      복귀 가능일:{" "}
+                      <span className="font-medium text-ink">{formatDate(row.recoveryDate)}</span>
+                    </span>
+                  ) : null}
+                </div>
+
+                {hasAbsences && (
+                  <div className="mt-3 flex flex-col gap-2 border-t border-ink/10 pt-3">
+                    {weekEntries.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="w-[52px] shrink-0 text-xs font-medium text-slate">
+                          주차별
+                        </span>
+                        {weekEntries.map(([key, count]) => (
+                          <span
+                            key={key}
+                            className={`inline-flex rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                              count >= 3
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : count >= 2
+                                  ? "border-orange-200 bg-orange-50 text-orange-700"
+                                  : "border-amber-200 bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {formatWeekChip(key)}: {count}회
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {monthEntries.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="w-[52px] shrink-0 text-xs font-medium text-slate">
+                          월별
+                        </span>
+                        {monthEntries.map(([key, count]) => (
+                          <span
+                            key={key}
+                            className={`inline-flex rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                              count >= 8
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : "border-amber-200 bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {formatMonthChip(key)}: {count}회
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

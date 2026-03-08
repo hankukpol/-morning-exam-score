@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   EXAM_TYPE_LABEL,
   STUDENT_TYPE_LABEL,
@@ -21,6 +22,7 @@ type StudentRow = {
   registeredAt: string | null;
   note: string | null;
   isActive: boolean;
+  currentStatus: "NORMAL" | "WARNING_1" | "WARNING_2" | "DROPOUT";
   _count: {
     scores: number;
   };
@@ -78,6 +80,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(30);
 
   const rowDrafts = useMemo(
     () =>
@@ -163,6 +167,10 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       }
     });
   }
+
+  const totalPages = Math.max(1, Math.ceil(students.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedStudents = students.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-8">
@@ -394,11 +402,23 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
         ) : null}
 
         <div className="mt-6 overflow-hidden rounded-[24px] border border-ink/10">
+          <PaginationControls
+            totalCount={students.length}
+            page={currentPage}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+            itemLabel="명"
+          />
           <table className="min-w-full divide-y divide-ink/10 text-sm">
             <thead className="bg-mist text-left">
               <tr>
                 <th className="px-4 py-3 font-semibold">수험번호</th>
                 <th className="px-4 py-3 font-semibold">이름</th>
+                <th className="px-4 py-3 font-semibold">상태</th>
                 <th className="px-4 py-3 font-semibold">연락처</th>
                 <th className="px-4 py-3 font-semibold">기수</th>
                 <th className="px-4 py-3 font-semibold">반</th>
@@ -408,7 +428,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10 bg-white">
-              {students.map((student) => {
+              {pagedStudents.map((student) => {
                 const draft = getDraft(student.examNumber);
 
                 return (
@@ -442,6 +462,25 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                       ) : (
                         student.name
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {student.currentStatus === "WARNING_1" ? (
+                        <span className="rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-semibold text-yellow-700">
+                          1차경고
+                        </span>
+                      ) : student.currentStatus === "WARNING_2" ? (
+                        <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
+                          2차경고
+                        </span>
+                      ) : student.currentStatus === "DROPOUT" ? (
+                        <span className="rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          탈락
+                        </span>
+                      ) : !student.isActive ? (
+                        <span className="rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-xs font-semibold text-slate">
+                          비활성
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       {editingExamNumber === student.examNumber ? (
@@ -547,22 +586,41 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                             >
                               수정
                             </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                run(async () => {
-                                  await requestJson(`/api/students/${student.examNumber}`, {
-                                    method: "DELETE",
-                                  });
-                                  setNotice("수강생을 비활성화했습니다.");
-                                  refreshWithFilters();
-                                })
-                              }
-                              disabled={isPending || !student.isActive}
-                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              비활성화
-                            </button>
+                            {student.isActive ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  run(async () => {
+                                    await requestJson(`/api/students/${student.examNumber}`, {
+                                      method: "DELETE",
+                                    });
+                                    setNotice("수강생을 비활성화했습니다.");
+                                    refreshWithFilters();
+                                  })
+                                }
+                                disabled={isPending}
+                                className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                비활성화
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  run(async () => {
+                                    await requestJson(`/api/students/${student.examNumber}`, {
+                                      method: "PATCH",
+                                    });
+                                    setNotice("수강생을 재활성화했습니다.");
+                                    refreshWithFilters();
+                                  })
+                                }
+                                disabled={isPending}
+                                className="rounded-full border border-forest/30 px-3 py-2 text-xs font-semibold text-forest transition hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                재활성화
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

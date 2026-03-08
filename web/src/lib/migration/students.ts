@@ -21,6 +21,11 @@ import {
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 
+const MIGRATION_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 120_000,
+} as const;
+
 type StudentMapping = Partial<Record<StudentMigrationFieldKey, number>>;
 
 export type StudentMigrationConfig = {
@@ -422,74 +427,77 @@ export async function executeStudentMigration(
   const prisma = getPrisma();
   const batchId = randomUUID();
 
-  return prisma.$transaction(async (tx) => {
-    const examNumbers = validRows.map((row) => row.record.examNumber);
-    const existingStudents = await tx.student.findMany({
-      where: {
-        examNumber: {
-          in: examNumbers,
+  return prisma.$transaction(
+    async (tx) => {
+      const examNumbers = validRows.map((row) => row.record.examNumber);
+      const existingStudents = await tx.student.findMany({
+        where: {
+          examNumber: {
+            in: examNumbers,
+          },
         },
-      },
-    });
+      });
 
-    const existingMap = new Map(
-      existingStudents.map((student) => [student.examNumber, student]),
-    );
-    const createdExamNumbers: string[] = [];
-    const updatedSnapshots: StudentSnapshot[] = [];
+      const existingMap = new Map(
+        existingStudents.map((student) => [student.examNumber, student]),
+      );
+      const createdExamNumbers: string[] = [];
+      const updatedSnapshots: StudentSnapshot[] = [];
 
-    for (const row of validRows) {
-      const existingStudent = existingMap.get(row.record.examNumber);
+      for (const row of validRows) {
+        const existingStudent = existingMap.get(row.record.examNumber);
 
-      if (existingStudent) {
-        updatedSnapshots.push(serializeStudentSnapshot(existingStudent));
-      } else {
-        createdExamNumbers.push(row.record.examNumber);
+        if (existingStudent) {
+          updatedSnapshots.push(serializeStudentSnapshot(existingStudent));
+        } else {
+          createdExamNumbers.push(row.record.examNumber);
+        }
+
+        const data = buildStudentWriteData(row.record);
+
+        await tx.student.upsert({
+          where: {
+            examNumber: row.record.examNumber,
+          },
+          create: data,
+          update: data,
+        });
       }
 
-      const data = buildStudentWriteData(row.record);
-
-      await tx.student.upsert({
-        where: {
-          examNumber: row.record.examNumber,
+      const auditLog = await tx.auditLog.create({
+        data: {
+          adminId: config.adminId,
+          action: "MIGRATION_STUDENTS_EXECUTE",
+          targetType: "StudentMigration",
+          targetId: batchId,
+          before: {
+            updated: updatedSnapshots,
+          },
+          after: {
+            fileName: config.fileName,
+            sheetName: preview.sheetName,
+            createdExamNumbers,
+            importedCount: validRows.length,
+            skippedCount: preview.summary.invalidRows,
+            mapping: preview.mapping,
+            defaults: config.defaults,
+            summary: preview.summary,
+          },
+          ipAddress: config.ipAddress ?? null,
         },
-        create: data,
-        update: data,
       });
-    }
 
-    const auditLog = await tx.auditLog.create({
-      data: {
-        adminId: config.adminId,
-        action: "MIGRATION_STUDENTS_EXECUTE",
-        targetType: "StudentMigration",
-        targetId: batchId,
-        before: {
-          updated: updatedSnapshots,
-        },
-        after: {
-          fileName: config.fileName,
-          sheetName: preview.sheetName,
-          createdExamNumbers,
-          importedCount: validRows.length,
-          skippedCount: preview.summary.invalidRows,
-          mapping: preview.mapping,
-          defaults: config.defaults,
-          summary: preview.summary,
-        },
-        ipAddress: config.ipAddress ?? null,
-      },
-    });
-
-    return {
-      batchId,
-      auditLogId: auditLog.id,
-      summary: preview.summary,
-      importedCount: validRows.length,
-      createdCount: createdExamNumbers.length,
-      updatedCount: updatedSnapshots.length,
-    };
-  });
+      return {
+        batchId,
+        auditLogId: auditLog.id,
+        summary: preview.summary,
+        importedCount: validRows.length,
+        createdCount: createdExamNumbers.length,
+        updatedCount: updatedSnapshots.length,
+      };
+    },
+    MIGRATION_TRANSACTION_OPTIONS,
+  );
 }
 
 function parseRollbackPayload(log: AuditLog) {
@@ -555,6 +563,20 @@ export async function rollbackStudentMigration(params: {
   const payload = parseRollbackPayload(targetLog);
 
   return prisma.$transaction(async (tx) => {
+    const existingRollback = await tx.auditLog.findFirst({
+      where: {
+        action: "MIGRATION_STUDENTS_ROLLBACK",
+        targetId: String(targetLog.targetId),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingRollback) {
+      throw new Error("This student migration batch has already been rolled back.");
+    }
+
     const skippedDeletes: string[] = [];
     let deletedCount = 0;
 
@@ -576,6 +598,7 @@ export async function rollbackStudentMigration(params: {
               scores: true,
               studentAnswers: true,
               wrongNoteBookmarks: true,
+              enrollments: true,
             },
           },
         },

@@ -15,6 +15,8 @@ export type AbsenceNoteFilters = {
   status?: AbsenceStatus;
   absenceCategory?: AbsenceCategory;
   search?: string;
+  submittedFrom?: string; // YYYY-MM-DD
+  submittedTo?: string;   // YYYY-MM-DD
 };
 
 export type AbsenceNoteFormInput = {
@@ -187,8 +189,53 @@ async function revertApprovedAbsenceNote(
   });
 }
 
+export async function revertAbsenceNote(input: {
+  adminId: string;
+  noteId: number;
+  ipAddress?: string | null;
+}) {
+  return getPrisma().$transaction(async (tx) => {
+    const note = await tx.absenceNote.findUniqueOrThrow({
+      where: { id: input.noteId },
+      include: { session: true },
+    });
+
+    if (note.status !== "APPROVED") {
+      throw new Error("승인된 사유서만 취소할 수 있습니다.");
+    }
+
+    await revertApprovedAbsenceNote(tx, note);
+
+    const updated = await tx.absenceNote.update({
+      where: { id: input.noteId },
+      data: { status: "PENDING", adminNote: null },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "ABSENCE_NOTE_REVERT",
+        targetType: "AbsenceNote",
+        targetId: String(input.noteId),
+        before: toAuditJson(note),
+        after: toAuditJson(updated),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return updated;
+  });
+}
+
 export async function listAbsenceNotes(filters: AbsenceNoteFilters) {
   const search = filters.search?.trim();
+
+  const submittedFrom = filters.submittedFrom
+    ? new Date(filters.submittedFrom + "T00:00:00")
+    : undefined;
+  const submittedTo = filters.submittedTo
+    ? new Date(filters.submittedTo + "T23:59:59")
+    : undefined;
 
   return getPrisma().absenceNote.findMany({
     where: {
@@ -198,20 +245,14 @@ export async function listAbsenceNotes(filters: AbsenceNoteFilters) {
         periodId: filters.periodId,
         examType: filters.examType,
       },
+      submittedAt:
+        submittedFrom || submittedTo
+          ? { gte: submittedFrom, lte: submittedTo }
+          : undefined,
       OR: search
         ? [
-            {
-              examNumber: {
-                contains: search,
-              },
-            },
-            {
-              student: {
-                name: {
-                  contains: search,
-                },
-              },
-            },
+            { examNumber: { contains: search } },
+            { student: { name: { contains: search } } },
           ]
         : undefined,
     },
@@ -233,6 +274,43 @@ export async function listAbsenceNotes(filters: AbsenceNoteFilters) {
   });
 }
 
+export async function getAbsenceNoteDashboard(periodId: number, examType: ExamType) {
+  const today = startOfToday();
+  const tomorrow = new Date(today.getTime() + 86_400_000);
+  const sessionFilter = { session: { periodId, examType } } as const;
+
+  const [pending, approvedToday, rejected, approvedTotal, categoryGroups] = await Promise.all([
+    getPrisma().absenceNote.count({ where: { status: AbsenceStatus.PENDING, ...sessionFilter } }),
+    getPrisma().absenceNote.count({
+      where: {
+        status: AbsenceStatus.APPROVED,
+        approvedAt: { gte: today, lt: tomorrow },
+        ...sessionFilter,
+      },
+    }),
+    getPrisma().absenceNote.count({ where: { status: AbsenceStatus.REJECTED, ...sessionFilter } }),
+    getPrisma().absenceNote.count({ where: { status: AbsenceStatus.APPROVED, ...sessionFilter } }),
+    getPrisma().absenceNote.groupBy({
+      by: ["absenceCategory"],
+      where: { ...sessionFilter },
+      _count: { id: true },
+    }),
+  ]);
+
+  const categoryBreakdown = Object.fromEntries(
+    categoryGroups.map((g) => [g.absenceCategory ?? "OTHER", g._count.id]),
+  ) as Partial<Record<AbsenceCategory, number>>;
+
+  return {
+    pending,
+    approvedToday,
+    rejected,
+    approved: approvedTotal,
+    total: pending + approvedTotal + rejected,
+    categoryBreakdown,
+  };
+}
+
 export async function createAbsenceNote(input: {
   adminId: string;
   payload: AbsenceNoteFormInput;
@@ -245,10 +323,6 @@ export async function createAbsenceNote(input: {
         id: payload.sessionId,
       },
     });
-
-    if (isSessionClosed(session.examDate)) {
-      throw new Error("시험 종료 후 사유서는 등록할 수 없습니다.");
-    }
 
     const autoApprove = payload.absenceCategory === AbsenceCategory.MILITARY;
     const note = await tx.absenceNote.create({
@@ -322,10 +396,6 @@ export async function updateAbsenceNote(input: {
 
     if (before.status === AbsenceStatus.APPROVED) {
       throw new Error("승인된 사유서는 수정 대신 삭제 후 다시 등록하세요.");
-    }
-
-    if (isSessionClosed(before.session.examDate)) {
-      throw new Error("시험 종료 후 사유서는 수정할 수 없습니다.");
     }
 
     const autoApprove = input.payload.absenceCategory === AbsenceCategory.MILITARY;

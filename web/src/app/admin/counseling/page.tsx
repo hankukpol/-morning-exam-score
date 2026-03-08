@@ -4,14 +4,23 @@ import {
   BarComparisonChart,
   RadarComparisonChart,
 } from "@/components/analytics/charts";
+import { AppointmentManager } from "@/components/counseling/appointment-manager";
 import { CounselingPanel } from "@/components/counseling/counseling-panel";
-import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
-import { getAnalyticsContext, readStringParam } from "@/lib/analytics/ui";
+import { WarningStudentsDrawer } from "@/components/counseling/warning-students-drawer";
+import {
+  buildHref,
+  getAnalyticsContext,
+  readStringParam,
+} from "@/lib/analytics/ui";
+import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { requireAdminContext } from "@/lib/auth";
 import {
+  getCounselingDashboard,
   getCounselingProfile,
+  listAppointments,
   listCounselingStudents,
 } from "@/lib/counseling/service";
+import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -25,25 +34,177 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
   const { examType } = await getAnalyticsContext(searchParams);
   const search = readStringParam(searchParams, "search") ?? "";
   const examNumber = readStringParam(searchParams, "examNumber") ?? "";
-  const [students, profile] = await Promise.all([
-    listCounselingStudents({
-      examType,
-      search,
-    }),
+
+  const [students, profile, dashboard, allAppointments] = await Promise.all([
+    search
+      ? listCounselingStudents({ examType, search, page: 1, pageSize: 10 })
+      : Promise.resolve(null),
     examNumber ? getCounselingProfile(examNumber) : Promise.resolve(null),
+    getCounselingDashboard(),
+    listAppointments(),
   ]);
 
   return (
     <div className="p-8 sm:p-10">
+      {/* 헤더 */}
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-14 Counseling
       </div>
       <h1 className="mt-5 text-3xl font-semibold">학생 면담 지원</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        학생 검색, 최근 4주 요약, 강점/약점, 면담 기록, 목표 점수 설정을 한 화면에서
-        처리합니다.
+        면담 예약 관리, 학생 성적·출결 요약, 면담 기록 입력을 한 화면에서 처리합니다.
       </p>
 
+      {/* 대시보드 KPI */}
+      <section className="mt-8 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <p className="text-sm text-slate">오늘 면담 예정</p>
+            <p className="mt-3 text-3xl font-semibold">
+              {dashboard.todayScheduled.length}
+              <span className="ml-1 text-base font-normal text-slate">건</span>
+            </p>
+            <p className="mt-2 text-xs text-slate">오늘 날짜로 예약된 면담</p>
+          </article>
+
+          <article className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <p className="text-sm text-slate">이번 주 면담 완료</p>
+            <p className="mt-3 text-3xl font-semibold">
+              {dashboard.thisWeekDoneCount}
+              <span className="ml-1 text-base font-normal text-slate">건</span>
+            </p>
+            <p className="mt-2 text-xs text-slate">이번 주 진행된 면담 기록</p>
+          </article>
+
+          <WarningStudentsDrawer
+            warningNoRecentCount={dashboard.warningNoRecentCount}
+            warningStudents={dashboard.warningStudents}
+          />
+
+          <article className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <p className="text-sm text-slate">이번 달 면담 완료</p>
+            <p className="mt-3 text-3xl font-semibold">
+              {dashboard.thisMonthCount}
+              <span className="ml-1 text-base font-normal text-slate">건</span>
+            </p>
+            <p className="mt-2 text-xs text-slate">이번 달 진행된 면담 기록</p>
+          </article>
+        </div>
+
+        {/* 이번 주 예약 — 클릭 시 명단 확장 */}
+        <details
+          className={`group rounded-[28px] border transition ${
+            dashboard.thisWeekScheduled.length > 0
+              ? "border-sky-200 bg-sky-50/60"
+              : "border-ink/10 bg-white"
+          }`}
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-5 [&::-webkit-details-marker]:hidden">
+            <div>
+              <p className="text-sm text-slate">이번 주 예약 면담</p>
+              <p className="mt-1 flex items-baseline gap-1">
+                <span
+                  className={`text-3xl font-semibold ${
+                    dashboard.thisWeekScheduled.length > 0 ? "text-sky-700" : ""
+                  }`}
+                >
+                  {dashboard.thisWeekScheduled.length}
+                </span>
+                <span className="text-base font-normal text-slate">건 예정</span>
+              </p>
+              <p className="mt-1 text-xs text-slate">클릭하여 예약 명단 확인</p>
+            </div>
+            <span className="text-slate transition-transform group-open:rotate-180">▼</span>
+          </summary>
+
+          <div className="border-t border-sky-200/70 px-6 pb-5 pt-4">
+            {dashboard.thisWeekScheduled.length === 0 ? (
+              <p className="text-sm text-slate">이번 주 예약된 면담이 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {dashboard.thisWeekScheduled.map((appt) => {
+                  const d = new Date(appt.scheduledAt);
+                  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+                  const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                  return (
+                    <Link
+                      key={appt.id}
+                      href={buildHref("/admin/counseling", {
+                        examType: appt.student.examType,
+                        examNumber: appt.student.examNumber,
+                        search: appt.student.examNumber,
+                      })}
+                      className="flex items-center gap-4 rounded-2xl border border-sky-200/80 bg-white px-4 py-3 text-sm transition hover:border-sky-400 hover:bg-sky-50"
+                    >
+                      <span className="w-28 shrink-0 font-semibold text-sky-800">{dateLabel}</span>
+                      <span className="font-semibold">{appt.student.examNumber} · {appt.student.name}</span>
+                      <span className="text-slate">{appt.counselorName}</span>
+                      {appt.agenda && (
+                        <span className="ml-auto rounded-full border border-sky-200 bg-sky-50 px-3 py-0.5 text-xs text-sky-700">
+                          {appt.agenda}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
+
+      {/* 오늘 면담 예정 퀵 링크 */}
+      {dashboard.todayScheduled.length > 0 && (
+        <section className="mt-6 rounded-[28px] border border-sky-200 bg-sky-50/60 p-5">
+          <h2 className="text-sm font-semibold text-sky-800">
+            오늘 면담 예정 ({dashboard.todayScheduled.length}건)
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {dashboard.todayScheduled.map((appt) => (
+              <Link
+                key={appt.id}
+                href={buildHref("/admin/counseling", {
+                  examType: appt.student.examType,
+                  examNumber: appt.student.examNumber,
+                  search: appt.student.examNumber,
+                })}
+                className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
+                  appt.student.examNumber === examNumber
+                    ? "border-sky-600 bg-sky-600 text-white"
+                    : "border-sky-300 bg-white text-sky-800 hover:border-sky-500 hover:bg-sky-50"
+                }`}
+              >
+                {appt.student.examNumber} · {appt.student.name}
+                {appt.agenda && (
+                  <span className="ml-2 text-xs font-normal opacity-70">— {appt.agenda}</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 예약 면담 관리 */}
+      <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
+        <h2 className="mb-5 text-xl font-semibold">예약 면담 관리</h2>
+        <AppointmentManager
+          appointments={allAppointments.map((a) => ({
+            id: a.id,
+            examNumber: a.examNumber,
+            scheduledAt: a.scheduledAt.toISOString(),
+            counselorName: a.counselorName,
+            agenda: a.agenda,
+            status: a.status as "SCHEDULED" | "COMPLETED" | "CANCELLED",
+            cancelReason: a.cancelReason,
+            student: a.student,
+          }))}
+          defaultCounselorName={context.adminUser.name}
+          defaultExamNumber={examNumber}
+          defaultStudentName={profile?.student.name ?? ""}
+        />
+      </section>
+
+      {/* 학생 검색 */}
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[180px_minmax(0,1fr)_140px]">
         <div>
           <label className="mb-2 block text-sm font-medium">직렬</label>
@@ -63,7 +224,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             name="search"
             defaultValue={search}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            placeholder="학생 검색"
+            placeholder="수험번호 또는 이름을 입력하세요"
           />
         </div>
         <div className="flex items-end">
@@ -71,66 +232,109 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
-            조회
+            검색
           </button>
         </div>
       </form>
 
-      <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-        <h2 className="text-xl font-semibold">검색 결과</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {students.length === 0 ? (
-            <div className="text-sm text-slate">검색된 학생이 없습니다.</div>
-          ) : null}
-          {students.map((student) => (
-            <Link
-              key={student.examNumber}
-              href={`/admin/counseling?examType=${examType}&search=${encodeURIComponent(search)}&examNumber=${student.examNumber}`}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                student.examNumber === examNumber
-                  ? "border-ink bg-ink text-white"
-                  : "border-ink/10 hover:border-ember/30 hover:text-ember"
-              }`}
-            >
-              {student.examNumber} · {student.name}
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* 검색 결과 */}
+      {search && students && (
+        <section className="mt-3 rounded-[28px] border border-ink/10 bg-white p-5">
+          <p className="text-sm font-medium text-slate">
+            {students.totalCount === 0
+              ? "검색된 학생이 없습니다."
+              : `${students.totalCount}명 검색됨${students.totalCount > 10 ? " · 상위 10명 표시" : ""}`}
+          </p>
+          {students.rows.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {students.rows.map((student) => (
+                <Link
+                  key={student.examNumber}
+                  href={buildHref("/admin/counseling", {
+                    examType,
+                    search,
+                    examNumber: student.examNumber,
+                  })}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    student.examNumber === examNumber
+                      ? "border-ink bg-ink text-white"
+                      : "border-ink/10 hover:border-ember/30 hover:text-ember"
+                  }`}
+                >
+                  <span>
+                    {student.examNumber} · {student.name}
+                  </span>
+                  {student.currentStatus !== "NORMAL" && (
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        STATUS_BADGE_CLASS[student.currentStatus]
+                      }`}
+                    >
+                      {STATUS_LABEL[student.currentStatus]}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
+      {/* 학생 프로필 / 빈 상태 */}
       {!profile ? (
-        <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          학생을 선택하면 면담 화면이 열립니다.
+        <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-10 text-center text-sm text-slate">
+          학생을 검색하여 선택하면 성적·출결 요약과 면담 기록 입력 화면이 열립니다.
         </div>
       ) : (
         <div className="mt-8 space-y-8">
+          {/* 요약 KPI */}
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">학생</p>
               <p className="mt-4 text-2xl font-semibold">
-                {profile.student.name} ({profile.student.examNumber})
+                {profile.student.name}{" "}
+                <span className="text-base font-normal text-slate">
+                  ({profile.student.examNumber})
+                </span>
               </p>
               <p className="mt-2 text-xs text-slate">{profile.student.phone ?? "-"}</p>
             </article>
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">최근 4주 결시</p>
-              <p className="mt-4 text-2xl font-semibold">{profile.attendanceSummary.absentCount}회</p>
-              <p className="mt-2 text-xs text-slate">현재 상태 {profile.student.currentStatus}</p>
+              <p className="mt-4 text-2xl font-semibold">
+                {profile.attendanceSummary.absentCount}회
+              </p>
+              <p className="mt-2 text-xs text-slate">
+                현재 상태{" "}
+                <span
+                  className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                    STATUS_BADGE_CLASS[profile.student.currentStatus]
+                  }`}
+                >
+                  {STATUS_LABEL[profile.student.currentStatus]}
+                </span>
+              </p>
             </article>
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">누적 포인트</p>
-              <p className="mt-4 text-2xl font-semibold">{profile.totalPoints.toLocaleString("ko-KR")}P</p>
+              <p className="mt-4 text-2xl font-semibold">
+                {profile.totalPoints.toLocaleString("ko-KR")}P
+              </p>
               <p className="mt-2 text-xs text-slate">최근 지급 이력 10건 기준</p>
             </article>
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">면담 기록</p>
               <p className="mt-4 text-2xl font-semibold">{profile.counselingRecords.length}건</p>
               <p className="mt-2 text-xs text-slate">
-                최근 기록 {profile.counselingRecords[0] ? formatDateTime(profile.counselingRecords[0].counseledAt) : "-"}
+                최근 기록{" "}
+                {profile.counselingRecords[0]
+                  ? formatDateTime(profile.counselingRecords[0].counseledAt)
+                  : "-"}
               </p>
             </article>
           </section>
 
+          {/* 강점/약점 + 주간 평균 */}
           <section className="grid gap-6 xl:grid-cols-2">
             <article className="rounded-[28px] border border-ink/10 bg-white p-6">
               <h2 className="text-xl font-semibold">최근 4주 강점 / 약점</h2>
@@ -164,7 +368,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 <table className="min-w-full divide-y divide-ink/10 text-sm">
                   <thead className="bg-mist/80 text-left">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">주차 키</th>
+                      <th className="px-4 py-3 font-semibold">주간</th>
                       <th className="px-4 py-3 font-semibold">평균</th>
                     </tr>
                   </thead>
@@ -181,6 +385,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             </article>
           </section>
 
+          {/* 차트 */}
           {profile.monthlyAnalysis ? (
             <section className="grid gap-6 xl:grid-cols-2">
               <article className="rounded-[28px] border border-ink/10 bg-white p-6">
@@ -206,6 +411,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             </section>
           ) : null}
 
+          {/* 목표 점수 + 면담 기록 */}
           <CounselingPanel
             examNumber={profile.student.examNumber}
             defaultCounselorName={context.adminUser.name}

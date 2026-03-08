@@ -227,6 +227,18 @@ exports.Prisma.CounselingRecordScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.CounselingAppointmentScalarFieldEnum = {
+  id: 'id',
+  examNumber: 'examNumber',
+  scheduledAt: 'scheduledAt',
+  counselorName: 'counselorName',
+  agenda: 'agenda',
+  status: 'status',
+  cancelReason: 'cancelReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.ExamQuestionScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
@@ -291,6 +303,13 @@ exports.Prisma.NoticeScalarFieldEnum = {
   publishedAt: 'publishedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PeriodEnrollmentScalarFieldEnum = {
+  id: 'id',
+  periodId: 'periodId',
+  examNumber: 'examNumber',
+  enrolledAt: 'enrolledAt'
 };
 
 exports.Prisma.WrongNoteBookmarkScalarFieldEnum = {
@@ -394,6 +413,12 @@ exports.NotificationChannel = exports.$Enums.NotificationChannel = {
   SMS: 'SMS'
 };
 
+exports.AppointmentStatus = exports.$Enums.AppointmentStatus = {
+  SCHEDULED: 'SCHEDULED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+};
+
 exports.PointType = exports.$Enums.PointType = {
   PERFECT_ATTENDANCE: 'PERFECT_ATTENDANCE',
   SCORE_EXCELLENCE: 'SCORE_EXCELLENCE',
@@ -422,12 +447,14 @@ exports.Prisma.ModelName = {
   AbsenceNote: 'AbsenceNote',
   NotificationLog: 'NotificationLog',
   CounselingRecord: 'CounselingRecord',
+  CounselingAppointment: 'CounselingAppointment',
   ExamQuestion: 'ExamQuestion',
   StudentAnswer: 'StudentAnswer',
   PointLog: 'PointLog',
   AdminUser: 'AdminUser',
   AuditLog: 'AuditLog',
   Notice: 'Notice',
+  PeriodEnrollment: 'PeriodEnrollment',
   WrongNoteBookmark: 'WrongNoteBookmark'
 };
 

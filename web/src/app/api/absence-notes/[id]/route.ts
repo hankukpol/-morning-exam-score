@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
   deleteAbsenceNote,
+  revertAbsenceNote,
   reviewAbsenceNote,
   updateAbsenceNote,
 } from "@/lib/absence-notes/service";
 
 type RequestBody = {
-  action?: "update" | "approve" | "reject";
+  action?: "update" | "approve" | "reject" | "revert";
   reason?: string;
   absenceCategory?: AbsenceCategory;
   adminNote?: string | null;
@@ -49,6 +50,16 @@ export async function PUT(request: Request, context: RouteContext) {
         action,
         attendGrantsPerfectAttendance: Boolean(body.attendGrantsPerfectAttendance),
         adminNote: body.adminNote ?? null,
+        ipAddress: request.headers.get("x-forwarded-for"),
+      });
+
+      return NextResponse.json(note);
+    }
+
+    if (action === "revert") {
+      const note = await revertAbsenceNote({
+        adminId: auth.context.adminUser.id,
+        noteId,
         ipAddress: request.headers.get("x-forwarded-for"),
       });
 

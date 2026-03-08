@@ -14,13 +14,16 @@ type ExportPanelProps = {
 };
 
 export function ExportPanel({ periods }: ExportPanelProps) {
+  const activePeriodId = periods.find((period) => period.isActive)?.id?.toString() ?? "";
   const [studentExamType, setStudentExamType] = useState<"GONGCHAE" | "GYEONGCHAE">("GONGCHAE");
   const [studentGeneration, setStudentGeneration] = useState("");
   const [studentActiveOnly, setStudentActiveOnly] = useState(true);
-  const [scorePeriodId, setScorePeriodId] = useState<string>(
-    periods.find((period) => period.isActive)?.id?.toString() ?? "",
-  );
+  const [scorePeriodId, setScorePeriodId] = useState<string>(activePeriodId);
   const [scoreExamType, setScoreExamType] = useState<"GONGCHAE" | "GYEONGCHAE">("GONGCHAE");
+  const [rankingPeriodId, setRankingPeriodId] = useState<string>(activePeriodId);
+  const [rankingExamType, setRankingExamType] = useState<"GONGCHAE" | "GYEONGCHAE">("GONGCHAE");
+  const [rankingView, setRankingView] = useState<"overall" | "new">("overall");
+  const [enrollmentPeriodId, setEnrollmentPeriodId] = useState<string>(activePeriodId);
 
   function downloadStudents(format: "csv" | "xlsx") {
     const params = new URLSearchParams({
@@ -50,6 +53,30 @@ export function ExportPanel({ periods }: ExportPanelProps) {
     }
 
     window.location.href = `/api/export/scores?${params.toString()}`;
+  }
+
+  function downloadRanking(format: "csv" | "xlsx") {
+    if (!rankingPeriodId) return;
+
+    const params = new URLSearchParams({
+      periodId: rankingPeriodId,
+      examType: rankingExamType,
+      view: rankingView,
+      format,
+    });
+
+    window.location.href = `/api/export/ranking?${params.toString()}`;
+  }
+
+  function downloadEnrollments(format: "csv" | "xlsx") {
+    if (!enrollmentPeriodId) return;
+
+    const params = new URLSearchParams({
+      periodId: enrollmentPeriodId,
+      format,
+    });
+
+    window.location.href = `/api/export/enrollments?${params.toString()}`;
   }
 
   return (
@@ -147,6 +174,106 @@ export function ExportPanel({ periods }: ExportPanelProps) {
             type="button"
             onClick={() => downloadScores("csv")}
             className="rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10"
+          >
+            CSV 다운로드
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
+        <h2 className="text-xl font-semibold">석차 포함 성적</h2>
+        <p className="mt-2 text-sm leading-7 text-slate">
+          기간 전체 통합 석차를 평균·참여율·개근 여부와 함께 내려받습니다.
+        </p>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <select
+            value={rankingPeriodId}
+            onChange={(event) => setRankingPeriodId(event.target.value)}
+            className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            <option value="">전체 기간</option>
+            {periods.map((period) => (
+              <option key={period.id} value={period.id}>
+                {period.name}
+                {period.isActive ? " / 현재 사용 중" : ""}
+              </option>
+            ))}
+          </select>
+          <select
+            value={rankingExamType}
+            onChange={(event) => setRankingExamType(event.target.value as typeof rankingExamType)}
+            className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+            <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+          </select>
+          <select
+            value={rankingView}
+            onChange={(event) => setRankingView(event.target.value as typeof rankingView)}
+            className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            <option value="overall">전체 (기존생+신규생)</option>
+            <option value="new">신규생만</option>
+          </select>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => downloadRanking("xlsx")}
+            disabled={!rankingPeriodId}
+            className="rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            xlsx 다운로드
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadRanking("csv")}
+            disabled={!rankingPeriodId}
+            className="rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            CSV 다운로드
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <h2 className="text-xl font-semibold">기간별 수강생 명단</h2>
+        <p className="mt-2 text-sm leading-7 text-slate">
+          특정 기간에 등록된 수강생 명단을 수험번호·이름·직렬·등록일 포함하여 내려받습니다.
+        </p>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <select
+            value={enrollmentPeriodId}
+            onChange={(event) => setEnrollmentPeriodId(event.target.value)}
+            className="rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm"
+          >
+            <option value="">기간 선택 필수</option>
+            {periods.map((period) => (
+              <option key={period.id} value={period.id}>
+                {period.name}
+                {period.isActive ? " / 현재 사용 중" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => downloadEnrollments("xlsx")}
+            disabled={!enrollmentPeriodId}
+            className="rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            xlsx 다운로드
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadEnrollments("csv")}
+            disabled={!enrollmentPeriodId}
+            className="rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             CSV 다운로드
           </button>
