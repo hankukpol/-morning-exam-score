@@ -9,7 +9,19 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requireAdminContext(AdminRole.VIEWER);
-  const summary = await getDashboardSummary();
+  let summary;
+  try {
+    summary = await getDashboardSummary();
+  } catch (err) {
+    const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    console.error("[AdminDashboard] error:", msg);
+    return (
+      <div className="p-8">
+        <h1 className="text-xl font-bold text-red-700">대시보드 오류 (getDashboardSummary)</h1>
+        <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">{msg}</pre>
+      </div>
+    );
+  }
 
   if (!summary) {
     return (
