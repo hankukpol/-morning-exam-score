@@ -53,9 +53,6 @@ function stripSystemNote(value: string | null, noteId: number) {
   return next || null;
 }
 
-function isSessionClosed(examDate: Date) {
-  return examDate < startOfToday();
-}
 
 function validateAbsenceNoteInput(input: AbsenceNoteFormInput) {
   const examNumber = input.examNumber.trim();

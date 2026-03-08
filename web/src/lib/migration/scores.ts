@@ -12,7 +12,6 @@ import {
   toCellString,
 } from "@/lib/excel/workbook";
 import { hasDatabaseConfig } from "@/lib/env";
-import { SUBJECT_LABEL } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
 import { ensurePeriodEnrollments } from "@/lib/periods/enrollments";
 import { recalculateStatusCache } from "@/lib/analytics/service";

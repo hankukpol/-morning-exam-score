@@ -56,10 +56,6 @@ function normalizeExamNumber(value: unknown) {
   return raw ? raw.replace(/\.0$/, "") : null;
 }
 
-function normalizeName(value: unknown) {
-  const raw = toCellString(value);
-  return raw ? raw.replace(/\s+/g, "") : "";
-}
 
 function normalizeAnswerValue(value: unknown) {
   const raw = toCellString(value).replace(/\s+/g, "");
@@ -148,17 +144,6 @@ function maybeHtmlRows(buffer: Buffer | ArrayBuffer) {
   return getSheetRows(workbook, sheetName).map((row) => row.map((value) => toCellString(value)));
 }
 
-function computeFinalScore(rawScore: number | null, oxScore: number | null, finalScore: number | null) {
-  if (finalScore !== null) {
-    return finalScore;
-  }
-
-  if (rawScore === null && oxScore === null) {
-    return null;
-  }
-
-  return (rawScore ?? 0) + (oxScore ?? 0);
-}
 
 function inferCorrectedExamNumber(row: Array<unknown>, correctedIndex: number, examIndex: number) {
   return normalizeExamNumber(row[correctedIndex]) ?? normalizeExamNumber(row[examIndex]);
