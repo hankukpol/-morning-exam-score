@@ -29,7 +29,19 @@ export default async function AdminLayout({
     );
   }
 
-  const context = await getCurrentAdminContext();
+  let context;
+  try {
+    context = await getCurrentAdminContext();
+  } catch (err) {
+    const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+    console.error("[AdminLayout] getCurrentAdminContext error:", msg);
+    return (
+      <main className="p-8">
+        <h1 className="text-xl font-bold text-red-700">레이아웃 오류</h1>
+        <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">{msg}</pre>
+      </main>
+    );
+  }
 
   if (!context) {
     const supabase = createClient();
