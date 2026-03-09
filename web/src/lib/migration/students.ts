@@ -20,6 +20,10 @@ import {
 } from "@/lib/excel/workbook";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
+import {
+  isPlaceholderStudentRecord,
+  NON_PLACEHOLDER_STUDENT_FILTER,
+} from "@/lib/students/placeholder";
 
 const MIGRATION_TRANSACTION_OPTIONS = {
   maxWait: 10_000,
@@ -271,9 +275,14 @@ async function loadExistingExamNumbers(examNumbers: string[]) {
 
   const students = await getPrisma().student.findMany({
     where: {
-      examNumber: {
-        in: examNumbers,
-      },
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        {
+          examNumber: {
+            in: examNumbers,
+          },
+        },
+      ],
     },
     select: {
       examNumber: true,
@@ -324,6 +333,7 @@ export async function previewStudentMigration(config: StudentMigrationConfig) {
 
   const previewRows: StudentPreviewRow[] = parsedRows.map(({ rowNumber, record }) => {
     const issues: string[] = [];
+    const isPlaceholderRow = isPlaceholderStudentRecord(record);
 
     if (!record.examNumber) {
       issues.push("수험번호가 없습니다.");
@@ -331,6 +341,10 @@ export async function previewStudentMigration(config: StudentMigrationConfig) {
 
     if (!record.name) {
       issues.push("이름이 없습니다.");
+    }
+
+    if (isPlaceholderRow) {
+      issues.push("헤더 행은 학생으로 가져올 수 없습니다.");
     }
 
     if (record.onlineId && !/^[A-Za-z0-9._@-]+$/.test(record.onlineId)) {

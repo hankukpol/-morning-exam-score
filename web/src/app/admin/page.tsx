@@ -95,7 +95,7 @@ export default async function AdminDashboardPage() {
   const quickLinks = [
     { href: "/admin/scores/input", title: "성적 입력", description: "오프라인·온라인 업로드" },
     { href: "/admin/scores/edit", title: "성적 수정", description: "특정 성적 조회·수정·삭제" },
-    { href: "/admin/weekly", title: "주간 현황", description: "이번 주 출결·경고 상태" },
+    { href: "/admin/dropout", title: "탈락·경고 관리", description: "경고·탈락자 필터 및 알림 발송" },
     { href: "/admin/analytics", title: "성적 분석", description: "일별·월별·과목별 차트" },
     { href: "/admin/results/integrated", title: "통합 성적표", description: "기간 전체 석차 집계" },
     { href: "/admin/absence-notes", title: "사유서 심사", description: "대기 중 사유서 처리" },

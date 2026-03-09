@@ -49,6 +49,11 @@ export type AbsenceNote = $Result.DefaultSelection<Prisma.$AbsenceNotePayload>
  */
 export type NotificationLog = $Result.DefaultSelection<Prisma.$NotificationLogPayload>
 /**
+ * Model WeeklyStatusSnapshot
+ * 
+ */
+export type WeeklyStatusSnapshot = $Result.DefaultSelection<Prisma.$WeeklyStatusSnapshotPayload>
+/**
  * Model CounselingRecord
  * 
  */
@@ -219,6 +224,14 @@ export const StudentStatus: {
 export type StudentStatus = (typeof StudentStatus)[keyof typeof StudentStatus]
 
 
+export const DropoutReason: {
+  WEEKLY_3: 'WEEKLY_3',
+  MONTHLY_8: 'MONTHLY_8'
+};
+
+export type DropoutReason = (typeof DropoutReason)[keyof typeof DropoutReason]
+
+
 export const AppointmentStatus: {
   SCHEDULED: 'SCHEDULED',
   COMPLETED: 'COMPLETED',
@@ -285,6 +298,10 @@ export const AdminRole: typeof $Enums.AdminRole
 export type StudentStatus = $Enums.StudentStatus
 
 export const StudentStatus: typeof $Enums.StudentStatus
+
+export type DropoutReason = $Enums.DropoutReason
+
+export const DropoutReason: typeof $Enums.DropoutReason
 
 export type AppointmentStatus = $Enums.AppointmentStatus
 
@@ -481,6 +498,16 @@ export class PrismaClient<
     * ```
     */
   get notificationLog(): Prisma.NotificationLogDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.weeklyStatusSnapshot`: Exposes CRUD operations for the **WeeklyStatusSnapshot** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WeeklyStatusSnapshots
+    * const weeklyStatusSnapshots = await prisma.weeklyStatusSnapshot.findMany()
+    * ```
+    */
+  get weeklyStatusSnapshot(): Prisma.WeeklyStatusSnapshotDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.counselingRecord`: Exposes CRUD operations for the **CounselingRecord** model.
@@ -1029,6 +1056,7 @@ export namespace Prisma {
     Score: 'Score',
     AbsenceNote: 'AbsenceNote',
     NotificationLog: 'NotificationLog',
+    WeeklyStatusSnapshot: 'WeeklyStatusSnapshot',
     CounselingRecord: 'CounselingRecord',
     CounselingAppointment: 'CounselingAppointment',
     ExamQuestion: 'ExamQuestion',
@@ -1057,7 +1085,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "student" | "examPeriod" | "monthlyResult" | "examSession" | "score" | "absenceNote" | "notificationLog" | "counselingRecord" | "counselingAppointment" | "examQuestion" | "studentAnswer" | "pointLog" | "adminUser" | "auditLog" | "notice" | "periodEnrollment" | "wrongNoteBookmark"
+      modelProps: "student" | "examPeriod" | "monthlyResult" | "examSession" | "score" | "absenceNote" | "notificationLog" | "weeklyStatusSnapshot" | "counselingRecord" | "counselingAppointment" | "examQuestion" | "studentAnswer" | "pointLog" | "adminUser" | "auditLog" | "notice" | "periodEnrollment" | "wrongNoteBookmark"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1576,6 +1604,80 @@ export namespace Prisma {
           count: {
             args: Prisma.NotificationLogCountArgs<ExtArgs>
             result: $Utils.Optional<NotificationLogCountAggregateOutputType> | number
+          }
+        }
+      }
+      WeeklyStatusSnapshot: {
+        payload: Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>
+        fields: Prisma.WeeklyStatusSnapshotFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WeeklyStatusSnapshotFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WeeklyStatusSnapshotFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          findFirst: {
+            args: Prisma.WeeklyStatusSnapshotFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WeeklyStatusSnapshotFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          findMany: {
+            args: Prisma.WeeklyStatusSnapshotFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>[]
+          }
+          create: {
+            args: Prisma.WeeklyStatusSnapshotCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          createMany: {
+            args: Prisma.WeeklyStatusSnapshotCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WeeklyStatusSnapshotCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>[]
+          }
+          delete: {
+            args: Prisma.WeeklyStatusSnapshotDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          update: {
+            args: Prisma.WeeklyStatusSnapshotUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          deleteMany: {
+            args: Prisma.WeeklyStatusSnapshotDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WeeklyStatusSnapshotUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WeeklyStatusSnapshotUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>[]
+          }
+          upsert: {
+            args: Prisma.WeeklyStatusSnapshotUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WeeklyStatusSnapshotPayload>
+          }
+          aggregate: {
+            args: Prisma.WeeklyStatusSnapshotAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWeeklyStatusSnapshot>
+          }
+          groupBy: {
+            args: Prisma.WeeklyStatusSnapshotGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WeeklyStatusSnapshotGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WeeklyStatusSnapshotCountArgs<ExtArgs>
+            result: $Utils.Optional<WeeklyStatusSnapshotCountAggregateOutputType> | number
           }
         }
       }
@@ -2422,6 +2524,7 @@ export namespace Prisma {
     score?: ScoreOmit
     absenceNote?: AbsenceNoteOmit
     notificationLog?: NotificationLogOmit
+    weeklyStatusSnapshot?: WeeklyStatusSnapshotOmit
     counselingRecord?: CounselingRecordOmit
     counselingAppointment?: CounselingAppointmentOmit
     examQuestion?: ExamQuestionOmit
@@ -2520,6 +2623,7 @@ export namespace Prisma {
     pointLogs: number
     scores: number
     studentAnswers: number
+    weeklyStatusSnapshots: number
     wrongNoteBookmarks: number
   }
 
@@ -2532,6 +2636,7 @@ export namespace Prisma {
     pointLogs?: boolean | StudentCountOutputTypeCountPointLogsArgs
     scores?: boolean | StudentCountOutputTypeCountScoresArgs
     studentAnswers?: boolean | StudentCountOutputTypeCountStudentAnswersArgs
+    weeklyStatusSnapshots?: boolean | StudentCountOutputTypeCountWeeklyStatusSnapshotsArgs
     wrongNoteBookmarks?: boolean | StudentCountOutputTypeCountWrongNoteBookmarksArgs
   }
 
@@ -2605,6 +2710,13 @@ export namespace Prisma {
   /**
    * StudentCountOutputType without action
    */
+  export type StudentCountOutputTypeCountWeeklyStatusSnapshotsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WeeklyStatusSnapshotWhereInput
+  }
+
+  /**
+   * StudentCountOutputType without action
+   */
   export type StudentCountOutputTypeCountWrongNoteBookmarksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: WrongNoteBookmarkWhereInput
   }
@@ -2619,6 +2731,7 @@ export namespace Prisma {
     monthlyResults: number
     pointLogs: number
     sessions: number
+    weeklyStatusSnapshots: number
   }
 
   export type ExamPeriodCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -2626,6 +2739,7 @@ export namespace Prisma {
     monthlyResults?: boolean | ExamPeriodCountOutputTypeCountMonthlyResultsArgs
     pointLogs?: boolean | ExamPeriodCountOutputTypeCountPointLogsArgs
     sessions?: boolean | ExamPeriodCountOutputTypeCountSessionsArgs
+    weeklyStatusSnapshots?: boolean | ExamPeriodCountOutputTypeCountWeeklyStatusSnapshotsArgs
   }
 
   // Custom InputTypes
@@ -2665,6 +2779,13 @@ export namespace Prisma {
    */
   export type ExamPeriodCountOutputTypeCountSessionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ExamSessionWhereInput
+  }
+
+  /**
+   * ExamPeriodCountOutputType without action
+   */
+  export type ExamPeriodCountOutputTypeCountWeeklyStatusSnapshotsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WeeklyStatusSnapshotWhereInput
   }
 
 
@@ -3098,6 +3219,7 @@ export namespace Prisma {
     pointLogs?: boolean | Student$pointLogsArgs<ExtArgs>
     scores?: boolean | Student$scoresArgs<ExtArgs>
     studentAnswers?: boolean | Student$studentAnswersArgs<ExtArgs>
+    weeklyStatusSnapshots?: boolean | Student$weeklyStatusSnapshotsArgs<ExtArgs>
     wrongNoteBookmarks?: boolean | Student$wrongNoteBookmarksArgs<ExtArgs>
     _count?: boolean | StudentCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["student"]>
@@ -3175,6 +3297,7 @@ export namespace Prisma {
     pointLogs?: boolean | Student$pointLogsArgs<ExtArgs>
     scores?: boolean | Student$scoresArgs<ExtArgs>
     studentAnswers?: boolean | Student$studentAnswersArgs<ExtArgs>
+    weeklyStatusSnapshots?: boolean | Student$weeklyStatusSnapshotsArgs<ExtArgs>
     wrongNoteBookmarks?: boolean | Student$wrongNoteBookmarksArgs<ExtArgs>
     _count?: boolean | StudentCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -3192,6 +3315,7 @@ export namespace Prisma {
       pointLogs: Prisma.$PointLogPayload<ExtArgs>[]
       scores: Prisma.$ScorePayload<ExtArgs>[]
       studentAnswers: Prisma.$StudentAnswerPayload<ExtArgs>[]
+      weeklyStatusSnapshots: Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>[]
       wrongNoteBookmarks: Prisma.$WrongNoteBookmarkPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -3615,6 +3739,7 @@ export namespace Prisma {
     pointLogs<T extends Student$pointLogsArgs<ExtArgs> = {}>(args?: Subset<T, Student$pointLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PointLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scores<T extends Student$scoresArgs<ExtArgs> = {}>(args?: Subset<T, Student$scoresArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScorePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     studentAnswers<T extends Student$studentAnswersArgs<ExtArgs> = {}>(args?: Subset<T, Student$studentAnswersArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$StudentAnswerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    weeklyStatusSnapshots<T extends Student$weeklyStatusSnapshotsArgs<ExtArgs> = {}>(args?: Subset<T, Student$weeklyStatusSnapshotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     wrongNoteBookmarks<T extends Student$wrongNoteBookmarksArgs<ExtArgs> = {}>(args?: Subset<T, Student$wrongNoteBookmarksArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WrongNoteBookmarkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -4243,6 +4368,30 @@ export namespace Prisma {
   }
 
   /**
+   * Student.weeklyStatusSnapshots
+   */
+  export type Student$weeklyStatusSnapshotsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    where?: WeeklyStatusSnapshotWhereInput
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WeeklyStatusSnapshotScalarFieldEnum | WeeklyStatusSnapshotScalarFieldEnum[]
+  }
+
+  /**
    * Student.wrongNoteBookmarks
    */
   export type Student$wrongNoteBookmarksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4515,6 +4664,7 @@ export namespace Prisma {
     monthlyResults?: boolean | ExamPeriod$monthlyResultsArgs<ExtArgs>
     pointLogs?: boolean | ExamPeriod$pointLogsArgs<ExtArgs>
     sessions?: boolean | ExamPeriod$sessionsArgs<ExtArgs>
+    weeklyStatusSnapshots?: boolean | ExamPeriod$weeklyStatusSnapshotsArgs<ExtArgs>
     _count?: boolean | ExamPeriodCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["examPeriod"]>
 
@@ -4557,6 +4707,7 @@ export namespace Prisma {
     monthlyResults?: boolean | ExamPeriod$monthlyResultsArgs<ExtArgs>
     pointLogs?: boolean | ExamPeriod$pointLogsArgs<ExtArgs>
     sessions?: boolean | ExamPeriod$sessionsArgs<ExtArgs>
+    weeklyStatusSnapshots?: boolean | ExamPeriod$weeklyStatusSnapshotsArgs<ExtArgs>
     _count?: boolean | ExamPeriodCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ExamPeriodIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -4569,6 +4720,7 @@ export namespace Prisma {
       monthlyResults: Prisma.$MonthlyResultPayload<ExtArgs>[]
       pointLogs: Prisma.$PointLogPayload<ExtArgs>[]
       sessions: Prisma.$ExamSessionPayload<ExtArgs>[]
+      weeklyStatusSnapshots: Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: number
@@ -4977,6 +5129,7 @@ export namespace Prisma {
     monthlyResults<T extends ExamPeriod$monthlyResultsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$monthlyResultsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MonthlyResultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     pointLogs<T extends ExamPeriod$pointLogsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$pointLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PointLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     sessions<T extends ExamPeriod$sessionsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ExamSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    weeklyStatusSnapshots<T extends ExamPeriod$weeklyStatusSnapshotsArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriod$weeklyStatusSnapshotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -5495,6 +5648,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: ExamSessionScalarFieldEnum | ExamSessionScalarFieldEnum[]
+  }
+
+  /**
+   * ExamPeriod.weeklyStatusSnapshots
+   */
+  export type ExamPeriod$weeklyStatusSnapshotsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    where?: WeeklyStatusSnapshotWhereInput
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WeeklyStatusSnapshotScalarFieldEnum | WeeklyStatusSnapshotScalarFieldEnum[]
   }
 
   /**
@@ -11401,6 +11578,1248 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: NotificationLogInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model WeeklyStatusSnapshot
+   */
+
+  export type AggregateWeeklyStatusSnapshot = {
+    _count: WeeklyStatusSnapshotCountAggregateOutputType | null
+    _avg: WeeklyStatusSnapshotAvgAggregateOutputType | null
+    _sum: WeeklyStatusSnapshotSumAggregateOutputType | null
+    _min: WeeklyStatusSnapshotMinAggregateOutputType | null
+    _max: WeeklyStatusSnapshotMaxAggregateOutputType | null
+  }
+
+  export type WeeklyStatusSnapshotAvgAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    weekAbsenceCount: number | null
+    monthAbsenceCount: number | null
+  }
+
+  export type WeeklyStatusSnapshotSumAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    weekAbsenceCount: number | null
+    monthAbsenceCount: number | null
+  }
+
+  export type WeeklyStatusSnapshotMinAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    examNumber: string | null
+    examType: $Enums.ExamType | null
+    weekKey: string | null
+    weekStartDate: Date | null
+    weekEndDate: Date | null
+    weekAbsenceCount: number | null
+    monthAbsenceCount: number | null
+    status: $Enums.StudentStatus | null
+    recoveryDate: Date | null
+    dropoutReason: $Enums.DropoutReason | null
+    calculatedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WeeklyStatusSnapshotMaxAggregateOutputType = {
+    id: number | null
+    periodId: number | null
+    examNumber: string | null
+    examType: $Enums.ExamType | null
+    weekKey: string | null
+    weekStartDate: Date | null
+    weekEndDate: Date | null
+    weekAbsenceCount: number | null
+    monthAbsenceCount: number | null
+    status: $Enums.StudentStatus | null
+    recoveryDate: Date | null
+    dropoutReason: $Enums.DropoutReason | null
+    calculatedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WeeklyStatusSnapshotCountAggregateOutputType = {
+    id: number
+    periodId: number
+    examNumber: number
+    examType: number
+    weekKey: number
+    weekStartDate: number
+    weekEndDate: number
+    weekAbsenceCount: number
+    monthAbsenceCount: number
+    status: number
+    recoveryDate: number
+    dropoutReason: number
+    calculatedAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WeeklyStatusSnapshotAvgAggregateInputType = {
+    id?: true
+    periodId?: true
+    weekAbsenceCount?: true
+    monthAbsenceCount?: true
+  }
+
+  export type WeeklyStatusSnapshotSumAggregateInputType = {
+    id?: true
+    periodId?: true
+    weekAbsenceCount?: true
+    monthAbsenceCount?: true
+  }
+
+  export type WeeklyStatusSnapshotMinAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    examType?: true
+    weekKey?: true
+    weekStartDate?: true
+    weekEndDate?: true
+    weekAbsenceCount?: true
+    monthAbsenceCount?: true
+    status?: true
+    recoveryDate?: true
+    dropoutReason?: true
+    calculatedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WeeklyStatusSnapshotMaxAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    examType?: true
+    weekKey?: true
+    weekStartDate?: true
+    weekEndDate?: true
+    weekAbsenceCount?: true
+    monthAbsenceCount?: true
+    status?: true
+    recoveryDate?: true
+    dropoutReason?: true
+    calculatedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WeeklyStatusSnapshotCountAggregateInputType = {
+    id?: true
+    periodId?: true
+    examNumber?: true
+    examType?: true
+    weekKey?: true
+    weekStartDate?: true
+    weekEndDate?: true
+    weekAbsenceCount?: true
+    monthAbsenceCount?: true
+    status?: true
+    recoveryDate?: true
+    dropoutReason?: true
+    calculatedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WeeklyStatusSnapshotAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WeeklyStatusSnapshot to aggregate.
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WeeklyStatusSnapshots to fetch.
+     */
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WeeklyStatusSnapshots from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WeeklyStatusSnapshots.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WeeklyStatusSnapshots
+    **/
+    _count?: true | WeeklyStatusSnapshotCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: WeeklyStatusSnapshotAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: WeeklyStatusSnapshotSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WeeklyStatusSnapshotMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WeeklyStatusSnapshotMaxAggregateInputType
+  }
+
+  export type GetWeeklyStatusSnapshotAggregateType<T extends WeeklyStatusSnapshotAggregateArgs> = {
+        [P in keyof T & keyof AggregateWeeklyStatusSnapshot]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWeeklyStatusSnapshot[P]>
+      : GetScalarType<T[P], AggregateWeeklyStatusSnapshot[P]>
+  }
+
+
+
+
+  export type WeeklyStatusSnapshotGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WeeklyStatusSnapshotWhereInput
+    orderBy?: WeeklyStatusSnapshotOrderByWithAggregationInput | WeeklyStatusSnapshotOrderByWithAggregationInput[]
+    by: WeeklyStatusSnapshotScalarFieldEnum[] | WeeklyStatusSnapshotScalarFieldEnum
+    having?: WeeklyStatusSnapshotScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WeeklyStatusSnapshotCountAggregateInputType | true
+    _avg?: WeeklyStatusSnapshotAvgAggregateInputType
+    _sum?: WeeklyStatusSnapshotSumAggregateInputType
+    _min?: WeeklyStatusSnapshotMinAggregateInputType
+    _max?: WeeklyStatusSnapshotMaxAggregateInputType
+  }
+
+  export type WeeklyStatusSnapshotGroupByOutputType = {
+    id: number
+    periodId: number
+    examNumber: string
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date
+    weekEndDate: Date
+    weekAbsenceCount: number
+    monthAbsenceCount: number
+    status: $Enums.StudentStatus
+    recoveryDate: Date | null
+    dropoutReason: $Enums.DropoutReason | null
+    calculatedAt: Date
+    createdAt: Date
+    updatedAt: Date
+    _count: WeeklyStatusSnapshotCountAggregateOutputType | null
+    _avg: WeeklyStatusSnapshotAvgAggregateOutputType | null
+    _sum: WeeklyStatusSnapshotSumAggregateOutputType | null
+    _min: WeeklyStatusSnapshotMinAggregateOutputType | null
+    _max: WeeklyStatusSnapshotMaxAggregateOutputType | null
+  }
+
+  type GetWeeklyStatusSnapshotGroupByPayload<T extends WeeklyStatusSnapshotGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WeeklyStatusSnapshotGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WeeklyStatusSnapshotGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WeeklyStatusSnapshotGroupByOutputType[P]>
+            : GetScalarType<T[P], WeeklyStatusSnapshotGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WeeklyStatusSnapshotSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    examType?: boolean
+    weekKey?: boolean
+    weekStartDate?: boolean
+    weekEndDate?: boolean
+    weekAbsenceCount?: boolean
+    monthAbsenceCount?: boolean
+    status?: boolean
+    recoveryDate?: boolean
+    dropoutReason?: boolean
+    calculatedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["weeklyStatusSnapshot"]>
+
+  export type WeeklyStatusSnapshotSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    examType?: boolean
+    weekKey?: boolean
+    weekStartDate?: boolean
+    weekEndDate?: boolean
+    weekAbsenceCount?: boolean
+    monthAbsenceCount?: boolean
+    status?: boolean
+    recoveryDate?: boolean
+    dropoutReason?: boolean
+    calculatedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["weeklyStatusSnapshot"]>
+
+  export type WeeklyStatusSnapshotSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    examType?: boolean
+    weekKey?: boolean
+    weekStartDate?: boolean
+    weekEndDate?: boolean
+    weekAbsenceCount?: boolean
+    monthAbsenceCount?: boolean
+    status?: boolean
+    recoveryDate?: boolean
+    dropoutReason?: boolean
+    calculatedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["weeklyStatusSnapshot"]>
+
+  export type WeeklyStatusSnapshotSelectScalar = {
+    id?: boolean
+    periodId?: boolean
+    examNumber?: boolean
+    examType?: boolean
+    weekKey?: boolean
+    weekStartDate?: boolean
+    weekEndDate?: boolean
+    weekAbsenceCount?: boolean
+    monthAbsenceCount?: boolean
+    status?: boolean
+    recoveryDate?: boolean
+    dropoutReason?: boolean
+    calculatedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WeeklyStatusSnapshotOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "periodId" | "examNumber" | "examType" | "weekKey" | "weekStartDate" | "weekEndDate" | "weekAbsenceCount" | "monthAbsenceCount" | "status" | "recoveryDate" | "dropoutReason" | "calculatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["weeklyStatusSnapshot"]>
+  export type WeeklyStatusSnapshotInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type WeeklyStatusSnapshotIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+  export type WeeklyStatusSnapshotIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    period?: boolean | ExamPeriodDefaultArgs<ExtArgs>
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+
+  export type $WeeklyStatusSnapshotPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WeeklyStatusSnapshot"
+    objects: {
+      period: Prisma.$ExamPeriodPayload<ExtArgs>
+      student: Prisma.$StudentPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: number
+      periodId: number
+      examNumber: string
+      examType: $Enums.ExamType
+      weekKey: string
+      weekStartDate: Date
+      weekEndDate: Date
+      weekAbsenceCount: number
+      monthAbsenceCount: number
+      status: $Enums.StudentStatus
+      recoveryDate: Date | null
+      dropoutReason: $Enums.DropoutReason | null
+      calculatedAt: Date
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["weeklyStatusSnapshot"]>
+    composites: {}
+  }
+
+  type WeeklyStatusSnapshotGetPayload<S extends boolean | null | undefined | WeeklyStatusSnapshotDefaultArgs> = $Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload, S>
+
+  type WeeklyStatusSnapshotCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WeeklyStatusSnapshotFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WeeklyStatusSnapshotCountAggregateInputType | true
+    }
+
+  export interface WeeklyStatusSnapshotDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WeeklyStatusSnapshot'], meta: { name: 'WeeklyStatusSnapshot' } }
+    /**
+     * Find zero or one WeeklyStatusSnapshot that matches the filter.
+     * @param {WeeklyStatusSnapshotFindUniqueArgs} args - Arguments to find a WeeklyStatusSnapshot
+     * @example
+     * // Get one WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WeeklyStatusSnapshotFindUniqueArgs>(args: SelectSubset<T, WeeklyStatusSnapshotFindUniqueArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WeeklyStatusSnapshot that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WeeklyStatusSnapshotFindUniqueOrThrowArgs} args - Arguments to find a WeeklyStatusSnapshot
+     * @example
+     * // Get one WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WeeklyStatusSnapshotFindUniqueOrThrowArgs>(args: SelectSubset<T, WeeklyStatusSnapshotFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WeeklyStatusSnapshot that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotFindFirstArgs} args - Arguments to find a WeeklyStatusSnapshot
+     * @example
+     * // Get one WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WeeklyStatusSnapshotFindFirstArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotFindFirstArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WeeklyStatusSnapshot that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotFindFirstOrThrowArgs} args - Arguments to find a WeeklyStatusSnapshot
+     * @example
+     * // Get one WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WeeklyStatusSnapshotFindFirstOrThrowArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotFindFirstOrThrowArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WeeklyStatusSnapshots that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WeeklyStatusSnapshots
+     * const weeklyStatusSnapshots = await prisma.weeklyStatusSnapshot.findMany()
+     * 
+     * // Get first 10 WeeklyStatusSnapshots
+     * const weeklyStatusSnapshots = await prisma.weeklyStatusSnapshot.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const weeklyStatusSnapshotWithIdOnly = await prisma.weeklyStatusSnapshot.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WeeklyStatusSnapshotFindManyArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WeeklyStatusSnapshot.
+     * @param {WeeklyStatusSnapshotCreateArgs} args - Arguments to create a WeeklyStatusSnapshot.
+     * @example
+     * // Create one WeeklyStatusSnapshot
+     * const WeeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.create({
+     *   data: {
+     *     // ... data to create a WeeklyStatusSnapshot
+     *   }
+     * })
+     * 
+     */
+    create<T extends WeeklyStatusSnapshotCreateArgs>(args: SelectSubset<T, WeeklyStatusSnapshotCreateArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WeeklyStatusSnapshots.
+     * @param {WeeklyStatusSnapshotCreateManyArgs} args - Arguments to create many WeeklyStatusSnapshots.
+     * @example
+     * // Create many WeeklyStatusSnapshots
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WeeklyStatusSnapshotCreateManyArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WeeklyStatusSnapshots and returns the data saved in the database.
+     * @param {WeeklyStatusSnapshotCreateManyAndReturnArgs} args - Arguments to create many WeeklyStatusSnapshots.
+     * @example
+     * // Create many WeeklyStatusSnapshots
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WeeklyStatusSnapshots and only return the `id`
+     * const weeklyStatusSnapshotWithIdOnly = await prisma.weeklyStatusSnapshot.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WeeklyStatusSnapshotCreateManyAndReturnArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WeeklyStatusSnapshot.
+     * @param {WeeklyStatusSnapshotDeleteArgs} args - Arguments to delete one WeeklyStatusSnapshot.
+     * @example
+     * // Delete one WeeklyStatusSnapshot
+     * const WeeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.delete({
+     *   where: {
+     *     // ... filter to delete one WeeklyStatusSnapshot
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WeeklyStatusSnapshotDeleteArgs>(args: SelectSubset<T, WeeklyStatusSnapshotDeleteArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WeeklyStatusSnapshot.
+     * @param {WeeklyStatusSnapshotUpdateArgs} args - Arguments to update one WeeklyStatusSnapshot.
+     * @example
+     * // Update one WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WeeklyStatusSnapshotUpdateArgs>(args: SelectSubset<T, WeeklyStatusSnapshotUpdateArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WeeklyStatusSnapshots.
+     * @param {WeeklyStatusSnapshotDeleteManyArgs} args - Arguments to filter WeeklyStatusSnapshots to delete.
+     * @example
+     * // Delete a few WeeklyStatusSnapshots
+     * const { count } = await prisma.weeklyStatusSnapshot.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WeeklyStatusSnapshotDeleteManyArgs>(args?: SelectSubset<T, WeeklyStatusSnapshotDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WeeklyStatusSnapshots.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WeeklyStatusSnapshots
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WeeklyStatusSnapshotUpdateManyArgs>(args: SelectSubset<T, WeeklyStatusSnapshotUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WeeklyStatusSnapshots and returns the data updated in the database.
+     * @param {WeeklyStatusSnapshotUpdateManyAndReturnArgs} args - Arguments to update many WeeklyStatusSnapshots.
+     * @example
+     * // Update many WeeklyStatusSnapshots
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WeeklyStatusSnapshots and only return the `id`
+     * const weeklyStatusSnapshotWithIdOnly = await prisma.weeklyStatusSnapshot.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WeeklyStatusSnapshotUpdateManyAndReturnArgs>(args: SelectSubset<T, WeeklyStatusSnapshotUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WeeklyStatusSnapshot.
+     * @param {WeeklyStatusSnapshotUpsertArgs} args - Arguments to update or create a WeeklyStatusSnapshot.
+     * @example
+     * // Update or create a WeeklyStatusSnapshot
+     * const weeklyStatusSnapshot = await prisma.weeklyStatusSnapshot.upsert({
+     *   create: {
+     *     // ... data to create a WeeklyStatusSnapshot
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WeeklyStatusSnapshot we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WeeklyStatusSnapshotUpsertArgs>(args: SelectSubset<T, WeeklyStatusSnapshotUpsertArgs<ExtArgs>>): Prisma__WeeklyStatusSnapshotClient<$Result.GetResult<Prisma.$WeeklyStatusSnapshotPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WeeklyStatusSnapshots.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotCountArgs} args - Arguments to filter WeeklyStatusSnapshots to count.
+     * @example
+     * // Count the number of WeeklyStatusSnapshots
+     * const count = await prisma.weeklyStatusSnapshot.count({
+     *   where: {
+     *     // ... the filter for the WeeklyStatusSnapshots we want to count
+     *   }
+     * })
+    **/
+    count<T extends WeeklyStatusSnapshotCountArgs>(
+      args?: Subset<T, WeeklyStatusSnapshotCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WeeklyStatusSnapshotCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WeeklyStatusSnapshot.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WeeklyStatusSnapshotAggregateArgs>(args: Subset<T, WeeklyStatusSnapshotAggregateArgs>): Prisma.PrismaPromise<GetWeeklyStatusSnapshotAggregateType<T>>
+
+    /**
+     * Group by WeeklyStatusSnapshot.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WeeklyStatusSnapshotGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WeeklyStatusSnapshotGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WeeklyStatusSnapshotGroupByArgs['orderBy'] }
+        : { orderBy?: WeeklyStatusSnapshotGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WeeklyStatusSnapshotGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWeeklyStatusSnapshotGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WeeklyStatusSnapshot model
+   */
+  readonly fields: WeeklyStatusSnapshotFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WeeklyStatusSnapshot.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WeeklyStatusSnapshotClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    period<T extends ExamPeriodDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ExamPeriodDefaultArgs<ExtArgs>>): Prisma__ExamPeriodClient<$Result.GetResult<Prisma.$ExamPeriodPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    student<T extends StudentDefaultArgs<ExtArgs> = {}>(args?: Subset<T, StudentDefaultArgs<ExtArgs>>): Prisma__StudentClient<$Result.GetResult<Prisma.$StudentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WeeklyStatusSnapshot model
+   */
+  interface WeeklyStatusSnapshotFieldRefs {
+    readonly id: FieldRef<"WeeklyStatusSnapshot", 'Int'>
+    readonly periodId: FieldRef<"WeeklyStatusSnapshot", 'Int'>
+    readonly examNumber: FieldRef<"WeeklyStatusSnapshot", 'String'>
+    readonly examType: FieldRef<"WeeklyStatusSnapshot", 'ExamType'>
+    readonly weekKey: FieldRef<"WeeklyStatusSnapshot", 'String'>
+    readonly weekStartDate: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+    readonly weekEndDate: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+    readonly weekAbsenceCount: FieldRef<"WeeklyStatusSnapshot", 'Int'>
+    readonly monthAbsenceCount: FieldRef<"WeeklyStatusSnapshot", 'Int'>
+    readonly status: FieldRef<"WeeklyStatusSnapshot", 'StudentStatus'>
+    readonly recoveryDate: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+    readonly dropoutReason: FieldRef<"WeeklyStatusSnapshot", 'DropoutReason'>
+    readonly calculatedAt: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+    readonly createdAt: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+    readonly updatedAt: FieldRef<"WeeklyStatusSnapshot", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WeeklyStatusSnapshot findUnique
+   */
+  export type WeeklyStatusSnapshotFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter, which WeeklyStatusSnapshot to fetch.
+     */
+    where: WeeklyStatusSnapshotWhereUniqueInput
+  }
+
+  /**
+   * WeeklyStatusSnapshot findUniqueOrThrow
+   */
+  export type WeeklyStatusSnapshotFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter, which WeeklyStatusSnapshot to fetch.
+     */
+    where: WeeklyStatusSnapshotWhereUniqueInput
+  }
+
+  /**
+   * WeeklyStatusSnapshot findFirst
+   */
+  export type WeeklyStatusSnapshotFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter, which WeeklyStatusSnapshot to fetch.
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WeeklyStatusSnapshots to fetch.
+     */
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WeeklyStatusSnapshots.
+     */
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WeeklyStatusSnapshots from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WeeklyStatusSnapshots.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WeeklyStatusSnapshots.
+     */
+    distinct?: WeeklyStatusSnapshotScalarFieldEnum | WeeklyStatusSnapshotScalarFieldEnum[]
+  }
+
+  /**
+   * WeeklyStatusSnapshot findFirstOrThrow
+   */
+  export type WeeklyStatusSnapshotFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter, which WeeklyStatusSnapshot to fetch.
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WeeklyStatusSnapshots to fetch.
+     */
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WeeklyStatusSnapshots.
+     */
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WeeklyStatusSnapshots from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WeeklyStatusSnapshots.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WeeklyStatusSnapshots.
+     */
+    distinct?: WeeklyStatusSnapshotScalarFieldEnum | WeeklyStatusSnapshotScalarFieldEnum[]
+  }
+
+  /**
+   * WeeklyStatusSnapshot findMany
+   */
+  export type WeeklyStatusSnapshotFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter, which WeeklyStatusSnapshots to fetch.
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WeeklyStatusSnapshots to fetch.
+     */
+    orderBy?: WeeklyStatusSnapshotOrderByWithRelationInput | WeeklyStatusSnapshotOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WeeklyStatusSnapshots.
+     */
+    cursor?: WeeklyStatusSnapshotWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WeeklyStatusSnapshots from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WeeklyStatusSnapshots.
+     */
+    skip?: number
+    distinct?: WeeklyStatusSnapshotScalarFieldEnum | WeeklyStatusSnapshotScalarFieldEnum[]
+  }
+
+  /**
+   * WeeklyStatusSnapshot create
+   */
+  export type WeeklyStatusSnapshotCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * The data needed to create a WeeklyStatusSnapshot.
+     */
+    data: XOR<WeeklyStatusSnapshotCreateInput, WeeklyStatusSnapshotUncheckedCreateInput>
+  }
+
+  /**
+   * WeeklyStatusSnapshot createMany
+   */
+  export type WeeklyStatusSnapshotCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WeeklyStatusSnapshots.
+     */
+    data: WeeklyStatusSnapshotCreateManyInput | WeeklyStatusSnapshotCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WeeklyStatusSnapshot createManyAndReturn
+   */
+  export type WeeklyStatusSnapshotCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * The data used to create many WeeklyStatusSnapshots.
+     */
+    data: WeeklyStatusSnapshotCreateManyInput | WeeklyStatusSnapshotCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WeeklyStatusSnapshot update
+   */
+  export type WeeklyStatusSnapshotUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * The data needed to update a WeeklyStatusSnapshot.
+     */
+    data: XOR<WeeklyStatusSnapshotUpdateInput, WeeklyStatusSnapshotUncheckedUpdateInput>
+    /**
+     * Choose, which WeeklyStatusSnapshot to update.
+     */
+    where: WeeklyStatusSnapshotWhereUniqueInput
+  }
+
+  /**
+   * WeeklyStatusSnapshot updateMany
+   */
+  export type WeeklyStatusSnapshotUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WeeklyStatusSnapshots.
+     */
+    data: XOR<WeeklyStatusSnapshotUpdateManyMutationInput, WeeklyStatusSnapshotUncheckedUpdateManyInput>
+    /**
+     * Filter which WeeklyStatusSnapshots to update
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * Limit how many WeeklyStatusSnapshots to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WeeklyStatusSnapshot updateManyAndReturn
+   */
+  export type WeeklyStatusSnapshotUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * The data used to update WeeklyStatusSnapshots.
+     */
+    data: XOR<WeeklyStatusSnapshotUpdateManyMutationInput, WeeklyStatusSnapshotUncheckedUpdateManyInput>
+    /**
+     * Filter which WeeklyStatusSnapshots to update
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * Limit how many WeeklyStatusSnapshots to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WeeklyStatusSnapshot upsert
+   */
+  export type WeeklyStatusSnapshotUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * The filter to search for the WeeklyStatusSnapshot to update in case it exists.
+     */
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    /**
+     * In case the WeeklyStatusSnapshot found by the `where` argument doesn't exist, create a new WeeklyStatusSnapshot with this data.
+     */
+    create: XOR<WeeklyStatusSnapshotCreateInput, WeeklyStatusSnapshotUncheckedCreateInput>
+    /**
+     * In case the WeeklyStatusSnapshot was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WeeklyStatusSnapshotUpdateInput, WeeklyStatusSnapshotUncheckedUpdateInput>
+  }
+
+  /**
+   * WeeklyStatusSnapshot delete
+   */
+  export type WeeklyStatusSnapshotDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
+    /**
+     * Filter which WeeklyStatusSnapshot to delete.
+     */
+    where: WeeklyStatusSnapshotWhereUniqueInput
+  }
+
+  /**
+   * WeeklyStatusSnapshot deleteMany
+   */
+  export type WeeklyStatusSnapshotDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WeeklyStatusSnapshots to delete
+     */
+    where?: WeeklyStatusSnapshotWhereInput
+    /**
+     * Limit how many WeeklyStatusSnapshots to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WeeklyStatusSnapshot without action
+   */
+  export type WeeklyStatusSnapshotDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WeeklyStatusSnapshot
+     */
+    select?: WeeklyStatusSnapshotSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WeeklyStatusSnapshot
+     */
+    omit?: WeeklyStatusSnapshotOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WeeklyStatusSnapshotInclude<ExtArgs> | null
   }
 
 
@@ -22843,6 +24262,27 @@ export namespace Prisma {
   export type NotificationLogScalarFieldEnum = (typeof NotificationLogScalarFieldEnum)[keyof typeof NotificationLogScalarFieldEnum]
 
 
+  export const WeeklyStatusSnapshotScalarFieldEnum: {
+    id: 'id',
+    periodId: 'periodId',
+    examNumber: 'examNumber',
+    examType: 'examType',
+    weekKey: 'weekKey',
+    weekStartDate: 'weekStartDate',
+    weekEndDate: 'weekEndDate',
+    weekAbsenceCount: 'weekAbsenceCount',
+    monthAbsenceCount: 'monthAbsenceCount',
+    status: 'status',
+    recoveryDate: 'recoveryDate',
+    dropoutReason: 'dropoutReason',
+    calculatedAt: 'calculatedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WeeklyStatusSnapshotScalarFieldEnum = (typeof WeeklyStatusSnapshotScalarFieldEnum)[keyof typeof WeeklyStatusSnapshotScalarFieldEnum]
+
+
   export const CounselingRecordScalarFieldEnum: {
     id: 'id',
     examNumber: 'examNumber',
@@ -23243,6 +24683,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'DropoutReason'
+   */
+  export type EnumDropoutReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DropoutReason'>
+    
+
+
+  /**
+   * Reference to a field of type 'DropoutReason[]'
+   */
+  export type ListEnumDropoutReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DropoutReason[]'>
+    
+
+
+  /**
    * Reference to a field of type 'AppointmentStatus'
    */
   export type EnumAppointmentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AppointmentStatus'>
@@ -23331,6 +24785,7 @@ export namespace Prisma {
     pointLogs?: PointLogListRelationFilter
     scores?: ScoreListRelationFilter
     studentAnswers?: StudentAnswerListRelationFilter
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotListRelationFilter
     wrongNoteBookmarks?: WrongNoteBookmarkListRelationFilter
   }
 
@@ -23361,6 +24816,7 @@ export namespace Prisma {
     pointLogs?: PointLogOrderByRelationAggregateInput
     scores?: ScoreOrderByRelationAggregateInput
     studentAnswers?: StudentAnswerOrderByRelationAggregateInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotOrderByRelationAggregateInput
     wrongNoteBookmarks?: WrongNoteBookmarkOrderByRelationAggregateInput
   }
 
@@ -23394,6 +24850,7 @@ export namespace Prisma {
     pointLogs?: PointLogListRelationFilter
     scores?: ScoreListRelationFilter
     studentAnswers?: StudentAnswerListRelationFilter
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotListRelationFilter
     wrongNoteBookmarks?: WrongNoteBookmarkListRelationFilter
   }, "examNumber" | "onlineId">
 
@@ -23463,6 +24920,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultListRelationFilter
     pointLogs?: PointLogListRelationFilter
     sessions?: ExamSessionListRelationFilter
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotListRelationFilter
   }
 
   export type ExamPeriodOrderByWithRelationInput = {
@@ -23478,6 +24936,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultOrderByRelationAggregateInput
     pointLogs?: PointLogOrderByRelationAggregateInput
     sessions?: ExamSessionOrderByRelationAggregateInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotOrderByRelationAggregateInput
   }
 
   export type ExamPeriodWhereUniqueInput = Prisma.AtLeast<{
@@ -23496,6 +24955,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultListRelationFilter
     pointLogs?: PointLogListRelationFilter
     sessions?: ExamSessionListRelationFilter
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotListRelationFilter
   }, "id">
 
   export type ExamPeriodOrderByWithAggregationInput = {
@@ -23940,6 +25400,117 @@ export namespace Prisma {
     status?: StringWithAggregatesFilter<"NotificationLog"> | string
     sentAt?: DateTimeWithAggregatesFilter<"NotificationLog"> | Date | string
     failReason?: StringNullableWithAggregatesFilter<"NotificationLog"> | string | null
+  }
+
+  export type WeeklyStatusSnapshotWhereInput = {
+    AND?: WeeklyStatusSnapshotWhereInput | WeeklyStatusSnapshotWhereInput[]
+    OR?: WeeklyStatusSnapshotWhereInput[]
+    NOT?: WeeklyStatusSnapshotWhereInput | WeeklyStatusSnapshotWhereInput[]
+    id?: IntFilter<"WeeklyStatusSnapshot"> | number
+    periodId?: IntFilter<"WeeklyStatusSnapshot"> | number
+    examNumber?: StringFilter<"WeeklyStatusSnapshot"> | string
+    examType?: EnumExamTypeFilter<"WeeklyStatusSnapshot"> | $Enums.ExamType
+    weekKey?: StringFilter<"WeeklyStatusSnapshot"> | string
+    weekStartDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekEndDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    monthAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    status?: EnumStudentStatusFilter<"WeeklyStatusSnapshot"> | $Enums.StudentStatus
+    recoveryDate?: DateTimeNullableFilter<"WeeklyStatusSnapshot"> | Date | string | null
+    dropoutReason?: EnumDropoutReasonNullableFilter<"WeeklyStatusSnapshot"> | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    createdAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    updatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    period?: XOR<ExamPeriodScalarRelationFilter, ExamPeriodWhereInput>
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }
+
+  export type WeeklyStatusSnapshotOrderByWithRelationInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    examType?: SortOrder
+    weekKey?: SortOrder
+    weekStartDate?: SortOrder
+    weekEndDate?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+    status?: SortOrder
+    recoveryDate?: SortOrderInput | SortOrder
+    dropoutReason?: SortOrderInput | SortOrder
+    calculatedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    period?: ExamPeriodOrderByWithRelationInput
+    student?: StudentOrderByWithRelationInput
+  }
+
+  export type WeeklyStatusSnapshotWhereUniqueInput = Prisma.AtLeast<{
+    id?: number
+    periodId_examNumber_weekKey?: WeeklyStatusSnapshotPeriodIdExamNumberWeekKeyCompoundUniqueInput
+    AND?: WeeklyStatusSnapshotWhereInput | WeeklyStatusSnapshotWhereInput[]
+    OR?: WeeklyStatusSnapshotWhereInput[]
+    NOT?: WeeklyStatusSnapshotWhereInput | WeeklyStatusSnapshotWhereInput[]
+    periodId?: IntFilter<"WeeklyStatusSnapshot"> | number
+    examNumber?: StringFilter<"WeeklyStatusSnapshot"> | string
+    examType?: EnumExamTypeFilter<"WeeklyStatusSnapshot"> | $Enums.ExamType
+    weekKey?: StringFilter<"WeeklyStatusSnapshot"> | string
+    weekStartDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekEndDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    monthAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    status?: EnumStudentStatusFilter<"WeeklyStatusSnapshot"> | $Enums.StudentStatus
+    recoveryDate?: DateTimeNullableFilter<"WeeklyStatusSnapshot"> | Date | string | null
+    dropoutReason?: EnumDropoutReasonNullableFilter<"WeeklyStatusSnapshot"> | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    createdAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    updatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    period?: XOR<ExamPeriodScalarRelationFilter, ExamPeriodWhereInput>
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }, "id" | "periodId_examNumber_weekKey">
+
+  export type WeeklyStatusSnapshotOrderByWithAggregationInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    examType?: SortOrder
+    weekKey?: SortOrder
+    weekStartDate?: SortOrder
+    weekEndDate?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+    status?: SortOrder
+    recoveryDate?: SortOrderInput | SortOrder
+    dropoutReason?: SortOrderInput | SortOrder
+    calculatedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WeeklyStatusSnapshotCountOrderByAggregateInput
+    _avg?: WeeklyStatusSnapshotAvgOrderByAggregateInput
+    _max?: WeeklyStatusSnapshotMaxOrderByAggregateInput
+    _min?: WeeklyStatusSnapshotMinOrderByAggregateInput
+    _sum?: WeeklyStatusSnapshotSumOrderByAggregateInput
+  }
+
+  export type WeeklyStatusSnapshotScalarWhereWithAggregatesInput = {
+    AND?: WeeklyStatusSnapshotScalarWhereWithAggregatesInput | WeeklyStatusSnapshotScalarWhereWithAggregatesInput[]
+    OR?: WeeklyStatusSnapshotScalarWhereWithAggregatesInput[]
+    NOT?: WeeklyStatusSnapshotScalarWhereWithAggregatesInput | WeeklyStatusSnapshotScalarWhereWithAggregatesInput[]
+    id?: IntWithAggregatesFilter<"WeeklyStatusSnapshot"> | number
+    periodId?: IntWithAggregatesFilter<"WeeklyStatusSnapshot"> | number
+    examNumber?: StringWithAggregatesFilter<"WeeklyStatusSnapshot"> | string
+    examType?: EnumExamTypeWithAggregatesFilter<"WeeklyStatusSnapshot"> | $Enums.ExamType
+    weekKey?: StringWithAggregatesFilter<"WeeklyStatusSnapshot"> | string
+    weekStartDate?: DateTimeWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekEndDate?: DateTimeWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekAbsenceCount?: IntWithAggregatesFilter<"WeeklyStatusSnapshot"> | number
+    monthAbsenceCount?: IntWithAggregatesFilter<"WeeklyStatusSnapshot"> | number
+    status?: EnumStudentStatusWithAggregatesFilter<"WeeklyStatusSnapshot"> | $Enums.StudentStatus
+    recoveryDate?: DateTimeNullableWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string | null
+    dropoutReason?: EnumDropoutReasonNullableWithAggregatesFilter<"WeeklyStatusSnapshot"> | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string
+    createdAt?: DateTimeWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WeeklyStatusSnapshot"> | Date | string
   }
 
   export type CounselingRecordWhereInput = {
@@ -24686,6 +26257,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -24716,6 +26288,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -24746,6 +26319,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -24776,6 +26350,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -24854,6 +26429,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUncheckedCreateInput = {
@@ -24869,6 +26445,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUpdateInput = {
@@ -24883,6 +26460,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodUncheckedUpdateInput = {
@@ -24898,6 +26476,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodCreateManyInput = {
@@ -25354,6 +26933,127 @@ export namespace Prisma {
     status?: StringFieldUpdateOperationsInput | string
     sentAt?: DateTimeFieldUpdateOperationsInput | Date | string
     failReason?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type WeeklyStatusSnapshotCreateInput = {
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    period: ExamPeriodCreateNestedOneWithoutWeeklyStatusSnapshotsInput
+    student: StudentCreateNestedOneWithoutWeeklyStatusSnapshotsInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedCreateInput = {
+    id?: number
+    periodId: number
+    examNumber: string
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotUpdateInput = {
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    period?: ExamPeriodUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput
+    student?: StudentUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WeeklyStatusSnapshotCreateManyInput = {
+    id?: number
+    periodId: number
+    examNumber: string
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotUpdateManyMutationInput = {
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type CounselingRecordCreateInput = {
@@ -26231,6 +27931,12 @@ export namespace Prisma {
     none?: StudentAnswerWhereInput
   }
 
+  export type WeeklyStatusSnapshotListRelationFilter = {
+    every?: WeeklyStatusSnapshotWhereInput
+    some?: WeeklyStatusSnapshotWhereInput
+    none?: WeeklyStatusSnapshotWhereInput
+  }
+
   export type WrongNoteBookmarkListRelationFilter = {
     every?: WrongNoteBookmarkWhereInput
     some?: WrongNoteBookmarkWhereInput
@@ -26271,6 +27977,10 @@ export namespace Prisma {
   }
 
   export type StudentAnswerOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type WeeklyStatusSnapshotOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -27021,6 +28731,97 @@ export namespace Prisma {
     _max?: NestedEnumNotificationChannelFilter<$PrismaModel>
   }
 
+  export type EnumDropoutReasonNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.DropoutReason | EnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumDropoutReasonNullableFilter<$PrismaModel> | $Enums.DropoutReason | null
+  }
+
+  export type WeeklyStatusSnapshotPeriodIdExamNumberWeekKeyCompoundUniqueInput = {
+    periodId: number
+    examNumber: string
+    weekKey: string
+  }
+
+  export type WeeklyStatusSnapshotCountOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    examType?: SortOrder
+    weekKey?: SortOrder
+    weekStartDate?: SortOrder
+    weekEndDate?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+    status?: SortOrder
+    recoveryDate?: SortOrder
+    dropoutReason?: SortOrder
+    calculatedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WeeklyStatusSnapshotAvgOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+  }
+
+  export type WeeklyStatusSnapshotMaxOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    examType?: SortOrder
+    weekKey?: SortOrder
+    weekStartDate?: SortOrder
+    weekEndDate?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+    status?: SortOrder
+    recoveryDate?: SortOrder
+    dropoutReason?: SortOrder
+    calculatedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WeeklyStatusSnapshotMinOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    examNumber?: SortOrder
+    examType?: SortOrder
+    weekKey?: SortOrder
+    weekStartDate?: SortOrder
+    weekEndDate?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+    status?: SortOrder
+    recoveryDate?: SortOrder
+    dropoutReason?: SortOrder
+    calculatedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WeeklyStatusSnapshotSumOrderByAggregateInput = {
+    id?: SortOrder
+    periodId?: SortOrder
+    weekAbsenceCount?: SortOrder
+    monthAbsenceCount?: SortOrder
+  }
+
+  export type EnumDropoutReasonNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.DropoutReason | EnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumDropoutReasonNullableWithAggregatesFilter<$PrismaModel> | $Enums.DropoutReason | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumDropoutReasonNullableFilter<$PrismaModel>
+    _max?: NestedEnumDropoutReasonNullableFilter<$PrismaModel>
+  }
+
   export type CounselingRecordCountOrderByAggregateInput = {
     id?: SortOrder
     examNumber?: SortOrder
@@ -27621,6 +29422,13 @@ export namespace Prisma {
     connect?: StudentAnswerWhereUniqueInput | StudentAnswerWhereUniqueInput[]
   }
 
+  export type WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput> | WeeklyStatusSnapshotCreateWithoutStudentInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput | WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyStudentInputEnvelope
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+  }
+
   export type WrongNoteBookmarkCreateNestedManyWithoutStudentInput = {
     create?: XOR<WrongNoteBookmarkCreateWithoutStudentInput, WrongNoteBookmarkUncheckedCreateWithoutStudentInput> | WrongNoteBookmarkCreateWithoutStudentInput[] | WrongNoteBookmarkUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: WrongNoteBookmarkCreateOrConnectWithoutStudentInput | WrongNoteBookmarkCreateOrConnectWithoutStudentInput[]
@@ -27682,6 +29490,13 @@ export namespace Prisma {
     connectOrCreate?: StudentAnswerCreateOrConnectWithoutStudentInput | StudentAnswerCreateOrConnectWithoutStudentInput[]
     createMany?: StudentAnswerCreateManyStudentInputEnvelope
     connect?: StudentAnswerWhereUniqueInput | StudentAnswerWhereUniqueInput[]
+  }
+
+  export type WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput> | WeeklyStatusSnapshotCreateWithoutStudentInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput | WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyStudentInputEnvelope
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
   }
 
   export type WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput = {
@@ -27843,6 +29658,20 @@ export namespace Prisma {
     deleteMany?: StudentAnswerScalarWhereInput | StudentAnswerScalarWhereInput[]
   }
 
+  export type WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput> | WeeklyStatusSnapshotCreateWithoutStudentInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput | WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput[]
+    upsert?: WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutStudentInput | WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyStudentInputEnvelope
+    set?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    disconnect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    delete?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    update?: WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutStudentInput | WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: WeeklyStatusSnapshotUpdateManyWithWhereWithoutStudentInput | WeeklyStatusSnapshotUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
+  }
+
   export type WrongNoteBookmarkUpdateManyWithoutStudentNestedInput = {
     create?: XOR<WrongNoteBookmarkCreateWithoutStudentInput, WrongNoteBookmarkUncheckedCreateWithoutStudentInput> | WrongNoteBookmarkCreateWithoutStudentInput[] | WrongNoteBookmarkUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: WrongNoteBookmarkCreateOrConnectWithoutStudentInput | WrongNoteBookmarkCreateOrConnectWithoutStudentInput[]
@@ -27969,6 +29798,20 @@ export namespace Prisma {
     deleteMany?: StudentAnswerScalarWhereInput | StudentAnswerScalarWhereInput[]
   }
 
+  export type WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput> | WeeklyStatusSnapshotCreateWithoutStudentInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput | WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput[]
+    upsert?: WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutStudentInput | WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutStudentInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyStudentInputEnvelope
+    set?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    disconnect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    delete?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    update?: WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutStudentInput | WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutStudentInput[]
+    updateMany?: WeeklyStatusSnapshotUpdateManyWithWhereWithoutStudentInput | WeeklyStatusSnapshotUpdateManyWithWhereWithoutStudentInput[]
+    deleteMany?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
+  }
+
   export type WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput = {
     create?: XOR<WrongNoteBookmarkCreateWithoutStudentInput, WrongNoteBookmarkUncheckedCreateWithoutStudentInput> | WrongNoteBookmarkCreateWithoutStudentInput[] | WrongNoteBookmarkUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: WrongNoteBookmarkCreateOrConnectWithoutStudentInput | WrongNoteBookmarkCreateOrConnectWithoutStudentInput[]
@@ -28011,6 +29854,13 @@ export namespace Prisma {
     connect?: ExamSessionWhereUniqueInput | ExamSessionWhereUniqueInput[]
   }
 
+  export type WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput> | WeeklyStatusSnapshotCreateWithoutPeriodInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput | WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyPeriodInputEnvelope
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+  }
+
   export type PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput = {
     create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
     connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
@@ -28037,6 +29887,13 @@ export namespace Prisma {
     connectOrCreate?: ExamSessionCreateOrConnectWithoutPeriodInput | ExamSessionCreateOrConnectWithoutPeriodInput[]
     createMany?: ExamSessionCreateManyPeriodInputEnvelope
     connect?: ExamSessionWhereUniqueInput | ExamSessionWhereUniqueInput[]
+  }
+
+  export type WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput> | WeeklyStatusSnapshotCreateWithoutPeriodInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput | WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyPeriodInputEnvelope
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
   }
 
   export type IntFieldUpdateOperationsInput = {
@@ -28103,6 +29960,20 @@ export namespace Prisma {
     deleteMany?: ExamSessionScalarWhereInput | ExamSessionScalarWhereInput[]
   }
 
+  export type WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput> | WeeklyStatusSnapshotCreateWithoutPeriodInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput | WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput[]
+    upsert?: WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutPeriodInput | WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutPeriodInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyPeriodInputEnvelope
+    set?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    disconnect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    delete?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    update?: WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutPeriodInput | WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutPeriodInput[]
+    updateMany?: WeeklyStatusSnapshotUpdateManyWithWhereWithoutPeriodInput | WeeklyStatusSnapshotUpdateManyWithWhereWithoutPeriodInput[]
+    deleteMany?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
+  }
+
   export type PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput = {
     create?: XOR<PeriodEnrollmentCreateWithoutPeriodInput, PeriodEnrollmentUncheckedCreateWithoutPeriodInput> | PeriodEnrollmentCreateWithoutPeriodInput[] | PeriodEnrollmentUncheckedCreateWithoutPeriodInput[]
     connectOrCreate?: PeriodEnrollmentCreateOrConnectWithoutPeriodInput | PeriodEnrollmentCreateOrConnectWithoutPeriodInput[]
@@ -28157,6 +30028,20 @@ export namespace Prisma {
     update?: ExamSessionUpdateWithWhereUniqueWithoutPeriodInput | ExamSessionUpdateWithWhereUniqueWithoutPeriodInput[]
     updateMany?: ExamSessionUpdateManyWithWhereWithoutPeriodInput | ExamSessionUpdateManyWithWhereWithoutPeriodInput[]
     deleteMany?: ExamSessionScalarWhereInput | ExamSessionScalarWhereInput[]
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput = {
+    create?: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput> | WeeklyStatusSnapshotCreateWithoutPeriodInput[] | WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput[]
+    connectOrCreate?: WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput | WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput[]
+    upsert?: WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutPeriodInput | WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutPeriodInput[]
+    createMany?: WeeklyStatusSnapshotCreateManyPeriodInputEnvelope
+    set?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    disconnect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    delete?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    connect?: WeeklyStatusSnapshotWhereUniqueInput | WeeklyStatusSnapshotWhereUniqueInput[]
+    update?: WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutPeriodInput | WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutPeriodInput[]
+    updateMany?: WeeklyStatusSnapshotUpdateManyWithWhereWithoutPeriodInput | WeeklyStatusSnapshotUpdateManyWithWhereWithoutPeriodInput[]
+    deleteMany?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
   }
 
   export type ExamPeriodCreateNestedOneWithoutMonthlyResultsInput = {
@@ -28417,6 +30302,38 @@ export namespace Prisma {
     upsert?: StudentUpsertWithoutNotificationsInput
     connect?: StudentWhereUniqueInput
     update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutNotificationsInput, StudentUpdateWithoutNotificationsInput>, StudentUncheckedUpdateWithoutNotificationsInput>
+  }
+
+  export type ExamPeriodCreateNestedOneWithoutWeeklyStatusSnapshotsInput = {
+    create?: XOR<ExamPeriodCreateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    connectOrCreate?: ExamPeriodCreateOrConnectWithoutWeeklyStatusSnapshotsInput
+    connect?: ExamPeriodWhereUniqueInput
+  }
+
+  export type StudentCreateNestedOneWithoutWeeklyStatusSnapshotsInput = {
+    create?: XOR<StudentCreateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutWeeklyStatusSnapshotsInput
+    connect?: StudentWhereUniqueInput
+  }
+
+  export type NullableEnumDropoutReasonFieldUpdateOperationsInput = {
+    set?: $Enums.DropoutReason | null
+  }
+
+  export type ExamPeriodUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput = {
+    create?: XOR<ExamPeriodCreateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    connectOrCreate?: ExamPeriodCreateOrConnectWithoutWeeklyStatusSnapshotsInput
+    upsert?: ExamPeriodUpsertWithoutWeeklyStatusSnapshotsInput
+    connect?: ExamPeriodWhereUniqueInput
+    update?: XOR<XOR<ExamPeriodUpdateToOneWithWhereWithoutWeeklyStatusSnapshotsInput, ExamPeriodUpdateWithoutWeeklyStatusSnapshotsInput>, ExamPeriodUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
+  }
+
+  export type StudentUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput = {
+    create?: XOR<StudentCreateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutWeeklyStatusSnapshotsInput
+    upsert?: StudentUpsertWithoutWeeklyStatusSnapshotsInput
+    connect?: StudentWhereUniqueInput
+    update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutWeeklyStatusSnapshotsInput, StudentUpdateWithoutWeeklyStatusSnapshotsInput>, StudentUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
   }
 
   export type StudentCreateNestedOneWithoutCounselingRecordsInput = {
@@ -29141,6 +31058,23 @@ export namespace Prisma {
     _max?: NestedEnumNotificationChannelFilter<$PrismaModel>
   }
 
+  export type NestedEnumDropoutReasonNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.DropoutReason | EnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumDropoutReasonNullableFilter<$PrismaModel> | $Enums.DropoutReason | null
+  }
+
+  export type NestedEnumDropoutReasonNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.DropoutReason | EnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.DropoutReason[] | ListEnumDropoutReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumDropoutReasonNullableWithAggregatesFilter<$PrismaModel> | $Enums.DropoutReason | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumDropoutReasonNullableFilter<$PrismaModel>
+    _max?: NestedEnumDropoutReasonNullableFilter<$PrismaModel>
+  }
+
   export type NestedEnumAppointmentStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.AppointmentStatus | EnumAppointmentStatusFieldRefInput<$PrismaModel>
     in?: $Enums.AppointmentStatus[] | ListEnumAppointmentStatusFieldRefInput<$PrismaModel>
@@ -29476,6 +31410,49 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WeeklyStatusSnapshotCreateWithoutStudentInput = {
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    period: ExamPeriodCreateNestedOneWithoutWeeklyStatusSnapshotsInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput = {
+    id?: number
+    periodId: number
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotCreateOrConnectWithoutStudentInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    create: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput>
+  }
+
+  export type WeeklyStatusSnapshotCreateManyStudentInputEnvelope = {
+    data: WeeklyStatusSnapshotCreateManyStudentInput | WeeklyStatusSnapshotCreateManyStudentInput[]
+    skipDuplicates?: boolean
+  }
+
   export type WrongNoteBookmarkCreateWithoutStudentInput = {
     memo?: string | null
     createdAt?: Date | string
@@ -29746,6 +31723,43 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"StudentAnswer"> | Date | string
   }
 
+  export type WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutStudentInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    update: XOR<WeeklyStatusSnapshotUpdateWithoutStudentInput, WeeklyStatusSnapshotUncheckedUpdateWithoutStudentInput>
+    create: XOR<WeeklyStatusSnapshotCreateWithoutStudentInput, WeeklyStatusSnapshotUncheckedCreateWithoutStudentInput>
+  }
+
+  export type WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutStudentInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    data: XOR<WeeklyStatusSnapshotUpdateWithoutStudentInput, WeeklyStatusSnapshotUncheckedUpdateWithoutStudentInput>
+  }
+
+  export type WeeklyStatusSnapshotUpdateManyWithWhereWithoutStudentInput = {
+    where: WeeklyStatusSnapshotScalarWhereInput
+    data: XOR<WeeklyStatusSnapshotUpdateManyMutationInput, WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentInput>
+  }
+
+  export type WeeklyStatusSnapshotScalarWhereInput = {
+    AND?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
+    OR?: WeeklyStatusSnapshotScalarWhereInput[]
+    NOT?: WeeklyStatusSnapshotScalarWhereInput | WeeklyStatusSnapshotScalarWhereInput[]
+    id?: IntFilter<"WeeklyStatusSnapshot"> | number
+    periodId?: IntFilter<"WeeklyStatusSnapshot"> | number
+    examNumber?: StringFilter<"WeeklyStatusSnapshot"> | string
+    examType?: EnumExamTypeFilter<"WeeklyStatusSnapshot"> | $Enums.ExamType
+    weekKey?: StringFilter<"WeeklyStatusSnapshot"> | string
+    weekStartDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekEndDate?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    weekAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    monthAbsenceCount?: IntFilter<"WeeklyStatusSnapshot"> | number
+    status?: EnumStudentStatusFilter<"WeeklyStatusSnapshot"> | $Enums.StudentStatus
+    recoveryDate?: DateTimeNullableFilter<"WeeklyStatusSnapshot"> | Date | string | null
+    dropoutReason?: EnumDropoutReasonNullableFilter<"WeeklyStatusSnapshot"> | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    createdAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+    updatedAt?: DateTimeFilter<"WeeklyStatusSnapshot"> | Date | string
+  }
+
   export type WrongNoteBookmarkUpsertWithWhereUniqueWithoutStudentInput = {
     where: WrongNoteBookmarkWhereUniqueInput
     update: XOR<WrongNoteBookmarkUpdateWithoutStudentInput, WrongNoteBookmarkUncheckedUpdateWithoutStudentInput>
@@ -29892,6 +31906,49 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WeeklyStatusSnapshotCreateWithoutPeriodInput = {
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    student: StudentCreateNestedOneWithoutWeeklyStatusSnapshotsInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput = {
+    id?: number
+    examNumber: string
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotCreateOrConnectWithoutPeriodInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    create: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput>
+  }
+
+  export type WeeklyStatusSnapshotCreateManyPeriodInputEnvelope = {
+    data: WeeklyStatusSnapshotCreateManyPeriodInput | WeeklyStatusSnapshotCreateManyPeriodInput[]
+    skipDuplicates?: boolean
+  }
+
   export type PeriodEnrollmentUpsertWithWhereUniqueWithoutPeriodInput = {
     where: PeriodEnrollmentWhereUniqueInput
     update: XOR<PeriodEnrollmentUpdateWithoutPeriodInput, PeriodEnrollmentUncheckedUpdateWithoutPeriodInput>
@@ -29984,6 +32041,22 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"ExamSession"> | Date | string
   }
 
+  export type WeeklyStatusSnapshotUpsertWithWhereUniqueWithoutPeriodInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    update: XOR<WeeklyStatusSnapshotUpdateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedUpdateWithoutPeriodInput>
+    create: XOR<WeeklyStatusSnapshotCreateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedCreateWithoutPeriodInput>
+  }
+
+  export type WeeklyStatusSnapshotUpdateWithWhereUniqueWithoutPeriodInput = {
+    where: WeeklyStatusSnapshotWhereUniqueInput
+    data: XOR<WeeklyStatusSnapshotUpdateWithoutPeriodInput, WeeklyStatusSnapshotUncheckedUpdateWithoutPeriodInput>
+  }
+
+  export type WeeklyStatusSnapshotUpdateManyWithWhereWithoutPeriodInput = {
+    where: WeeklyStatusSnapshotScalarWhereInput
+    data: XOR<WeeklyStatusSnapshotUpdateManyMutationInput, WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodInput>
+  }
+
   export type ExamPeriodCreateWithoutMonthlyResultsInput = {
     name: string
     startDate: Date | string
@@ -29995,6 +32068,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUncheckedCreateWithoutMonthlyResultsInput = {
@@ -30009,6 +32083,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodCreateOrConnectWithoutMonthlyResultsInput = {
@@ -30038,6 +32113,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodUncheckedUpdateWithoutMonthlyResultsInput = {
@@ -30052,6 +32128,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput
   }
 
   export type AbsenceNoteCreateWithoutSessionInput = {
@@ -30102,6 +32179,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUncheckedCreateWithoutSessionsInput = {
@@ -30116,6 +32194,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodCreateOrConnectWithoutSessionsInput = {
@@ -30229,6 +32308,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodUncheckedUpdateWithoutSessionsInput = {
@@ -30243,6 +32323,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamQuestionUpsertWithWhereUniqueWithoutQuestionSessionInput = {
@@ -30351,6 +32432,7 @@ export namespace Prisma {
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -30380,6 +32462,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -30465,6 +32548,7 @@ export namespace Prisma {
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -30494,6 +32578,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -30557,6 +32642,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -30586,6 +32672,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -30671,6 +32758,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -30700,6 +32788,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -30729,6 +32818,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -30758,6 +32848,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -30803,6 +32894,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -30829,6 +32921,217 @@ export namespace Prisma {
     counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
     counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
+  }
+
+  export type ExamPeriodCreateWithoutWeeklyStatusSnapshotsInput = {
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    totalWeeks?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
+    monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
+    pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
+    sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+  }
+
+  export type ExamPeriodUncheckedCreateWithoutWeeklyStatusSnapshotsInput = {
+    id?: number
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    totalWeeks?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
+    monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
+    pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
+    sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+  }
+
+  export type ExamPeriodCreateOrConnectWithoutWeeklyStatusSnapshotsInput = {
+    where: ExamPeriodWhereUniqueInput
+    create: XOR<ExamPeriodCreateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+  }
+
+  export type StudentCreateWithoutWeeklyStatusSnapshotsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogCreateNestedManyWithoutStudentInput
+    scores?: ScoreCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentUncheckedCreateWithoutWeeklyStatusSnapshotsInput = {
+    examNumber: string
+    name: string
+    phone?: string | null
+    generation?: number | null
+    className?: string | null
+    examType: $Enums.ExamType
+    studentType?: $Enums.StudentType
+    onlineId?: string | null
+    registeredAt?: Date | string | null
+    note?: string | null
+    isActive?: boolean
+    notificationConsent?: boolean
+    consentedAt?: Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: $Enums.StudentStatus
+    statusUpdatedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    absenceNotes?: AbsenceNoteUncheckedCreateNestedManyWithoutStudentInput
+    counselingAppointments?: CounselingAppointmentUncheckedCreateNestedManyWithoutStudentInput
+    counselingRecords?: CounselingRecordUncheckedCreateNestedManyWithoutStudentInput
+    enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutStudentInput
+    notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
+    pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
+    scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
+    studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentCreateOrConnectWithoutWeeklyStatusSnapshotsInput = {
+    where: StudentWhereUniqueInput
+    create: XOR<StudentCreateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+  }
+
+  export type ExamPeriodUpsertWithoutWeeklyStatusSnapshotsInput = {
+    update: XOR<ExamPeriodUpdateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
+    create: XOR<ExamPeriodCreateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    where?: ExamPeriodWhereInput
+  }
+
+  export type ExamPeriodUpdateToOneWithWhereWithoutWeeklyStatusSnapshotsInput = {
+    where?: ExamPeriodWhereInput
+    data: XOR<ExamPeriodUpdateWithoutWeeklyStatusSnapshotsInput, ExamPeriodUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
+  }
+
+  export type ExamPeriodUpdateWithoutWeeklyStatusSnapshotsInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    totalWeeks?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
+    monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
+    pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
+    sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+  }
+
+  export type ExamPeriodUncheckedUpdateWithoutWeeklyStatusSnapshotsInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    totalWeeks?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
+    monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
+    pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
+    sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+  }
+
+  export type StudentUpsertWithoutWeeklyStatusSnapshotsInput = {
+    update: XOR<StudentUpdateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
+    create: XOR<StudentCreateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedCreateWithoutWeeklyStatusSnapshotsInput>
+    where?: StudentWhereInput
+  }
+
+  export type StudentUpdateToOneWithWhereWithoutWeeklyStatusSnapshotsInput = {
+    where?: StudentWhereInput
+    data: XOR<StudentUpdateWithoutWeeklyStatusSnapshotsInput, StudentUncheckedUpdateWithoutWeeklyStatusSnapshotsInput>
+  }
+
+  export type StudentUpdateWithoutWeeklyStatusSnapshotsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
+    pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
+    scores?: ScoreUpdateManyWithoutStudentNestedInput
+    studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
+  }
+
+  export type StudentUncheckedUpdateWithoutWeeklyStatusSnapshotsInput = {
+    examNumber?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    generation?: NullableIntFieldUpdateOperationsInput | number | null
+    className?: NullableStringFieldUpdateOperationsInput | string | null
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    studentType?: EnumStudentTypeFieldUpdateOperationsInput | $Enums.StudentType
+    onlineId?: NullableStringFieldUpdateOperationsInput | string | null
+    registeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    notificationConsent?: BoolFieldUpdateOperationsInput | boolean
+    consentedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    targetScores?: NullableJsonNullValueInput | InputJsonValue
+    currentStatus?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    statusUpdatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    absenceNotes?: AbsenceNoteUncheckedUpdateManyWithoutStudentNestedInput
+    counselingAppointments?: CounselingAppointmentUncheckedUpdateManyWithoutStudentNestedInput
+    counselingRecords?: CounselingRecordUncheckedUpdateManyWithoutStudentNestedInput
+    enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
@@ -30861,6 +33164,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -30890,6 +33194,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -30935,6 +33240,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -30964,6 +33270,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -30993,6 +33300,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -31022,6 +33330,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -31067,6 +33376,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -31096,6 +33406,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -31309,6 +33620,7 @@ export namespace Prisma {
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -31338,6 +33650,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -31417,6 +33730,7 @@ export namespace Prisma {
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -31446,6 +33760,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -31460,6 +33775,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUncheckedCreateWithoutPointLogsInput = {
@@ -31474,6 +33790,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodCreateOrConnectWithoutPointLogsInput = {
@@ -31507,6 +33824,7 @@ export namespace Prisma {
     notifications?: NotificationLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -31536,6 +33854,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -31566,6 +33885,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodUncheckedUpdateWithoutPointLogsInput = {
@@ -31580,6 +33900,7 @@ export namespace Prisma {
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput
   }
 
   export type StudentUpsertWithoutPointLogsInput = {
@@ -31619,6 +33940,7 @@ export namespace Prisma {
     notifications?: NotificationLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -31648,6 +33970,7 @@ export namespace Prisma {
     notifications?: NotificationLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -31780,6 +34103,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodUncheckedCreateWithoutEnrollmentsInput = {
@@ -31794,6 +34118,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutPeriodInput
     sessions?: ExamSessionUncheckedCreateNestedManyWithoutPeriodInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutPeriodInput
   }
 
   export type ExamPeriodCreateOrConnectWithoutEnrollmentsInput = {
@@ -31827,6 +34152,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkCreateNestedManyWithoutStudentInput
   }
 
@@ -31856,6 +34182,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedCreateNestedManyWithoutStudentInput
   }
 
@@ -31886,6 +34213,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutPeriodNestedInput
   }
 
   export type ExamPeriodUncheckedUpdateWithoutEnrollmentsInput = {
@@ -31900,6 +34228,7 @@ export namespace Prisma {
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput
     pointLogs?: PointLogUncheckedUpdateManyWithoutPeriodNestedInput
     sessions?: ExamSessionUncheckedUpdateManyWithoutPeriodNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodNestedInput
   }
 
   export type StudentUpsertWithoutEnrollmentsInput = {
@@ -31939,6 +34268,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUpdateManyWithoutStudentNestedInput
   }
 
@@ -31968,6 +34298,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
     wrongNoteBookmarks?: WrongNoteBookmarkUncheckedUpdateManyWithoutStudentNestedInput
   }
 
@@ -32026,6 +34357,7 @@ export namespace Prisma {
     pointLogs?: PointLogCreateNestedManyWithoutStudentInput
     scores?: ScoreCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotCreateNestedManyWithoutStudentInput
   }
 
   export type StudentUncheckedCreateWithoutWrongNoteBookmarksInput = {
@@ -32055,6 +34387,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedCreateNestedManyWithoutStudentInput
     scores?: ScoreUncheckedCreateNestedManyWithoutStudentInput
     studentAnswers?: StudentAnswerUncheckedCreateNestedManyWithoutStudentInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedCreateNestedManyWithoutStudentInput
   }
 
   export type StudentCreateOrConnectWithoutWrongNoteBookmarksInput = {
@@ -32134,6 +34467,7 @@ export namespace Prisma {
     pointLogs?: PointLogUpdateManyWithoutStudentNestedInput
     scores?: ScoreUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUpdateManyWithoutStudentNestedInput
   }
 
   export type StudentUncheckedUpdateWithoutWrongNoteBookmarksInput = {
@@ -32163,6 +34497,7 @@ export namespace Prisma {
     pointLogs?: PointLogUncheckedUpdateManyWithoutStudentNestedInput
     scores?: ScoreUncheckedUpdateManyWithoutStudentNestedInput
     studentAnswers?: StudentAnswerUncheckedUpdateManyWithoutStudentNestedInput
+    weeklyStatusSnapshots?: WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentNestedInput
   }
 
   export type AbsenceNoteCreateManyStudentInput = {
@@ -32248,6 +34583,23 @@ export namespace Prisma {
     answer: string
     isCorrect: boolean
     createdAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotCreateManyStudentInput = {
+    id?: number
+    periodId: number
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type WrongNoteBookmarkCreateManyStudentInput = {
@@ -32505,6 +34857,56 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WeeklyStatusSnapshotUpdateWithoutStudentInput = {
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    period?: ExamPeriodUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateManyWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    periodId?: IntFieldUpdateOperationsInput | number
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type WrongNoteBookmarkUpdateWithoutStudentInput = {
     memo?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32562,6 +34964,23 @@ export namespace Prisma {
     examDate: Date | string
     isCancelled?: boolean
     cancelReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WeeklyStatusSnapshotCreateManyPeriodInput = {
+    id?: number
+    examNumber: string
+    examType: $Enums.ExamType
+    weekKey: string
+    weekStartDate: Date | string
+    weekEndDate: Date | string
+    weekAbsenceCount?: number
+    monthAbsenceCount?: number
+    status: $Enums.StudentStatus
+    recoveryDate?: Date | string | null
+    dropoutReason?: $Enums.DropoutReason | null
+    calculatedAt?: Date | string
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -32678,6 +35097,56 @@ export namespace Prisma {
     examDate?: DateTimeFieldUpdateOperationsInput | Date | string
     isCancelled?: BoolFieldUpdateOperationsInput | boolean
     cancelReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WeeklyStatusSnapshotUpdateWithoutPeriodInput = {
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    student?: StudentUpdateOneRequiredWithoutWeeklyStatusSnapshotsNestedInput
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateWithoutPeriodInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WeeklyStatusSnapshotUncheckedUpdateManyWithoutPeriodInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    examNumber?: StringFieldUpdateOperationsInput | string
+    examType?: EnumExamTypeFieldUpdateOperationsInput | $Enums.ExamType
+    weekKey?: StringFieldUpdateOperationsInput | string
+    weekStartDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekEndDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    weekAbsenceCount?: IntFieldUpdateOperationsInput | number
+    monthAbsenceCount?: IntFieldUpdateOperationsInput | number
+    status?: EnumStudentStatusFieldUpdateOperationsInput | $Enums.StudentStatus
+    recoveryDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dropoutReason?: NullableEnumDropoutReasonFieldUpdateOperationsInput | $Enums.DropoutReason | null
+    calculatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

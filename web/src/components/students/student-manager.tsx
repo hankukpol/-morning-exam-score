@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ExamType, StudentType } from "@/generated/prisma";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   EXAM_TYPE_LABEL,
+  EXAM_TYPE_VALUES,
   STUDENT_TYPE_LABEL,
+  STUDENT_TYPE_VALUES,
 } from "@/lib/constants";
-import { formatDate, toDateInputValue } from "@/lib/format";
+import { toDateInputValue } from "@/lib/format";
 
 type StudentRow = {
   examNumber: string;
@@ -16,8 +19,8 @@ type StudentRow = {
   phone: string | null;
   generation: number | null;
   className: string | null;
-  examType: "GONGCHAE" | "GYEONGCHAE";
-  studentType: "NEW" | "EXISTING";
+  examType: ExamType;
+  studentType: StudentType;
   onlineId: string | null;
   registeredAt: string | null;
   note: string | null;
@@ -29,7 +32,7 @@ type StudentRow = {
 };
 
 type Filters = {
-  examType: "GONGCHAE" | "GYEONGCHAE";
+  examType: ExamType;
   search: string;
   generation: string;
   activeOnly: boolean;
@@ -46,8 +49,8 @@ type StudentFormState = {
   phone: string;
   generation: string;
   className: string;
-  examType: "GONGCHAE" | "GYEONGCHAE";
-  studentType: "NEW" | "EXISTING";
+  examType: ExamType;
+  studentType: StudentType;
   onlineId: string;
   registeredAt: string;
   note: string;
@@ -65,6 +68,31 @@ const emptyForm: StudentFormState = {
   registeredAt: "",
   note: "",
 };
+
+function parseExamType(value: string, fallback: ExamType): ExamType {
+  return EXAM_TYPE_VALUES.includes(value as ExamType) ? (value as ExamType) : fallback;
+}
+
+function parseStudentType(value: string, fallback: StudentType): StudentType {
+  return STUDENT_TYPE_VALUES.includes(value as StudentType)
+    ? (value as StudentType)
+    : fallback;
+}
+
+function buildDraft(student: StudentRow): StudentFormState {
+  return {
+    examNumber: student.examNumber,
+    name: student.name,
+    phone: student.phone ?? "",
+    generation: student.generation ? String(student.generation) : "",
+    className: student.className ?? "",
+    examType: student.examType,
+    studentType: student.studentType,
+    onlineId: student.onlineId ?? "",
+    registeredAt: toDateInputValue(student.registeredAt),
+    note: student.note ?? "",
+  };
+}
 
 export function StudentManager({ students, filters }: StudentManagerProps) {
   const router = useRouter();
@@ -86,21 +114,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   const rowDrafts = useMemo(
     () =>
       Object.fromEntries(
-        students.map((student) => [
-          student.examNumber,
-          {
-            examNumber: student.examNumber,
-            name: student.name,
-            phone: student.phone ?? "",
-            generation: student.generation ? String(student.generation) : "",
-            className: student.className ?? "",
-            examType: student.examType,
-            studentType: student.studentType,
-            onlineId: student.onlineId ?? "",
-            registeredAt: toDateInputValue(student.registeredAt),
-            note: student.note ?? "",
-          },
-        ]),
+        students.map((student) => [student.examNumber, buildDraft(student)]),
       ) as Record<string, StudentFormState>,
     [students],
   );
@@ -144,10 +158,19 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
         ...(init?.headers ?? {}),
       },
     });
-    const payload = await response.json();
+    const text = await response.text();
+    let payload: { error?: string } = {};
+
+    if (text.trim()) {
+      try {
+        payload = (JSON.parse(text) as { error?: string }) ?? {};
+      } catch {
+        payload = {};
+      }
+    }
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "요청에 실패했습니다.");
+      throw new Error(payload.error ?? "요청을 처리하지 못했습니다.");
     }
 
     return payload;
@@ -177,9 +200,9 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">수강생 등록</h2>
+            <h2 className="text-xl font-semibold">학생 등록</h2>
             <p className="mt-2 text-sm leading-7 text-slate">
-              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 페이지로 분리했습니다.
+              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 페이지에서 처리합니다.
             </p>
           </div>
           <Link
@@ -232,6 +255,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
             />
           </div>
         </div>
+
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <label className="mb-2 block text-sm font-medium">반</label>
@@ -250,7 +274,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               onChange={(event) =>
                 setCreateForm((current) => ({
                   ...current,
-                  examType: event.target.value as StudentFormState["examType"],
+                  examType: parseExamType(event.target.value, current.examType),
                 }))
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
@@ -266,13 +290,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               onChange={(event) =>
                 setCreateForm((current) => ({
                   ...current,
-                  studentType: event.target.value as StudentFormState["studentType"],
+                  studentType: parseStudentType(event.target.value, current.studentType),
                 }))
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
             >
-              <option value="NEW">신규생</option>
-              <option value="EXISTING">기존생</option>
+              <option value="NEW">신규</option>
+              <option value="EXISTING">기존</option>
             </select>
           </div>
           <div>
@@ -290,6 +314,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
             />
           </div>
         </div>
+
         <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_auto]">
           <div>
             <label className="mb-2 block text-sm font-medium">온라인 ID</label>
@@ -319,7 +344,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                   method: "POST",
                   body: JSON.stringify(createForm),
                 });
-                setNotice("수강생을 등록했습니다.");
+                setNotice("학생을 등록했습니다.");
                 setCreateForm({
                   ...emptyForm,
                   examType: filters.examType,
@@ -418,7 +443,6 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               <tr>
                 <th className="px-4 py-3 font-semibold">수험번호</th>
                 <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">상태</th>
                 <th className="px-4 py-3 font-semibold">연락처</th>
                 <th className="px-4 py-3 font-semibold">기수</th>
                 <th className="px-4 py-3 font-semibold">반</th>
@@ -462,25 +486,6 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                       ) : (
                         student.name
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {student.currentStatus === "WARNING_1" ? (
-                        <span className="rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-semibold text-yellow-700">
-                          1차경고
-                        </span>
-                      ) : student.currentStatus === "WARNING_2" ? (
-                        <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
-                          2차경고
-                        </span>
-                      ) : student.currentStatus === "DROPOUT" ? (
-                        <span className="rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-                          탈락
-                        </span>
-                      ) : !student.isActive ? (
-                        <span className="rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-xs font-semibold text-slate">
-                          비활성
-                        </span>
-                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       {editingExamNumber === student.examNumber ? (
@@ -544,10 +549,10 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={`/admin/students/${student.examNumber}/history`}
+                          href={`/admin/students/${student.examNumber}`}
                           className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                         >
-                          이력
+                          상세 보기
                         </Link>
                         {editingExamNumber === student.examNumber ? (
                           <>
@@ -559,7 +564,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     method: "PUT",
                                     body: JSON.stringify(draft),
                                   });
-                                  setNotice("수강생 정보를 수정했습니다.");
+                                  setNotice("학생 정보를 수정했습니다.");
                                   setEditingExamNumber(null);
                                   refreshWithFilters();
                                 })
@@ -581,7 +586,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                           <>
                             <button
                               type="button"
-                              onClick={() => setEditingExamNumber(student.examNumber)}
+                              onClick={() => {
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [student.examNumber]: buildDraft(student),
+                                }));
+                                setEditingExamNumber(student.examNumber);
+                              }}
                               className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                             >
                               수정
@@ -594,7 +605,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "DELETE",
                                     });
-                                    setNotice("수강생을 비활성화했습니다.");
+                                    setNotice("학생을 비활성화했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
@@ -611,7 +622,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "PATCH",
                                     });
-                                    setNotice("수강생을 재활성화했습니다.");
+                                    setNotice("학생을 다시 활성화했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
@@ -634,14 +645,17 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                   ...current,
                                   [student.examNumber]: {
                                     ...draft,
-                                    studentType: event.target.value as StudentFormState["studentType"],
+                                    studentType: parseStudentType(
+                                      event.target.value,
+                                      draft.studentType,
+                                    ),
                                   },
                                 }))
                               }
                               className="rounded-xl border border-ink/10 px-3 py-2 text-sm"
                             >
-                              <option value="NEW">신규생</option>
-                              <option value="EXISTING">기존생</option>
+                              <option value="NEW">신규</option>
+                              <option value="EXISTING">기존</option>
                             </select>
                             <input
                               type="date"
@@ -689,12 +703,6 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                             />
                           </div>
                         </div>
-                      ) : student.registeredAt || student.note || student.onlineId ? (
-                        <div className="mt-2 text-xs leading-6 text-slate">
-                          {student.registeredAt ? `등록일 ${formatDate(student.registeredAt)}` : ""}
-                          {student.onlineId ? ` / ID ${student.onlineId}` : ""}
-                          {student.note ? ` / ${student.note}` : ""}
-                        </div>
                       ) : null}
                     </td>
                   </tr>
@@ -703,7 +711,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               {students.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate">
-                    조건에 맞는 수강생이 없습니다.
+                    조건에 맞는 학생이 없습니다.
                   </td>
                 </tr>
               ) : null}

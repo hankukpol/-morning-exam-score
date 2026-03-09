@@ -215,6 +215,24 @@ exports.Prisma.NotificationLogScalarFieldEnum = {
   failReason: 'failReason'
 };
 
+exports.Prisma.WeeklyStatusSnapshotScalarFieldEnum = {
+  id: 'id',
+  periodId: 'periodId',
+  examNumber: 'examNumber',
+  examType: 'examType',
+  weekKey: 'weekKey',
+  weekStartDate: 'weekStartDate',
+  weekEndDate: 'weekEndDate',
+  weekAbsenceCount: 'weekAbsenceCount',
+  monthAbsenceCount: 'monthAbsenceCount',
+  status: 'status',
+  recoveryDate: 'recoveryDate',
+  dropoutReason: 'dropoutReason',
+  calculatedAt: 'calculatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.CounselingRecordScalarFieldEnum = {
   id: 'id',
   examNumber: 'examNumber',
@@ -413,6 +431,11 @@ exports.NotificationChannel = exports.$Enums.NotificationChannel = {
   SMS: 'SMS'
 };
 
+exports.DropoutReason = exports.$Enums.DropoutReason = {
+  WEEKLY_3: 'WEEKLY_3',
+  MONTHLY_8: 'MONTHLY_8'
+};
+
 exports.AppointmentStatus = exports.$Enums.AppointmentStatus = {
   SCHEDULED: 'SCHEDULED',
   COMPLETED: 'COMPLETED',
@@ -446,6 +469,7 @@ exports.Prisma.ModelName = {
   Score: 'Score',
   AbsenceNote: 'AbsenceNote',
   NotificationLog: 'NotificationLog',
+  WeeklyStatusSnapshot: 'WeeklyStatusSnapshot',
   CounselingRecord: 'CounselingRecord',
   CounselingAppointment: 'CounselingAppointment',
   ExamQuestion: 'ExamQuestion',

@@ -11,11 +11,13 @@ type SessionPayload = {
 };
 
 function getSessionSecret() {
-  return (
-    process.env.STUDENT_PORTAL_SECRET ??
-    process.env.DATABASE_URL ??
-    "development-student-portal-secret"
-  );
+  const secret = process.env.STUDENT_PORTAL_SECRET?.trim();
+
+  if (!secret) {
+    throw new Error("STUDENT_PORTAL_SECRET is required for student portal sessions.");
+  }
+
+  return secret;
 }
 
 function sign(encoded: string) {

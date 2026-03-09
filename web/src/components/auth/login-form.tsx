@@ -58,7 +58,6 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
       }
 
       router.replace(redirectTo || "/admin");
-      router.refresh();
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : "로그인 처리 중 오류가 발생했습니다.",

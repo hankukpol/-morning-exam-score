@@ -134,7 +134,7 @@ function parseNumericScore(value: unknown) {
   return Number.isFinite(fallback) ? fallback : null;
 }
 
-function computeFinalScore(rawScore: number | null, oxScore: number | null) {
+function computeFinalScore(_subject: Subject, rawScore: number | null, oxScore: number | null) {
   if (rawScore === null && oxScore === null) {
     return null;
   }
@@ -271,6 +271,7 @@ type ParsedAttendScore = {
 };
 
 function parseAttendTypeAndScores(
+  subject: Subject,
   rawValue: unknown,
   bonusValue: unknown,
   totalValue?: unknown,
@@ -340,10 +341,11 @@ function parseAttendTypeAndScores(
   }
 
   const rawScore = parseNumericScore(rawValue);
-  const oxScore = parseNumericScore(bonusValue);
+  const bonusScore = parseNumericScore(bonusValue);
   const totalScore = parseNumericScore(totalValue);
+  const oxScore = bonusScore;
 
-  if (rawScore === null && oxScore === null && totalScore !== null) {
+  if (rawScore === null && bonusScore === null && totalScore !== null) {
     return {
       attendType: AttendType.NORMAL,
       rawScore: totalScore,
@@ -353,7 +355,7 @@ function parseAttendTypeAndScores(
     };
   }
 
-  if (rawScore === null && oxScore === null) {
+  if (rawScore === null && bonusScore === null) {
     return {
       attendType: AttendType.NORMAL,
       rawScore: null,
@@ -367,7 +369,7 @@ function parseAttendTypeAndScores(
     attendType: AttendType.NORMAL,
     rawScore,
     oxScore,
-    finalScore: computeFinalScore(rawScore, oxScore),
+    finalScore: computeFinalScore(subject, rawScore, oxScore),
     note: null,
   };
 }
@@ -571,6 +573,7 @@ async function parseLegacyWorkbookRows(input: {
         const examNumber = normalizeExamNumber(row[columnIndex]);
         const name = toCellString(row[columnIndex + 1]).trim();
         const parsed = parseAttendTypeAndScores(
+          subject,
           row[columnIndex + 2],
           row[columnIndex + 3],
           row[columnIndex + 4],

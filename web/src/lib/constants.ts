@@ -27,10 +27,14 @@ export const EXAM_TYPE_LABEL: Record<ExamType, string> = {
   GYEONGCHAE: "경채",
 };
 
+export const EXAM_TYPE_VALUES = Object.values(ExamType);
+
 export const STUDENT_TYPE_LABEL: Record<StudentType, string> = {
   NEW: "신규생",
   EXISTING: "기존생",
 };
+
+export const STUDENT_TYPE_VALUES = Object.values(StudentType);
 
 export const SUBJECT_LABEL: Record<Subject, string> = {
   POLICE_SCIENCE: "경찰학",
@@ -64,6 +68,13 @@ export const ATTEND_TYPE_LABEL: Record<AttendType, string> = {
   EXCUSED: "사유 결시",
   ABSENT: "무단 결시",
 };
+
+export const ATTENDANCE_STATUS_RULES = {
+  weeklyWarning1Absences: 1,
+  weeklyWarning2Absences: 2,
+  weeklyDropoutAbsences: 3,
+  monthlyDropoutAbsences: 8,
+} as const;
 
 export const SCORE_SOURCE_LABEL: Record<ScoreSource, string> = {
   OFFLINE_UPLOAD: "오프라인 업로드",
@@ -118,6 +129,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
+  {
+    href: "/admin/students/analyze",
+    label: "학생 누적 성적 분석",
+    description: "학생 검색 후 전체 기간 누적 성적·취약점·상태 이력 조회",
+    minRole: AdminRole.VIEWER,
+    group: "메인",
+  },
 
   // 학사 관리
   {
@@ -162,13 +180,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "성적 수정",
     description: "회차별 성적 조회·수정·삭제",
     minRole: AdminRole.TEACHER,
-    group: "성적 및 통계",
-  },
-  {
-    href: "/admin/weekly",
-    label: "주간 종합 현황",
-    description: "주차별 출결, 점수, 경고 상태 확인",
-    minRole: AdminRole.VIEWER,
     group: "성적 및 통계",
   },
   {

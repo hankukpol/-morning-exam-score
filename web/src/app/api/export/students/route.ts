@@ -27,7 +27,7 @@ const columns: ExportColumn<StudentExportRow>[] = [
 ];
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiAdmin(AdminRole.VIEWER);
+  const auth = await requireApiAdmin(AdminRole.TEACHER);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });

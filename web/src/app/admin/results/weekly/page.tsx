@@ -1,5 +1,5 @@
 import { AdminRole } from "@/generated/prisma";
-import { RankingTable } from "@/components/analytics/ranking-table";
+import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
 import {
   buildHref,
   getAnalyticsContext,
@@ -105,11 +105,10 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                 weekKey: selectedWeek.key,
                 view: "overall",
               })}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                view === "overall"
-                  ? "bg-ink text-white"
-                  : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
-              }`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${view === "overall"
+                ? "bg-ink text-white"
+                : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
+                }`}
             >
               전체 성적
             </Link>
@@ -120,13 +119,24 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                 weekKey: selectedWeek.key,
                 view: "new",
               })}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                view === "new"
-                  ? "bg-ink text-white"
-                  : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
-              }`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${view === "new"
+                ? "bg-ink text-white"
+                : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
+                }`}
             >
               신규생 성적
+            </Link>
+            <Link
+              href={buildHref("/api/export/results-print", {
+                mode: "weekly",
+                periodId: selectedPeriod.id,
+                examType,
+                weekKey: selectedWeek.key,
+                view,
+              })}
+              className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
+            >
+              인쇄용 엑셀 다운로드
             </Link>
           </div>
 
@@ -151,7 +161,11 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </section>
 
           <div className="mt-8">
-            <RankingTable rows={data.rows} view={view} />
+            <WeeklyResultsSheet
+              week={data.week}
+              sessions={data.sessions}
+              rows={data.sheetRows}
+            />
           </div>
         </>
       ) : (

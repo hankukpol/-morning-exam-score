@@ -10,13 +10,13 @@ type RouteContext = {
 };
 
 export async function PUT(request: Request, { params }: RouteContext) {
-  const auth = await requireApiAdmin(AdminRole.TEACHER);
-
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
-
   try {
+    const auth = await requireApiAdmin(AdminRole.TEACHER);
+
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const periodId = Number(params.id);
     const result = await activatePeriod({
       adminId: auth.context.adminUser.id,
@@ -26,9 +26,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ period: result });
   } catch (error) {
+    console.error("[PUT /api/periods/[id]/activate] error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "활성화에 실패했습니다." },
-      { status: 400 },
+      { status: 500 },
     );
   }
 }

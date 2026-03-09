@@ -133,12 +133,17 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
         ...(init?.headers ?? {}),
       },
     });
-    const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "요청에 실패했습니다.");
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const payload = await response.json();
+        throw new Error(payload.error ?? "요청에 실패했습니다.");
+      }
+      throw new Error(`서버 오류 (${response.status}): ${response.statusText}`);
     }
 
+    const payload = await response.json();
     return payload;
   }
 

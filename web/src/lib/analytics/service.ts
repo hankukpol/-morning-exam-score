@@ -1,6 +1,7 @@
 import {
   AbsenceStatus,
   AttendType,
+  DropoutReason,
   ExamType,
   NotificationChannel,
   PointType,
@@ -8,7 +9,7 @@ import {
   StudentType,
   Subject,
 } from "@/generated/prisma";
-import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
+import { ATTENDANCE_STATUS_RULES, EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import {
   buildNotificationMessage,
   notificationTypeFromStatus,
@@ -18,9 +19,15 @@ import {
   formatTuesdayWeekLabel,
   getTuesdayWeekKey,
   getTuesdayWeekStart,
-  isSameTuesdayWeek,
   parseTuesdayWeekKey,
 } from "@/lib/analytics/week";
+import {
+  countsAsAttendance,
+  getCombinedScore,
+  getMockScore,
+  getPoliceOxScore,
+  getScoredMockScore,
+} from "@/lib/scores/calculation";
 
 type DatasetSession = {
   id: number;
@@ -48,6 +55,7 @@ type DatasetScore = {
   sessionId: number;
   attendType: AttendType;
   rawScore: number | null;
+  oxScore: number | null;
   finalScore: number | null;
 };
 
@@ -77,11 +85,13 @@ type DatasetPointLog = {
 type StudentEntry = {
   session: DatasetSession;
   attendType: AttendType | null;
+  rawScore: number | null;
+  oxScore: number | null;
+  finalScore: number | null;
   displayScore: number | null;
   normalizedScore: number | null;
   isOccurred: boolean;
   grantsPerfectAttendance: boolean;
-  inferredAbsent: boolean;
 };
 
 type StudentAggregate = {
@@ -90,8 +100,22 @@ type StudentAggregate = {
   weekAbsences: Map<string, number>;
   monthAbsences: Map<string, number>;
   monthPerfectAttendance: Map<string, boolean>;
+  currentWeekAbsenceCount: number;
+  currentMonthAbsenceCount: number;
   overallStatus: StudentStatus;
   recoveryDate: Date | null;
+  weeklySnapshots: StudentWeeklySnapshot[];
+};
+
+type StudentWeeklySnapshot = {
+  weekKey: string;
+  weekStartDate: Date;
+  weekEndDate: Date;
+  weekAbsenceCount: number;
+  monthAbsenceCount: number;
+  status: StudentStatus;
+  recoveryDate: Date | null;
+  dropoutReason: DropoutReason | null;
 };
 
 export type TuesdayWeekSummary = {
@@ -115,6 +139,42 @@ export type RankingRow = {
   hasNormalRecord: boolean;
   perfectAttendance: boolean;
   profile: StudentResultProfile;
+};
+
+export type WeeklyResultsSheetCell = {
+  sessionId: number;
+  attendType: AttendType | null;
+  mockScore: number | null;
+  policeOxScore: number | null;
+};
+
+export type WeeklyResultsSheetRow = {
+  examNumber: string;
+  name: string;
+  studentType: StudentType;
+  isActive: boolean;
+  weekStatus: StudentStatus;
+  attendanceRate: number;
+  mockAverage: number;
+  mockRank: number | null;
+  policeOxAverage: number | null;
+  policeOxRank: number | null;
+  cells: WeeklyResultsSheetCell[];
+};
+
+export type MonthlyResultsSheetRow = {
+  examNumber: string;
+  name: string;
+  studentType: StudentType;
+  isActive: boolean;
+  mockAverage: number;
+  mockRank: number | null;
+  policeOxAverage: number | null;
+  policeOxRank: number | null;
+  combinedAverage: number;
+  combinedRank: number | null;
+  participationRate: number;
+  note: string | null;
 };
 
 export type StudentResultSubjectSummary = {
@@ -165,31 +225,34 @@ export type StudentResultProfile = {
   recentEntries: StudentResultRecentEntry[];
 };
 
-export type WeeklyGridCell = {
-  sessionId: number;
-  subject: Subject;
-  display: string;
-};
-
-export type WeeklyGridRow = {
-  examNumber: string;
-  name: string;
-  studentType: StudentType;
-  weekAverage: number | null;
-  absentCount: number;
-  weekStatus: StudentStatus;
-  cells: WeeklyGridCell[];
-};
-
 export type DropoutMonitorRow = {
   examNumber: string;
   name: string;
+  phone: string | null;
   studentType: StudentType;
   isActive: boolean;
   status: StudentStatus;
   recoveryDate: Date | null;
+  currentWeekAbsenceCount: number;
+  currentMonthAbsenceCount: number;
   weekAbsences: Record<string, number>;
   monthAbsences: Record<string, number>;
+};
+
+export type WeeklyStatusHistoryRow = {
+  examNumber: string;
+  name: string;
+  phone: string | null;
+  studentType: StudentType;
+  isActive: boolean;
+  status: StudentStatus;
+  weekKey: string;
+  weekStartDate: Date;
+  weekEndDate: Date;
+  weekAbsenceCount: number;
+  monthAbsenceCount: number;
+  recoveryDate: Date | null;
+  dropoutReason: DropoutReason | null;
 };
 
 export type PointCandidate = {
@@ -225,20 +288,14 @@ function nextMonthFirstDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
 }
 
+function isBeforeDate(left: Date, right: Date) {
+  return left.getTime() < right.getTime();
+}
+
 function endOfToday() {
   const now = new Date();
   now.setHours(23, 59, 59, 999);
   return now;
-}
-
-function normalizeScore(score: DatasetScore | null) {
-  const value = score?.finalScore ?? score?.rawScore ?? null;
-
-  if (value === null) {
-    return null;
-  }
-
-  return value > 100 ? value / 2 : value;
 }
 
 function average(values: number[]) {
@@ -294,22 +351,19 @@ function buildTuesdayWeekSummary(weekKey: string, sessions: DatasetSession[]): T
   };
 }
 
-async function loadDataset(periodId: number, examType: ExamType) {
+async function loadDataset(periodId: number, examType: ExamType, examNumbers?: string[]) {
   const prisma = getPrisma();
   const period = await prisma.examPeriod.findUniqueOrThrow({
     where: { id: periodId },
   });
-
-  const [sessions, students, scores, absenceNotes, pointLogs] = await Promise.all([
-    prisma.examSession.findMany({
-      where: {
-        periodId,
+  const studentFilter = examNumbers?.length
+    ? {
         examType,
-      },
-      orderBy: [{ examDate: "asc" }, { week: "asc" }],
-    }),
-    prisma.student.findMany({
-      where: {
+        examNumber: {
+          in: examNumbers,
+        },
+      }
+    : {
         examType,
         OR: [
           {
@@ -347,7 +401,23 @@ async function loadDataset(periodId: number, examType: ExamType) {
             },
           },
         ],
+      };
+  const scoreStudentFilter = examNumbers?.length
+    ? {
+        in: examNumbers,
+      }
+    : undefined;
+
+  const [sessions, students, scores, absenceNotes, pointLogs] = await Promise.all([
+    prisma.examSession.findMany({
+      where: {
+        periodId,
+        examType,
       },
+      orderBy: [{ examDate: "asc" }, { week: "asc" }],
+    }),
+    prisma.student.findMany({
+      where: studentFilter,
       orderBy: [{ isActive: "desc" }, { examNumber: "asc" }],
       select: {
         examNumber: true,
@@ -367,6 +437,7 @@ async function loadDataset(periodId: number, examType: ExamType) {
         },
         student: {
           examType,
+          ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
         },
       },
       select: {
@@ -375,6 +446,7 @@ async function loadDataset(periodId: number, examType: ExamType) {
         sessionId: true,
         attendType: true,
         rawScore: true,
+        oxScore: true,
         finalScore: true,
       },
     }),
@@ -386,6 +458,7 @@ async function loadDataset(periodId: number, examType: ExamType) {
         },
         student: {
           examType,
+          ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
         },
       },
       select: {
@@ -400,6 +473,7 @@ async function loadDataset(periodId: number, examType: ExamType) {
         periodId,
         student: {
           examType,
+          ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
         },
       },
       select: {
@@ -439,6 +513,22 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
   const scoreMap = new Map<string, DatasetScore>();
   const absenceMap = new Map<string, DatasetAbsence>();
   const today = endOfToday();
+  const occurredSessions = dataset.sessions.filter(
+    (session) => !session.isCancelled && session.examDate <= today,
+  );
+  const latestOccurredSession = occurredSessions.at(-1) ?? null;
+  const currentWeekKey = latestOccurredSession
+    ? getTuesdayWeekKey(latestOccurredSession.examDate)
+    : null;
+  const currentMonthKey = latestOccurredSession ? monthKey(latestOccurredSession.examDate) : null;
+  const occurredWeekSessions = new Map<string, DatasetSession[]>();
+
+  for (const session of occurredSessions) {
+    const weekKey = getTuesdayWeekKey(session.examDate);
+    const current = occurredWeekSessions.get(weekKey) ?? [];
+    current.push(session);
+    occurredWeekSessions.set(weekKey, current);
+  }
 
   for (const score of dataset.scores) {
     scoreMap.set(`${score.examNumber}:${score.sessionId}`, score);
@@ -463,24 +553,29 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       return {
         session,
         attendType,
-        displayScore: score?.finalScore ?? score?.rawScore ?? null,
+        rawScore: score?.rawScore ?? null,
+        oxScore: score?.oxScore ?? null,
+        finalScore: score?.finalScore ?? null,
+        displayScore: score ? getCombinedScore(score) : null,
         normalizedScore:
-          attendType === AttendType.NORMAL || attendType === AttendType.LIVE
-            ? normalizeScore(score)
+          score && attendType === AttendType.NORMAL
+            ? getScoredMockScore({
+                rawScore: score.rawScore,
+                oxScore: score.oxScore,
+                finalScore: score.finalScore,
+                attendType,
+              })
             : null,
         isOccurred,
         grantsPerfectAttendance: approvedAbsence
           ? Boolean(absence?.attendGrantsPerfectAttendance)
           : false,
-        inferredAbsent,
       };
     });
 
     const weekAbsences = new Map<string, number>();
     const monthAbsences = new Map<string, number>();
     const monthPerfectAttendance = new Map<string, boolean>();
-    let highestWarning = 0;
-    let dropoutTriggerDate: Date | null = null;
 
     for (const entry of entries) {
       if (!entry.isOccurred || entry.session.isCancelled) {
@@ -503,14 +598,6 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
 
         weekAbsences.set(currentWeekKey, nextWeekAbsenceCount);
         monthAbsences.set(currentMonthKey, nextMonthAbsenceCount);
-
-        if (nextWeekAbsenceCount >= 3 || nextMonthAbsenceCount >= 8) {
-          dropoutTriggerDate ??= entry.session.examDate;
-        } else if (nextWeekAbsenceCount === 2) {
-          highestWarning = Math.max(highestWarning, 2);
-        } else if (nextWeekAbsenceCount === 1) {
-          highestWarning = Math.max(highestWarning, 1);
-        }
       }
 
       if (wasAbsent || breaksPerfectAttendance) {
@@ -518,15 +605,100 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       }
     }
 
+    const currentWeekAbsenceCount = currentWeekKey ? (weekAbsences.get(currentWeekKey) ?? 0) : 0;
+    const currentMonthAbsenceCount = currentMonthKey ? (monthAbsences.get(currentMonthKey) ?? 0) : 0;
+    const occurredEntries = entries.filter((entry) => entry.isOccurred && !entry.session.isCancelled);
+    let activeDropoutUntil: Date | null = null;
+    let activeDropoutReason: DropoutReason | null = null;
+    const weeklySnapshots = Array.from(occurredWeekSessions.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([weekKey, sessions]) => {
+        const week = buildTuesdayWeekSummary(weekKey, sessions);
+        const entriesThroughWeek = occurredEntries.filter(
+          (entry) => entry.session.examDate.getTime() <= week.endDate.getTime(),
+        );
+        const entriesForWeek = entriesThroughWeek.filter(
+          (entry) => getTuesdayWeekKey(entry.session.examDate) === weekKey,
+        );
+        const latestWeekEntry = entriesForWeek.at(-1) ?? null;
+        const snapshotMonthKey = latestWeekEntry
+          ? monthKey(latestWeekEntry.session.examDate)
+          : monthKey(week.endDate);
+        const weekAbsenceCount = entriesForWeek.filter(
+          (entry) => entry.attendType === AttendType.ABSENT,
+        ).length;
+        const monthAbsenceCount = entriesThroughWeek.filter(
+          (entry) =>
+            entry.attendType === AttendType.ABSENT &&
+            monthKey(entry.session.examDate) === snapshotMonthKey,
+        ).length;
+
+        if (
+          activeDropoutUntil &&
+          week.startDate.getTime() >= activeDropoutUntil.getTime()
+        ) {
+          activeDropoutUntil = null;
+          activeDropoutReason = null;
+        }
+
+        let status: StudentStatus = StudentStatus.NORMAL;
+        let snapshotRecoveryDate: Date | null = null;
+        let dropoutReason: DropoutReason | null = null;
+
+        if (activeDropoutUntil) {
+          status = StudentStatus.DROPOUT;
+          snapshotRecoveryDate = activeDropoutUntil;
+          dropoutReason = activeDropoutReason;
+        } else if (
+          weekAbsenceCount >= ATTENDANCE_STATUS_RULES.weeklyDropoutAbsences ||
+          monthAbsenceCount >= ATTENDANCE_STATUS_RULES.monthlyDropoutAbsences
+        ) {
+          status = StudentStatus.DROPOUT;
+          snapshotRecoveryDate = nextMonthFirstDay(latestWeekEntry?.session.examDate ?? week.endDate);
+          dropoutReason =
+            weekAbsenceCount >= ATTENDANCE_STATUS_RULES.weeklyDropoutAbsences
+              ? DropoutReason.WEEKLY_3
+              : DropoutReason.MONTHLY_8;
+          activeDropoutUntil = snapshotRecoveryDate;
+          activeDropoutReason = dropoutReason;
+        } else if (weekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning2Absences) {
+          status = StudentStatus.WARNING_2;
+        } else if (weekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning1Absences) {
+          status = StudentStatus.WARNING_1;
+        }
+
+        return {
+          weekKey,
+          weekStartDate: week.startDate,
+          weekEndDate: week.endDate,
+          weekAbsenceCount,
+          monthAbsenceCount,
+          status,
+          recoveryDate: snapshotRecoveryDate,
+          dropoutReason,
+        } satisfies StudentWeeklySnapshot;
+      });
+
+    if (activeDropoutUntil && !isBeforeDate(today, activeDropoutUntil)) {
+      activeDropoutUntil = null;
+      activeDropoutReason = null;
+    }
+
     let overallStatus: StudentStatus = StudentStatus.NORMAL;
     let recoveryDate: Date | null = null;
 
-    if (dropoutTriggerDate) {
+    if (activeDropoutUntil) {
       overallStatus = StudentStatus.DROPOUT;
-      recoveryDate = nextMonthFirstDay(dropoutTriggerDate);
-    } else if (highestWarning === 2) {
+      recoveryDate = activeDropoutUntil;
+    } else if (
+      currentWeekAbsenceCount >= ATTENDANCE_STATUS_RULES.weeklyDropoutAbsences ||
+      currentMonthAbsenceCount >= ATTENDANCE_STATUS_RULES.monthlyDropoutAbsences
+    ) {
+      overallStatus = StudentStatus.DROPOUT;
+      recoveryDate = latestOccurredSession ? nextMonthFirstDay(latestOccurredSession.examDate) : null;
+    } else if (currentWeekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning2Absences) {
       overallStatus = StudentStatus.WARNING_2;
-    } else if (highestWarning === 1) {
+    } else if (currentWeekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning1Absences) {
       overallStatus = StudentStatus.WARNING_1;
     }
 
@@ -536,8 +708,11 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       weekAbsences,
       monthAbsences,
       monthPerfectAttendance,
+      currentWeekAbsenceCount,
+      currentMonthAbsenceCount,
       overallStatus,
       recoveryDate,
+      weeklySnapshots,
     } satisfies StudentAggregate;
   });
 }
@@ -560,7 +735,7 @@ function buildRankingRows(
       .map((entry) => entry.normalizedScore as number);
     const absentCount = scopedEntries.filter((entry) => entry.attendType === AttendType.ABSENT).length;
     const activeEntryCount = scopedEntries.filter(
-      (entry) => entry.attendType !== AttendType.ABSENT && entry.attendType !== null,
+      (entry) => countsAsAttendance(entry.attendType),
     ).length;
     const scopedMonthKeys = Array.from(
       new Set(scopedEntries.map((entry) => monthKey(entry.session.examDate))),
@@ -616,6 +791,299 @@ function buildRankingRows(
         ? right.newRank ?? Number.MAX_SAFE_INTEGER
         : right.overallRank ?? Number.MAX_SAFE_INTEGER;
 
+    return leftRank - rightRank || left.examNumber.localeCompare(right.examNumber);
+  });
+}
+
+function buildWeeklyResultsSheetRows(
+  aggregates: StudentAggregate[],
+  sessions: DatasetSession[],
+  weekKey: string,
+  view: "overall" | "new",
+) {
+  const occurredSessions = sessions.filter(
+    (session) => !session.isCancelled && session.examDate <= endOfToday(),
+  );
+  const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
+  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+
+  const rows: WeeklyResultsSheetRow[] = aggregates.map((aggregate) => {
+    const scopedEntries = aggregate.entries
+      .filter((entry) => occurredSessionIds.has(entry.session.id))
+      .sort(
+        (left, right) =>
+          left.session.examDate.getTime() - right.session.examDate.getTime() ||
+          left.session.id - right.session.id,
+      );
+    const weekSnapshot =
+      aggregate.weeklySnapshots.find((snapshot) => snapshot.weekKey === weekKey) ?? null;
+    const attendanceCount = scopedEntries.filter(
+      (entry) => countsAsAttendance(entry.attendType),
+    ).length;
+
+    const mockScores = scopedEntries.map((entry) => {
+      if (entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getMockScore(entry) ?? 0;
+    });
+    const policeOxScores = policeSessions.map((session) => {
+      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getPoliceOxScore(entry) ?? 0;
+    });
+
+    return {
+      examNumber: aggregate.student.examNumber,
+      name: aggregate.student.name,
+      studentType: aggregate.student.studentType,
+      isActive: aggregate.student.isActive,
+      weekStatus: weekSnapshot?.status ?? StudentStatus.NORMAL,
+      attendanceRate: percentage(attendanceCount, occurredSessions.length),
+      mockAverage: occurredSessions.length === 0 ? 0 : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100,
+      policeOxAverage:
+        policeSessions.length === 0
+          ? null
+          : Math.round((policeOxScores.reduce((sum, value) => sum + value, 0) / policeSessions.length) * 100) / 100,
+      mockRank: null,
+      policeOxRank: null,
+      cells: occurredSessions.map((session) => {
+        const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+
+        return {
+          sessionId: session.id,
+          attendType: entry?.attendType ?? null,
+          mockScore: entry ? getMockScore(entry) : null,
+          policeOxScore: session.subject === Subject.POLICE_SCIENCE && entry ? getPoliceOxScore(entry) : null,
+        } satisfies WeeklyResultsSheetCell;
+      }),
+    } satisfies WeeklyResultsSheetRow;
+  });
+
+  const activeRows = rows.filter((row) => row.isActive);
+  const filteredRows =
+    view === "new" ? rows.filter((row) => row.studentType === StudentType.NEW) : rows;
+  const mockRank = assignRank(
+    activeRows.map((row) => ({ examNumber: row.examNumber, average: row.mockAverage })),
+  );
+  const policeOxRank = assignRank(
+    activeRows
+      .filter((row) => row.policeOxAverage !== null)
+      .map((row) => ({ examNumber: row.examNumber, average: row.policeOxAverage })),
+  );
+
+  for (const row of rows) {
+    row.mockRank = mockRank.get(row.examNumber) ?? null;
+    row.policeOxRank = policeOxRank.get(row.examNumber) ?? null;
+  }
+
+  return filteredRows.sort((left, right) => {
+    const leftRank = left.mockRank ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = right.mockRank ?? Number.MAX_SAFE_INTEGER;
+    return leftRank - rightRank || left.examNumber.localeCompare(right.examNumber);
+  });
+}
+
+function buildMonthlyResultsSheetRows(
+  aggregates: StudentAggregate[],
+  sessions: DatasetSession[],
+  view: "overall" | "new",
+) {
+  const occurredSessions = sessions.filter(
+    (session) => !session.isCancelled && session.examDate <= endOfToday(),
+  );
+  const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
+  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+
+  const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
+    const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
+    const attendanceCount = scopedEntries.filter(
+      (entry) => countsAsAttendance(entry.attendType),
+    ).length;
+    const mockScores = scopedEntries.map((entry) => {
+      if (entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getMockScore(entry) ?? 0;
+    });
+    const policeOxScores = policeSessions.map((session) => {
+      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getPoliceOxScore(entry) ?? 0;
+    });
+    const mockAverage =
+      occurredSessions.length === 0
+        ? 0
+        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+    const policeOxAverage =
+      policeSessions.length === 0
+        ? null
+        : Math.round((policeOxScores.reduce((sum, value) => sum + value, 0) / policeSessions.length) * 100) / 100;
+    const combinedScores = scopedEntries.map((entry) => {
+      if (entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getCombinedScore(entry) ?? 0;
+    });
+    const combinedAverage =
+      occurredSessions.length === 0
+        ? 0
+        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+
+    return {
+      examNumber: aggregate.student.examNumber,
+      name: aggregate.student.name,
+      studentType: aggregate.student.studentType,
+      isActive: aggregate.student.isActive,
+      mockAverage,
+      mockRank: null,
+      policeOxAverage,
+      policeOxRank: null,
+      combinedAverage,
+      combinedRank: null,
+      participationRate: percentage(attendanceCount, occurredSessions.length),
+      note:
+        occurredSessions.length > 0 &&
+        occurredSessions.every((session) => {
+          const entry = scopedEntries.find((e) => e.session.id === session.id);
+          return entry !== undefined && entry.attendType !== AttendType.ABSENT;
+        })
+          ? "개근"
+          : null,
+    } satisfies MonthlyResultsSheetRow;
+  });
+
+  const activeRows = rows.filter((row) => row.isActive);
+  const filteredRows =
+    view === "new" ? rows.filter((row) => row.studentType === StudentType.NEW) : rows;
+  const mockRank = assignRank(
+    activeRows.map((row) => ({ examNumber: row.examNumber, average: row.mockAverage })),
+  );
+  const policeOxRank = assignRank(
+    activeRows
+      .filter((row) => row.policeOxAverage !== null)
+      .map((row) => ({ examNumber: row.examNumber, average: row.policeOxAverage })),
+  );
+  const combinedRank = assignRank(
+    activeRows.map((row) => ({ examNumber: row.examNumber, average: row.combinedAverage })),
+  );
+
+  for (const row of rows) {
+    row.mockRank = mockRank.get(row.examNumber) ?? null;
+    row.policeOxRank = policeOxRank.get(row.examNumber) ?? null;
+    row.combinedRank = combinedRank.get(row.examNumber) ?? null;
+  }
+
+  return filteredRows.sort((left, right) => {
+    const leftRank = left.combinedRank ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = right.combinedRank ?? Number.MAX_SAFE_INTEGER;
+    return leftRank - rightRank || left.examNumber.localeCompare(right.examNumber);
+  });
+}
+
+function buildIntegratedResultsSheetRows(
+  aggregates: StudentAggregate[],
+  sessions: DatasetSession[],
+  view: "overall" | "new",
+) {
+  const occurredSessions = sessions.filter(
+    (session) => !session.isCancelled && session.examDate <= endOfToday(),
+  );
+  const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
+  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+
+  const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
+    const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
+    const attendanceCount = scopedEntries.filter(
+      (entry) => countsAsAttendance(entry.attendType),
+    ).length;
+    const mockScores = scopedEntries.map((entry) => {
+      if (entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getMockScore(entry) ?? 0;
+    });
+    const policeOxScores = policeSessions.map((session) => {
+      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getPoliceOxScore(entry) ?? 0;
+    });
+    const mockAverage =
+      occurredSessions.length === 0
+        ? 0
+        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+    const policeOxAverage =
+      policeSessions.length === 0
+        ? null
+        : Math.round((policeOxScores.reduce((sum, value) => sum + value, 0) / policeSessions.length) * 100) / 100;
+    const combinedScores = scopedEntries.map((entry) => {
+      if (entry.attendType !== AttendType.NORMAL) {
+        return 0;
+      }
+
+      return getCombinedScore(entry) ?? 0;
+    });
+    const combinedAverage =
+      occurredSessions.length === 0
+        ? 0
+        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+
+    return {
+      examNumber: aggregate.student.examNumber,
+      name: aggregate.student.name,
+      studentType: aggregate.student.studentType,
+      isActive: aggregate.student.isActive,
+      mockAverage,
+      mockRank: null,
+      policeOxAverage,
+      policeOxRank: null,
+      combinedAverage,
+      combinedRank: null,
+      participationRate: percentage(attendanceCount, occurredSessions.length),
+      note: null,
+    } satisfies MonthlyResultsSheetRow;
+  });
+
+  const activeRows = rows.filter((row) => row.isActive);
+  const filteredRows =
+    view === "new" ? rows.filter((row) => row.studentType === StudentType.NEW) : rows;
+  const mockRank = assignRank(
+    activeRows.map((row) => ({ examNumber: row.examNumber, average: row.mockAverage })),
+  );
+  const policeOxRank = assignRank(
+    activeRows
+      .filter((row) => row.policeOxAverage !== null)
+      .map((row) => ({ examNumber: row.examNumber, average: row.policeOxAverage })),
+  );
+  const combinedRank = assignRank(
+    activeRows.map((row) => ({ examNumber: row.examNumber, average: row.combinedAverage })),
+  );
+
+  for (const row of rows) {
+    row.mockRank = mockRank.get(row.examNumber) ?? null;
+    row.policeOxRank = policeOxRank.get(row.examNumber) ?? null;
+    row.combinedRank = combinedRank.get(row.examNumber) ?? null;
+  }
+
+  return filteredRows.sort((left, right) => {
+    const leftRank = left.combinedRank ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = right.combinedRank ?? Number.MAX_SAFE_INTEGER;
     return leftRank - rightRank || left.examNumber.localeCompare(right.examNumber);
   });
 }
@@ -732,20 +1200,120 @@ export function getTuesdayWeekOptionsFromSessions(
     .sort((left, right) => left.startDate.getTime() - right.startDate.getTime());
 }
 
-export async function recalculateStatusCache(periodId: number, examType: ExamType) {
+async function syncWeeklyStatusSnapshots(
+  periodId: number,
+  examType: ExamType,
+  aggregates: StudentAggregate[],
+  calculatedAt: Date,
+  examNumbers?: string[],
+) {
   const prisma = getPrisma();
+  const snapshotRows = aggregates.flatMap((aggregate) =>
+    aggregate.weeklySnapshots.map((snapshot) => ({
+      periodId,
+      examNumber: aggregate.student.examNumber,
+      examType,
+      weekKey: snapshot.weekKey,
+      weekStartDate: snapshot.weekStartDate,
+      weekEndDate: snapshot.weekEndDate,
+      weekAbsenceCount: snapshot.weekAbsenceCount,
+      monthAbsenceCount: snapshot.monthAbsenceCount,
+      status: snapshot.status,
+      recoveryDate: snapshot.recoveryDate,
+      dropoutReason: snapshot.dropoutReason,
+      calculatedAt,
+    })),
+  );
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.weeklyStatusSnapshot.deleteMany({
+        where: {
+          periodId,
+          examType,
+          ...(examNumbers?.length
+            ? {
+                examNumber: {
+                  in: examNumbers,
+                },
+              }
+            : {}),
+        },
+      });
+
+      if (snapshotRows.length > 0) {
+        await tx.weeklyStatusSnapshot.createMany({
+          data: snapshotRows,
+        });
+      }
+    },
+    {
+      maxWait: 10_000,
+      timeout: 60_000,
+    },
+  );
+
+  return snapshotRows.length;
+}
+
+export async function rebuildWeeklyStatusSnapshots(periodId: number, examType: ExamType) {
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
   const calculatedAt = new Date();
 
-  for (const aggregate of aggregates) {
-    await prisma.student.update({
-      where: { examNumber: aggregate.student.examNumber },
-      data: {
-        currentStatus: aggregate.overallStatus,
-        statusUpdatedAt: calculatedAt,
-      },
-    });
+  await syncWeeklyStatusSnapshots(periodId, examType, aggregates, calculatedAt);
+
+  return {
+    period: dataset.period,
+    aggregates,
+  };
+}
+
+export async function recalculateStatusCache(
+  periodId: number,
+  examType: ExamType,
+  options?: {
+    examNumbers?: string[];
+  },
+) {
+  const prisma = getPrisma();
+  const targetExamNumbers = Array.from(new Set(options?.examNumbers?.filter(Boolean) ?? []));
+  const dataset = await loadDataset(
+    periodId,
+    examType,
+    targetExamNumbers.length > 0 ? targetExamNumbers : undefined,
+  );
+  const aggregates = buildAggregates(dataset);
+  const calculatedAt = new Date();
+
+  await syncWeeklyStatusSnapshots(
+    periodId,
+    examType,
+    aggregates,
+    calculatedAt,
+    targetExamNumbers.length > 0 ? targetExamNumbers : undefined,
+  );
+
+  if (!dataset.period.isActive) {
+    return aggregates;
+  }
+
+  const statusChanges = aggregates.filter(
+    (aggregate) => aggregate.student.currentStatus !== aggregate.overallStatus,
+  );
+
+  if (statusChanges.length > 0) {
+    await prisma.$transaction(
+      statusChanges.map((aggregate) =>
+        prisma.student.update({
+          where: { examNumber: aggregate.student.examNumber },
+          data: {
+            currentStatus: aggregate.overallStatus,
+            statusUpdatedAt: calculatedAt,
+          },
+        }),
+      ),
+    );
   }
 
   const notificationRows = aggregates
@@ -761,8 +1329,8 @@ export async function recalculateStatusCache(periodId: number, examType: ExamTyp
         return [];
       }
 
-      const weekAbsenceCount = Math.max(0, ...aggregate.weekAbsences.values());
-      const monthAbsenceCount = Math.max(0, ...aggregate.monthAbsences.values());
+      const weekAbsenceCount = aggregate.currentWeekAbsenceCount;
+      const monthAbsenceCount = aggregate.currentMonthAbsenceCount;
       const canQueue =
         aggregate.student.notificationConsent && Boolean(aggregate.student.phone?.trim());
 
@@ -796,93 +1364,83 @@ export async function recalculateStatusCache(periodId: number, examType: ExamTyp
   return aggregates;
 }
 
-export async function getWeeklyGrid(periodId: number, examType: ExamType, weekKey: string) {
-  const dataset = await loadDataset(periodId, examType);
-  const aggregates = buildAggregates(dataset);
-  const sessions = dataset.sessions.filter((session) => getTuesdayWeekKey(session.examDate) === weekKey);
-  const week = buildTuesdayWeekSummary(weekKey, sessions);
+export async function getWeeklyStatusHistory(periodId: number, examType: ExamType, weekKey: string) {
+  const prisma = getPrisma();
+  let rows = await prisma.weeklyStatusSnapshot.findMany({
+    where: {
+      periodId,
+      examType,
+      weekKey,
+    },
+    include: {
+      student: {
+        select: {
+          examNumber: true,
+          name: true,
+          phone: true,
+          studentType: true,
+          isActive: true,
+        },
+      },
+    },
+    orderBy: [{ status: "desc" }, { examNumber: "asc" }],
+  });
+
+  if (rows.length === 0) {
+    await rebuildWeeklyStatusSnapshots(periodId, examType);
+    rows = await prisma.weeklyStatusSnapshot.findMany({
+      where: {
+        periodId,
+        examType,
+        weekKey,
+      },
+      include: {
+        student: {
+          select: {
+            examNumber: true,
+            name: true,
+            phone: true,
+            studentType: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: [{ status: "desc" }, { examNumber: "asc" }],
+    });
+  }
+
+  const sessions = await prisma.examSession.findMany({
+    where: {
+      periodId,
+      examType,
+      isCancelled: false,
+      examDate: {
+        gte: parseTuesdayWeekKey(weekKey) ?? undefined,
+        lte: parseTuesdayWeekKey(weekKey)
+          ? buildTuesdayWeekSummary(weekKey, []).endDate
+          : undefined,
+      },
+    },
+    orderBy: [{ examDate: "asc" }, { week: "asc" }],
+  });
 
   return {
-    period: dataset.period,
-    week,
-    sessions,
-    rows: aggregates.map((aggregate) => {
-      const sessionEntries = aggregate.entries.filter((entry) =>
-        isSameTuesdayWeek(entry.session.examDate, week.startDate),
-      );
-      const normalScores = sessionEntries
-        .filter((entry) => entry.attendType === AttendType.NORMAL && entry.normalizedScore !== null)
-        .map((entry) => entry.normalizedScore as number);
-      const absentCount = aggregate.weekAbsences.get(weekKey) ?? 0;
-      const weekStatus =
-        absentCount >= 3
-          ? StudentStatus.DROPOUT
-          : absentCount === 2
-            ? StudentStatus.WARNING_2
-            : absentCount === 1
-              ? StudentStatus.WARNING_1
-              : StudentStatus.NORMAL;
-
-      const cells: WeeklyGridCell[] = sessions.map((session) => {
-        const entry = sessionEntries.find((candidate) => candidate.session.id === session.id) ?? null;
-
-        if (session.isCancelled) {
-          return {
-            sessionId: session.id,
-            subject: session.subject,
-            display: "취소",
-          };
-        }
-
-        if (entry?.attendType === AttendType.LIVE) {
-          return {
-            sessionId: session.id,
-            subject: session.subject,
-            display: `${entry.displayScore ?? "-"} (LIVE)`,
-          };
-        }
-
-        if (entry?.attendType === AttendType.NORMAL) {
-          return {
-            sessionId: session.id,
-            subject: session.subject,
-            display: String(entry.displayScore ?? "-"),
-          };
-        }
-
-        if (entry?.attendType === AttendType.EXCUSED) {
-          return {
-            sessionId: session.id,
-            subject: session.subject,
-            display: "공결",
-          };
-        }
-
-        if (entry?.attendType === AttendType.ABSENT) {
-          return {
-            sessionId: session.id,
-            subject: session.subject,
-            display: "결시",
-          };
-        }
-
-        return {
-          sessionId: session.id,
-          subject: session.subject,
-          display: "-",
-        };
-      });
-
-      return {
-        examNumber: aggregate.student.examNumber,
-        name: aggregate.student.name,
-        studentType: aggregate.student.studentType,
-        weekAverage: average(normalScores),
-        absentCount,
-        weekStatus,
-        cells,
-      } satisfies WeeklyGridRow;
-    }),
+    week: buildTuesdayWeekSummary(weekKey, sessions as DatasetSession[]),
+    rows: rows.map((row) => ({
+      examNumber: row.student.examNumber,
+      name: row.student.name,
+      phone: row.student.phone,
+      studentType: row.student.studentType,
+      isActive: row.student.isActive,
+      status: row.status,
+      weekKey: row.weekKey,
+      weekStartDate: row.weekStartDate,
+      weekEndDate: row.weekEndDate,
+      weekAbsenceCount: row.weekAbsenceCount,
+      monthAbsenceCount: row.monthAbsenceCount,
+      recoveryDate: row.recoveryDate,
+      dropoutReason: row.dropoutReason,
+    })) satisfies WeeklyStatusHistoryRow[],
   };
 }
 
@@ -895,10 +1453,13 @@ export async function getDropoutMonitor(periodId: number, examType: ExamType) {
     rows: aggregates.map((aggregate) => ({
       examNumber: aggregate.student.examNumber,
       name: aggregate.student.name,
+      phone: aggregate.student.phone,
       studentType: aggregate.student.studentType,
       isActive: aggregate.student.isActive,
       status: aggregate.overallStatus,
       recoveryDate: aggregate.recoveryDate,
+      currentWeekAbsenceCount: aggregate.currentWeekAbsenceCount,
+      currentMonthAbsenceCount: aggregate.currentMonthAbsenceCount,
       weekAbsences: Object.fromEntries(aggregate.weekAbsences),
       monthAbsences: Object.fromEntries(aggregate.monthAbsences),
     })) satisfies DropoutMonitorRow[],
@@ -920,27 +1481,29 @@ export async function getWeeklyResults(
     week: buildTuesdayWeekSummary(weekKey, sessions),
     sessions,
     rows: buildRankingRows(aggregates, sessions, examType, view),
+    sheetRows: buildWeeklyResultsSheetRows(aggregates, sessions, weekKey, view),
   };
 }
 
 export async function getMonthlyResults(
   periodId: number,
   examType: ExamType,
-  year: number,
-  month: number,
+  fromWeekKey: string,
+  toWeekKey: string,
   view: "overall" | "new",
 ) {
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
-  const sessions = dataset.sessions.filter(
-    (session) =>
-      session.examDate.getFullYear() === year && session.examDate.getMonth() + 1 === month,
-  );
+  const sessions = dataset.sessions.filter((session) => {
+    const wk = getTuesdayWeekKey(session.examDate);
+    return wk >= fromWeekKey && wk <= toWeekKey;
+  });
 
   return {
     period: dataset.period,
     sessions,
     rows: buildRankingRows(aggregates, sessions, examType, view),
+    sheetRows: buildMonthlyResultsSheetRows(aggregates, sessions, view),
   };
 }
 
@@ -955,6 +1518,7 @@ export async function getIntegratedResults(
   return {
     period: dataset.period,
     rows: buildRankingRows(aggregates, dataset.sessions, examType, view),
+    sheetRows: buildIntegratedResultsSheetRows(aggregates, dataset.sessions, view),
   };
 }
 
@@ -1034,8 +1598,12 @@ export async function getAttendanceCalendar(
         return absenceCount === 1 || absenceCount === 2;
       }).length,
       dropoutCount: aggregates.filter((aggregate) => {
-        const weeklyDropout = (aggregate.weekAbsences.get(weekKey) ?? 0) >= 3;
-        const monthlyDropout = (aggregate.monthAbsences.get(monthKey(session.examDate)) ?? 0) >= 8;
+        const weeklyDropout =
+          (aggregate.weekAbsences.get(weekKey) ?? 0) >=
+          ATTENDANCE_STATUS_RULES.weeklyDropoutAbsences;
+        const monthlyDropout =
+          (aggregate.monthAbsences.get(monthKey(session.examDate)) ?? 0) >=
+          ATTENDANCE_STATUS_RULES.monthlyDropoutAbsences;
         return weeklyDropout || monthlyDropout;
       }).length,
     };

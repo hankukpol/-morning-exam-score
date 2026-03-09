@@ -17,6 +17,7 @@ import {
   getSubjectTrendRows,
   type QueryMode,
 } from "@/lib/query/service";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -287,7 +288,10 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
 
       {mode === "student" ? (
         <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-          <h2 className="text-xl font-semibold">수강생 이력</h2>
+          <h2 className="text-xl font-semibold">수강생 검색 결과</h2>
+          <p className="mt-2 text-sm text-slate">
+            이 화면에서는 검색 결과만 확인하고, 상세 이력과 수정은 전용 학생 페이지에서 처리합니다.
+          </p>
           <div className="mt-6 space-y-4">
             {studentRows.length === 0 ? (
               <div className="rounded-[28px] border border-dashed border-ink/10 p-8 text-center text-sm text-slate">
@@ -308,40 +312,44 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
                   <p className="text-sm text-slate">{student.phone ?? "-"}</p>
                 </div>
 
-                <div className="mt-4 overflow-x-auto rounded-[24px] border border-ink/10">
-                  <table className="min-w-full divide-y divide-ink/10 text-sm">
-                    <thead className="bg-mist/80 text-left">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">시험일</th>
-                        <th className="px-4 py-3 font-semibold">기간</th>
-                        <th className="px-4 py-3 font-semibold">과목</th>
-                        <th className="px-4 py-3 font-semibold">출결</th>
-                        <th className="px-4 py-3 font-semibold">원점수</th>
-                        <th className="px-4 py-3 font-semibold">최종점수</th>
-                        <th className="px-4 py-3 font-semibold">메모</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink/10">
-                      {student.scores.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate">
-                            선택한 기간의 성적 이력이 없습니다.
-                          </td>
-                        </tr>
-                      ) : null}
-                      {student.scores.map((score) => (
-                        <tr key={score.scoreId}>
-                          <td className="px-4 py-3">{formatDate(score.examDate)}</td>
-                          <td className="px-4 py-3">{score.periodName}</td>
-                          <td className="px-4 py-3">{SUBJECT_LABEL[score.subject]}</td>
-                          <td className="px-4 py-3">{ATTEND_TYPE_LABEL[score.attendType]}</td>
-                          <td className="px-4 py-3">{score.rawScore ?? "-"}</td>
-                          <td className="px-4 py-3">{score.finalScore ?? "-"}</td>
-                          <td className="px-4 py-3">{score.note ?? "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-4 grid gap-3 rounded-[24px] bg-mist/60 p-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate">scores</p>
+                    <p className="mt-2 text-lg font-semibold">{student.scores.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate">latest exam</p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {student.scores[0] ? formatDate(student.scores[0].examDate) : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate">latest subject</p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {student.scores[0] ? SUBJECT_LABEL[student.scores[0].subject] : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/students/${student.examNumber}/history`}
+                    className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
+                  >
+                    성적 이력
+                  </Link>
+                  <Link
+                    href={`/admin/students/${student.examNumber}/analysis`}
+                    className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                  >
+                    기간별 분석
+                  </Link>
+                  <Link
+                    href={`/admin/students/analyze?examNumber=${student.examNumber}`}
+                    className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                  >
+                    누적 분석
+                  </Link>
                 </div>
               </article>
             ))}

@@ -2,6 +2,7 @@ import {
   ExamType,
   NotificationChannel,
   NotificationType,
+  StudentStatus,
 } from "@/generated/prisma";
 import { SolapiMessageService } from "solapi";
 import { toAuditJson } from "@/lib/audit";
@@ -12,7 +13,9 @@ import {
   buildNotificationMessage,
   buildNotificationVariables,
   getNotificationTemplateId,
+  notificationTypeFromStatus,
 } from "@/lib/notifications/templates";
+import { getDropoutMonitor } from "@/lib/analytics/service";
 
 type ConsentFilters = {
   examType?: ExamType;
@@ -43,6 +46,22 @@ function getSolapiClient() {
     client: new SolapiMessageService(config.apiKey, config.apiSecret),
     config,
   };
+}
+
+function isSendableStatus(
+  status: StudentStatus,
+): status is "WARNING_1" | "WARNING_2" | "DROPOUT" {
+  return (
+    status === StudentStatus.WARNING_1 ||
+    status === StudentStatus.WARNING_2 ||
+    status === StudentStatus.DROPOUT
+  );
+}
+
+function getStatusNotificationType(
+  status: StudentStatus,
+): "WARNING_1" | "WARNING_2" | "DROPOUT" | null {
+  return notificationTypeFromStatus(status);
 }
 
 export async function listNotificationCenterData(filters: ConsentFilters) {
@@ -346,6 +365,126 @@ export async function sendQueuedNotifications(input: {
     failedCount: updated.filter((log) => log.status === "failed").length,
     skippedCount: updated.filter((log) => log.status === "skipped").length,
     logs: updated,
+  };
+}
+
+export async function sendStatusNotifications(input: {
+  adminId: string;
+  periodId: number;
+  examType: ExamType;
+  statuses: StudentStatus[];
+  ipAddress?: string | null;
+}) {
+  const targetStatuses = Array.from(
+    new Set(
+      input.statuses.filter((status) => isSendableStatus(status)),
+    ),
+  );
+
+  if (targetStatuses.length === 0) {
+    throw new Error("발송할 경고/탈락 상태를 선택해주세요.");
+  }
+
+  const monitor = await getDropoutMonitor(input.periodId, input.examType);
+  const targets = monitor.rows.filter(
+    (row) => row.isActive && targetStatuses.some((status) => status === row.status),
+  );
+
+  if (targets.length === 0) {
+    throw new Error("현재 조건에 맞는 발송 대상자가 없습니다.");
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const prisma = getPrisma();
+  const existingLogs = await prisma.notificationLog.findMany({
+    where: {
+      examNumber: {
+        in: targets.map((row) => row.examNumber),
+      },
+      type: {
+        in: targetStatuses
+          .map((status) => getStatusNotificationType(status))
+          .filter((type): type is NonNullable<typeof type> => type !== null),
+      },
+      sentAt: {
+        gte: startOfToday,
+      },
+      status: {
+        in: ["pending", "sent"],
+      },
+    },
+    select: {
+      examNumber: true,
+      type: true,
+    },
+  });
+  const existingSet = new Set(
+    existingLogs.map((log) => `${log.examNumber}:${log.type}`),
+  );
+
+  const createdLogs = [];
+
+  for (const row of targets) {
+    if (!isSendableStatus(row.status)) {
+      continue;
+    }
+
+    const type = getStatusNotificationType(row.status);
+
+    if (!type) {
+      continue;
+    }
+
+    const duplicateKey = `${row.examNumber}:${type}`;
+    if (existingSet.has(duplicateKey)) {
+      continue;
+    }
+
+    const canQueue = Boolean(row.phone?.trim());
+    const log = await prisma.notificationLog.create({
+      data: {
+        examNumber: row.examNumber,
+        type,
+        channel: NotificationChannel.ALIMTALK,
+        message: buildNotificationMessage({
+          type,
+          studentName: row.name,
+          recoveryDate: row.recoveryDate,
+          weekAbsenceCount: row.currentWeekAbsenceCount,
+          monthAbsenceCount: row.currentMonthAbsenceCount,
+        }),
+        status: canQueue ? "pending" : "skipped",
+        failReason: canQueue ? null : "전화번호가 없어 발송 대상에서 제외되었습니다.",
+      },
+    });
+
+    createdLogs.push(log);
+  }
+
+  if (createdLogs.length === 0) {
+    return {
+      targetCount: targets.length,
+      createdCount: 0,
+      duplicateCount: targets.length,
+      sentCount: 0,
+      failedCount: 0,
+      skippedCount: 0,
+      logs: [],
+    };
+  }
+
+  const result = await sendQueuedNotifications({
+    adminId: input.adminId,
+    logIds: createdLogs.map((log) => log.id),
+    ipAddress: input.ipAddress,
+  });
+
+  return {
+    targetCount: targets.length,
+    createdCount: createdLogs.length,
+    duplicateCount: targets.length - createdLogs.length,
+    ...result,
   };
 }
 

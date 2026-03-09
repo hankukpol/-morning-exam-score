@@ -338,13 +338,12 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
             {DAY_NAMES.map((day, i) => (
               <div
                 key={day}
-                className={`py-2 text-xs font-semibold ${
-                  i === 0
-                    ? "text-red-500"
-                    : i === 6
-                      ? "text-blue-500"
-                      : "text-slate"
-                }`}
+                className={`py-2 text-xs font-semibold ${i === 0
+                  ? "text-red-500"
+                  : i === 6
+                    ? "text-blue-500"
+                    : "text-slate"
+                  }`}
               >
                 {day}
               </div>
@@ -352,11 +351,16 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
           </div>
 
           {/* 날짜 셀 */}
-          <div className="grid grid-cols-7 gap-y-1">
+          <div className="grid grid-cols-7 gap-y-1 mt-2">
             {Array.from({ length: totalCells }).map((_, cellIndex) => {
               const dayNum = cellIndex - firstDayOfMonth + 1;
               if (dayNum < 1 || dayNum > daysInMonth) {
-                return <div key={cellIndex} className="h-12" />;
+                return (
+                  <div
+                    key={cellIndex}
+                    className="h-16 border border-slate-200 bg-mist/20"
+                  />
+                );
               }
 
               const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
@@ -376,14 +380,14 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                   onClick={() => handleDateClick(dateStr)}
                   disabled={!hasSession}
                   className={[
-                    "relative flex h-12 flex-col items-center justify-center rounded-2xl text-sm transition",
+                    "relative flex h-16 flex-col items-center justify-center rounded-none border border-slate-200 text-sm transition",
                     isSelected
-                      ? "bg-ember text-white font-semibold"
+                      ? "bg-ember text-white font-semibold border-ember"
                       : isToday
-                        ? "border border-ember/40 font-semibold"
-                        : "",
+                        ? "border-ember/40 font-semibold bg-white"
+                        : "bg-white",
                     hasSession && !isSelected
-                      ? "cursor-pointer hover:bg-ember/10"
+                      ? "cursor-pointer hover:bg-ember/5 hover:border-ember/20"
                       : "",
                     !hasSession ? "cursor-default text-ink/30" : "",
                     !isSelected && isSunday && hasSession ? "text-red-500" : "",
@@ -404,15 +408,14 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                       {sessions.slice(0, 3).map((s, i) => (
                         <span
                           key={i}
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            isSelected
-                              ? "bg-white/80"
-                              : s.isCancelled
-                                ? "bg-ink/20"
-                                : hasActiveSessions
-                                  ? "bg-ember"
-                                  : "bg-ink/20"
-                          }`}
+                          className={`h-1.5 w-1.5 rounded-full ${isSelected
+                            ? "bg-white/80"
+                            : s.isCancelled
+                              ? "bg-ink/20"
+                              : hasActiveSessions
+                                ? "bg-ember"
+                                : "bg-ink/20"
+                            }`}
                         />
                       ))}
                     </span>

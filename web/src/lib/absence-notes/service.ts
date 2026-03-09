@@ -363,7 +363,9 @@ export async function createAbsenceNote(input: {
   });
 
   if (result.autoApprove) {
-    await recalculateStatusCache(result.session.periodId, result.session.examType);
+    await recalculateStatusCache(result.session.periodId, result.session.examType, {
+      examNumbers: [result.note.examNumber],
+    });
   }
 
   return result.note;
@@ -437,7 +439,9 @@ export async function updateAbsenceNote(input: {
   });
 
   if (result.autoApprove) {
-    await recalculateStatusCache(result.session.periodId, result.session.examType);
+    await recalculateStatusCache(result.session.periodId, result.session.examType, {
+      examNumbers: [result.note.examNumber],
+    });
   }
 
   return result.note;
@@ -530,7 +534,9 @@ export async function reviewAbsenceNote(input: {
   });
 
   if (result.shouldRecalculate) {
-    await recalculateStatusCache(result.session.periodId, result.session.examType);
+    await recalculateStatusCache(result.session.periodId, result.session.examType, {
+      examNumbers: [result.note.examNumber],
+    });
   }
 
   return result.note;
@@ -580,7 +586,9 @@ export async function deleteAbsenceNote(input: {
   });
 
   if (result.shouldRecalculate) {
-    await recalculateStatusCache(result.note.session.periodId, result.note.session.examType);
+    await recalculateStatusCache(result.note.session.periodId, result.note.session.examType, {
+      examNumbers: [result.note.examNumber],
+    });
   }
 
   return {

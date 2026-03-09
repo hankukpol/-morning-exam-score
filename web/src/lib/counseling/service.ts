@@ -8,6 +8,8 @@ import {
   type SubjectTargetScores,
 } from "@/lib/analytics/analysis";
 import { getPrisma } from "@/lib/prisma";
+import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
+import { getScoredMockScore } from "@/lib/scores/calculation";
 
 export type CounselingSearchFilters = {
   examType?: ExamType;
@@ -135,7 +137,9 @@ export async function getCounselingDashboard() {
       }),
       getPrisma().student.count({ where: warningWhere }),
       getPrisma().student.findMany({
-        where: warningWhere,
+        where: {
+          AND: [NON_PLACEHOLDER_STUDENT_FILTER, warningWhere],
+        },
         select: { examNumber: true, name: true, currentStatus: true, examType: true },
         orderBy: { examNumber: "asc" },
         take: 50,
@@ -157,14 +161,19 @@ export async function listCounselingStudents(filters: CounselingSearchFilters) {
   const pageSize = Math.min(Math.max(filters.pageSize ?? 30, 1), 100);
   const page = Math.max(filters.page ?? 1, 1);
   const where = {
-    examType: filters.examType,
-    isActive: true,
-    OR: search
-      ? [
-          { examNumber: { contains: search } },
-          { name: { contains: search } },
-        ]
-      : undefined,
+    AND: [
+      NON_PLACEHOLDER_STUDENT_FILTER,
+      {
+        examType: filters.examType,
+        isActive: true,
+        OR: search
+          ? [
+              { examNumber: { contains: search } },
+              { name: { contains: search } },
+            ]
+          : undefined,
+      },
+    ],
   } satisfies Prisma.StudentWhereInput;
 
   const [rows, totalCount] = await Promise.all([
@@ -248,8 +257,12 @@ export async function getCounselingProfile(examNumber: string) {
   let absentCount = 0;
 
   for (const score of recentFourWeeks) {
-    const scoreValue = score.finalScore ?? score.rawScore;
-    const normalized = scoreValue === null ? null : scoreValue > 100 ? scoreValue / 2 : scoreValue;
+    const normalized = getScoredMockScore({
+      rawScore: score.rawScore,
+      oxScore: score.oxScore,
+      finalScore: score.finalScore,
+      attendType: score.attendType,
+    });
     const weekKey = `${score.session.examDate.getFullYear()}-${String(score.session.week).padStart(2, "0")}`;
 
     if (normalized !== null) {

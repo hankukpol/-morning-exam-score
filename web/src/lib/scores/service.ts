@@ -891,10 +891,13 @@ export async function updateScoreEntry(input: {
     return {
       score,
       session: before.session,
+      examNumber: before.examNumber,
     };
   });
 
-  await recalculateStatusCache(score.session.periodId, score.session.examType);
+  await recalculateStatusCache(score.session.periodId, score.session.examType, {
+    examNumbers: [score.examNumber],
+  });
 
   return score.score;
 }
@@ -940,10 +943,13 @@ export async function deleteScoreEntry(input: {
     return {
       success: true,
       session: before.session,
+      examNumber: before.examNumber,
     };
   });
 
-  await recalculateStatusCache(result.session.periodId, result.session.examType);
+  await recalculateStatusCache(result.session.periodId, result.session.examType, {
+    examNumbers: [result.examNumber],
+  });
 
   return {
     success: true,

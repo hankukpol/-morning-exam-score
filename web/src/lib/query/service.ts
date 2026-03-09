@@ -4,6 +4,8 @@ import {
   Subject,
 } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
+import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
+import { getScoredMockScore } from "@/lib/scores/calculation";
 
 export type QueryMode = "date" | "subject" | "student";
 
@@ -37,10 +39,12 @@ function buildDateRange(date?: string) {
 }
 
 function scoreValue(score: {
+  oxScore?: number | null;
   finalScore: number | null;
   rawScore: number | null;
+  attendType: AttendType;
 }) {
-  return score.finalScore ?? score.rawScore;
+  return getScoredMockScore(score);
 }
 
 function average(values: number[]) {
@@ -114,6 +118,9 @@ export async function getSubjectTrendRows(filters: QueryFilters) {
       periodId: filters.periodId,
       examType: filters.examType,
       subject: filters.subject,
+      examDate: {
+        lt: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1),
+      },
     },
     include: {
       scores: true,
@@ -162,17 +169,22 @@ export async function getStudentHistoryRows(filters: QueryFilters) {
 
   const students = await getPrisma().student.findMany({
     where: {
-      examType: filters.examType,
-      OR: [
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
         {
-          examNumber: {
-            contains: keyword,
-          },
-        },
-        {
-          name: {
-            contains: keyword,
-          },
+          examType: filters.examType,
+          OR: [
+            {
+              examNumber: {
+                contains: keyword,
+              },
+            },
+            {
+              name: {
+                contains: keyword,
+              },
+            },
+          ],
         },
       ],
     },

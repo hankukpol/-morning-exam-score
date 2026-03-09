@@ -1,11 +1,7 @@
 import { AdminRole } from "@/generated/prisma";
-import { RankingTable } from "@/components/analytics/ranking-table";
+import { MonthlyResultsSheet } from "@/components/analytics/monthly-results-sheet";
 import { getIntegratedResults } from "@/lib/analytics/service";
-import {
-  buildHref,
-  getAnalyticsContext,
-  readStringParam,
-} from "@/lib/analytics/ui";
+import { buildHref, getAnalyticsContext, readStringParam } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_TYPE_LABEL } from "@/lib/constants";
 import Link from "next/link";
@@ -31,7 +27,7 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
       </div>
       <h1 className="mt-5 text-3xl font-semibold">통합 성적 집계</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        전체 기간의 NORMAL 응시 기록을 합산해 통합 평균, 통합 석차, 통합 참여율을 계산합니다.
+        기간 전체 성적을 기준으로 합산 평균, 통합 석차, 참여율을 확인합니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-3">
@@ -101,15 +97,30 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
             >
               신규생 성적
             </Link>
+            <Link
+              href={buildHref("/api/export/results-print", {
+                mode: "integrated",
+                periodId: selectedPeriod.id,
+                examType,
+                view,
+              })}
+              className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
+            >
+              인쇄용 엑셀 다운로드
+            </Link>
           </div>
 
           <div className="mt-8">
-            <RankingTable rows={data.rows} view={view} />
+            <MonthlyResultsSheet
+              rows={data.sheetRows}
+              title="통합 2개월 성적표"
+              subtitle={selectedPeriod.name}
+            />
           </div>
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          시험 기간을 먼저 선택하세요.
+          시험 기간을 먼저 선택해 주세요.
         </div>
       )}
     </div>

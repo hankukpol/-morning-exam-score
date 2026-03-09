@@ -18,6 +18,7 @@ import {
   listAbsenceNotes,
 } from "@/lib/absence-notes/service";
 import { getPrisma } from "@/lib/prisma";
+import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,9 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
         })
       : Promise.resolve([]),
     getPrisma().student.findMany({
-      where: { examType, isActive: true },
+      where: {
+        AND: [NON_PLACEHOLDER_STUDENT_FILTER, { examType, isActive: true }],
+      },
       select: { examNumber: true, name: true, currentStatus: true },
       orderBy: { examNumber: "asc" },
     }),

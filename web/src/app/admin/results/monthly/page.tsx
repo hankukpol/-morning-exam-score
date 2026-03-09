@@ -1,13 +1,10 @@
 import { AdminRole } from "@/generated/prisma";
-import { RankingTable } from "@/components/analytics/ranking-table";
-import {
-  formatMonthLabel,
-} from "@/lib/analytics/presentation";
+import { MonthlyResultsSheet } from "@/components/analytics/monthly-results-sheet";
 import { getMonthlyResults } from "@/lib/analytics/service";
 import {
   buildHref,
   getAnalyticsContext,
-  getMonthOptions,
+  getWeekOptions,
   readStringParam,
 } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
@@ -23,22 +20,26 @@ type PageProps = {
 export default async function AdminMonthlyResultsPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
-  const monthOptions = getMonthOptions(selectedPeriod, examType);
-  const requestedMonthKey = readStringParam(searchParams, "monthKey");
-  const selectedMonth =
-    monthOptions.find((option) => `${option.year}-${option.month}` === requestedMonthKey) ??
-    monthOptions[0];
+  const weekOptions = getWeekOptions(selectedPeriod, examType);
+
+  const requestedFromWeekKey = readStringParam(searchParams, "fromWeekKey");
+  const requestedToWeekKey = readStringParam(searchParams, "toWeekKey");
+
+  const fromWeekKey =
+    weekOptions.find((w) => w.key === requestedFromWeekKey)?.key ?? weekOptions[0]?.key;
+  const toWeekKey =
+    weekOptions.find((w) => w.key === requestedToWeekKey)?.key ??
+    weekOptions[weekOptions.length - 1]?.key;
+
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data =
-    selectedPeriod && selectedMonth
-      ? await getMonthlyResults(
-          selectedPeriod.id,
-          examType,
-          selectedMonth.year,
-          selectedMonth.month,
-          view,
-        )
+    selectedPeriod && fromWeekKey && toWeekKey
+      ? await getMonthlyResults(selectedPeriod.id, examType, fromWeekKey, toWeekKey, view)
       : null;
+
+  const fromLabel = weekOptions.find((w) => w.key === fromWeekKey)?.label ?? "";
+  const toLabel = weekOptions.find((w) => w.key === toWeekKey)?.label ?? "";
+  const rangeLabel = fromLabel && toLabel ? `${fromLabel} ~ ${toLabel}` : "";
 
   return (
     <div className="p-8 sm:p-10">
@@ -47,10 +48,10 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
       </div>
       <h1 className="mt-5 text-3xl font-semibold">월별 성적 집계</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        월 단위 평균, 참여율, 개근 여부를 계산하고 신규생 전용 석차를 별도로 제공합니다.
+        시작/종료 주차를 직접 선택해 원하는 구간의 평균, 참여율, 개근 여부를 집계합니다.
       </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
+      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5">
         <div>
           <label className="mb-2 block text-sm font-medium">시험 기간</label>
           <select
@@ -77,15 +78,31 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">대상 월</label>
+          <label className="mb-2 block text-sm font-medium">시작 주차</label>
           <select
-            name="monthKey"
-            defaultValue={selectedMonth ? `${selectedMonth.year}-${selectedMonth.month}` : ""}
+            name="fromWeekKey"
+            defaultValue={fromWeekKey ?? ""}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
           >
-            {monthOptions.map((option) => (
-              <option key={`${option.year}-${option.month}`} value={`${option.year}-${option.month}`}>
-                {formatMonthLabel(option.year, option.month)}
+            {weekOptions.length === 0 && <option value="">주차 없음</option>}
+            {weekOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">종료 주차</label>
+          <select
+            name="toWeekKey"
+            defaultValue={toWeekKey ?? ""}
+            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          >
+            {weekOptions.length === 0 && <option value="">주차 없음</option>}
+            {weekOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -100,14 +117,15 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
         </div>
       </form>
 
-      {selectedPeriod && selectedMonth && data ? (
+      {selectedPeriod && fromWeekKey && toWeekKey && data ? (
         <>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={buildHref("/admin/results/monthly", {
                 periodId: selectedPeriod.id,
                 examType,
-                monthKey: `${selectedMonth.year}-${selectedMonth.month}`,
+                fromWeekKey,
+                toWeekKey,
                 view: "overall",
               })}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -122,7 +140,8 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
               href={buildHref("/admin/results/monthly", {
                 periodId: selectedPeriod.id,
                 examType,
-                monthKey: `${selectedMonth.year}-${selectedMonth.month}`,
+                fromWeekKey,
+                toWeekKey,
                 view: "new",
               })}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -133,15 +152,30 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
             >
               신규생 성적
             </Link>
+            <Link
+              href={buildHref("/api/export/results-print", {
+                mode: "monthly",
+                periodId: selectedPeriod.id,
+                examType,
+                fromWeekKey,
+                toWeekKey,
+                view,
+              })}
+              className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
+            >
+              인쇄용 엑셀 다운로드
+            </Link>
           </div>
 
           <div className="mt-8">
-            <RankingTable rows={data.rows} view={view} />
+            <MonthlyResultsSheet subtitle={rangeLabel} rows={data.sheetRows} />
           </div>
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          선택한 월에 해당하는 회차가 없습니다.
+          {weekOptions.length === 0
+            ? "선택한 조건에 해당하는 주차가 없습니다."
+            : "조회 조건을 선택한 후 조회 버튼을 눌러주세요."}
         </div>
       )}
     </div>

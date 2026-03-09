@@ -2,17 +2,24 @@ import { Prisma } from "@/generated/prisma";
 import {
   AttendType,
   ExamType,
+  StudentStatus,
   StudentType,
   Subject,
 } from "@/generated/prisma";
 import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
+import {
+  countsAsAttendance,
+  getCombinedAverage,
+  getScoredMockScore,
+} from "@/lib/scores/calculation";
 
 export type SubjectTargetScores = Partial<Record<Subject, number>>;
 
 type ScoreLike = {
   examNumber: string;
   rawScore: number | null;
+  oxScore?: number | null;
   finalScore: number | null;
   attendType: AttendType;
 };
@@ -23,8 +30,10 @@ type ScoreWithStudent = ScoreLike & {
   };
 };
 
-function normalizeScoreValue(score: Pick<ScoreLike, "finalScore" | "rawScore">) {
-  return score.finalScore ?? score.rawScore;
+function scoredMockScoreValue(
+  score: Pick<ScoreLike, "rawScore" | "oxScore" | "finalScore" | "attendType">,
+) {
+  return getScoredMockScore(score);
 }
 
 function average(values: number[]) {
@@ -57,8 +66,7 @@ function percentileRank(values: number[], target: number) {
 
 function scoreValues(scores: ScoreLike[]) {
   return scores
-    .filter((score) => score.attendType === AttendType.NORMAL || score.attendType === AttendType.LIVE)
-    .map(normalizeScoreValue)
+    .map(scoredMockScoreValue)
     .filter((value): value is number => value !== null);
 }
 
@@ -96,6 +104,24 @@ function subjectRowsForExamType(examType: ExamType, subjects: Subject[]) {
   return Array.from(set);
 }
 
+function formatTrendDateLabel(date: Date) {
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function startOfTomorrow() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+}
+
+function isMissingWeeklyStatusSnapshotError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
+
 export function parseTargetScores(value: Prisma.JsonValue | null): SubjectTargetScores {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -127,7 +153,7 @@ function buildStudentAverageMap(scores: ScoreWithStudent[]) {
   const grouped = new Map<string, number[]>();
 
   for (const score of scores) {
-    const value = normalizeScoreValue(score);
+    const value = scoredMockScoreValue(score);
 
     if (value === null) {
       continue;
@@ -161,6 +187,13 @@ export async function getDailyAnalysis(input: {
 
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
+  const tomorrow = startOfTomorrow();
+
+  if (start >= tomorrow) {
+    return [];
+  }
+
+  const boundedEnd = end < tomorrow ? end : tomorrow;
   const search = input.search?.trim();
 
   const sessions = await getPrisma().examSession.findMany({
@@ -170,7 +203,7 @@ export async function getDailyAnalysis(input: {
       isCancelled: false,
       examDate: {
         gte: start,
-        lt: end,
+        lt: boundedEnd,
       },
     },
     include: {
@@ -208,9 +241,7 @@ export async function getDailyAnalysis(input: {
               score.examNumber.includes(search) || score.student.name.includes(search),
           ) ?? null
         : null;
-    const participantCount = session.scores.filter(
-      (score) => score.attendType === AttendType.NORMAL || score.attendType === AttendType.LIVE,
-    ).length;
+    const participantCount = values.length;
     const questionRows = session.questions.map((question) => {
       const distribution = parseDistribution(question.answerDistribution);
       const wrongAnswers = question.studentAnswers.filter((answer) => !answer.isCorrect);
@@ -255,12 +286,12 @@ export async function getDailyAnalysis(input: {
         .slice(0, 5),
       questionRows,
       searchedStudent:
-        searchedScore && normalizeScoreValue(searchedScore) !== null
+        searchedScore && scoredMockScoreValue(searchedScore) !== null
           ? {
               examNumber: searchedScore.examNumber,
               name: searchedScore.student.name,
-              score: normalizeScoreValue(searchedScore),
-              rank: percentileRank(values, normalizeScoreValue(searchedScore) ?? 0),
+              score: scoredMockScoreValue(searchedScore),
+              rank: percentileRank(values, scoredMockScoreValue(searchedScore) ?? 0),
             }
           : null,
     };
@@ -280,6 +311,8 @@ export async function getMonthlyStudentAnalysis(input: {
 
   const start = new Date(input.year, input.month - 1, 1);
   const end = new Date(input.year, input.month, 1);
+  const tomorrow = startOfTomorrow();
+  const boundedEnd = end < tomorrow ? end : tomorrow;
   const search = input.examNumber.trim();
   const student = await getPrisma().student.findFirst({
     where: {
@@ -301,7 +334,7 @@ export async function getMonthlyStudentAnalysis(input: {
       examType: input.examType,
       examDate: {
         gte: start,
-        lt: end,
+        lt: boundedEnd,
       },
       isCancelled: false,
     },
@@ -336,7 +369,7 @@ export async function getMonthlyStudentAnalysis(input: {
     const subjectScores = monthScores.filter((score) => score.session.subject === subject);
     const studentScores = subjectScores.filter((score) => score.examNumber === student.examNumber);
     const studentValues = studentScores
-      .map(normalizeScoreValue)
+      .map(scoredMockScoreValue)
       .filter((value): value is number => value !== null);
     const cohortValues = scoreValues(subjectScores);
     const averageMap = buildStudentAverageMap(subjectScores);
@@ -373,10 +406,24 @@ export async function getMonthlyStudentAnalysis(input: {
   const attendedCount = monthScores.filter(
     (score) =>
       score.examNumber === student.examNumber &&
-      (score.attendType === AttendType.NORMAL ||
-        score.attendType === AttendType.LIVE ||
-        score.attendType === AttendType.EXCUSED),
+      countsAsAttendance(score.attendType),
   ).length;
+  const studentMonthScores = monthScores.filter((score) => score.examNumber === student.examNumber);
+  const monthlyMockAverage = average(
+    studentMonthScores
+      .map(scoredMockScoreValue)
+      .filter((value): value is number => value !== null),
+  );
+  const monthlyPoliceOxAverage = average(
+    studentMonthScores
+      .filter(
+        (score) =>
+          score.session.subject === Subject.POLICE_SCIENCE &&
+          score.attendType === AttendType.NORMAL &&
+          score.oxScore !== null,
+      )
+      .map((score) => score.oxScore as number),
+  );
 
   return {
     student: {
@@ -391,11 +438,9 @@ export async function getMonthlyStudentAnalysis(input: {
       attendedCount,
       attendanceRate:
         sessions.length === 0 ? 0 : Math.round((attendedCount / sessions.length) * 1000) / 10,
-      monthlyAverage: average(
-        monthScores
-          .filter((score) => score.examNumber === student.examNumber)
-          .map(normalizeScoreValue)
-          .filter((value): value is number => value !== null),
+      monthlyAverage: getCombinedAverage(
+        monthlyMockAverage,
+        monthlyPoliceOxAverage,
       ),
     },
     subjectSummary,
@@ -425,6 +470,7 @@ export async function getSubjectTrendAnalysis(input: {
   }
 
   const search = input.examNumber?.trim();
+  const tomorrow = startOfTomorrow();
   let resolvedExamNumber = search;
 
   if (search && !/^\d/.test(search)) {
@@ -441,6 +487,9 @@ export async function getSubjectTrendAnalysis(input: {
       examType: input.examType,
       subject: input.subject,
       isCancelled: false,
+      examDate: {
+        lt: tomorrow,
+      },
     },
     include: {
       scores: {
@@ -470,12 +519,12 @@ export async function getSubjectTrendAnalysis(input: {
       examDate: session.examDate,
       week: session.week,
       subject: session.subject,
-      participantCount: session.scores.length,
+      participantCount: values.length,
       averageScore: average(values),
       top10Average: topAverage(values, 0.1),
       top30Average: topAverage(values, 0.3),
       highestScore: values.length > 0 ? Math.max(...values) : null,
-      studentScore: studentScore ? normalizeScoreValue(studentScore) : null,
+      studentScore: studentScore ? scoredMockScoreValue(studentScore) : null,
       studentName: studentScore?.student.name ?? null,
     };
   });
@@ -510,6 +559,9 @@ export async function getSubjectStudentRanking(input: {
       examType: input.examType,
       subject: input.subject,
       isCancelled: false,
+      examDate: {
+        lt: startOfTomorrow(),
+      },
     },
     include: {
       scores: {
@@ -543,7 +595,7 @@ export async function getSubjectStudentRanking(input: {
       if (score.attendType !== AttendType.NORMAL && score.attendType !== AttendType.LIVE) {
         continue;
       }
-      const value = normalizeScoreValue(score);
+      const value = scoredMockScoreValue(score);
       if (value === null) {
         continue;
       }
@@ -586,11 +638,330 @@ export async function getSubjectStudentRanking(input: {
   });
 }
 
+export type CumulativeAnalysisData = {
+  student: {
+    examNumber: string;
+    name: string;
+    className: string | null;
+    generation: number | null;
+    examType: ExamType;
+    currentStatus: StudentStatus;
+    isActive: boolean;
+    targetScores: SubjectTargetScores;
+  };
+  periods: Array<{
+    id: number;
+    name: string;
+    avg: number | null;
+    sessionCount: number;
+    attendedCount: number;
+  }>;
+  trend: Array<{
+    date: string;
+    label: string;
+    subject: Subject;
+    finalScore: number | null;
+    attendType: string | null;
+    periodName: string;
+    periodId: number;
+    week: number;
+  }>;
+  subjectStats: Array<{
+    subject: Subject;
+    avg: number | null;
+    target: number | null;
+    sessionCount: number;
+    scoredCount: number;
+    highest: number | null;
+    lowest: number | null;
+    trend: "up" | "down" | "flat";
+    isWeak: boolean;
+  }>;
+  weakSubjects: Subject[];
+  statusHistory: Array<{
+    weekKey: string;
+    weekStartDate: string;
+    status: StudentStatus;
+  }>;
+  totalSessions: number;
+  attendedCount: number;
+  overallAvg: number | null;
+  attendanceRate: number;
+  bestPeriod: { id: number; name: string; avg: number | null } | null;
+};
+
+export async function getStudentCumulativeAnalysis(
+  examNumber: string,
+): Promise<CumulativeAnalysisData | null> {
+  const prisma = getPrisma();
+  const tomorrow = startOfTomorrow();
+
+  const student = await prisma.student.findUnique({ where: { examNumber } });
+  if (!student) return null;
+
+  const relevantPeriods = await prisma.examPeriod.findMany({
+    where: {
+      OR: [
+        {
+          enrollments: {
+            some: {
+              examNumber,
+            },
+          },
+        },
+        {
+          sessions: {
+            some: {
+              examType: student.examType,
+              scores: {
+                some: {
+                  examNumber,
+                },
+              },
+            },
+          },
+        },
+        {
+          sessions: {
+            some: {
+              examType: student.examType,
+              absenceNotes: {
+                some: {
+                  examNumber,
+                },
+              },
+            },
+          },
+        },
+        {
+          weeklyStatusSnapshots: {
+            some: {
+              examNumber,
+              examType: student.examType,
+            },
+          },
+        },
+      ],
+    },
+    orderBy: { startDate: "asc" },
+  });
+  const relevantPeriodIds = relevantPeriods.map((period) => period.id);
+
+  const sessions = relevantPeriodIds.length
+    ? await prisma.examSession.findMany({
+        where: {
+          periodId: { in: relevantPeriodIds },
+          examType: student.examType,
+          isCancelled: false,
+          examDate: {
+            lt: tomorrow,
+          },
+        },
+        include: {
+          period: true,
+          scores: { where: { examNumber } },
+        },
+        orderBy: [{ examDate: "asc" }, { week: "asc" }],
+      })
+    : [];
+
+  type SnapRow = { weekKey: string; weekStartDate: Date; status: StudentStatus };
+  let rawSnapshots: SnapRow[] = [];
+  if (relevantPeriodIds.length > 0) {
+    try {
+      rawSnapshots = await prisma.weeklyStatusSnapshot.findMany({
+        where: {
+          examNumber,
+          examType: student.examType,
+          periodId: { in: relevantPeriodIds },
+        },
+        orderBy: [{ weekStartDate: "asc" }, { weekKey: "asc" }],
+      });
+    } catch (error) {
+      if (!isMissingWeeklyStatusSnapshotError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  const targets = parseTargetScores(student.targetScores);
+
+  const trend = sessions.map((session) => {
+    const score = session.scores[0] ?? null;
+    return {
+      date: session.examDate.toISOString(),
+      label: formatTrendDateLabel(session.examDate),
+      subject: session.subject,
+      finalScore: score ? (scoredMockScoreValue(score) ?? null) : null,
+      attendType: score?.attendType ?? null,
+      periodName: session.period.name,
+      periodId: session.periodId,
+      week: session.week,
+    };
+  });
+
+  const periodMap = new Map<
+    number,
+    {
+      id: number;
+      name: string;
+      startDate: Date;
+      mockScores: number[];
+      policeOxScores: number[];
+      sessionCount: number;
+      attendedCount: number;
+    }
+  >();
+  for (const session of sessions) {
+    const score = session.scores[0] ?? null;
+    const existing = periodMap.get(session.periodId) ?? {
+      id: session.periodId,
+      name: session.period.name,
+      startDate: session.period.startDate,
+      mockScores: [],
+      policeOxScores: [],
+      sessionCount: 0,
+      attendedCount: 0,
+    };
+    existing.sessionCount++;
+    if (score) {
+      if (score.attendType === AttendType.NORMAL) {
+        const value = scoredMockScoreValue(score);
+        if (value !== null) {
+          existing.mockScores.push(value);
+          if (session.subject === Subject.POLICE_SCIENCE && score.oxScore !== null) {
+            existing.policeOxScores.push(score.oxScore);
+          }
+          existing.attendedCount++;
+        }
+      } else if (countsAsAttendance(score.attendType)) {
+        existing.attendedCount++;
+      }
+    }
+    periodMap.set(session.periodId, existing);
+  }
+  const periods = Array.from(periodMap.values())
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      avg: getCombinedAverage(average(p.mockScores), average(p.policeOxScores)),
+      sessionCount: p.sessionCount,
+      attendedCount: p.attendedCount,
+    }));
+
+  const subjectScoreListMap = new Map<Subject, number[]>();
+  for (const session of sessions) {
+    const score = session.scores[0];
+    if (!score || score.attendType !== AttendType.NORMAL) continue;
+    const value = scoredMockScoreValue(score);
+    if (value === null) continue;
+    const list = subjectScoreListMap.get(session.subject) ?? [];
+    list.push(value);
+    subjectScoreListMap.set(session.subject, list);
+  }
+
+  const allSubjects = Array.from(
+    new Set([...EXAM_TYPE_SUBJECTS[student.examType], ...Array.from(subjectScoreListMap.keys())]),
+  );
+
+  const subjectSessionCounts = new Map<Subject, number>();
+  for (const session of sessions) {
+    subjectSessionCounts.set(session.subject, (subjectSessionCounts.get(session.subject) ?? 0) + 1);
+  }
+
+  const subjectStats = allSubjects.map((subject) => {
+    const scores = subjectScoreListMap.get(subject) ?? [];
+    const avg = average(scores);
+    const target = targets[subject] ?? null;
+    let trendDir: "up" | "down" | "flat" = "flat";
+    if (scores.length >= 4) {
+      const mid = Math.floor(scores.length / 2);
+      const delta = (average(scores.slice(mid)) ?? 0) - (average(scores.slice(0, mid)) ?? 0);
+      if (delta >= 3) trendDir = "up";
+      else if (delta <= -3) trendDir = "down";
+    }
+    return {
+      subject,
+      avg,
+      target,
+      sessionCount: subjectSessionCounts.get(subject) ?? 0,
+      scoredCount: scores.length,
+      highest: scores.length > 0 ? Math.max(...scores) : null,
+      lowest: scores.length > 0 ? Math.min(...scores) : null,
+      trend: trendDir,
+      isWeak: avg !== null && target !== null && avg < target,
+    };
+  });
+
+  const allScoreValues = sessions.flatMap((session) => {
+    const score = session.scores[0];
+    if (!score || score.attendType !== AttendType.NORMAL) return [];
+    const value = scoredMockScoreValue(score);
+    return value !== null ? [value] : [];
+  });
+  const allPoliceOxValues = sessions.flatMap((session) => {
+    const score = session.scores[0];
+    if (
+      !score ||
+      score.attendType !== AttendType.NORMAL ||
+      session.subject !== Subject.POLICE_SCIENCE ||
+      score.oxScore === null
+    ) {
+      return [];
+    }
+    return [score.oxScore];
+  });
+
+  const attendedCount = sessions.filter((session) => {
+    const score = session.scores[0];
+    return score && countsAsAttendance(score.attendType);
+  }).length;
+
+  const bestPeriod = periods.reduce<{ id: number; name: string; avg: number | null } | null>(
+    (best, p) => {
+      if (p.avg === null) return best;
+      if (!best || p.avg > (best.avg ?? -1)) return { id: p.id, name: p.name, avg: p.avg };
+      return best;
+    },
+    null,
+  );
+
+  return {
+    student: {
+      examNumber: student.examNumber,
+      name: student.name,
+      className: student.className,
+      generation: student.generation,
+      examType: student.examType,
+      currentStatus: student.currentStatus,
+      isActive: student.isActive,
+      targetScores: targets,
+    },
+    periods,
+    trend,
+    subjectStats,
+    weakSubjects: subjectStats.filter((s) => s.isWeak).map((s) => s.subject),
+    statusHistory: rawSnapshots.map((snap) => ({
+      weekKey: snap.weekKey,
+      weekStartDate: snap.weekStartDate.toISOString(),
+      status: snap.status,
+    })),
+    totalSessions: sessions.length,
+    attendedCount,
+    overallAvg: getCombinedAverage(average(allScoreValues), average(allPoliceOxValues)),
+    attendanceRate:
+      sessions.length === 0 ? 0 : Math.round((attendedCount / sessions.length) * 1000) / 10,
+    bestPeriod,
+  };
+}
+
 export async function getStudentDetailAnalysis(input: {
   examNumber: string;
   periodId?: number;
 }) {
   const prisma = getPrisma();
+  const tomorrow = startOfTomorrow();
   const student = await prisma.student.findUnique({
     where: {
       examNumber: input.examNumber,
@@ -645,6 +1016,9 @@ export async function getStudentDetailAnalysis(input: {
         periodId,
         examType: student.examType,
         isCancelled: false,
+        examDate: {
+          lt: tomorrow,
+        },
       },
       include: {
         scores: {
@@ -703,7 +1077,7 @@ export async function getStudentDetailAnalysis(input: {
     const subjectScores = scoreRows.filter((score) => score.session.subject === subject);
     const studentScores = subjectScores.filter((score) => score.examNumber === input.examNumber);
     const studentValues = studentScores
-      .map(normalizeScoreValue)
+      .map(scoredMockScoreValue)
       .filter((value): value is number => value !== null);
     const cohortValues = scoreValues(subjectScores);
 
@@ -727,7 +1101,7 @@ export async function getStudentDetailAnalysis(input: {
       label: `${session.examDate.getMonth() + 1}/${session.examDate.getDate()} ${session.subject}`,
       subject: session.subject,
       examDate: session.examDate,
-      studentScore: studentScore ? normalizeScoreValue(studentScore) : null,
+      studentScore: studentScore ? scoredMockScoreValue(studentScore) : null,
       cohortAverage: average(values),
       top10Average: topAverage(values, 0.1),
       top30Average: topAverage(values, 0.3),

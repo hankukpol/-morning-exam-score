@@ -37,6 +37,7 @@ model Student {
   pointLogs          PointLog[]
   scores             Score[]
   studentAnswers     StudentAnswer[]
+  weeklyStatusSnapshots WeeklyStatusSnapshot[]
   wrongNoteBookmarks WrongNoteBookmark[]
 
   @@index([examType, isActive])
@@ -58,6 +59,7 @@ model ExamPeriod {
   monthlyResults MonthlyResult[]
   pointLogs      PointLog[]
   sessions       ExamSession[]
+  weeklyStatusSnapshots WeeklyStatusSnapshot[]
 
   @@map("exam_periods")
 }
@@ -155,6 +157,32 @@ model NotificationLog {
 
   @@index([examNumber, type])
   @@map("notification_logs")
+}
+
+model WeeklyStatusSnapshot {
+  id                Int            @id @default(autoincrement())
+  periodId          Int
+  examNumber        String
+  examType          ExamType
+  weekKey           String
+  weekStartDate     DateTime
+  weekEndDate       DateTime
+  weekAbsenceCount  Int            @default(0)
+  monthAbsenceCount Int            @default(0)
+  status            StudentStatus
+  recoveryDate      DateTime?
+  dropoutReason     DropoutReason?
+  calculatedAt      DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  period  ExamPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@unique([periodId, examNumber, weekKey])
+  @@index([periodId, examType, weekKey, status])
+  @@index([examNumber, weekStartDate])
+  @@map("weekly_status_snapshots")
 }
 
 model CounselingRecord {
@@ -397,6 +425,11 @@ enum StudentStatus {
   WARNING_1
   WARNING_2
   DROPOUT
+}
+
+enum DropoutReason {
+  WEEKLY_3
+  MONTHLY_8
 }
 
 enum AppointmentStatus {

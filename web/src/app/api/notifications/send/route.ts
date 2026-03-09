@@ -1,9 +1,10 @@
-import { AdminRole, ExamType, NotificationType } from "@/generated/prisma";
+import { AdminRole, ExamType, NotificationType, StudentStatus } from "@/generated/prisma";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
   sendManualNotification,
   sendQueuedNotifications,
+  sendStatusNotifications,
 } from "@/lib/notifications/service";
 
 type RequestBody = {
@@ -13,6 +14,8 @@ type RequestBody = {
   examType?: ExamType;
   examNumbers?: string[];
   pointAmount?: number | null;
+  periodId?: number;
+  statuses?: StudentStatus[];
 };
 
 export async function POST(request: Request) {
@@ -31,6 +34,27 @@ export async function POST(request: Request) {
       const result = await sendQueuedNotifications({
         adminId: auth.context.adminUser.id,
         logIds,
+        ipAddress: request.headers.get("x-forwarded-for"),
+      });
+
+      return NextResponse.json(result);
+    }
+
+    const statuses =
+      body.statuses?.filter(
+        (value) =>
+          value === StudentStatus.WARNING_1 ||
+          value === StudentStatus.WARNING_2 ||
+          value === StudentStatus.DROPOUT,
+      ) ?? [];
+    const periodId = Number(body.periodId);
+
+    if (statuses.length > 0 && Number.isInteger(periodId)) {
+      const result = await sendStatusNotifications({
+        adminId: auth.context.adminUser.id,
+        periodId,
+        examType: body.examType ?? ExamType.GONGCHAE,
+        statuses,
         ipAddress: request.headers.get("x-forwarded-for"),
       });
 

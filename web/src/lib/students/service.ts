@@ -2,6 +2,8 @@ import { Prisma } from "@/generated/prisma";
 import { ExamType, StudentType } from "@/generated/prisma";
 import {
   DUPLICATE_STRATEGY_LABEL,
+  EXAM_TYPE_VALUES,
+  STUDENT_TYPE_VALUES,
   type StudentPasteFieldKey,
 } from "@/lib/constants";
 import { toAuditJson } from "@/lib/audit";
@@ -12,12 +14,17 @@ import {
   type StudentImportRecord,
   type StudentPreviewRow,
 } from "@/lib/migration/students";
+import {
+  isPlaceholderStudentRecord,
+  NON_PLACEHOLDER_STUDENT_FILTER,
+} from "@/lib/students/placeholder";
 
 export type StudentFilters = {
   examType?: ExamType;
   search?: string;
   generation?: number;
   activeOnly?: boolean;
+  limit?: number;
 };
 
 export type StudentFormInput = {
@@ -49,25 +56,33 @@ export async function listStudents(filters: StudentFilters) {
 
   return getPrisma().student.findMany({
     where: {
-      examType: filters.examType,
-      generation: filters.generation,
-      isActive: filters.activeOnly === false ? undefined : true,
-      OR: search
-        ? [
-            {
-              examNumber: {
-                contains: search,
-              },
-            },
-            {
-              name: {
-                contains: search,
-              },
-            },
-          ]
-        : undefined,
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        {
+          examType: filters.examType,
+          generation: filters.generation,
+          isActive: filters.activeOnly === false ? undefined : true,
+          OR: search
+            ? [
+                {
+                  examNumber: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  name: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ]
+            : undefined,
+        },
+      ],
     },
     orderBy: [{ isActive: "desc" }, { generation: "desc" }, { examNumber: "asc" }],
+    take: filters.limit,
     include: {
       _count: {
         select: {
@@ -250,6 +265,7 @@ export async function reactivateStudent(input: {
 export function parseStudentForm(raw: Record<string, unknown>) {
   const examNumber = String(raw.examNumber ?? "").trim();
   const name = String(raw.name ?? "").trim();
+  const phone = normalizePhone(raw.phone ?? "");
 
   if (!examNumber) {
     throw new Error("수험번호를 입력하세요.");
@@ -259,19 +275,43 @@ export function parseStudentForm(raw: Record<string, unknown>) {
     throw new Error("이름을 입력하세요.");
   }
 
+  if (isPlaceholderStudentRecord({ examNumber, name, phone })) {
+    throw new Error("헤더 행은 학생으로 등록할 수 없습니다.");
+  }
+
   const generationRaw = String(raw.generation ?? "").trim();
   const registeredAtRaw = String(raw.registeredAt ?? "").trim();
+  const generation = generationRaw ? Number(generationRaw) : null;
+  const registeredAt = registeredAtRaw ? new Date(registeredAtRaw) : null;
+  const examType = String(raw.examType ?? "").trim() as ExamType;
+  const studentType = String(raw.studentType ?? "").trim() as StudentType;
+
+  if (generationRaw && Number.isNaN(generation)) {
+    throw new Error("기수는 숫자로 입력해주세요.");
+  }
+
+  if (registeredAt && Number.isNaN(registeredAt.getTime())) {
+    throw new Error("등록일 형식이 올바르지 않습니다.");
+  }
+
+  if (!EXAM_TYPE_VALUES.includes(examType)) {
+    throw new Error("시험 유형이 올바르지 않습니다.");
+  }
+
+  if (!STUDENT_TYPE_VALUES.includes(studentType)) {
+    throw new Error("학생 구분이 올바르지 않습니다.");
+  }
 
   return {
     examNumber,
     name,
-    phone: normalizePhone(raw.phone ?? ""),
-    generation: generationRaw ? Number(generationRaw) : null,
+    phone,
+    generation,
     className: String(raw.className ?? "").trim() || null,
-    examType: raw.examType as ExamType,
-    studentType: raw.studentType as StudentType,
+    examType,
+    studentType,
     onlineId: String(raw.onlineId ?? "").trim() || null,
-    registeredAt: registeredAtRaw ? new Date(registeredAtRaw) : null,
+    registeredAt,
     note: String(raw.note ?? "").trim() || null,
   } satisfies StudentFormInput;
 }
@@ -312,9 +352,14 @@ async function buildPreviewRows(
   const examNumbers = records.map((item) => item.record.examNumber).filter(Boolean);
   const existing = await getPrisma().student.findMany({
     where: {
-      examNumber: {
-        in: examNumbers,
-      },
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        {
+          examNumber: {
+            in: examNumbers,
+          },
+        },
+      ],
     },
     select: {
       examNumber: true,
@@ -334,6 +379,7 @@ async function buildPreviewRows(
 
   const previewRows: StudentPreviewRow[] = records.map(({ rowNumber, record }) => {
     const issues: string[] = [];
+    const isPlaceholderRow = isPlaceholderStudentRecord(record);
 
     if (!record.examNumber) {
       issues.push("수험번호가 없습니다.");
@@ -341,6 +387,10 @@ async function buildPreviewRows(
 
     if (!record.name) {
       issues.push("이름이 없습니다.");
+    }
+
+    if (isPlaceholderRow) {
+      issues.push("헤더 행은 학생으로 등록할 수 없습니다.");
     }
 
     if (

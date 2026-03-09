@@ -2,6 +2,7 @@ import { ExamType } from "@/generated/prisma";
 import { ATTEND_TYPE_LABEL, EXAM_TYPE_LABEL, SCORE_SOURCE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, formatFileDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
+import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 
 export type StudentExportFilters = {
   examType?: ExamType;
@@ -17,9 +18,14 @@ export type ScoreExportFilters = {
 export async function getStudentExportRows(filters: StudentExportFilters) {
   const students = await getPrisma().student.findMany({
     where: {
-      examType: filters.examType,
-      isActive: filters.activeOnly === false ? undefined : true,
-      generation: filters.generation,
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        {
+          examType: filters.examType,
+          isActive: filters.activeOnly === false ? undefined : true,
+          generation: filters.generation,
+        },
+      ],
     },
     orderBy: [{ examType: "asc" }, { generation: "desc" }, { examNumber: "asc" }],
   });
