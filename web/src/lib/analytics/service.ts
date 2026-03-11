@@ -26,6 +26,7 @@ import {
 } from "@/lib/analytics/data";
 import { getPrisma } from "@/lib/prisma";
 import { revalidateAnalyticsCaches } from "@/lib/cache-tags";
+import { unstable_cache } from "next/cache";
 import {
   formatTuesdayWeekLabel,
   getTuesdayWeekKey,
@@ -1962,22 +1963,11 @@ export async function getAttendanceCalendar(
   };
 }
 
-export async function getDashboardSummary() {
+async function _getDashboardSummary() {
   const prisma = getPrisma();
-  const activePeriod =
-    (await prisma.examPeriod.findFirst({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        startDate: "desc",
-      },
-    })) ??
-    (await prisma.examPeriod.findFirst({
-      orderBy: {
-        startDate: "desc",
-      },
-    }));
+  const activePeriod = await prisma.examPeriod.findFirst({
+    orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
+  });
 
   if (!activePeriod) {
     return null;
@@ -2101,3 +2091,9 @@ export async function getDashboardSummary() {
     missingScoredSessionCount,
   };
 }
+
+export const getDashboardSummary = unstable_cache(
+  _getDashboardSummary,
+  ["admin-dashboard-summary"],
+  { revalidate: 60, tags: ["dashboard-summary"] },
+);
