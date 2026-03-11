@@ -15,6 +15,24 @@ const EXAM_TYPE_LABEL: Record<ExamType, string> = {
   GYEONGCHAE: "경채",
 };
 
+const PRINT_MODE = ["weekly", "monthly", "integrated"] as const;
+
+function readExamType(value: string | null) {
+  return value && Object.values(ExamType).includes(value as ExamType)
+    ? (value as ExamType)
+    : ExamType.GONGCHAE;
+}
+
+function readView(value: string | null) {
+  return value === "new" ? "new" : "overall";
+}
+
+function readMode(value: string | null) {
+  return value && PRINT_MODE.includes(value as (typeof PRINT_MODE)[number])
+    ? value
+    : null;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireApiAdmin(AdminRole.VIEWER);
 
@@ -23,10 +41,10 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams;
-  const mode = searchParams.get("mode");
+  const mode = readMode(searchParams.get("mode"));
   const periodIdValue = searchParams.get("periodId");
-  const examType = (searchParams.get("examType") as ExamType | null) ?? ExamType.GONGCHAE;
-  const view = (searchParams.get("view") as "overall" | "new" | null) ?? "overall";
+  const examType = readExamType(searchParams.get("examType"));
+  const view = readView(searchParams.get("view"));
 
   if (!periodIdValue) {
     return NextResponse.json({ error: "시험 기간을 선택해 주세요." }, { status: 400 });
