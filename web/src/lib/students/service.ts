@@ -54,6 +54,8 @@ type PasteDefaults = {
 
 type PasteMapping = Partial<Record<StudentPasteFieldKey, number>>;
 
+const STUDENT_IMPORT_UPDATE_BATCH_SIZE = 25;
+
 function buildStudentListWhere(filters: StudentFilters): Prisma.StudentWhereInput {
   const search = filters.search?.trim();
 
@@ -168,6 +170,15 @@ function studentData(input: StudentFormInput) {
     registeredAt: input.registeredAt ?? null,
     note: input.note ?? null,
   } satisfies Prisma.StudentUncheckedCreateInput;
+}
+
+async function runPrismaWriteBatches(
+  prisma: ReturnType<typeof getPrisma>,
+  operations: Array<Prisma.PrismaPromise<unknown>>,
+) {
+  for (let index = 0; index < operations.length; index += STUDENT_IMPORT_UPDATE_BATCH_SIZE) {
+    await prisma.$transaction(operations.slice(index, index + STUDENT_IMPORT_UPDATE_BATCH_SIZE));
+  }
 }
 
 export async function createStudent(input: {
@@ -540,29 +551,30 @@ async function executeStudentRecords(input: {
         : new Map();
 
       // 병렬 업데이트
-      await Promise.all(
-        updateRows.map((row) => {
-          const existing = existingMap.get(row.record.examNumber);
-          const updateData =
-            input.duplicateStrategy === "OVERWRITE" || !existing
-              ? studentData(row.record)
-              : {
-                  name: row.record.name || existing.name,
-                  phone: row.record.phone ?? existing.phone,
-                  generation: row.record.generation ?? existing.generation,
-                  className: row.record.className ?? existing.className,
-                  examType: row.record.examType,
-                  studentType: row.record.studentType,
-                  onlineId: row.record.onlineId ?? existing.onlineId,
-                  registeredAt: row.record.registeredAt ?? existing.registeredAt,
-                  note: row.record.note ?? existing.note,
-                };
-          return prisma.student.update({
-            where: { examNumber: row.record.examNumber },
-            data: updateData,
-          });
-        }),
-      );
+      const updateOperations = updateRows.map((row) => {
+        const existing = existingMap.get(row.record.examNumber);
+        const updateData =
+          input.duplicateStrategy === "OVERWRITE" || !existing
+            ? studentData(row.record)
+            : {
+                name: row.record.name || existing.name,
+                phone: row.record.phone ?? existing.phone,
+                generation: row.record.generation ?? existing.generation,
+                className: row.record.className ?? existing.className,
+                examType: row.record.examType,
+                studentType: row.record.studentType,
+                onlineId: row.record.onlineId ?? existing.onlineId,
+                registeredAt: row.record.registeredAt ?? existing.registeredAt,
+                note: row.record.note ?? existing.note,
+              };
+
+        return prisma.student.update({
+          where: { examNumber: row.record.examNumber },
+          data: updateData,
+        });
+      });
+
+      await runPrismaWriteBatches(prisma, updateOperations);
       updatedCount = updateRows.length;
     }
   }
