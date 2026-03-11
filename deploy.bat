@@ -82,9 +82,17 @@ if exist "supabase\migrations\202603080002_admin_rls.sql" (
 echo.
 echo [3/3] Vercel deployment
 
-if not exist ".vercel\project.json" (
+if not exist "%APP_DIR%\.vercel\project.json" (
   echo Missing web\.vercel\project.json.
   echo Run ^`vercel link^` in the web directory first.
+  exit /b 1
+)
+
+call :load_vercel_link "%APP_DIR%\.vercel\project.json"
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+cd /d "%ROOT%" || (
+  echo Failed to return to the repository root.
   exit /b 1
 )
 
@@ -93,6 +101,13 @@ set "HOME=%ORIGINAL_HOME%"
 
 call npx --yes vercel --prod --yes
 exit /b %ERRORLEVEL%
+
+:load_vercel_link
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$json = Get-Content -LiteralPath '%~1' -Raw | ConvertFrom-Json;" ^
+  "Write-Output ('set ""VERCEL_PROJECT_ID=' + $json.projectId + '""');" ^
+  "Write-Output ('set ""VERCEL_ORG_ID=' + $json.orgId + '""')"`) do %%I
+exit /b 0
 
 :load_env_file
 for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%~1") do (
