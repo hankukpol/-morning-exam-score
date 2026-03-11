@@ -18,6 +18,7 @@ import {
   readStringParam,
 } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
+import { withPrismaReadRetry } from "@/lib/prisma";
 import {
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
@@ -40,7 +41,9 @@ const TAB_LABEL: Record<AnalyticsTab, string> = {
 
 export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const { periods, selectedPeriod, examType } = await withPrismaReadRetry(() =>
+    getAnalyticsContext(searchParams),
+  );
   const tab = (readStringParam(searchParams, "tab") as AnalyticsTab | undefined) ?? "daily";
   const date = readStringParam(searchParams, "date") ?? "";
   const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;
@@ -51,7 +54,8 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
     monthOptions.find((option) => `${option.year}-${option.month}` === monthKey) ??
     monthOptions[0];
 
-  const [dailyData, monthlyData, subjectData, subjectRanking] = await Promise.all([
+  const [dailyData, monthlyData, subjectData, subjectRanking] = await withPrismaReadRetry(() =>
+    Promise.all([
     tab === "daily"
       ? getDailyAnalysis({
           periodId: selectedPeriod?.id,
@@ -84,7 +88,8 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
           subject,
         })
       : Promise.resolve([]),
-  ]);
+    ]),
+  );
 
   return (
     <div className="p-8 sm:p-10">
