@@ -116,19 +116,22 @@ export function StudentCumulativeAnalysis({ data }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/admin/students/${student.examNumber}?tab=history`}
+                    prefetch={false}
+                    href={`/admin/students/${student.examNumber}?tab=history`}
             className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
             성적 이력
           </Link>
           <Link
-            href={`/admin/students/${student.examNumber}?tab=analysis`}
+                    prefetch={false}
+                    href={`/admin/students/${student.examNumber}?tab=analysis`}
             className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
             기간별 분석
           </Link>
           <Link
-            href={`/admin/students/${student.examNumber}?tab=counseling`}
+                    prefetch={false}
+                    href={`/admin/students/${student.examNumber}?tab=counseling`}
             className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
           >
             면담

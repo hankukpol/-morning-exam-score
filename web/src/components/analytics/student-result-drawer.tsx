@@ -101,13 +101,15 @@ export function StudentResultDrawer({
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
-                href={`/admin/students/${profile.examNumber}/analysis`}
+                    prefetch={false}
+                    href={`/admin/students/${profile.examNumber}/analysis`}
                 className="inline-flex items-center rounded-full border border-ink/10 px-3 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 개인 분석
               </Link>
               <Link
-                href={`/admin/students/${profile.examNumber}/history`}
+                    prefetch={false}
+                    href={`/admin/students/${profile.examNumber}/history`}
                 className="inline-flex items-center rounded-full border border-ink/10 px-3 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 성적 이력

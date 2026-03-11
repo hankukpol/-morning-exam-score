@@ -21,15 +21,23 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
         includeRankingRows: false,
       })
     : null;
+  const downloadHref = selectedPeriod
+    ? buildHref("/api/export/results-print", {
+        mode: "integrated",
+        periodId: selectedPeriod.id,
+        examType,
+        view,
+      })
+    : null;
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-07 Integrated Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">통합 성적 집계</h1>
+      <h1 className="mt-5 text-3xl font-semibold">전체 성적 / 석차표</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        기간 전체 성적을 기준으로 합산 평균, 통합 석차, 참여율을 확인합니다.
+        시험 기간 전체 범위를 기준으로 누적 성적표를 확인하고, 인쇄용 엑셀도 바로 내려받을 수 있습니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-3">
@@ -72,6 +80,7 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
         <>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/integrated", {
                 periodId: selectedPeriod.id,
                 examType,
@@ -86,6 +95,7 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
               전체 성적
             </Link>
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/integrated", {
                 periodId: selectedPeriod.id,
                 examType,
@@ -99,30 +109,25 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
             >
               신규생 성적
             </Link>
-            <Link
-              href={buildHref("/api/export/results-print", {
-                mode: "integrated",
-                periodId: selectedPeriod.id,
-                examType,
-                view,
-              })}
+            <a
+              href={downloadHref ?? undefined}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
             >
               인쇄용 엑셀 다운로드
-            </Link>
+            </a>
           </div>
 
           <div className="mt-8">
             <MonthlyResultsSheet
               rows={data.sheetRows}
-              title="통합 2개월 성적표"
+              title="전체 누적 성적표"
               subtitle={selectedPeriod.name}
             />
           </div>
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          시험 기간을 먼저 선택해 주세요.
+          조회 조건을 선택하면 전체 성적표가 표시됩니다.
         </div>
       )}
     </div>

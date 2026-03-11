@@ -1,4 +1,4 @@
-﻿import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@/generated/prisma";
 import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
 import {
   buildHref,
@@ -38,20 +38,30 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           includeRankingRows: false,
         })
       : null;
+  const downloadHref =
+    selectedPeriod && selectedWeek
+      ? buildHref("/api/export/results-print", {
+          mode: "weekly",
+          periodId: selectedPeriod.id,
+          examType,
+          weekKey: selectedWeek.key,
+          view,
+        })
+      : null;
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-05-B Weekly Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">二쇨컙 ?깆쟻 吏묎퀎</h1>
+      <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 석차표</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        ?붿슂???쒖옉 二쇨컙 湲곗??쇰줈 ?꾩옱源뚯? 諛쒖깮???쒗뿕留?諛섏쁺??二쇨컙 ?됯퇏怨??앹감瑜?吏묎퀎?⑸땲??
+        선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 엑셀도 바로 내려받을 수 있습니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
         <div>
-          <label className="mb-2 block text-sm font-medium">?쒗뿕 湲곌컙</label>
+          <label className="mb-2 block text-sm font-medium">시험 기간</label>
           <select
             name="periodId"
             defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
@@ -65,7 +75,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">吏곷젹</label>
+          <label className="mb-2 block text-sm font-medium">직렬</label>
           <select
             name="examType"
             defaultValue={examType}
@@ -76,7 +86,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">二쇨컙 湲곌컙</label>
+          <label className="mb-2 block text-sm font-medium">주차</label>
           <select
             name="weekKey"
             defaultValue={selectedWeek?.key ?? ""}
@@ -94,7 +104,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
-            議고쉶
+            조회
           </button>
         </div>
       </form>
@@ -103,53 +113,51 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         <>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/weekly", {
                 periodId: selectedPeriod.id,
                 examType,
                 weekKey: selectedWeek.key,
                 view: "overall",
               })}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${view === "overall"
-                ? "bg-ink text-white"
-                : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
-                }`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                view === "overall"
+                  ? "bg-ink text-white"
+                  : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
+              }`}
             >
-              ?꾩껜 ?깆쟻
+              전체 성적
             </Link>
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/weekly", {
                 periodId: selectedPeriod.id,
                 examType,
                 weekKey: selectedWeek.key,
                 view: "new",
               })}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${view === "new"
-                ? "bg-ink text-white"
-                : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
-                }`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                view === "new"
+                  ? "bg-ink text-white"
+                  : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
+              }`}
             >
-              ?좉퇋???깆쟻
+              신규생 성적
             </Link>
-            <Link
-              href={buildHref("/api/export/results-print", {
-                mode: "weekly",
-                periodId: selectedPeriod.id,
-                examType,
-                weekKey: selectedWeek.key,
-                view,
-              })}
+            <a
+              href={downloadHref ?? undefined}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
             >
-              ?몄뇙???묒? ?ㅼ슫濡쒕뱶
-            </Link>
+              인쇄용 엑셀 다운로드
+            </a>
           </div>
 
           <section className="mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
-            <h2 className="text-xl font-semibold">吏묎퀎 二쇨컙</h2>
+            <h2 className="text-xl font-semibold">선택한 주차</h2>
             <p className="mt-2 text-sm text-slate">
               {data.week.label}
               {data.week.legacyWeeks.length > 0
-                ? ` / 湲곗〈 week ${data.week.legacyWeeks.join(", ")}`
+                ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}`
                 : ""}
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
@@ -158,7 +166,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                   key={session.id}
                   className="rounded-full border border-ink/10 px-3 py-2"
                 >
-                  {formatDate(session.examDate)} 쨌 {SUBJECT_LABEL[session.subject]}
+                  {formatDate(session.examDate)} · {SUBJECT_LABEL[session.subject]}
                 </span>
               ))}
             </div>
@@ -174,7 +182,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          ?좏깮??議곌굔???대떦?섎뒗 ?쒗뿕???놁뒿?덈떎.
+          조회 조건을 선택하면 해당 주차의 성적표가 표시됩니다.
         </div>
       )}
     </div>

@@ -212,7 +212,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
             </p>
           </div>
           <Link
-            href={`/admin/students/paste-import?examType=${filters.examType}`}
+                    prefetch={false}
+                    href={`/admin/students/paste-import?examType=${filters.examType}`}
             className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
           >
             붙여넣기 등록
@@ -554,7 +555,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={`/admin/students/${student.examNumber}`}
+                    prefetch={false}
+                    href={`/admin/students/${student.examNumber}`}
                           className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                         >
                           상세 보기

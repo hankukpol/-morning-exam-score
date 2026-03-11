@@ -18,15 +18,13 @@ export const getCurrentAuthUser = cache(async () => {
   }
 
   const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getUser();
 
-  if (!session?.user) {
+  if (error || !data.user) {
     return null;
   }
 
-  return session.user;
+  return data.user;
 });
 
 export const getCurrentAdminContext = cache(async () => {

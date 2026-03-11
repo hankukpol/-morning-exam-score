@@ -106,6 +106,7 @@ export function WeeklyStatusHistoryTable({
                 <td className="px-4 py-3">{row.recoveryDate ? formatDate(row.recoveryDate) : "-"}</td>
                 <td className="px-4 py-3">
                   <Link
+                    prefetch={false}
                     href={`/admin/students/${row.examNumber}/history`}
                     className="inline-flex rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                   >

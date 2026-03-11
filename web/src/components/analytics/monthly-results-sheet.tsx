@@ -66,6 +66,7 @@ export function MonthlyResultsSheet({
                 <td className={bodyCellClass}>{index + 1}</td>
                 <td className={bodyNameCellClass}>
                   <Link
+                    prefetch={false}
                     href={`/admin/students/${row.examNumber}?tab=history`}
                     className="font-semibold underline-offset-4 hover:text-forest hover:underline"
                   >

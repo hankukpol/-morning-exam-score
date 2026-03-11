@@ -7,6 +7,10 @@ type SearchParamValue = string | string[] | undefined;
 type SearchParams = Record<string, SearchParamValue>;
 type PeriodRecord = NonNullable<Awaited<ReturnType<typeof getPeriodWithSessions>>>;
 
+function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
 function pickFirst(value: SearchParamValue) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -63,7 +67,8 @@ export function getWeekOptions(period: PeriodRecord | null, examType: ExamType):
       continue;
     }
 
-    const key = getTuesdayWeekKey(session.examDate);
+    const examDate = reviveDate(session.examDate);
+    const key = getTuesdayWeekKey(examDate);
     const existing = grouped.get(key);
 
     if (existing) {
@@ -74,7 +79,7 @@ export function getWeekOptions(period: PeriodRecord | null, examType: ExamType):
       continue;
     }
 
-    const startDate = getTuesdayWeekStart(session.examDate);
+    const startDate = getTuesdayWeekStart(examDate);
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
     endDate.setHours(23, 59, 59, 999);
@@ -107,8 +112,9 @@ export function getMonthOptions(period: PeriodRecord | null, examType: ExamType)
       continue;
     }
 
-    const year = session.examDate.getFullYear();
-    const month = session.examDate.getMonth() + 1;
+    const examDate = reviveDate(session.examDate);
+    const year = examDate.getFullYear();
+    const month = examDate.getMonth() + 1;
     monthKeys.set(`${year}-${month}`, { year, month });
   }
 

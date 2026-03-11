@@ -128,6 +128,55 @@ function deserializeDate(value: string) {
   return value ? new Date(value) : undefined;
 }
 
+function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function normalizePeriod<T extends { startDate: Date | string; endDate: Date | string }>(
+  period: T,
+): T & { startDate: Date; endDate: Date } {
+  return {
+    ...period,
+    startDate: reviveDate(period.startDate),
+    endDate: reviveDate(period.endDate),
+  };
+}
+
+function normalizeSession<T extends { examDate: Date | string }>(
+  session: T,
+): T & { examDate: Date } {
+  return {
+    ...session,
+    examDate: reviveDate(session.examDate),
+  };
+}
+
+function normalizePointLog<T extends { grantedAt: Date | string }>(
+  pointLog: T,
+): T & { grantedAt: Date } {
+  return {
+    ...pointLog,
+    grantedAt: reviveDate(pointLog.grantedAt),
+  };
+}
+
+function normalizeAnalyticsDataset(dataset: AnalyticsDataset): AnalyticsDataset {
+  return {
+    ...dataset,
+    period: normalizePeriod(dataset.period),
+    sessions: dataset.sessions.map((session) => normalizeSession(session)),
+    pointLogs: dataset.pointLogs.map((pointLog) => normalizePointLog(pointLog)),
+  };
+}
+
+function normalizeResultsSheetDataset(dataset: ResultsSheetDataset): ResultsSheetDataset {
+  return {
+    ...dataset,
+    period: normalizePeriod(dataset.period),
+    sessions: dataset.sessions.map((session) => normalizeSession(session)),
+  };
+}
+
 export function buildPeriodScopedStudentWhere(
   periodId: number,
   examType?: ExamType,
@@ -328,7 +377,13 @@ const loadDatasetCached = cache(async (
   serializedExamNumbers: string,
   includePointLogs: boolean,
 ): Promise<AnalyticsDataset> => {
-  return loadDatasetShared(periodId, examType, serializedExamNumbers, includePointLogs);
+  const dataset = await loadDatasetShared(
+    periodId,
+    examType,
+    serializedExamNumbers,
+    includePointLogs,
+  );
+  return normalizeAnalyticsDataset(dataset);
 });
 
 export async function loadDataset(
@@ -455,13 +510,14 @@ const loadResultsSheetDatasetCached = cache(async (
   serializedLt: string,
   serializedLte: string,
 ): Promise<ResultsSheetDataset> => {
-  return loadResultsSheetDatasetShared(
+  const dataset = await loadResultsSheetDatasetShared(
     periodId,
     examType,
     serializedGte,
     serializedLt,
     serializedLte,
   );
+  return normalizeResultsSheetDataset(dataset);
 });
 
 export async function loadResultsSheetDataset(

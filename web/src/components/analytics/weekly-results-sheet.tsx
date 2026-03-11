@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/format";
 type SessionColumn = {
   id: number;
   subject: Subject;
-  examDate: Date;
+  examDate: Date | string;
 };
 
 type WeeklyResultsSheetProps = {
@@ -17,6 +17,10 @@ type WeeklyResultsSheetProps = {
   sessions: SessionColumn[];
   rows: WeeklyResultsSheetRow[];
 };
+
+function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
 
 function formatCellValue(
   attendType: AttendType | null,
@@ -63,7 +67,9 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
   const headNameCellClass = "border border-slate-200 bg-slate-50 px-4 py-3 font-semibold";
   const subHeadCellClass = "border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold";
   const sortedSessions = [...sessions].sort(
-    (left, right) => left.examDate.getTime() - right.examDate.getTime() || left.id - right.id,
+    (left, right) =>
+      reviveDate(left.examDate).getTime() - reviveDate(right.examDate).getTime() ||
+      left.id - right.id,
   );
   const averages = sortedSessions.map((session) => {
     const mockValues = rows
@@ -79,8 +85,14 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
         : [];
 
     return {
-      mock: mockValues.length === 0 ? null : mockValues.reduce((sum, value) => sum + value, 0) / mockValues.length,
-      ox: oxValues.length === 0 ? null : oxValues.reduce((sum, value) => sum + value, 0) / oxValues.length,
+      mock:
+        mockValues.length === 0
+          ? null
+          : mockValues.reduce((sum, value) => sum + value, 0) / mockValues.length,
+      ox:
+        oxValues.length === 0
+          ? null
+          : oxValues.reduce((sum, value) => sum + value, 0) / oxValues.length,
     };
   });
 
@@ -106,7 +118,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                   colSpan={session.subject === Subject.POLICE_SCIENCE ? 2 : 1}
                   className={headCellClass}
                 >
-                  <div>{formatDate(session.examDate)}</div>
+                  <div>{formatDate(reviveDate(session.examDate))}</div>
                   <div className="mt-1 text-xs font-medium text-slate">
                     {SUBJECT_LABEL[session.subject]}
                   </div>
@@ -144,7 +156,10 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                     </th>
                   </Fragment>
                 ) : (
-                  <th key={`avg-${sortedSessions[index].id}-mock`} className="border border-slate-200 px-3 py-2 font-semibold text-ember">
+                  <th
+                    key={`avg-${sortedSessions[index].id}-mock`}
+                    className="border border-slate-200 px-3 py-2 font-semibold text-ember"
+                  >
                     {formatScore(average.mock)}
                   </th>
                 ),
@@ -159,10 +174,14 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr key={row.examNumber} className={row.isActive ? STATUS_ROW_CLASS[row.weekStatus] : "bg-slate-50/80 text-slate"}>
+              <tr
+                key={row.examNumber}
+                className={row.isActive ? STATUS_ROW_CLASS[row.weekStatus] : "bg-slate-50/80 text-slate"}
+              >
                 <td className="border border-ink/10 px-3 py-3 font-semibold">{index + 1}</td>
                 <td className="border border-ink/10 px-4 py-3 text-left">
                   <Link
+                    prefetch={false}
                     href={`/admin/students/${row.examNumber}/history`}
                     className="font-semibold underline-offset-4 hover:text-forest hover:underline"
                   >
@@ -171,7 +190,11 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                 </td>
                 {sortedSessions.map((session) => {
                   const cell = row.cells.find((item) => item.sessionId === session.id);
-                  const mockDisplay = formatCellValue(cell?.attendType ?? null, cell?.mockScore ?? null, "mock");
+                  const mockDisplay = formatCellValue(
+                    cell?.attendType ?? null,
+                    cell?.mockScore ?? null,
+                    "mock",
+                  );
 
                   if (session.subject === Subject.POLICE_SCIENCE) {
                     const oxDisplay = formatCellValue(
@@ -181,18 +204,17 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                     );
                     return (
                       <Fragment key={`${row.examNumber}-${session.id}`}>
-                        <td className="border border-ink/10 px-3 py-3">
-                          {mockDisplay}
-                        </td>
-                        <td className="border border-ink/10 px-3 py-3">
-                          {oxDisplay}
-                        </td>
+                        <td className="border border-ink/10 px-3 py-3">{mockDisplay}</td>
+                        <td className="border border-ink/10 px-3 py-3">{oxDisplay}</td>
                       </Fragment>
                     );
                   }
 
                   return (
-                    <td key={`${row.examNumber}-${session.id}-mock`} className="border border-ink/10 px-3 py-3">
+                    <td
+                      key={`${row.examNumber}-${session.id}-mock`}
+                      className="border border-ink/10 px-3 py-3"
+                    >
                       {mockDisplay}
                     </td>
                   );

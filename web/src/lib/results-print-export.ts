@@ -13,6 +13,10 @@ type WeeklyPrintData = Awaited<ReturnType<typeof getWeeklyResults>>;
 type MonthlyPrintData = Awaited<ReturnType<typeof getMonthlyResults>>;
 type IntegratedPrintData = Awaited<ReturnType<typeof getIntegratedResults>>;
 
+function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
 const EXAM_TYPE_LABEL: Record<ExamType, string> = {
   GONGCHAE: "공채",
   GYEONGCHAE: "경채",
@@ -216,7 +220,7 @@ function toPrintCell(
 
 function weeklyAverageValues(data: WeeklyPrintData) {
   const sessions = [...data.sessions].sort(
-    (left, right) => left.examDate.getTime() - right.examDate.getTime() || left.id - right.id,
+    (left, right) => reviveDate(left.examDate).getTime() - reviveDate(right.examDate).getTime() || left.id - right.id,
   );
 
   return sessions.map((session) => {
@@ -264,7 +268,7 @@ export async function createWeeklyResultsPrintWorkbook(
   const workbook = createWorkbook();
   const worksheet = workbook.addWorksheet("주간성적표");
   const sessions = [...data.sessions].sort(
-    (left, right) => left.examDate.getTime() - right.examDate.getTime() || left.id - right.id,
+    (left, right) => reviveDate(left.examDate).getTime() - reviveDate(right.examDate).getTime() || left.id - right.id,
   );
   const sessionColumnCount = sessions.reduce(
     (count, session) => count + (session.subject === Subject.POLICE_SCIENCE ? 2 : 1),
@@ -315,7 +319,7 @@ export async function createWeeklyResultsPrintWorkbook(
       worksheet,
       3,
       columnIndex,
-      `${formatDate(session.examDate)} ${SUBJECT_LABEL[session.subject]}`,
+      `${formatDate(reviveDate(session.examDate))} ${SUBJECT_LABEL[session.subject]}`,
     );
     writeCell(worksheet, 4, columnIndex, "모의고사");
     writeCell(worksheet, 5, columnIndex, averages[index]?.mock ?? "-");

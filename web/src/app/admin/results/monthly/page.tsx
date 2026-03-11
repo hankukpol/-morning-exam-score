@@ -42,15 +42,26 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
   const fromLabel = weekOptions.find((w) => w.key === fromWeekKey)?.label ?? "";
   const toLabel = weekOptions.find((w) => w.key === toWeekKey)?.label ?? "";
   const rangeLabel = fromLabel && toLabel ? `${fromLabel} ~ ${toLabel}` : "";
+  const downloadHref =
+    selectedPeriod && fromWeekKey && toWeekKey
+      ? buildHref("/api/export/results-print", {
+          mode: "monthly",
+          periodId: selectedPeriod.id,
+          examType,
+          fromWeekKey,
+          toWeekKey,
+          view,
+        })
+      : null;
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-06 Monthly Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">월별 성적 집계</h1>
+      <h1 className="mt-5 text-3xl font-semibold">기간 성적 / 석차표</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        시작/종료 주차를 직접 선택해 원하는 구간의 평균, 참여율, 개근 여부를 집계합니다.
+        시작 주차와 종료 주차를 기준으로 누적 성적표를 확인하고, 인쇄용 엑셀도 바로 내려받을 수 있습니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5">
@@ -123,6 +134,7 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
         <>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/monthly", {
                 periodId: selectedPeriod.id,
                 examType,
@@ -139,6 +151,7 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
               전체 성적
             </Link>
             <Link
+              prefetch={false}
               href={buildHref("/admin/results/monthly", {
                 periodId: selectedPeriod.id,
                 examType,
@@ -154,19 +167,12 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
             >
               신규생 성적
             </Link>
-            <Link
-              href={buildHref("/api/export/results-print", {
-                mode: "monthly",
-                periodId: selectedPeriod.id,
-                examType,
-                fromWeekKey,
-                toWeekKey,
-                view,
-              })}
+            <a
+              href={downloadHref ?? undefined}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
             >
               인쇄용 엑셀 다운로드
-            </Link>
+            </a>
           </div>
 
           <div className="mt-8">
@@ -176,8 +182,8 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
           {weekOptions.length === 0
-            ? "선택한 조건에 해당하는 주차가 없습니다."
-            : "조회 조건을 선택한 후 조회 버튼을 눌러주세요."}
+            ? "조회 가능한 주차가 아직 없습니다."
+            : "조회 조건을 선택하면 기간 성적표가 표시됩니다."}
         </div>
       )}
     </div>

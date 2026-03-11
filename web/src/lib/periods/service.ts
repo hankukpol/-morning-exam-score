@@ -13,6 +13,28 @@ export type PeriodFormInput = {
   totalWeeks: number;
 };
 
+function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function normalizePeriod<T extends { startDate: Date | string; endDate: Date | string }>(
+  period: T,
+): T & { startDate: Date; endDate: Date } {
+  return {
+    ...period,
+    startDate: reviveDate(period.startDate),
+    endDate: reviveDate(period.endDate),
+  };
+}
+
+function normalizeSession<T extends { examDate: Date | string }>(
+  session: T,
+): T & { examDate: Date } {
+  return {
+    ...session,
+    examDate: reviveDate(session.examDate),
+  };
+}
 const listPeriodsBasicShared = unstable_cache(
   async () => {
     return getPrisma().examPeriod.findMany({
@@ -31,7 +53,10 @@ const listPeriodsBasicShared = unstable_cache(
   { revalidate: 15, tags: [CACHE_TAGS.periodsBasic] },
 );
 
-export const listPeriodsBasic = cache(async () => listPeriodsBasicShared());
+export const listPeriodsBasic = cache(async () => {
+  const periods = await listPeriodsBasicShared();
+  return periods.map((period) => normalizePeriod(period));
+});
 
 export async function listPeriods() {
   return getPrisma().examPeriod.findMany({
@@ -89,7 +114,16 @@ const getPeriodWithSessionsShared = unstable_cache(
 );
 
 export const getPeriodWithSessions = cache(async (periodId: number) => {
-  return getPeriodWithSessionsShared(periodId);
+  const period = await getPeriodWithSessionsShared(periodId);
+
+  if (!period) {
+    return null;
+  }
+
+  return {
+    ...normalizePeriod(period),
+    sessions: period.sessions.map((session) => normalizeSession(session)),
+  };
 });
 
 export async function createPeriod(input: {

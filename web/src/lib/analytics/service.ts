@@ -77,6 +77,10 @@ type StudentWeeklySnapshot = {
   dropoutReason: DropoutReason | null;
 };
 
+export function reviveDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
 export type TuesdayWeekSummary = {
   key: string;
   label: string;
@@ -421,7 +425,7 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       .map(([weekKey, sessions]) => {
         const week = buildTuesdayWeekSummary(weekKey, sessions);
         const entriesThroughWeek = occurredEntries.filter(
-          (entry) => entry.session.examDate.getTime() <= week.endDate.getTime(),
+          (entry) => reviveDate(entry.session.examDate).getTime() <= week.endDate.getTime(),
         );
         const entriesForWeek = entriesThroughWeek.filter(
           (entry) => getTuesdayWeekKey(entry.session.examDate) === weekKey,
@@ -882,7 +886,7 @@ function buildWeeklyResultsSheetRows(
       .filter((entry) => occurredSessionIds.has(entry.session.id))
       .sort(
         (left, right) =>
-          left.session.examDate.getTime() - right.session.examDate.getTime() ||
+          reviveDate(left.session.examDate).getTime() - reviveDate(right.session.examDate).getTime() ||
           left.session.id - right.session.id,
       );
     const weekSnapshot =
@@ -1179,7 +1183,7 @@ function buildStudentResultProfile(
       entry.normalizedScore !== null,
   );
   const latestEntry = [...scopedEntries]
-    .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime())[0] ?? null;
+    .sort((left, right) => reviveDate(right.session.examDate).getTime() - reviveDate(left.session.examDate).getTime())[0] ?? null;
 
   return {
     examNumber: aggregate.student.examNumber,
@@ -1204,7 +1208,7 @@ function buildStudentResultProfile(
     subjects: subjectOrder.map((subject) => {
       const subjectEntries = scopedEntries
         .filter((entry) => entry.session.subject === subject)
-        .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime());
+        .sort((left, right) => reviveDate(right.session.examDate).getTime() - reviveDate(left.session.examDate).getTime());
       const subjectScores = subjectEntries
         .filter(
           (entry) =>
@@ -1235,7 +1239,7 @@ function buildStudentResultProfile(
       } satisfies StudentResultSubjectSummary;
     }),
     recentEntries: [...scopedEntries]
-      .sort((left, right) => right.session.examDate.getTime() - left.session.examDate.getTime())
+      .sort((left, right) => reviveDate(right.session.examDate).getTime() - reviveDate(left.session.examDate).getTime())
       .slice(0, 8)
       .map((entry) => ({
         sessionId: entry.session.id,
