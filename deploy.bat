@@ -91,7 +91,7 @@ if not exist ".vercel\project.json" (
 set "USERPROFILE=%ORIGINAL_USERPROFILE%"
 set "HOME=%ORIGINAL_HOME%"
 
-call npx --yes vercel deploy . --prod --yes
+call npx --yes vercel --prod --yes
 exit /b %ERRORLEVEL%
 
 :load_env_file
