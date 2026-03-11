@@ -39,14 +39,26 @@ const TAB_LABEL: Record<AnalyticsTab, string> = {
   subject: "과목별 분석",
 };
 
+function readAnalyticsTab(searchParams: PageProps["searchParams"]): AnalyticsTab {
+  const value = readStringParam(searchParams, "tab");
+  return value === "monthly" || value === "subject" ? value : "daily";
+}
+
+function readSubjectParam(searchParams: PageProps["searchParams"]) {
+  const value = readStringParam(searchParams, "subject");
+  return value && Object.values(Subject).includes(value as Subject)
+    ? (value as Subject)
+    : undefined;
+}
+
 export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
   const { periods, selectedPeriod, examType } = await withPrismaReadRetry(() =>
     getAnalyticsContext(searchParams),
   );
-  const tab = (readStringParam(searchParams, "tab") as AnalyticsTab | undefined) ?? "daily";
+  const tab = readAnalyticsTab(searchParams);
   const date = readStringParam(searchParams, "date") ?? "";
-  const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;
+  const subject = readSubjectParam(searchParams);
   const examNumber = readStringParam(searchParams, "examNumber") ?? "";
   const monthOptions = getMonthOptions(selectedPeriod, examType);
   const monthKey = readStringParam(searchParams, "monthKey") ?? "";
