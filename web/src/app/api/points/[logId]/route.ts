@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { toAuditJson } from "@/lib/audit";
 import { getPrisma } from "@/lib/prisma";
+import { revalidateAdminReadCaches } from "@/lib/cache-tags";
 
 type RouteContext = {
   params: {
@@ -48,6 +49,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return before;
     });
 
+    revalidateAdminReadCaches({ analytics: true, periods: false });
     return NextResponse.json({ ok: true, cancelled: log });
   } catch (error) {
     return NextResponse.json(

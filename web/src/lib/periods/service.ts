@@ -3,6 +3,8 @@ import { unstable_cache } from "next/cache";
 import { getPrisma } from "@/lib/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
+import { CACHE_TAGS, revalidateAdminReadCaches } from "@/lib/cache-tags";
+import { rebuildWeeklyStatusSnapshots } from "@/lib/analytics/service";
 
 export type PeriodFormInput = {
   name: string;
@@ -26,7 +28,7 @@ const listPeriodsBasicShared = unstable_cache(
     });
   },
   ["periods-basic"],
-  { revalidate: 15 },
+  { revalidate: 15, tags: [CACHE_TAGS.periodsBasic] },
 );
 
 export const listPeriodsBasic = cache(async () => listPeriodsBasicShared());
@@ -83,7 +85,7 @@ const getPeriodWithSessionsShared = unstable_cache(
     });
   },
   ["period-with-sessions"],
-  { revalidate: 15 },
+  { revalidate: 15, tags: [CACHE_TAGS.periodWithSessions] },
 );
 
 export const getPeriodWithSessions = cache(async (periodId: number) => {
@@ -96,7 +98,7 @@ export async function createPeriod(input: {
   autoGenerateSessions: boolean;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const result = await getPrisma().$transaction(async (tx) => {
     const period = await tx.examPeriod.create({
       data: input.period,
     });
@@ -140,6 +142,9 @@ export async function createPeriod(input: {
       generatedSessions,
     };
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return result;
 }
 
 export async function updatePeriod(input: {
@@ -148,7 +153,7 @@ export async function updatePeriod(input: {
   period: PeriodFormInput;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const period = await getPrisma().$transaction(async (tx) => {
     const before = await tx.examPeriod.findUniqueOrThrow({
       where: {
         id: input.periodId,
@@ -176,6 +181,9 @@ export async function updatePeriod(input: {
 
     return period;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return period;
 }
 
 export async function activatePeriod(input: {
@@ -183,7 +191,7 @@ export async function activatePeriod(input: {
   periodId: number;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const period = await getPrisma().$transaction(async (tx) => {
     await tx.examPeriod.updateMany({
       data: {
         isActive: false,
@@ -215,6 +223,9 @@ export async function activatePeriod(input: {
 
     return period;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return period;
 }
 
 export async function generatePeriodSessions(input: {
@@ -222,7 +233,7 @@ export async function generatePeriodSessions(input: {
   periodId: number;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const result = await getPrisma().$transaction(async (tx) => {
     const period = await tx.examPeriod.findUniqueOrThrow({
       where: {
         id: input.periodId,
@@ -291,6 +302,9 @@ export async function generatePeriodSessions(input: {
       generatedCount: createData.length,
     };
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return result;
 }
 
 export async function updateSession(input: {
@@ -303,7 +317,7 @@ export async function updateSession(input: {
   };
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const session = await getPrisma().$transaction(async (tx) => {
     const before = await tx.examSession.findUniqueOrThrow({
       where: {
         id: input.sessionId,
@@ -338,6 +352,10 @@ export async function updateSession(input: {
 
     return session;
   });
+
+  await rebuildWeeklyStatusSnapshots(session.periodId, session.examType);
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return session;
 }
 
 export function parsePeriodForm(raw: Record<string, unknown>) {

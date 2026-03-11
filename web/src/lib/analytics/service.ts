@@ -25,6 +25,7 @@ import {
   type ResultsSheetApprovedAbsence,
 } from "@/lib/analytics/data";
 import { getPrisma } from "@/lib/prisma";
+import { revalidateAnalyticsCaches } from "@/lib/cache-tags";
 import {
   formatTuesdayWeekLabel,
   getTuesdayWeekKey,
@@ -1362,11 +1363,13 @@ async function syncWeeklyStatusSnapshots(
 }
 
 export async function rebuildWeeklyStatusSnapshots(periodId: number, examType: ExamType) {
+  revalidateAnalyticsCaches();
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
   const calculatedAt = new Date();
 
   await syncWeeklyStatusSnapshots(periodId, examType, aggregates, calculatedAt);
+  revalidateAnalyticsCaches();
 
   return {
     period: dataset.period,
@@ -1381,6 +1384,7 @@ export async function recalculateStatusCache(
     examNumbers?: string[];
   },
 ) {
+  revalidateAnalyticsCaches();
   const prisma = getPrisma();
   const targetExamNumbers = Array.from(new Set(options?.examNumbers?.filter(Boolean) ?? []));
   const dataset = await loadDataset(
@@ -1466,6 +1470,7 @@ export async function recalculateStatusCache(
     await prisma.notificationLog.createMany({ data: notificationRows });
   }
 
+  revalidateAnalyticsCaches();
   return aggregates;
 }
 

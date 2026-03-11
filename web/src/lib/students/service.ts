@@ -9,6 +9,7 @@ import {
 import { toAuditJson } from "@/lib/audit";
 import { normalizePhone, parseExcelDate, toCellString } from "@/lib/excel/workbook";
 import { getPrisma } from "@/lib/prisma";
+import { revalidateAdminReadCaches } from "@/lib/cache-tags";
 import {
   previewStudentMigration,
   type StudentImportRecord,
@@ -174,7 +175,7 @@ export async function createStudent(input: {
   student: StudentFormInput;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const student = await getPrisma().$transaction(async (tx) => {
     const student = await tx.student.create({
       data: studentData(input.student),
     });
@@ -193,6 +194,9 @@ export async function createStudent(input: {
 
     return student;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return student;
 }
 
 export async function updateStudent(input: {
@@ -201,7 +205,7 @@ export async function updateStudent(input: {
   student: StudentFormInput;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const student = await getPrisma().$transaction(async (tx) => {
     const before = await tx.student.findUniqueOrThrow({
       where: {
         examNumber: input.examNumber,
@@ -229,6 +233,9 @@ export async function updateStudent(input: {
 
     return student;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return student;
 }
 
 export async function deactivateStudent(input: {
@@ -236,7 +243,7 @@ export async function deactivateStudent(input: {
   examNumber: string;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const student = await getPrisma().$transaction(async (tx) => {
     const before = await tx.student.findUniqueOrThrow({
       where: {
         examNumber: input.examNumber,
@@ -266,6 +273,9 @@ export async function deactivateStudent(input: {
 
     return student;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return student;
 }
 
 export async function reactivateStudent(input: {
@@ -273,7 +283,7 @@ export async function reactivateStudent(input: {
   examNumber: string;
   ipAddress?: string | null;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const student = await getPrisma().$transaction(async (tx) => {
     const before = await tx.student.findUniqueOrThrow({
       where: { examNumber: input.examNumber },
     });
@@ -297,6 +307,9 @@ export async function reactivateStudent(input: {
 
     return student;
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return student;
 }
 
 export function parseStudentForm(raw: Record<string, unknown>) {
@@ -572,6 +585,7 @@ async function executeStudentRecords(input: {
     },
   });
 
+  revalidateAdminReadCaches({ analytics: true, periods: false });
   return {
     importedCount: validRows.length,
     createdCount,

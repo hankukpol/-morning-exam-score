@@ -11,6 +11,7 @@ import {
   Subject,
 } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const ANALYTICS_REVALIDATE_SECONDS = 15;
 
@@ -318,7 +319,7 @@ const loadDatasetShared = unstable_cache(
     };
   },
   ["analytics-load-dataset"],
-  { revalidate: ANALYTICS_REVALIDATE_SECONDS },
+  { revalidate: ANALYTICS_REVALIDATE_SECONDS, tags: [CACHE_TAGS.analyticsDataset] },
 );
 
 const loadDatasetCached = cache(async (
@@ -444,7 +445,7 @@ const loadResultsSheetDatasetShared = unstable_cache(
     };
   },
   ["analytics-load-results-sheet-dataset"],
-  { revalidate: ANALYTICS_REVALIDATE_SECONDS },
+  { revalidate: ANALYTICS_REVALIDATE_SECONDS, tags: [CACHE_TAGS.analyticsResultsSheet] },
 );
 
 const loadResultsSheetDatasetCached = cache(async (

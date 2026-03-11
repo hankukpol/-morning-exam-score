@@ -1,6 +1,7 @@
 import { StudentType } from "@/generated/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { getPrisma } from "@/lib/prisma";
+import { revalidateAdminReadCaches } from "@/lib/cache-tags";
 
 export async function listPeriodEnrollments(periodId: number) {
   return getPrisma().periodEnrollment.findMany({
@@ -87,8 +88,8 @@ export async function executeEnrollmentPaste(input: {
 }) {
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    // 현재 회차 시작일 조회 (이전 회차 판별용)
+  const result = await prisma.$transaction(async (tx) => {
+    // ?꾩옱 ?뚯감 ?쒖옉??議고쉶 (?댁쟾 ?뚯감 ?먮퀎??
     const currentPeriod = await tx.examPeriod.findUniqueOrThrow({
       where: { id: input.periodId },
       select: { startDate: true },
@@ -109,7 +110,7 @@ export async function executeEnrollmentPaste(input: {
       skipDuplicates: true,
     });
 
-    // 이전 회차 등록 이력이 있는 신규생 → 기존생 자동 변환
+    // ?댁쟾 ?뚯감 ?깅줉 ?대젰???덈뒗 ?좉퇋????湲곗〈???먮룞 蹂??
     const priorEnrollments = await tx.periodEnrollment.findMany({
       where: {
         examNumber: { in: validExamNumbers },
@@ -146,6 +147,9 @@ export async function executeEnrollmentPaste(input: {
 
     return { enrolledCount: validExamNumbers.length, upgradedCount };
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return result;
 }
 
 export async function ensurePeriodEnrollments(periodId: number, examNumbers: string[]) {
@@ -163,7 +167,7 @@ export async function ensurePeriodEnrollments(periodId: number, examNumbers: str
 
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const currentPeriod = await tx.examPeriod.findUniqueOrThrow({
       where: { id: periodId },
       select: { startDate: true },
@@ -188,7 +192,7 @@ export async function ensurePeriodEnrollments(periodId: number, examNumbers: str
       skipDuplicates: true,
     });
 
-    // 이전 회차 등록 이력이 있는 신규생 → 기존생 자동 변환
+    // ?댁쟾 ?뚯감 ?깅줉 ?대젰???덈뒗 ?좉퇋????湲곗〈???먮룞 蹂??
     const priorEnrollments = await tx.periodEnrollment.findMany({
       where: {
         examNumber: { in: validExamNumbers },
@@ -211,6 +215,9 @@ export async function ensurePeriodEnrollments(periodId: number, examNumbers: str
 
     return { enrolledCount: validExamNumbers.length };
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return result;
 }
 
 export async function removeEnrollment(input: {
@@ -241,4 +248,6 @@ export async function removeEnrollment(input: {
       ipAddress: input.ipAddress ?? null,
     },
   });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
 }
