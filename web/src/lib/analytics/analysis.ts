@@ -24,12 +24,6 @@ type ScoreLike = {
   attendType: AttendType;
 };
 
-type ScoreWithStudent = ScoreLike & {
-  student: {
-    name: string;
-  };
-};
-
 function scoredMockScoreValue(
   score: Pick<ScoreLike, "rawScore" | "oxScore" | "finalScore" | "attendType">,
 ) {
@@ -149,7 +143,7 @@ export function serializeTargetScores(value: SubjectTargetScores) {
   return Object.fromEntries(entries);
 }
 
-function buildStudentAverageMap(scores: ScoreWithStudent[]) {
+function buildStudentAverageMap(scores: ScoreLike[]) {
   const grouped = new Map<string, number[]>();
 
   for (const score of scores) {
@@ -167,6 +161,18 @@ function buildStudentAverageMap(scores: ScoreWithStudent[]) {
   return new Map(
     Array.from(grouped.entries()).map(([examNumber, values]) => [examNumber, average(values) ?? 0]),
   );
+}
+
+function groupBySessionId<T extends { sessionId: number }>(rows: T[]) {
+  const grouped = new Map<number, T[]>();
+
+  for (const row of rows) {
+    const current = grouped.get(row.sessionId) ?? [];
+    current.push(row);
+    grouped.set(row.sessionId, current);
+  }
+
+  return grouped;
 }
 
 export async function getDailyAnalysis(input: {
@@ -195,8 +201,8 @@ export async function getDailyAnalysis(input: {
 
   const boundedEnd = end < tomorrow ? end : tomorrow;
   const search = input.search?.trim();
-
-  const sessions = await getPrisma().examSession.findMany({
+  const prisma = getPrisma();
+  const sessions = await prisma.examSession.findMany({
     where: {
       periodId: input.periodId,
       examType: input.examType,
@@ -206,23 +212,20 @@ export async function getDailyAnalysis(input: {
         lt: boundedEnd,
       },
     },
-    include: {
+    select: {
+      id: true,
+      week: true,
+      subject: true,
+      examDate: true,
       period: true,
-      scores: {
-        include: {
-          student: {
-            select: {
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          examNumber: "asc",
-        },
-      },
       questions: {
-        include: {
-          studentAnswers: true,
+        select: {
+          id: true,
+          questionNo: true,
+          correctAnswer: true,
+          correctRate: true,
+          difficulty: true,
+          answerDistribution: true,
         },
         orderBy: {
           questionNo: "asc",
@@ -231,30 +234,114 @@ export async function getDailyAnalysis(input: {
     },
     orderBy: [{ examDate: "asc" }, { subject: "asc" }],
   });
+  const sessionIds = sessions.map((session) => session.id);
+  const [scores, searchedScores] = await Promise.all([
+    sessionIds.length > 0
+      ? prisma.score.findMany({
+          where: {
+            sessionId: {
+              in: sessionIds,
+            },
+          },
+          select: {
+            examNumber: true,
+            sessionId: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+          },
+          orderBy: {
+            examNumber: "asc",
+          },
+        })
+      : Promise.resolve([]),
+    search && sessionIds.length > 0
+      ? prisma.score.findMany({
+          where: {
+            sessionId: {
+              in: sessionIds,
+            },
+            OR: [
+              {
+                examNumber: {
+                  contains: search,
+                },
+              },
+              {
+                student: {
+                  name: {
+                    contains: search,
+                  },
+                },
+              },
+            ],
+          },
+          select: {
+            examNumber: true,
+            sessionId: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+            student: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            examNumber: "asc",
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+  const scoresBySession = groupBySessionId(scores);
+  const searchedScoreBySession = new Map<number, (typeof searchedScores)[number]>();
+
+  for (const score of searchedScores) {
+    if (!searchedScoreBySession.has(score.sessionId)) {
+      searchedScoreBySession.set(score.sessionId, score);
+    }
+  }
+
+  const searchedExamNumbers = Array.from(new Set(searchedScores.map((score) => score.examNumber)));
+  const questionIds = sessions.flatMap((session) => session.questions.map((question) => question.id));
+  const searchedAnswers =
+    searchedExamNumbers.length > 0 && questionIds.length > 0
+      ? await prisma.studentAnswer.findMany({
+          where: {
+            examNumber: {
+              in: searchedExamNumbers,
+            },
+            questionId: {
+              in: questionIds,
+            },
+          },
+          select: {
+            examNumber: true,
+            questionId: true,
+            answer: true,
+            isCorrect: true,
+          },
+        })
+      : [];
+  const searchedAnswerMap = new Map(
+    searchedAnswers.map((answer) => [`${answer.examNumber}:${answer.questionId}`, answer]),
+  );
 
   return sessions.map((session) => {
-    const values = scoreValues(session.scores);
-    const searchedScore =
-      search
-        ? session.scores.find(
-            (score) =>
-              score.examNumber.includes(search) || score.student.name.includes(search),
-          ) ?? null
-        : null;
+    const sessionScores = scoresBySession.get(session.id) ?? [];
+    const values = scoreValues(sessionScores);
+    const searchedScore = search ? searchedScoreBySession.get(session.id) ?? null : null;
     const participantCount = values.length;
     const questionRows = session.questions.map((question) => {
       const distribution = parseDistribution(question.answerDistribution);
-      const wrongAnswers = question.studentAnswers.filter((answer) => !answer.isCorrect);
-      const wrongCounts = wrongAnswers.reduce<Record<string, number>>((accumulator, answer) => {
-        accumulator[answer.answer] = (accumulator[answer.answer] ?? 0) + 1;
-        return accumulator;
-      }, {});
       const mostCommonWrongAnswer =
-        Object.entries(wrongCounts).sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
-      const searchedAnswer =
-        searchedScore
-          ? question.studentAnswers.find((answer) => answer.examNumber === searchedScore.examNumber)
-          : null;
+        distribution.find((entry) => entry.answer !== question.correctAnswer)?.answer ?? null;
+      const searchedAnswer = searchedScore
+        ? searchedAnswerMap.get(`${searchedScore.examNumber}:${question.id}`) ?? null
+        : null;
 
       return {
         questionId: question.id,
@@ -328,7 +415,8 @@ export async function getMonthlyStudentAnalysis(input: {
     return null;
   }
 
-  const sessions = await getPrisma().examSession.findMany({
+  const prisma = getPrisma();
+  const sessions = await prisma.examSession.findMany({
     where: {
       periodId: input.periodId,
       examType: input.examType,
@@ -338,35 +426,57 @@ export async function getMonthlyStudentAnalysis(input: {
       },
       isCancelled: false,
     },
-    include: {
-      scores: {
-        include: {
-          student: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      week: true,
+      subject: true,
+      examDate: true,
     },
     orderBy: {
       examDate: "asc",
     },
   });
+  const sessionIds = sessions.map((session) => session.id);
+  const monthScores =
+    sessionIds.length > 0
+      ? await prisma.score.findMany({
+          where: {
+            sessionId: {
+              in: sessionIds,
+            },
+          },
+          select: {
+            examNumber: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+            sessionId: true,
+          },
+        })
+      : [];
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  const scoresBySubject = new Map<Subject, typeof monthScores>();
 
-  const monthScores = sessions.flatMap((session) =>
-    session.scores.map((score) => ({
-      ...score,
-      session,
-    })),
-  );
+  for (const score of monthScores) {
+    const session = sessionById.get(score.sessionId);
+
+    if (!session) {
+      continue;
+    }
+
+    const current = scoresBySubject.get(session.subject) ?? [];
+    current.push(score);
+    scoresBySubject.set(session.subject, current);
+  }
+
   const targets = parseTargetScores(student.targetScores);
   const subjects = subjectRowsForExamType(
     input.examType,
     Array.from(new Set(sessions.map((session) => session.subject))),
   );
   const subjectSummary = subjects.map((subject) => {
-    const subjectScores = monthScores.filter((score) => score.session.subject === subject);
+    const subjectScores = scoresBySubject.get(subject) ?? [];
     const studentScores = subjectScores.filter((score) => score.examNumber === student.examNumber);
     const studentValues = studentScores
       .map(scoredMockScoreValue)
@@ -418,7 +528,7 @@ export async function getMonthlyStudentAnalysis(input: {
     studentMonthScores
       .filter(
         (score) =>
-          score.session.subject === Subject.POLICE_SCIENCE &&
+          sessionById.get(score.sessionId)?.subject === Subject.POLICE_SCIENCE &&
           score.attendType === AttendType.NORMAL &&
           score.oxScore !== null,
       )
@@ -472,16 +582,17 @@ export async function getSubjectTrendAnalysis(input: {
   const search = input.examNumber?.trim();
   const tomorrow = startOfTomorrow();
   let resolvedExamNumber = search;
+  const prisma = getPrisma();
 
   if (search && !/^\d/.test(search)) {
-    const found = await getPrisma().student.findFirst({
+    const found = await prisma.student.findFirst({
       where: { examType: input.examType, name: search },
       select: { examNumber: true },
     });
     resolvedExamNumber = found?.examNumber ?? search;
   }
 
-  const sessions = await getPrisma().examSession.findMany({
+  const sessions = await prisma.examSession.findMany({
     where: {
       periodId: input.periodId,
       examType: input.examType,
@@ -491,27 +602,54 @@ export async function getSubjectTrendAnalysis(input: {
         lt: tomorrow,
       },
     },
-    include: {
-      scores: {
-        include: {
-          student: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      examDate: true,
+      week: true,
+      subject: true,
     },
     orderBy: {
       examDate: "asc",
     },
   });
+  const sessionIds = sessions.map((session) => session.id);
+  const [scores, searchedStudent] = await Promise.all([
+    sessionIds.length > 0
+      ? prisma.score.findMany({
+          where: {
+            sessionId: {
+              in: sessionIds,
+            },
+          },
+          select: {
+            examNumber: true,
+            sessionId: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+          },
+        })
+      : Promise.resolve([]),
+    resolvedExamNumber
+      ? prisma.student.findUnique({
+          where: {
+            examNumber: resolvedExamNumber,
+          },
+          select: {
+            name: true,
+          },
+        })
+      : Promise.resolve(null),
+  ]);
+  const scoresBySession = groupBySessionId(scores);
 
   return sessions.map((session) => {
-    const values = scoreValues(session.scores);
+    const sessionScores = scoresBySession.get(session.id) ?? [];
+    const values = scoreValues(sessionScores);
     const studentScore =
       resolvedExamNumber
-        ? session.scores.find((score) => score.examNumber === resolvedExamNumber) ?? null
+        ? sessionScores.find((score) => score.examNumber === resolvedExamNumber) ?? null
         : null;
 
     return {
@@ -525,7 +663,7 @@ export async function getSubjectTrendAnalysis(input: {
       top30Average: topAverage(values, 0.3),
       highestScore: values.length > 0 ? Math.max(...values) : null,
       studentScore: studentScore ? scoredMockScoreValue(studentScore) : null,
-      studentName: studentScore?.student.name ?? null,
+      studentName: studentScore ? searchedStudent?.name ?? null : null,
     };
   });
 }
@@ -553,33 +691,43 @@ export async function getSubjectStudentRanking(input: {
     return [];
   }
 
-  const sessions = await getPrisma().examSession.findMany({
-    where: {
-      periodId: input.periodId,
-      examType: input.examType,
-      subject: input.subject,
-      isCancelled: false,
-      examDate: {
-        lt: startOfTomorrow(),
-      },
+  const prisma = getPrisma();
+  const sessionWhere = {
+    periodId: input.periodId,
+    examType: input.examType,
+    subject: input.subject,
+    isCancelled: false,
+    examDate: {
+      lt: startOfTomorrow(),
     },
-    include: {
-      scores: {
-        include: {
-          student: {
-            select: {
-              name: true,
-              studentType: true,
-              isActive: true,
-            },
+  } satisfies Prisma.ExamSessionWhereInput;
+  const [totalSessions, scores] = await Promise.all([
+    prisma.examSession.count({
+      where: sessionWhere,
+    }),
+    prisma.score.findMany({
+      where: {
+        attendType: {
+          in: [AttendType.NORMAL, AttendType.LIVE],
+        },
+        session: sessionWhere,
+      },
+      select: {
+        examNumber: true,
+        rawScore: true,
+        oxScore: true,
+        finalScore: true,
+        attendType: true,
+        student: {
+          select: {
+            name: true,
+            studentType: true,
+            isActive: true,
           },
         },
       },
-    },
-    orderBy: { examDate: "asc" },
-  });
-
-  const totalSessions = sessions.length;
+    }),
+  ]);
 
   const studentMap = new Map<string, {
     examNumber: string;
@@ -590,27 +738,24 @@ export async function getSubjectStudentRanking(input: {
     sessionCount: number;
   }>();
 
-  for (const session of sessions) {
-    for (const score of session.scores) {
-      if (score.attendType !== AttendType.NORMAL && score.attendType !== AttendType.LIVE) {
-        continue;
-      }
-      const value = scoredMockScoreValue(score);
-      if (value === null) {
-        continue;
-      }
-      const existing = studentMap.get(score.examNumber) ?? {
-        examNumber: score.examNumber,
-        name: score.student.name,
-        studentType: score.student.studentType,
-        isActive: score.student.isActive,
-        scores: [],
-        sessionCount: 0,
-      };
-      existing.scores.push(value);
-      existing.sessionCount++;
-      studentMap.set(score.examNumber, existing);
+  for (const score of scores) {
+    const value = scoredMockScoreValue(score);
+
+    if (value === null) {
+      continue;
     }
+
+    const existing = studentMap.get(score.examNumber) ?? {
+      examNumber: score.examNumber,
+      name: score.student.name,
+      studentType: score.student.studentType,
+      isActive: score.student.isActive,
+      scores: [],
+      sessionCount: 0,
+    };
+    existing.scores.push(value);
+    existing.sessionCount++;
+    studentMap.set(score.examNumber, existing);
   }
 
   const sorted = Array.from(studentMap.values())
@@ -746,6 +891,7 @@ export async function getStudentCumulativeAnalysis(
     orderBy: { startDate: "asc" },
   });
   const relevantPeriodIds = relevantPeriods.map((period) => period.id);
+  const periodById = new Map(relevantPeriods.map((period) => [period.id, period]));
 
   const sessions = relevantPeriodIds.length
     ? await prisma.examSession.findMany({
@@ -757,13 +903,36 @@ export async function getStudentCumulativeAnalysis(
             lt: tomorrow,
           },
         },
-        include: {
-          period: true,
-          scores: { where: { examNumber } },
+        select: {
+          id: true,
+          periodId: true,
+          week: true,
+          subject: true,
+          examDate: true,
         },
         orderBy: [{ examDate: "asc" }, { week: "asc" }],
       })
     : [];
+  const sessionIds = sessions.map((session) => session.id);
+  const scores =
+    sessionIds.length > 0
+      ? await prisma.score.findMany({
+          where: {
+            examNumber,
+            sessionId: {
+              in: sessionIds,
+            },
+          },
+          select: {
+            sessionId: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+          },
+        })
+      : [];
+  const scoreBySessionId = new Map(scores.map((score) => [score.sessionId, score]));
 
   type SnapRow = { weekKey: string; weekStartDate: Date; status: StudentStatus };
   let rawSnapshots: SnapRow[] = [];
@@ -787,18 +956,24 @@ export async function getStudentCumulativeAnalysis(
   const targets = parseTargetScores(student.targetScores);
 
   const trend = sessions.map((session) => {
-    const score = session.scores[0] ?? null;
+    const score = scoreBySessionId.get(session.id) ?? null;
+    const period = periodById.get(session.periodId);
+
+    if (!period) {
+      return null;
+    }
+
     return {
       date: session.examDate.toISOString(),
       label: formatTrendDateLabel(session.examDate),
       subject: session.subject,
       finalScore: score ? (scoredMockScoreValue(score) ?? null) : null,
       attendType: score?.attendType ?? null,
-      periodName: session.period.name,
+      periodName: period.name,
       periodId: session.periodId,
       week: session.week,
     };
-  });
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
 
   const periodMap = new Map<
     number,
@@ -813,11 +988,17 @@ export async function getStudentCumulativeAnalysis(
     }
   >();
   for (const session of sessions) {
-    const score = session.scores[0] ?? null;
+    const score = scoreBySessionId.get(session.id) ?? null;
+    const period = periodById.get(session.periodId);
+
+    if (!period) {
+      continue;
+    }
+
     const existing = periodMap.get(session.periodId) ?? {
       id: session.periodId,
-      name: session.period.name,
-      startDate: session.period.startDate,
+      name: period.name,
+      startDate: period.startDate,
       mockScores: [],
       policeOxScores: [],
       sessionCount: 0,
@@ -852,7 +1033,7 @@ export async function getStudentCumulativeAnalysis(
 
   const subjectScoreListMap = new Map<Subject, number[]>();
   for (const session of sessions) {
-    const score = session.scores[0];
+    const score = scoreBySessionId.get(session.id);
     if (!score || score.attendType !== AttendType.NORMAL) continue;
     const value = scoredMockScoreValue(score);
     if (value === null) continue;
@@ -895,13 +1076,13 @@ export async function getStudentCumulativeAnalysis(
   });
 
   const allScoreValues = sessions.flatMap((session) => {
-    const score = session.scores[0];
+    const score = scoreBySessionId.get(session.id);
     if (!score || score.attendType !== AttendType.NORMAL) return [];
     const value = scoredMockScoreValue(score);
     return value !== null ? [value] : [];
   });
   const allPoliceOxValues = sessions.flatMap((session) => {
-    const score = session.scores[0];
+    const score = scoreBySessionId.get(session.id);
     if (
       !score ||
       score.attendType !== AttendType.NORMAL ||
@@ -914,7 +1095,7 @@ export async function getStudentCumulativeAnalysis(
   });
 
   const attendedCount = sessions.filter((session) => {
-    const score = session.scores[0];
+    const score = scoreBySessionId.get(session.id);
     return score && countsAsAttendance(score.attendType);
   }).length;
 
@@ -1020,16 +1201,10 @@ export async function getStudentDetailAnalysis(input: {
           lt: tomorrow,
         },
       },
-      include: {
-        scores: {
-          include: {
-            student: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
+      select: {
+        id: true,
+        subject: true,
+        examDate: true,
       },
       orderBy: {
         examDate: "asc",
@@ -1046,9 +1221,15 @@ export async function getStudentDetailAnalysis(input: {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        answer: true,
         question: {
-          include: {
+          select: {
+            questionNo: true,
+            correctAnswer: true,
+            correctRate: true,
+            difficulty: true,
             questionSession: true,
           },
         },
@@ -1061,14 +1242,33 @@ export async function getStudentDetailAnalysis(input: {
       take: 20,
     }),
   ]);
+  const sessionIds = sessions.map((session) => session.id);
+  const scores =
+    sessionIds.length > 0
+      ? await prisma.score.findMany({
+          where: {
+            sessionId: {
+              in: sessionIds,
+            },
+          },
+          select: {
+            examNumber: true,
+            sessionId: true,
+            rawScore: true,
+            oxScore: true,
+            finalScore: true,
+            attendType: true,
+          },
+        })
+      : [];
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  const scoresBySession = groupBySessionId(scores);
 
   const targets = parseTargetScores(student.targetScores);
-  const scoreRows = sessions.flatMap((session) =>
-    session.scores.map((score) => ({
-      ...score,
-      session,
-    })),
-  );
+  const scoreRows = scores.flatMap((score) => {
+    const session = sessionById.get(score.sessionId);
+    return session ? [{ ...score, session }] : [];
+  });
   const subjects = subjectRowsForExamType(
     student.examType,
     Array.from(new Set(sessions.map((session) => session.subject))),
@@ -1093,9 +1293,10 @@ export async function getStudentDetailAnalysis(input: {
   });
 
   const trendData = sessions.map((session) => {
+    const sessionScores = scoresBySession.get(session.id) ?? [];
     const studentScore =
-      session.scores.find((score) => score.examNumber === input.examNumber) ?? null;
-    const values = scoreValues(session.scores);
+      sessionScores.find((score) => score.examNumber === input.examNumber) ?? null;
+    const values = scoreValues(sessionScores);
 
     return {
       label: `${session.examDate.getMonth() + 1}/${session.examDate.getDate()} ${session.subject}`,

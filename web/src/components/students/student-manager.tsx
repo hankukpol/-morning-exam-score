@@ -36,6 +36,9 @@ type Filters = {
   search: string;
   generation: string;
   activeOnly: boolean;
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 type StudentManagerProps = {
@@ -108,8 +111,6 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(30);
 
   const rowDrafts = useMemo(
     () =>
@@ -123,17 +124,23 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
     return drafts[examNumber] ?? rowDrafts[examNumber];
   }
 
-  function refreshWithFilters(nextFilters?: Partial<Filters>) {
+  function refreshWithFilters(
+    nextFilters?: Partial<Pick<Filters, "examType" | "search" | "generation" | "activeOnly" | "page" | "pageSize">>,
+  ) {
     const params = new URLSearchParams();
     const merged = {
       examType: filters.examType,
       search,
       generation,
       activeOnly,
+      page: filters.page,
+      pageSize: filters.pageSize,
       ...nextFilters,
     };
 
     params.set("examType", merged.examType);
+    params.set("page", String(merged.page));
+    params.set("pageSize", String(merged.pageSize));
 
     if (merged.search.trim()) {
       params.set("search", merged.search.trim());
@@ -191,9 +198,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
     });
   }
 
-  const totalPages = Math.max(1, Math.ceil(students.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const pagedStudents = students.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const currentPage = filters.page;
+  const pageSize = filters.pageSize;
 
   return (
     <div className="space-y-8">
@@ -369,7 +375,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                 <button
                   key={examType}
                   type="button"
-                  onClick={() => refreshWithFilters({ examType })}
+                  onClick={() => refreshWithFilters({ examType, page: 1 })}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                     filters.examType === examType
                       ? "bg-ink text-white"
@@ -408,7 +414,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
           </label>
           <button
             type="button"
-            onClick={() => refreshWithFilters()}
+            onClick={() => refreshWithFilters({ page: 1 })}
             className="mb-1 inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
             필터 적용
@@ -428,14 +434,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
 
         <div className="mt-6 overflow-hidden rounded-[24px] border border-ink/10">
           <PaginationControls
-            totalCount={students.length}
+            totalCount={filters.totalCount}
             page={currentPage}
             pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={(nextPageSize) => {
-              setPageSize(nextPageSize);
-              setPage(1);
-            }}
+            onPageChange={(nextPage) => refreshWithFilters({ page: nextPage })}
+            onPageSizeChange={(nextPageSize) =>
+              refreshWithFilters({ page: 1, pageSize: nextPageSize })
+            }
             itemLabel="명"
           />
           <table className="min-w-full divide-y divide-ink/10 text-sm">
@@ -452,7 +457,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10 bg-white">
-              {pagedStudents.map((student) => {
+              {students.map((student) => {
                 const draft = getDraft(student.examNumber);
 
                 return (
@@ -708,7 +713,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                   </tr>
                 );
               })}
-              {students.length === 0 ? (
+              {filters.totalCount === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate">
                     조건에 맞는 학생이 없습니다.

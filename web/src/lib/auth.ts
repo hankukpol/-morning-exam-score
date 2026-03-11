@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { AdminRole } from "@/generated/prisma";
 import { redirect } from "next/navigation";
 import { ROLE_LEVEL } from "@/lib/constants";
@@ -9,7 +10,7 @@ export function roleAtLeast(role: AdminRole, minimum: AdminRole) {
   return ROLE_LEVEL[role] >= ROLE_LEVEL[minimum];
 }
 
-export async function getCurrentAdminContext() {
+export const getCurrentAuthUser = cache(async () => {
   const setup = getSetupState();
 
   if (!setup.supabaseReady || !setup.databaseReady) {
@@ -20,6 +21,16 @@ export async function getCurrentAdminContext() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  return user;
+});
+
+export const getCurrentAdminContext = cache(async () => {
+  const user = await getCurrentAuthUser();
 
   if (!user) {
     return null;
@@ -37,7 +48,7 @@ export async function getCurrentAdminContext() {
     authUser: user,
     adminUser,
   };
-}
+});
 
 export async function requireAdminContext(minRole: AdminRole = AdminRole.VIEWER) {
   const context = await getCurrentAdminContext();

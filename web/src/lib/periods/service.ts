@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { getPrisma } from "@/lib/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
@@ -8,6 +10,26 @@ export type PeriodFormInput = {
   endDate: Date;
   totalWeeks: number;
 };
+
+const listPeriodsBasicShared = unstable_cache(
+  async () => {
+    return getPrisma().examPeriod.findMany({
+      orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        totalWeeks: true,
+        isActive: true,
+      },
+    });
+  },
+  ["periods-basic"],
+  { revalidate: 15 },
+);
+
+export const listPeriodsBasic = cache(async () => listPeriodsBasicShared());
 
 export async function listPeriods() {
   return getPrisma().examPeriod.findMany({
@@ -32,6 +54,41 @@ export async function listPeriods() {
     },
   });
 }
+
+const getPeriodWithSessionsShared = unstable_cache(
+  async (periodId: number) => {
+    return getPrisma().examPeriod.findUnique({
+      where: {
+        id: periodId,
+      },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        totalWeeks: true,
+        isActive: true,
+        sessions: {
+          orderBy: [{ examDate: "asc" }, { examType: "asc" }],
+          select: {
+            id: true,
+            examType: true,
+            week: true,
+            subject: true,
+            examDate: true,
+            isCancelled: true,
+          },
+        },
+      },
+    });
+  },
+  ["period-with-sessions"],
+  { revalidate: 15 },
+);
+
+export const getPeriodWithSessions = cache(async (periodId: number) => {
+  return getPeriodWithSessionsShared(periodId);
+});
 
 export async function createPeriod(input: {
   adminId: string;
@@ -290,25 +347,25 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
   const totalWeeks = Number(raw.totalWeeks ?? 0);
 
   if (!name) {
-    throw new Error("기간명을 입력하세요.");
+    throw new Error("??れ삀??㉱??땬壤??怨룰도 ????곸죷??筌뚯뼚???");
   }
 
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    throw new Error("시작일과 종료일을 확인하세요.");
+    throw new Error("??筌믨퀣援????븍븕 ???ろ꼤嶺??繹먮끏援??嶺뚮Ĳ?됮??筌뚯뼚???");
   }
 
   if (startDate > endDate) {
-    throw new Error("시작일은 종료일보다 빠르거나 같아야 합니다.");
+    throw new Error("??筌믨퀣援??? ???ろ꼤嶺???⑤벚?????鴉??????ㅻ쿅????좊즵??λ눀????筌뤾퍓???");
   }
 
-  // 요일별 시험 배치(화=경찰학, 수=헌법/범죄학, 목=형소법, 금=누적, 월=형법)를 위해
-  // 시작일은 반드시 화요일이어야 합니다.
+  // ??釉먯뒭?앗낆녃??????쾷 ?袁⑸즲??????濡ろ뜑??댁쾸?? ????????類??袁ъ??? 癲??嶺뚮Ĳ?뉒댆戮ル탶? ????ш끽維?? ???嶺뚮㉡???????ш낄援??
+  // ??筌믨퀣援??? ?袁⑸즵?쀫쓧?????釉먯뒭???繹먮끏????⑤；????筌뤾퍓???
   if (startDate.getDay() !== 2) {
-    throw new Error("시작일은 화요일이어야 합니다. (시험 스케줄이 화~금·월 순서로 자동 배정됩니다.)");
+    throw new Error("??筌믨퀣援??? ??釉먯뒭???繹먮끏????⑤；????筌뤾퍓??? (?????쾷 ???濚욌꼬釉먮쳮??????ヂ???⑸쇀獄?????筌?留?????筌??袁⑸즲????筌뤾퍓???)");
   }
 
   if (!Number.isInteger(totalWeeks) || totalWeeks < 1 || totalWeeks > 12) {
-    throw new Error("총 주차는 1~12 사이 정수여야 합니다.");
+    throw new Error("????낆뒩??뉗쾸??1~12 ?????嶺뚮Ĳ????????筌뤾퍓???");
   }
 
   return {
@@ -330,7 +387,7 @@ export function parseSessionUpdate(raw: Record<string, unknown>) {
     const examDate = new Date(String(raw.examDate));
 
     if (Number.isNaN(examDate.getTime())) {
-      throw new Error("시험 날짜 형식을 확인하세요.");
+      throw new Error("?????쾷 ???モ? ?嶺뚮Ĳ?뉛쭛???嶺뚮Ĳ?됮??筌뚯뼚???");
     }
 
     result.examDate = examDate;

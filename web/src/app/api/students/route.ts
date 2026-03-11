@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
   createStudent,
-  listStudents,
+  listStudentsPage,
   parseStudentForm,
 } from "@/lib/students/service";
 
@@ -20,15 +20,19 @@ export async function GET(request: NextRequest) {
   const generationValue = searchParams.get("generation");
   const activeOnly = searchParams.get("activeOnly") !== "false";
   const generation = generationValue ? Number(generationValue) : undefined;
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+  const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "30") || 30, 1), 100);
 
-  const students = await listStudents({
+  const result = await listStudentsPage({
     examType: examType ?? undefined,
     search,
     generation,
     activeOnly,
+    page,
+    pageSize,
   });
 
-  return NextResponse.json({ students });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {

@@ -25,9 +25,22 @@ export async function getStudentExportRows(filters: StudentExportFilters) {
           isActive: filters.activeOnly === false ? undefined : true,
           generation: filters.generation,
         },
-      ],
+    ],
     },
     orderBy: [{ examType: "asc" }, { generation: "desc" }, { examNumber: "asc" }],
+    select: {
+      examNumber: true,
+      name: true,
+      phone: true,
+      generation: true,
+      className: true,
+      examType: true,
+      studentType: true,
+      onlineId: true,
+      registeredAt: true,
+      isActive: true,
+      note: true,
+    },
   });
 
   return {
@@ -59,11 +72,31 @@ export async function getScoreExportRows(filters: ScoreExportFilters) {
         periodId: filters.periodId,
       },
     },
-    include: {
-      student: true,
+    select: {
+      examNumber: true,
+      rawScore: true,
+      oxScore: true,
+      finalScore: true,
+      attendType: true,
+      sourceType: true,
+      note: true,
+      student: {
+        select: {
+          name: true,
+          onlineId: true,
+        },
+      },
       session: {
-        include: {
-          period: true,
+        select: {
+          examDate: true,
+          examType: true,
+          week: true,
+          subject: true,
+          period: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },

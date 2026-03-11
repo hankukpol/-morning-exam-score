@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { sanitizeRedirectPath } from "@/lib/security";
 import { createClient } from "@/lib/supabase/browser";
 
 const SAVED_EMAIL_KEY = "admin_saved_email";
@@ -13,6 +14,7 @@ type LoginFormProps = {
 
 export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
   const router = useRouter();
+  const safeRedirectTo = sanitizeRedirectPath(redirectTo, "/admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberEmail, setRememberEmail] = useState(false);
@@ -57,7 +59,7 @@ export function LoginForm({ redirectTo, disabled }: LoginFormProps) {
         return;
       }
 
-      router.replace(redirectTo || "/admin");
+      router.replace(safeRedirectTo);
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : "로그인 처리 중 오류가 발생했습니다.",

@@ -2,6 +2,11 @@ import { AdminRole, ExamType } from "@/generated/prisma";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import {
+  getDisplayErrorDetails,
+  getDisplayErrorMessage,
+  getServerErrorLogMessage,
+} from "@/lib/error-display";
 import { formatDate } from "@/lib/format";
 import Link from "next/link";
 
@@ -13,12 +18,19 @@ export default async function AdminDashboardPage() {
   try {
     summary = await getDashboardSummary();
   } catch (err) {
-    const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
-    console.error("[AdminDashboard] error:", msg);
+    const details = getDisplayErrorDetails(err);
+    console.error("[AdminDashboard] error:", getServerErrorLogMessage(err));
     return (
       <div className="p-8">
-        <h1 className="text-xl font-bold text-red-700">대시보드 오류 (getDashboardSummary)</h1>
-        <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">{msg}</pre>
+        <h1 className="text-xl font-bold text-red-700">대시보드 오류</h1>
+        <p className="mt-4 text-sm text-slate">
+          {getDisplayErrorMessage(err, "대시보드를 불러오는 중 오류가 발생했습니다.")}
+        </p>
+        {details ? (
+          <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">
+            {details}
+          </pre>
+        ) : null}
       </div>
     );
   }

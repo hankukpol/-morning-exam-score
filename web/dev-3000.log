@@ -1,0 +1,187 @@
+
+> web@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+ ⚠ Port 3001 is in use, trying 3002 instead.
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3002
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 4.4s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1284ms (123 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 11.5s (604 modules)
+ GET /login 200 in 11946ms
+ ⚠ Cross origin request detected from 127.0.0.1 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ ○ Compiling /favicon.ico ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled /favicon.ico in 5s (339 modules)
+ GET /favicon.ico 200 in 5163ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 3s (828 modules)
+ ○ Compiling /admin/absence-notes ...
+ ✓ Compiled /admin/absence-notes in 1013ms (915 modules)
+ GET /admin/absence-notes 200 in 1631ms
+ ✓ Compiled /api/absence-notes in 200ms (587 modules)
+ POST /api/absence-notes 400 in 690ms
+ ○ Compiling /api/students/[examNumber]/scores ...
+ ✓ Compiled /api/students/[examNumber]/scores in 758ms (565 modules)
+ GET /api/students/18821/scores 200 in 1780ms
+ GET /api/students/18821/scores 200 in 305ms
+ GET /api/students/18821/scores 200 in 575ms
+ ○ Compiling /api/scores/[id] ...
+ ✓ Compiled /api/scores/[id] in 2.2s (815 modules)
+ PUT /api/scores/21002 200 in 55900ms
+ ○ Compiling /admin/results/weekly ...
+ ✓ Compiled /admin/results/weekly in 530ms (1166 modules)
+ GET /admin/results/weekly 200 in 1574ms
+ ○ Compiling /api/export/results-print ...
+ ✓ Compiled /api/export/results-print in 4.1s (1069 modules)
+ GET /api/export/results-print?mode=weekly&periodId=1&examType=GONGCHAE&weekKey=2026-03-03&view=overall 200 in 5331ms
+ ✓ Compiled /admin/results/monthly in 348ms (1424 modules)
+ GET /admin/results/monthly 200 in 1375ms
+ GET /api/export/results-print?mode=monthly&periodId=1&examType=GONGCHAE&fromWeekKey=2026-01-06&toWeekKey=2026-03-03&view=overall 200 in 850ms
+ ✓ Compiled /admin/results/integrated in 354ms (1426 modules)
+ GET /admin/results/integrated 200 in 1368ms
+ GET /api/export/results-print?mode=integrated&periodId=1&examType=GONGCHAE&view=overall 200 in 815ms
+ ○ Compiling /admin/students ...
+ ✓ Compiled /admin/students in 829ms (1384 modules)
+ GET /admin/students 200 in 1512ms
+ ✓ Compiled /admin/dropout in 503ms (1399 modules)
+ GET /admin/dropout 200 in 1437ms
+ ✓ Compiled /admin/students/[examNumber]/analysis in 458ms (1395 modules)
+ GET /admin/students/18821/analysis 307 in 1307ms
+ ○ Compiling /admin/students/[examNumber] ...
+ ✓ Compiled /admin/students/[examNumber] in 4.5s (2431 modules)
+ GET /admin/students/18821?tab=analysis 200 in 6265ms
+ ○ Compiling /admin/scores/input ...
+ ✓ Compiled /admin/scores/input in 1105ms (1900 modules)
+ GET /admin/scores/input 200 in 1769ms
+ ○ Compiling /api/scores/bulk ...
+ ✓ Compiled /api/scores/bulk in 863ms (1297 modules)
+ POST /api/scores/bulk 200 in 1573ms
+ POST /api/scores/bulk 200 in 48453ms
+ ○ Compiling /admin/scores/edit ...
+ ✓ Compiled /admin/scores/edit in 712ms (2182 modules)
+ GET /admin/scores/edit 200 in 1203ms
+ ✓ Compiled /api/scores in 336ms (1298 modules)
+ GET /api/scores?sessionId=73&query=18821 200 in 803ms
+ ✓ Compiled /api/scores/[id] in 246ms (1300 modules)
+ PUT /api/scores/38205 200 in 48544ms
+ GET /api/scores?sessionId=73&query=18821 200 in 295ms
+ ✓ Compiled in 1734ms (2192 modules)
+ ✓ Compiled in 684ms (2192 modules)
+ ✓ Compiled /api/scores/[id] in 223ms (1298 modules)
+ PUT /api/scores/38205 200 in 33246ms
+ ✓ Compiled /api/scores in 440ms (1300 modules)
+ GET /api/scores?sessionId=73&query=18821 200 in 920ms
+ ○ Compiling /admin/students/analyze ...
+ ✓ Compiled /admin/students/analyze in 1432ms (2184 modules)
+ GET /admin/students/analyze 200 in 1784ms
+ GET /admin/students/analyze?q=18821 200 in 731ms
+ ✓ Compiled /admin/absence-notes in 338ms (1303 modules)
+ GET /admin/absence-notes 200 in 1048ms
+ ✓ Compiled /api/absence-notes in 366ms (1293 modules)
+ POST /api/absence-notes 200 in 759ms
+ GET /admin/absence-notes 200 in 428ms
+ ✓ Compiled /favicon.ico in 257ms (1322 modules)
+ GET /favicon.ico 200 in 360ms
+ ✓ Compiled /api/absence-notes/[id] in 252ms (1324 modules)
+ PUT /api/absence-notes/6 200 in 33262ms
+ GET /admin/absence-notes 200 in 719ms
+ GET /favicon.ico 200 in 40ms
+ ○ Compiling /api/students ...
+ ✓ Compiled /api/students in 571ms (1072 modules)
+ GET /api/students?query=%EC%88%98%ED%97%98%EB%B2%88%ED%98%B8 200 in 1042ms
+ ✓ Compiled in 594ms (895 modules)
+ ✓ Compiled in 1492ms (1910 modules)
+ ✓ Compiled in 574ms (1910 modules)
+ ✓ Compiled in 567ms (1910 modules)
+ ✓ Compiled in 683ms (1910 modules)
+ ✓ Compiled in 606ms (1910 modules)
+ ✓ Compiled in 583ms (1910 modules)
+ ✓ Compiled in 657ms (1910 modules)
+ ✓ Compiled in 980ms (1910 modules)
+ ✓ Compiled in 572ms (1910 modules)
+ ✓ Compiled in 301ms (895 modules)
+ ✓ Compiled in 299ms (895 modules)
+ GET /admin/absence-notes 200 in 652ms
+ ✓ Compiled /api/absence-notes/[id] in 379ms (1042 modules)
+ DELETE /api/absence-notes/6 200 in 25278ms
+ GET /admin/absence-notes 200 in 518ms
+ ✓ Compiled /favicon.ico in 226ms (1071 modules)
+ GET /favicon.ico 200 in 324ms
+ ○ Compiling /api/scores/[id] ...
+ ✓ Compiled /api/scores/[id] in 837ms (1323 modules)
+ PUT /api/scores/21002 200 in 33958ms
+ ✓ Compiled /api/students in 455ms (1323 modules)
+ GET /api/students?query=%EC%88%98%ED%97%98%EB%B2%88%ED%98%B8 200 in 1121ms
+ ○ Compiling /admin/export ...
+ ✓ Compiled /admin/export in 794ms (2182 modules)
+ GET /admin/export 200 in 1335ms
+ ✓ Compiled in 1263ms (1872 modules)
+ ✓ Compiled in 658ms (1872 modules)
+ ✓ Compiled in 640ms (1872 modules)
+ ✓ Compiled in 334ms (897 modules)
+ ✓ Compiled in 1278ms (1872 modules)
+ ○ Compiling /admin/counseling ...
+ ✓ Compiled /admin/counseling in 1650ms (1925 modules)
+ GET /admin/counseling?examType=GONGCHAE&search=18821&examNumber=18821 200 in 1039ms
+ ○ Compiling /admin/query ...
+ ✓ Compiled /admin/query in 520ms (1923 modules)
+ GET /admin/query 200 in 942ms
+ GET /admin/query?mode=date&periodId=1&examType=GONGCHAE&date=2026-03-03&subject=&keyword= 200 in 491ms
+ ✓ Compiled /admin/dropout in 429ms (1034 modules)
+ GET /admin/dropout 200 in 1430ms
+ GET /admin/absence-notes 200 in 429ms
+ ○ Compiling /api/absence-notes ...
+ ✓ Compiled /api/absence-notes in 530ms (1051 modules)
+ POST /api/absence-notes 200 in 966ms
+ GET /admin/absence-notes 200 in 475ms
+ ✓ Compiled /favicon.ico in 252ms (1080 modules)
+ GET /favicon.ico 200 in 347ms
+ ✓ Compiled /api/absence-notes/[id] in 231ms (1082 modules)
+ PUT /api/absence-notes/7 200 in 1092ms
+ GET /admin/absence-notes 200 in 454ms
+ GET /favicon.ico 200 in 41ms
+ DELETE /api/absence-notes/7 200 in 786ms
+ GET /admin/absence-notes 200 in 346ms
+ GET /favicon.ico 200 in 31ms
+ ○ Compiling /api/scores ...
+ ✓ Compiled /api/scores in 1153ms (1336 modules)
+ GET /api/scores?sessionId=73&query=18821 200 in 1846ms
+ ✓ Compiled /api/scores/[id] in 285ms (1336 modules)
+ PUT /api/scores/38205 200 in 1171ms
+ PUT /api/scores/38205 200 in 697ms
+ ○ Compiling /admin/students ...
+ ✓ Compiled /admin/students in 577ms (1314 modules)
+ GET /admin/students 200 in 1181ms
+ ○ Compiling /api/export/results-print ...
+ ✓ Compiled /api/export/results-print in 781ms (1818 modules)
+ GET /api/export/results-print?mode=weekly&periodId=1&examType=GONGCHAE&weekKey=2026-03-03&view=overall 200 in 2021ms
+ GET /api/export/results-print?mode=monthly&periodId=1&examType=GONGCHAE&fromWeekKey=2026-01-06&toWeekKey=2026-03-03&view=overall 200 in 632ms
+ GET /api/export/results-print?mode=integrated&periodId=1&examType=GONGCHAE&view=overall 200 in 586ms
+ ✓ Compiled /api/export/students in 389ms (1821 modules)
+ GET /api/export/students?examType=GONGCHAE&isActive=true&format=xlsx 200 in 710ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 944ms (2718 modules)
+ GET /api/export/scores-raw?periodId=1&examType=GONGCHAE&format=xlsx 404 in 1090ms
+ GET /api/export/rankings?periodId=1&examType=GONGCHAE&view=overall&format=xlsx 404 in 35ms
+ ✓ Compiled /api/export/query in 444ms (1824 modules)
+ GET /api/export/query?mode=date&examType=GONGCHAE&periodId=1&date=2026-03-03&format=xlsx 200 in 849ms
+ ✓ Compiled /api/export/scores in 458ms (1575 modules)
+ GET /api/export/scores?periodId=1&examType=GONGCHAE&format=xlsx 200 in 2436ms
+ ✓ Compiled /api/export/ranking in 448ms (1577 modules)
+ GET /api/export/ranking?periodId=1&examType=GONGCHAE&view=overall&format=xlsx 200 in 1076ms
+ ✓ Compiled /api/export/enrollments in 374ms (1580 modules)
+ GET /api/export/enrollments?periodId=1&format=xlsx 200 in 761ms
+ ✓ Compiled /admin/students/[examNumber] in 481ms (1587 modules)
+ GET /admin/students/18821?tab=analysis 200 in 1726ms
+ ✓ Compiled /admin/students/analyze in 425ms (1579 modules)
+ GET /admin/students/analyze?q=18821 200 in 1283ms
+ GET /admin/counseling?examType=GONGCHAE&search=18821&examNumber=18821 200 in 839ms
+^C^C

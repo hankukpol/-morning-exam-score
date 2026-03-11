@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "주간 기준을 선택해 주세요." }, { status: 400 });
     }
 
-    const result = await getWeeklyResults(periodId, examType, weekKey, view);
+    const result = await getWeeklyResults(periodId, examType, weekKey, view, {
+      includeRankingRows: false,
+    });
     const buffer = await createWeeklyResultsPrintWorkbook(result, examType, view);
     const fileName = `주간성적표_${result.period.name}_${examTypeLabel}_${formatTuesdayWeekLabel(
       weekKey,
@@ -60,14 +62,18 @@ export async function GET(request: NextRequest) {
     }
 
     const label = `${formatTuesdayWeekLabel(fromWeekKey)} ~ ${formatTuesdayWeekLabel(toWeekKey)}`;
-    const result = await getMonthlyResults(periodId, examType, fromWeekKey, toWeekKey, view);
+    const result = await getMonthlyResults(periodId, examType, fromWeekKey, toWeekKey, view, {
+      includeRankingRows: false,
+    });
     const buffer = await createMonthlyResultsPrintWorkbook(result, examType, label, view);
     const fileName = `월간성적표_${result.period.name}_${examTypeLabel}_${label}${viewLabel}.xlsx`;
     return createDownloadResponse(buffer, fileName, "xlsx");
   }
 
   if (mode === "integrated") {
-    const result = await getIntegratedResults(periodId, examType, view);
+    const result = await getIntegratedResults(periodId, examType, view, {
+      includeRankingRows: false,
+    });
     const buffer = await createIntegratedResultsPrintWorkbook(result, examType, view);
     const fileName = `통합2개월성적표_${result.period.name}_${examTypeLabel}${viewLabel}.xlsx`;
     return createDownloadResponse(buffer, fileName, "xlsx");

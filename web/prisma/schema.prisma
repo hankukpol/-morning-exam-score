@@ -29,18 +29,20 @@ model Student {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  absenceNotes            AbsenceNote[]
-  counselingAppointments  CounselingAppointment[]
-  counselingRecords       CounselingRecord[]
-  enrollments             PeriodEnrollment[]
-  notifications      NotificationLog[]
-  pointLogs          PointLog[]
-  scores             Score[]
-  studentAnswers     StudentAnswer[]
-  weeklyStatusSnapshots WeeklyStatusSnapshot[]
-  wrongNoteBookmarks WrongNoteBookmark[]
+  absenceNotes           AbsenceNote[]
+  counselingAppointments CounselingAppointment[]
+  counselingRecords      CounselingRecord[]
+  enrollments            PeriodEnrollment[]
+  notifications          NotificationLog[]
+  pointLogs              PointLog[]
+  scores                 Score[]
+  studentAnswers         StudentAnswer[]
+  weeklyStatusSnapshots  WeeklyStatusSnapshot[]
+  wrongNoteBookmarks     WrongNoteBookmark[]
 
   @@index([examType, isActive])
+  @@index([examType, isActive, currentStatus])
+  @@index([examType, generation, isActive, examNumber])
   @@index([studentType])
   @@map("students")
 }
@@ -55,10 +57,10 @@ model ExamPeriod {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  enrollments    PeriodEnrollment[]
-  monthlyResults MonthlyResult[]
-  pointLogs      PointLog[]
-  sessions       ExamSession[]
+  enrollments           PeriodEnrollment[]
+  monthlyResults        MonthlyResult[]
+  pointLogs             PointLog[]
+  sessions              ExamSession[]
   weeklyStatusSnapshots WeeklyStatusSnapshot[]
 
   @@map("exam_periods")
@@ -97,6 +99,7 @@ model ExamSession {
 
   @@unique([periodId, examType, examDate, subject])
   @@index([periodId, examType, week])
+  @@index([periodId, examType, examDate])
   @@map("exam_sessions")
 }
 
@@ -118,6 +121,7 @@ model Score {
 
   @@unique([examNumber, sessionId])
   @@index([sessionId])
+  @@index([examNumber])
   @@map("scores")
 }
 
@@ -140,6 +144,7 @@ model AbsenceNote {
 
   @@unique([examNumber, sessionId])
   @@index([status, submittedAt])
+  @@index([sessionId, status])
   @@map("absence_notes")
 }
 
@@ -156,6 +161,7 @@ model NotificationLog {
   student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
   @@index([examNumber, type])
+  @@index([status, sentAt])
   @@map("notification_logs")
 }
 
@@ -269,6 +275,8 @@ model PointLog {
   student Student     @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
   @@index([examNumber, grantedAt])
+  @@index([periodId, grantedAt])
+  @@index([periodId, year, month, type])
   @@map("point_logs")
 }
 

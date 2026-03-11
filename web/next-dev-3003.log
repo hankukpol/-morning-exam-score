@@ -1,0 +1,29 @@
+
+> web@0.1.0 dev
+> next dev --port 3003
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3003
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 8.2s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 2.2s (123 modules)
+ ○ Compiling /login ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled /login in 12.7s (609 modules)
+ GET /login 200 in 58ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 898ms (342 modules)
+ GET /favicon.ico 200 in 1020ms
+ GET /login 200 in 132ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1192ms (834 modules)
+ ○ Compiling /admin/students ...
+ ✓ Compiled /admin/students in 2.7s (923 modules)
+ ○ Compiling /admin/absence-notes ...
+ ✓ Compiled /admin/absence-notes in 512ms (938 modules)
+ ✓ Compiled /admin/results/weekly in 348ms (942 modules)
+ ✓ Compiled /admin/export in 320ms (949 modules)
+[?25h

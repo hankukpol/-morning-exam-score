@@ -25,6 +25,8 @@ export type StudentFilters = {
   generation?: number;
   activeOnly?: boolean;
   limit?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 export type StudentFormInput = {
@@ -51,36 +53,40 @@ type PasteDefaults = {
 
 type PasteMapping = Partial<Record<StudentPasteFieldKey, number>>;
 
-export async function listStudents(filters: StudentFilters) {
+function buildStudentListWhere(filters: StudentFilters): Prisma.StudentWhereInput {
   const search = filters.search?.trim();
 
+  return {
+    AND: [
+      NON_PLACEHOLDER_STUDENT_FILTER,
+      {
+        examType: filters.examType,
+        generation: filters.generation,
+        isActive: filters.activeOnly === false ? undefined : true,
+        OR: search
+          ? [
+              {
+                examNumber: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            ]
+          : undefined,
+      },
+    ],
+  };
+}
+
+export async function listStudents(filters: StudentFilters) {
   return getPrisma().student.findMany({
-    where: {
-      AND: [
-        NON_PLACEHOLDER_STUDENT_FILTER,
-        {
-          examType: filters.examType,
-          generation: filters.generation,
-          isActive: filters.activeOnly === false ? undefined : true,
-          OR: search
-            ? [
-                {
-                  examNumber: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-                {
-                  name: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              ]
-            : undefined,
-        },
-      ],
-    },
+    where: buildStudentListWhere(filters),
     orderBy: [{ isActive: "desc" }, { generation: "desc" }, { examNumber: "asc" }],
     take: filters.limit,
     include: {
@@ -91,6 +97,37 @@ export async function listStudents(filters: StudentFilters) {
       },
     },
   });
+}
+
+export async function listStudentsPage(filters: StudentFilters) {
+  const prisma = getPrisma();
+  const pageSize = Math.min(Math.max(filters.pageSize ?? 30, 1), 100);
+  const requestedPage = Math.max(filters.page ?? 1, 1);
+  const where = buildStudentListWhere(filters);
+
+  const totalCount = await prisma.student.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const students = await prisma.student.findMany({
+    where,
+    orderBy: [{ isActive: "desc" }, { generation: "desc" }, { examNumber: "asc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    include: {
+      _count: {
+        select: {
+          scores: true,
+        },
+      },
+    },
+  });
+
+  return {
+    page,
+    pageSize,
+    totalCount,
+    students,
+  };
 }
 
 export async function getStudentHistory(examNumber: string) {

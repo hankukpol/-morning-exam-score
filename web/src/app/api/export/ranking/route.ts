@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "시험 기간을 선택하세요." }, { status: 400 });
   }
 
-  const result = await getIntegratedResults(Number(periodIdValue), examType, view);
+  const result = await getIntegratedResults(Number(periodIdValue), examType, view, {
+    includeProfiles: false,
+  });
   const examTypeLabel = EXAM_TYPE_LABEL[examType];
   const viewLabel = view === "new" ? "_신규생" : "";
   const fileName = `석차_${result.period.name}_${examTypeLabel}${viewLabel}.${format}`;

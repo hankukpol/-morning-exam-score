@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import { AdminRole } from "@/generated/prisma";
 import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
 import {
   buildHref,
@@ -20,8 +20,10 @@ type PageProps = {
 };
 
 export default async function AdminWeeklyResultsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const weekOptions = getWeekOptions(selectedPeriod, examType);
   const requestedWeekKey = readStringParam(searchParams, "weekKey");
   const selectedWeek =
@@ -32,7 +34,9 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data =
     selectedPeriod && selectedWeek
-      ? await getWeeklyResults(selectedPeriod.id, examType, selectedWeek.key, view)
+      ? await getWeeklyResults(selectedPeriod.id, examType, selectedWeek.key, view, {
+          includeRankingRows: false,
+        })
       : null;
 
   return (
@@ -40,14 +44,14 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-05-B Weekly Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">주간 성적 집계</h1>
+      <h1 className="mt-5 text-3xl font-semibold">二쇨컙 ?깆쟻 吏묎퀎</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        화요일 시작 주간 기준으로 현재까지 발생한 시험만 반영해 주간 평균과 석차를 집계합니다.
+        ?붿슂???쒖옉 二쇨컙 湲곗??쇰줈 ?꾩옱源뚯? 諛쒖깮???쒗뿕留?諛섏쁺??二쇨컙 ?됯퇏怨??앹감瑜?吏묎퀎?⑸땲??
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
         <div>
-          <label className="mb-2 block text-sm font-medium">시험 기간</label>
+          <label className="mb-2 block text-sm font-medium">?쒗뿕 湲곌컙</label>
           <select
             name="periodId"
             defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
@@ -61,7 +65,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">직렬</label>
+          <label className="mb-2 block text-sm font-medium">吏곷젹</label>
           <select
             name="examType"
             defaultValue={examType}
@@ -72,7 +76,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">주간 기간</label>
+          <label className="mb-2 block text-sm font-medium">二쇨컙 湲곌컙</label>
           <select
             name="weekKey"
             defaultValue={selectedWeek?.key ?? ""}
@@ -90,7 +94,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
-            조회
+            議고쉶
           </button>
         </div>
       </form>
@@ -110,7 +114,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                 : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
                 }`}
             >
-              전체 성적
+              ?꾩껜 ?깆쟻
             </Link>
             <Link
               href={buildHref("/admin/results/weekly", {
@@ -124,7 +128,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                 : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
                 }`}
             >
-              신규생 성적
+              ?좉퇋???깆쟻
             </Link>
             <Link
               href={buildHref("/api/export/results-print", {
@@ -136,16 +140,16 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
               })}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
             >
-              인쇄용 엑셀 다운로드
+              ?몄뇙???묒? ?ㅼ슫濡쒕뱶
             </Link>
           </div>
 
           <section className="mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
-            <h2 className="text-xl font-semibold">집계 주간</h2>
+            <h2 className="text-xl font-semibold">吏묎퀎 二쇨컙</h2>
             <p className="mt-2 text-sm text-slate">
               {data.week.label}
               {data.week.legacyWeeks.length > 0
-                ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}`
+                ? ` / 湲곗〈 week ${data.week.legacyWeeks.join(", ")}`
                 : ""}
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
@@ -154,7 +158,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                   key={session.id}
                   className="rounded-full border border-ink/10 px-3 py-2"
                 >
-                  {formatDate(session.examDate)} · {SUBJECT_LABEL[session.subject]}
+                  {formatDate(session.examDate)} 쨌 {SUBJECT_LABEL[session.subject]}
                 </span>
               ))}
             </div>
@@ -170,7 +174,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         </>
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          선택한 조건에 해당하는 시험이 없습니다.
+          ?좏깮??議곌굔???대떦?섎뒗 ?쒗뿕???놁뒿?덈떎.
         </div>
       )}
     </div>

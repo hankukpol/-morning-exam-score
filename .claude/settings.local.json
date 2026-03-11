@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo view hankukpol/-morning-exam-score --json url,defaultBranchRef)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:vercel.com)",
+      "Bash(git add web/src/lib/absence-notes/service.ts web/src/lib/migration/scores.ts web/src/lib/scores/parser.ts)",
+      "Bash(xargs grep -l \"token\\\\|vercel\")"
+    ]
+  }
+}

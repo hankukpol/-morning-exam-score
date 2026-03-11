@@ -1,0 +1,9 @@
+
+> web@0.1.0 start
+> next start --port 3004
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3004
+
+ ✓ Starting...
+ ✓ Ready in 413ms

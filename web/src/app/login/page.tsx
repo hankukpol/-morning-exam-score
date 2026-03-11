@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/auth/login-form";
+import { sanitizeRedirectPath } from "@/lib/security";
 
 type LoginPageProps = {
   searchParams?: {
@@ -13,7 +14,7 @@ const errorMessage: Record<string, string> = {
 };
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
-  const redirectTo = searchParams?.redirectTo ?? "/admin";
+  const redirectTo = sanitizeRedirectPath(searchParams?.redirectTo, "/admin");
   const error = searchParams?.error;
 
   return (

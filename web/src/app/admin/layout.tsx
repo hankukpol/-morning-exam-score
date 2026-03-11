@@ -2,9 +2,13 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SetupPanel } from "@/components/setup-panel";
 import { ADMIN_NAV_ITEMS, NavItem, ROLE_LABEL } from "@/lib/constants";
+import {
+  getDisplayErrorDetails,
+  getDisplayErrorMessage,
+  getServerErrorLogMessage,
+} from "@/lib/error-display";
 import { getSetupState } from "@/lib/env";
-import { getCurrentAdminContext, roleAtLeast } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentAdminContext, getCurrentAuthUser, roleAtLeast } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -33,21 +37,25 @@ export default async function AdminLayout({
   try {
     context = await getCurrentAdminContext();
   } catch (err) {
-    const msg = err instanceof Error ? err.stack ?? err.message : String(err);
-    console.error("[AdminLayout] getCurrentAdminContext error:", msg);
+    const details = getDisplayErrorDetails(err);
+    console.error("[AdminLayout] getCurrentAdminContext error:", getServerErrorLogMessage(err));
     return (
       <main className="p-8">
         <h1 className="text-xl font-bold text-red-700">레이아웃 오류</h1>
-        <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">{msg}</pre>
+        <p className="mt-4 text-sm text-slate">
+          {getDisplayErrorMessage(err, "관리자 화면을 불러오는 중 오류가 발생했습니다.")}
+        </p>
+        {details ? (
+          <pre className="mt-4 rounded bg-red-50 p-4 text-sm text-red-800 whitespace-pre-wrap break-all">
+            {details}
+          </pre>
+        ) : null}
       </main>
     );
   }
 
   if (!context) {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentAuthUser();
 
     if (user) {
       return (

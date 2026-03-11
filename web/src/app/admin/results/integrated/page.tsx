@@ -17,7 +17,9 @@ export default async function AdminIntegratedResultsPage({ searchParams }: PageP
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data = selectedPeriod
-    ? await getIntegratedResults(selectedPeriod.id, examType, view)
+    ? await getIntegratedResults(selectedPeriod.id, examType, view, {
+        includeRankingRows: false,
+      })
     : null;
 
   return (

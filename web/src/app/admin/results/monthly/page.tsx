@@ -34,7 +34,9 @@ export default async function AdminMonthlyResultsPage({ searchParams }: PageProp
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data =
     selectedPeriod && fromWeekKey && toWeekKey
-      ? await getMonthlyResults(selectedPeriod.id, examType, fromWeekKey, toWeekKey, view)
+      ? await getMonthlyResults(selectedPeriod.id, examType, fromWeekKey, toWeekKey, view, {
+          includeRankingRows: false,
+        })
       : null;
 
   const fromLabel = weekOptions.find((w) => w.key === fromWeekKey)?.label ?? "";

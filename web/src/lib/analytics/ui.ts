@@ -1,11 +1,11 @@
 import { ExamType } from "@/generated/prisma";
 import { formatTuesdayWeekLabel, getTuesdayWeekKey, getTuesdayWeekStart } from "@/lib/analytics/week";
 import { type TuesdayWeekSummary } from "@/lib/analytics/service";
-import { listPeriods } from "@/lib/periods/service";
+import { getPeriodWithSessions, listPeriodsBasic } from "@/lib/periods/service";
 
 type SearchParamValue = string | string[] | undefined;
 type SearchParams = Record<string, SearchParamValue>;
-type PeriodRecord = Awaited<ReturnType<typeof listPeriods>>[number];
+type PeriodRecord = NonNullable<Awaited<ReturnType<typeof getPeriodWithSessions>>>;
 
 function pickFirst(value: SearchParamValue) {
   return Array.isArray(value) ? value[0] : value;
@@ -26,12 +26,15 @@ export function readExamTypeParam(searchParams: SearchParams | undefined, key = 
 }
 
 export async function getAnalyticsContext(searchParams?: SearchParams) {
-  const periods = await listPeriods();
+  const periods = await listPeriodsBasic();
   const requestedPeriodId = readNumberParam(searchParams, "periodId");
   const activePeriod = periods.find((period) => period.isActive) ?? periods[0] ?? null;
-  const selectedPeriod =
+  const selectedPeriodOption =
     periods.find((period) => period.id === requestedPeriodId) ?? activePeriod ?? null;
   const examType = readExamTypeParam(searchParams);
+  const selectedPeriod = selectedPeriodOption
+    ? await getPeriodWithSessions(selectedPeriodOption.id)
+    : null;
 
   return {
     periods,

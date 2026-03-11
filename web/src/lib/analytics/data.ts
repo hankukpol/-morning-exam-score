@@ -1,0 +1,484 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import {
+  AbsenceStatus,
+  AttendType,
+  ExamType,
+  PointType,
+  Prisma,
+  StudentStatus,
+  StudentType,
+  Subject,
+} from "@/generated/prisma";
+import { getPrisma } from "@/lib/prisma";
+
+const ANALYTICS_REVALIDATE_SECONDS = 15;
+
+type DatasetPeriod = Prisma.ExamPeriodGetPayload<{
+  select: {
+    id: true;
+    name: true;
+    startDate: true;
+    endDate: true;
+    totalWeeks: true;
+    isActive: true;
+  };
+}>;
+
+export type DatasetSession = {
+  id: number;
+  week: number;
+  subject: Subject;
+  examDate: Date;
+  isCancelled: boolean;
+  periodId: number;
+  examType: ExamType;
+};
+
+export type DatasetStudent = {
+  examNumber: string;
+  name: string;
+  phone: string | null;
+  studentType: StudentType;
+  isActive: boolean;
+  notificationConsent: boolean;
+  currentStatus: StudentStatus;
+};
+
+export type DatasetScore = {
+  id: number;
+  examNumber: string;
+  sessionId: number;
+  attendType: AttendType;
+  rawScore: number | null;
+  oxScore: number | null;
+  finalScore: number | null;
+};
+
+export type DatasetAbsence = {
+  examNumber: string;
+  sessionId: number;
+  attendGrantsPerfectAttendance: boolean;
+  status: AbsenceStatus;
+};
+
+export type DatasetPointLog = {
+  id: number;
+  examNumber: string;
+  type: PointType;
+  amount: number;
+  reason: string;
+  periodId: number | null;
+  month: number | null;
+  year: number | null;
+  grantedAt: Date;
+  grantedBy: string | null;
+  student: {
+    name: string;
+  };
+};
+
+export type ResultsSheetStudent = {
+  examNumber: string;
+  name: string;
+  studentType: StudentType;
+  isActive: boolean;
+};
+
+export type ResultsSheetApprovedAbsence = {
+  examNumber: string;
+  sessionId: number;
+};
+
+export type AnalyticsDataset = {
+  period: DatasetPeriod;
+  sessions: DatasetSession[];
+  students: DatasetStudent[];
+  scores: DatasetScore[];
+  absenceNotes: DatasetAbsence[];
+  pointLogs: DatasetPointLog[];
+};
+
+export type ResultsSheetDataset = {
+  period: DatasetPeriod;
+  sessions: DatasetSession[];
+  students: ResultsSheetStudent[];
+  scores: DatasetScore[];
+  approvedAbsences: ResultsSheetApprovedAbsence[];
+};
+
+function serializeExamNumbers(examNumbers?: string[]) {
+  return examNumbers && examNumbers.length > 0 ? JSON.stringify(examNumbers) : "";
+}
+
+function deserializeExamNumbers(serialized: string) {
+  if (!serialized) {
+    return undefined;
+  }
+
+  return JSON.parse(serialized) as string[];
+}
+
+function serializeDate(value?: Date) {
+  return value ? value.toISOString() : "";
+}
+
+function deserializeDate(value: string) {
+  return value ? new Date(value) : undefined;
+}
+
+export function buildPeriodScopedStudentWhere(
+  periodId: number,
+  examType?: ExamType,
+  options?: {
+    includePointLogs?: boolean;
+  },
+): Prisma.StudentWhereInput {
+  const includePointLogs = options?.includePointLogs ?? true;
+
+  return {
+    examType,
+    OR: [
+      {
+        enrollments: {
+          some: {
+            periodId,
+          },
+        },
+      },
+      {
+        scores: {
+          some: {
+            session: {
+              periodId,
+              examType,
+            },
+          },
+        },
+      },
+      {
+        absenceNotes: {
+          some: {
+            session: {
+              periodId,
+              examType,
+            },
+          },
+        },
+      },
+      ...(includePointLogs
+        ? [
+            {
+              pointLogs: {
+                some: {
+                  periodId,
+                },
+              },
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
+const loadDatasetShared = unstable_cache(
+  async (
+    periodId: number,
+    examType: ExamType,
+    serializedExamNumbers: string,
+    includePointLogs: boolean,
+  ): Promise<AnalyticsDataset> => {
+    const prisma = getPrisma();
+    const period = await prisma.examPeriod.findUniqueOrThrow({
+      where: { id: periodId },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        totalWeeks: true,
+        isActive: true,
+      },
+    });
+    const examNumbers = deserializeExamNumbers(serializedExamNumbers);
+    const studentFilter = examNumbers?.length
+      ? {
+          examType,
+          examNumber: {
+            in: examNumbers,
+          },
+        }
+      : buildPeriodScopedStudentWhere(periodId, examType);
+    const scoreStudentFilter = examNumbers?.length
+      ? {
+          in: examNumbers,
+        }
+      : undefined;
+
+    const [sessions, students, scores, absenceNotes, pointLogs] = await Promise.all([
+      prisma.examSession.findMany({
+        where: {
+          periodId,
+          examType,
+        },
+        orderBy: [{ examDate: "asc" }, { week: "asc" }],
+      }),
+      prisma.student.findMany({
+        where: studentFilter,
+        orderBy: [{ isActive: "desc" }, { examNumber: "asc" }],
+        select: {
+          examNumber: true,
+          name: true,
+          phone: true,
+          studentType: true,
+          isActive: true,
+          notificationConsent: true,
+          currentStatus: true,
+        },
+      }),
+      prisma.score.findMany({
+        where: {
+          session: {
+            periodId,
+            examType,
+          },
+          student: {
+            examType,
+            ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
+          },
+        },
+        select: {
+          id: true,
+          examNumber: true,
+          sessionId: true,
+          attendType: true,
+          rawScore: true,
+          oxScore: true,
+          finalScore: true,
+        },
+      }),
+      prisma.absenceNote.findMany({
+        where: {
+          session: {
+            periodId,
+            examType,
+          },
+          student: {
+            examType,
+            ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
+          },
+        },
+        select: {
+          examNumber: true,
+          sessionId: true,
+          attendGrantsPerfectAttendance: true,
+          status: true,
+        },
+      }),
+      includePointLogs
+        ? prisma.pointLog.findMany({
+            where: {
+              periodId,
+              student: {
+                examType,
+                ...(scoreStudentFilter ? { examNumber: scoreStudentFilter } : {}),
+              },
+            },
+            select: {
+              id: true,
+              examNumber: true,
+              type: true,
+              amount: true,
+              reason: true,
+              periodId: true,
+              month: true,
+              year: true,
+              grantedAt: true,
+              grantedBy: true,
+              student: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+            orderBy: {
+              grantedAt: "desc",
+            },
+          })
+        : Promise.resolve([] as DatasetPointLog[]),
+    ]);
+
+    return {
+      period,
+      sessions: sessions as DatasetSession[],
+      students: students as DatasetStudent[],
+      scores: scores as DatasetScore[],
+      absenceNotes: absenceNotes as DatasetAbsence[],
+      pointLogs: pointLogs as DatasetPointLog[],
+    };
+  },
+  ["analytics-load-dataset"],
+  { revalidate: ANALYTICS_REVALIDATE_SECONDS },
+);
+
+const loadDatasetCached = cache(async (
+  periodId: number,
+  examType: ExamType,
+  serializedExamNumbers: string,
+  includePointLogs: boolean,
+): Promise<AnalyticsDataset> => {
+  return loadDatasetShared(periodId, examType, serializedExamNumbers, includePointLogs);
+});
+
+export async function loadDataset(
+  periodId: number,
+  examType: ExamType,
+  examNumbers?: string[],
+  options?: {
+    includePointLogs?: boolean;
+  },
+): Promise<AnalyticsDataset> {
+  return loadDatasetCached(
+    periodId,
+    examType,
+    serializeExamNumbers(examNumbers),
+    options?.includePointLogs ?? false,
+  );
+}
+
+const loadResultsSheetDatasetShared = unstable_cache(
+  async (
+    periodId: number,
+    examType: ExamType,
+    serializedGte: string,
+    serializedLt: string,
+    serializedLte: string,
+  ): Promise<ResultsSheetDataset> => {
+    const prisma = getPrisma();
+    const [period, sessions, students] = await Promise.all([
+      prisma.examPeriod.findUniqueOrThrow({
+        where: { id: periodId },
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          totalWeeks: true,
+          isActive: true,
+        },
+      }),
+      prisma.examSession.findMany({
+        where: {
+          periodId,
+          examType,
+          examDate: {
+            gte: deserializeDate(serializedGte),
+            lt: deserializeDate(serializedLt),
+            lte: deserializeDate(serializedLte),
+          },
+        },
+        orderBy: [{ examDate: "asc" }, { week: "asc" }],
+      }) as Promise<DatasetSession[]>,
+      prisma.student.findMany({
+        where: buildPeriodScopedStudentWhere(periodId, examType, {
+          includePointLogs: false,
+        }),
+        orderBy: [{ isActive: "desc" }, { examNumber: "asc" }],
+        select: {
+          examNumber: true,
+          name: true,
+          studentType: true,
+          isActive: true,
+        },
+      }) as Promise<ResultsSheetStudent[]>,
+    ]);
+    const sessionIds = sessions.map((session) => session.id);
+
+    if (sessionIds.length === 0) {
+      return {
+        period,
+        sessions,
+        students,
+        scores: [],
+        approvedAbsences: [],
+      };
+    }
+
+    const [scores, approvedAbsences] = await Promise.all([
+      prisma.score.findMany({
+        where: {
+          sessionId: {
+            in: sessionIds,
+          },
+        },
+        select: {
+          id: true,
+          examNumber: true,
+          sessionId: true,
+          attendType: true,
+          rawScore: true,
+          oxScore: true,
+          finalScore: true,
+        },
+      }),
+      prisma.absenceNote.findMany({
+        where: {
+          sessionId: {
+            in: sessionIds,
+          },
+          status: AbsenceStatus.APPROVED,
+        },
+        select: {
+          examNumber: true,
+          sessionId: true,
+        },
+      }),
+    ]);
+
+    return {
+      period,
+      sessions,
+      students,
+      scores: scores as DatasetScore[],
+      approvedAbsences: approvedAbsences as ResultsSheetApprovedAbsence[],
+    };
+  },
+  ["analytics-load-results-sheet-dataset"],
+  { revalidate: ANALYTICS_REVALIDATE_SECONDS },
+);
+
+const loadResultsSheetDatasetCached = cache(async (
+  periodId: number,
+  examType: ExamType,
+  serializedGte: string,
+  serializedLt: string,
+  serializedLte: string,
+): Promise<ResultsSheetDataset> => {
+  return loadResultsSheetDatasetShared(
+    periodId,
+    examType,
+    serializedGte,
+    serializedLt,
+    serializedLte,
+  );
+});
+
+export async function loadResultsSheetDataset(
+  periodId: number,
+  examType: ExamType,
+  sessionsWhere?: {
+    examDate?: {
+      gte?: Date;
+      lt?: Date;
+      lte?: Date;
+    };
+  },
+): Promise<ResultsSheetDataset> {
+  return loadResultsSheetDatasetCached(
+    periodId,
+    examType,
+    serializeDate(sessionsWhere?.examDate?.gte),
+    serializeDate(sessionsWhere?.examDate?.lt),
+    serializeDate(sessionsWhere?.examDate?.lte),
+  );
+}
