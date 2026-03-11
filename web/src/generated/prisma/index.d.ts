@@ -4463,6 +4463,8 @@ export namespace Prisma {
     endDate: Date | null
     totalWeeks: number | null
     isActive: boolean | null
+    isGongchaeEnabled: boolean | null
+    isGyeongchaeEnabled: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -4474,6 +4476,8 @@ export namespace Prisma {
     endDate: Date | null
     totalWeeks: number | null
     isActive: boolean | null
+    isGongchaeEnabled: boolean | null
+    isGyeongchaeEnabled: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -4485,6 +4489,8 @@ export namespace Prisma {
     endDate: number
     totalWeeks: number
     isActive: number
+    isGongchaeEnabled: number
+    isGyeongchaeEnabled: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -4508,6 +4514,8 @@ export namespace Prisma {
     endDate?: true
     totalWeeks?: true
     isActive?: true
+    isGongchaeEnabled?: true
+    isGyeongchaeEnabled?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -4519,6 +4527,8 @@ export namespace Prisma {
     endDate?: true
     totalWeeks?: true
     isActive?: true
+    isGongchaeEnabled?: true
+    isGyeongchaeEnabled?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -4530,6 +4540,8 @@ export namespace Prisma {
     endDate?: true
     totalWeeks?: true
     isActive?: true
+    isGongchaeEnabled?: true
+    isGyeongchaeEnabled?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -4628,6 +4640,8 @@ export namespace Prisma {
     endDate: Date
     totalWeeks: number
     isActive: boolean
+    isGongchaeEnabled: boolean
+    isGyeongchaeEnabled: boolean
     createdAt: Date
     updatedAt: Date
     _count: ExamPeriodCountAggregateOutputType | null
@@ -4658,6 +4672,8 @@ export namespace Prisma {
     endDate?: boolean
     totalWeeks?: boolean
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     enrollments?: boolean | ExamPeriod$enrollmentsArgs<ExtArgs>
@@ -4675,6 +4691,8 @@ export namespace Prisma {
     endDate?: boolean
     totalWeeks?: boolean
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["examPeriod"]>
@@ -4686,6 +4704,8 @@ export namespace Prisma {
     endDate?: boolean
     totalWeeks?: boolean
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["examPeriod"]>
@@ -4697,11 +4717,13 @@ export namespace Prisma {
     endDate?: boolean
     totalWeeks?: boolean
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ExamPeriodOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "startDate" | "endDate" | "totalWeeks" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["examPeriod"]>
+  export type ExamPeriodOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "startDate" | "endDate" | "totalWeeks" | "isActive" | "isGongchaeEnabled" | "isGyeongchaeEnabled" | "createdAt" | "updatedAt", ExtArgs["result"]["examPeriod"]>
   export type ExamPeriodInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     enrollments?: boolean | ExamPeriod$enrollmentsArgs<ExtArgs>
     monthlyResults?: boolean | ExamPeriod$monthlyResultsArgs<ExtArgs>
@@ -4729,6 +4751,8 @@ export namespace Prisma {
       endDate: Date
       totalWeeks: number
       isActive: boolean
+      isGongchaeEnabled: boolean
+      isGyeongchaeEnabled: boolean
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["examPeriod"]>
@@ -5165,6 +5189,8 @@ export namespace Prisma {
     readonly endDate: FieldRef<"ExamPeriod", 'DateTime'>
     readonly totalWeeks: FieldRef<"ExamPeriod", 'Int'>
     readonly isActive: FieldRef<"ExamPeriod", 'Boolean'>
+    readonly isGongchaeEnabled: FieldRef<"ExamPeriod", 'Boolean'>
+    readonly isGyeongchaeEnabled: FieldRef<"ExamPeriod", 'Boolean'>
     readonly createdAt: FieldRef<"ExamPeriod", 'DateTime'>
     readonly updatedAt: FieldRef<"ExamPeriod", 'DateTime'>
   }
@@ -24178,6 +24204,8 @@ export namespace Prisma {
     endDate: 'endDate',
     totalWeeks: 'totalWeeks',
     isActive: 'isActive',
+    isGongchaeEnabled: 'isGongchaeEnabled',
+    isGyeongchaeEnabled: 'isGyeongchaeEnabled',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -24914,6 +24942,8 @@ export namespace Prisma {
     endDate?: DateTimeFilter<"ExamPeriod"> | Date | string
     totalWeeks?: IntFilter<"ExamPeriod"> | number
     isActive?: BoolFilter<"ExamPeriod"> | boolean
+    isGongchaeEnabled?: BoolFilter<"ExamPeriod"> | boolean
+    isGyeongchaeEnabled?: BoolFilter<"ExamPeriod"> | boolean
     createdAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     updatedAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     enrollments?: PeriodEnrollmentListRelationFilter
@@ -24930,6 +24960,8 @@ export namespace Prisma {
     endDate?: SortOrder
     totalWeeks?: SortOrder
     isActive?: SortOrder
+    isGongchaeEnabled?: SortOrder
+    isGyeongchaeEnabled?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     enrollments?: PeriodEnrollmentOrderByRelationAggregateInput
@@ -24949,6 +24981,8 @@ export namespace Prisma {
     endDate?: DateTimeFilter<"ExamPeriod"> | Date | string
     totalWeeks?: IntFilter<"ExamPeriod"> | number
     isActive?: BoolFilter<"ExamPeriod"> | boolean
+    isGongchaeEnabled?: BoolFilter<"ExamPeriod"> | boolean
+    isGyeongchaeEnabled?: BoolFilter<"ExamPeriod"> | boolean
     createdAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     updatedAt?: DateTimeFilter<"ExamPeriod"> | Date | string
     enrollments?: PeriodEnrollmentListRelationFilter
@@ -24965,6 +24999,8 @@ export namespace Prisma {
     endDate?: SortOrder
     totalWeeks?: SortOrder
     isActive?: SortOrder
+    isGongchaeEnabled?: SortOrder
+    isGyeongchaeEnabled?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: ExamPeriodCountOrderByAggregateInput
@@ -24984,6 +25020,8 @@ export namespace Prisma {
     endDate?: DateTimeWithAggregatesFilter<"ExamPeriod"> | Date | string
     totalWeeks?: IntWithAggregatesFilter<"ExamPeriod"> | number
     isActive?: BoolWithAggregatesFilter<"ExamPeriod"> | boolean
+    isGongchaeEnabled?: BoolWithAggregatesFilter<"ExamPeriod"> | boolean
+    isGyeongchaeEnabled?: BoolWithAggregatesFilter<"ExamPeriod"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"ExamPeriod"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"ExamPeriod"> | Date | string
   }
@@ -26423,6 +26461,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
@@ -26439,6 +26479,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
@@ -26454,6 +26496,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
@@ -26470,6 +26514,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
@@ -26486,6 +26532,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -26496,6 +26544,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -26507,6 +26557,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -28239,6 +28291,8 @@ export namespace Prisma {
     endDate?: SortOrder
     totalWeeks?: SortOrder
     isActive?: SortOrder
+    isGongchaeEnabled?: SortOrder
+    isGyeongchaeEnabled?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -28255,6 +28309,8 @@ export namespace Prisma {
     endDate?: SortOrder
     totalWeeks?: SortOrder
     isActive?: SortOrder
+    isGongchaeEnabled?: SortOrder
+    isGyeongchaeEnabled?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -28266,6 +28322,8 @@ export namespace Prisma {
     endDate?: SortOrder
     totalWeeks?: SortOrder
     isActive?: SortOrder
+    isGongchaeEnabled?: SortOrder
+    isGyeongchaeEnabled?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -32063,6 +32121,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
@@ -32078,6 +32138,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
@@ -32108,6 +32170,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
@@ -32123,6 +32187,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
@@ -32174,6 +32240,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
@@ -32189,6 +32257,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
@@ -32303,6 +32373,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
@@ -32318,6 +32390,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
@@ -32934,6 +33008,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
@@ -32949,6 +33025,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
@@ -33044,6 +33122,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
@@ -33059,6 +33139,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
@@ -33770,6 +33852,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentCreateNestedManyWithoutPeriodInput
@@ -33785,6 +33869,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     enrollments?: PeriodEnrollmentUncheckedCreateNestedManyWithoutPeriodInput
@@ -33880,6 +33966,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUpdateManyWithoutPeriodNestedInput
@@ -33895,6 +33983,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enrollments?: PeriodEnrollmentUncheckedUpdateManyWithoutPeriodNestedInput
@@ -34098,6 +34188,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     monthlyResults?: MonthlyResultCreateNestedManyWithoutPeriodInput
@@ -34113,6 +34205,8 @@ export namespace Prisma {
     endDate: Date | string
     totalWeeks?: number
     isActive?: boolean
+    isGongchaeEnabled?: boolean
+    isGyeongchaeEnabled?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     monthlyResults?: MonthlyResultUncheckedCreateNestedManyWithoutPeriodInput
@@ -34208,6 +34302,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     monthlyResults?: MonthlyResultUpdateManyWithoutPeriodNestedInput
@@ -34223,6 +34319,8 @@ export namespace Prisma {
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     totalWeeks?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    isGongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isGyeongchaeEnabled?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     monthlyResults?: MonthlyResultUncheckedUpdateManyWithoutPeriodNestedInput

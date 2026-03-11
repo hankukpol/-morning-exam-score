@@ -48,14 +48,16 @@ model Student {
 }
 
 model ExamPeriod {
-  id         Int      @id @default(autoincrement())
-  name       String
-  startDate  DateTime
-  endDate    DateTime
-  totalWeeks Int      @default(8)
-  isActive   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  name               String
+  startDate          DateTime
+  endDate            DateTime
+  totalWeeks         Int      @default(8)
+  isActive           Boolean  @default(false)
+  isGongchaeEnabled  Boolean  @default(true)
+  isGyeongchaeEnabled Boolean @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   enrollments           PeriodEnrollment[]
   monthlyResults        MonthlyResult[]

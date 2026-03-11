@@ -149,6 +149,8 @@ exports.Prisma.ExamPeriodScalarFieldEnum = {
   endDate: 'endDate',
   totalWeeks: 'totalWeeks',
   isActive: 'isActive',
+  isGongchaeEnabled: 'isGongchaeEnabled',
+  isGyeongchaeEnabled: 'isGyeongchaeEnabled',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

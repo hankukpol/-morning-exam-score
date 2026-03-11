@@ -39,6 +39,12 @@ type PreviewResponse = {
   sheetNames?: string[];
 };
 
+type ExecuteResponse = {
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+};
+
 type PasteImportWorkbenchProps = {
   initialExamType: "GONGCHAE" | "GYEONGCHAE";
 };
@@ -116,10 +122,10 @@ export function PasteImportWorkbench({
   return (
     <div className="space-y-8">
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
-        <h2 className="text-xl font-semibold">붙여넣기 / 엑셀 등록</h2>
+        <h2 className="text-xl font-semibold">붙여넣기 / 파일 등록</h2>
         <p className="mt-3 text-sm leading-7 text-slate">
-          엑셀에서 `수험번호-이름-연락처-기수-반-등록일` 6열을 복사해서 붙여넣거나, 별도 명단
-          파일을 업로드해 일괄 등록할 수 있습니다.
+          엑셀에서 `수험번호-이름-연락처-기수-반-등록일` 6열을 복사해 붙여넣거나, 별도 명단 파일을
+          업로드해 한꺼번에 등록할 수 있습니다.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -134,7 +140,7 @@ export function PasteImportWorkbench({
                   : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"
               }`}
             >
-              {tab === "text" ? "텍스트 붙여넣기" : "엑셀 업로드"}
+              {tab === "text" ? "텍스트 붙여넣기" : "파일 업로드"}
             </button>
           ))}
         </div>
@@ -202,7 +208,7 @@ export function PasteImportWorkbench({
                 }))
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-              placeholder="예: 기본이론반"
+              placeholder="예: 기본A반"
             />
           </div>
         </div>
@@ -243,7 +249,7 @@ export function PasteImportWorkbench({
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 className="min-h-[220px] w-full rounded-[24px] border border-ink/10 bg-white px-4 py-4 text-sm leading-7"
-                placeholder={"35357\t홍길동\t010-1234-5678\t49\t기본이론반\t2026-03-01"}
+                placeholder={"35357\t홍길동\t010-1234-5678\t49\t기본A반\t2026-03-01"}
               />
             </div>
           </>
@@ -278,9 +284,9 @@ export function PasteImportWorkbench({
             type="button"
             onClick={() =>
               run(async () => {
-                const payload = await request("execute");
+                const payload = (await request("execute")) as ExecuteResponse;
                 setNotice(
-                  `반영 완료: 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건, 건너뜀 ${payload.skippedCount}건`,
+                  `반영 완료: 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건, 건너뛰기 ${payload.skippedCount}건`,
                 );
                 router.refresh();
               })
@@ -342,7 +348,7 @@ export function PasteImportWorkbench({
                   <th className="px-4 py-3 font-semibold">연락처</th>
                   <th className="px-4 py-3 font-semibold">기수</th>
                   <th className="px-4 py-3 font-semibold">반</th>
-                  <th className="px-4 py-3 font-semibold">이슈</th>
+                  <th className="px-4 py-3 font-semibold">메시지</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink/10 bg-white">

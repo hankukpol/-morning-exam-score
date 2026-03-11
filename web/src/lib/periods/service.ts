@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { getPrisma } from "@/lib/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
+import { getEnabledExamTypes } from "@/lib/periods/exam-types";
 import { CACHE_TAGS, revalidateAdminReadCaches } from "@/lib/cache-tags";
 import { rebuildWeeklyStatusSnapshots } from "@/lib/analytics/service";
 
@@ -11,6 +12,8 @@ export type PeriodFormInput = {
   startDate: Date;
   endDate: Date;
   totalWeeks: number;
+  isGongchaeEnabled: boolean;
+  isGyeongchaeEnabled: boolean;
 };
 
 function reviveDate(value: Date | string) {
@@ -46,6 +49,8 @@ const listPeriodsBasicShared = unstable_cache(
         endDate: true,
         totalWeeks: true,
         isActive: true,
+        isGongchaeEnabled: true,
+        isGyeongchaeEnabled: true,
       },
     });
   },
@@ -95,6 +100,8 @@ const getPeriodWithSessionsShared = unstable_cache(
         endDate: true,
         totalWeeks: true,
         isActive: true,
+        isGongchaeEnabled: true,
+        isGyeongchaeEnabled: true,
         sessions: {
           orderBy: [{ examDate: "asc" }, { examType: "asc" }],
           select: {
@@ -140,7 +147,10 @@ export async function createPeriod(input: {
     let generatedSessions = 0;
 
     if (input.autoGenerateSessions) {
-      const seeds = buildPeriodSessions(input.period);
+      const seeds = buildPeriodSessions({
+        ...input.period,
+        enabledExamTypes: getEnabledExamTypes(input.period),
+      });
       generatedSessions = seeds.length;
 
       await tx.examSession.createMany({
@@ -278,6 +288,7 @@ export async function generatePeriodSessions(input: {
       startDate: period.startDate,
       endDate: period.endDate,
       totalWeeks: period.totalWeeks,
+      enabledExamTypes: getEnabledExamTypes(period),
     });
 
     const existingSessions = await tx.examSession.findMany({
@@ -397,6 +408,8 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
   const startDate = new Date(String(raw.startDate ?? ""));
   const endDate = new Date(String(raw.endDate ?? ""));
   const totalWeeks = Number(raw.totalWeeks ?? 0);
+  const isGongchaeEnabled = raw.isGongchaeEnabled === undefined ? true : Boolean(raw.isGongchaeEnabled);
+  const isGyeongchaeEnabled = raw.isGyeongchaeEnabled === undefined ? true : Boolean(raw.isGyeongchaeEnabled);
 
   if (!name) {
     throw new Error("??れ삀??㉱??땬壤??怨룰도 ????곸죷??筌뚯뼚???");
@@ -417,7 +430,11 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
   }
 
   if (!Number.isInteger(totalWeeks) || totalWeeks < 1 || totalWeeks > 12) {
-    throw new Error("????낆뒩??뉗쾸??1~12 ?????嶺뚮Ĳ????????筌뤾퍓???");
+    throw new Error("? ??? 1~12 ???? ???.");
+  }
+
+  if (!isGongchaeEnabled && !isGyeongchaeEnabled) {
+    throw new Error("At least one exam type must be enabled.");
   }
 
   return {
@@ -425,6 +442,8 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
     startDate,
     endDate,
     totalWeeks,
+    isGongchaeEnabled,
+    isGyeongchaeEnabled,
   } satisfies PeriodFormInput;
 }
 

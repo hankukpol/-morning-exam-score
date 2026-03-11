@@ -40,7 +40,7 @@ export function PaginationControls({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  itemLabel = "항목",
+  itemLabel = "건",
   pageSizeOptions = [30, 50, 100],
 }: PaginationControlsProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -52,8 +52,7 @@ export function PaginationControls({
   return (
     <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-slate">
-        총 {totalCount.toLocaleString("ko-KR")}
-        {itemLabel} 중 {start.toLocaleString("ko-KR")} - {end.toLocaleString("ko-KR")}
+        {`총 ${totalCount.toLocaleString("ko-KR")}${itemLabel} 중 ${start.toLocaleString("ko-KR")} - ${end.toLocaleString("ko-KR")}`}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-slate">
@@ -84,7 +83,7 @@ export function PaginationControls({
 
           return (
             <div key={pageNumber} className="flex items-center gap-2">
-              {showGap ? <span className="px-1 text-slate">…</span> : null}
+              {showGap ? <span className="px-1 text-slate">...</span> : null}
               <button
                 type="button"
                 onClick={() => onPageChange(pageNumber)}

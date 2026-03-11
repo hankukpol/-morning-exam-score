@@ -11,9 +11,7 @@ export function getPrisma() {
   }
 
   if (!globalThis.prismaGlobal) {
-    globalThis.prismaGlobal = new PrismaClient({
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    });
+    globalThis.prismaGlobal = createPrismaClient();
   }
 
   return globalThis.prismaGlobal;
@@ -21,11 +19,25 @@ export function getPrisma() {
 
 const PRISMA_READ_RETRY_DELAY_MS = 75;
 const PRISMA_READ_RETRY_COUNT = 2;
+const PRISMA_READ_OPERATIONS = new Set([
+  "findUnique",
+  "findUniqueOrThrow",
+  "findFirst",
+  "findFirstOrThrow",
+  "findMany",
+  "count",
+  "aggregate",
+  "groupBy",
+]);
 
 export function isRetryablePrismaReadError(error: unknown) {
   return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P1017"
+    (error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P1017") ||
+    (error instanceof Prisma.PrismaClientInitializationError &&
+      /Can't reach database server|Server has closed the connection|Connection terminated/i.test(
+        error.message,
+      ))
   );
 }
 
@@ -41,4 +53,24 @@ export async function withPrismaReadRetry<T>(operation: () => Promise<T>) {
       await new Promise((resolve) => setTimeout(resolve, PRISMA_READ_RETRY_DELAY_MS * (attempt + 1)));
     }
   }
+}
+
+function createPrismaClient() {
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+
+  return client.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ operation, args, query }) {
+          if (!PRISMA_READ_OPERATIONS.has(operation)) {
+            return query(args);
+          }
+
+          return withPrismaReadRetry(() => query(args));
+        },
+      },
+    },
+  }) as PrismaClient;
 }

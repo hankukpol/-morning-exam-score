@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 
 function Spinner() {
@@ -324,12 +325,11 @@ export function AppointmentManager({
       {completedExamNumber && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
           <span>면담이 완료 처리되었습니다. 면담 기록을 입력해 주세요.</span>
-          <a
-            href={`/admin/counseling?examNumber=${completedExamNumber}&search=${completedExamNumber}`}
+          <Link href={`/admin/counseling?examNumber=${completedExamNumber}&search=${completedExamNumber}`}
             className="inline-flex items-center rounded-full bg-forest px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-forest/80"
           >
             면담 기록 입력하기 →
-          </a>
+          </Link>
         </div>
       )}
       {notice && (
@@ -626,12 +626,11 @@ export function AppointmentManager({
                     <span className="text-sm font-semibold">
                       {formatScheduledAt(appt.scheduledAt)}
                     </span>
-                    <a
-                      href={`/admin/counseling?examNumber=${appt.student.examNumber}&search=${appt.student.examNumber}`}
+                    <Link href={`/admin/counseling?examNumber=${appt.student.examNumber}&search=${appt.student.examNumber}`}
                       className="font-semibold text-ink hover:text-ember hover:underline"
                     >
                       {appt.student.examNumber} · {appt.student.name}
-                    </a>
+                    </Link>
                     <span className="text-sm text-slate">{appt.counselorName}</span>
                     {appt.agenda && (
                       <span className="rounded-full border border-ink/10 bg-mist px-3 py-0.5 text-xs text-slate">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@/generated/prisma";
 import { requireAdminContext } from "@/lib/auth";
 import { getStudentCumulativeAnalysis } from "@/lib/analytics/analysis";
@@ -109,12 +110,11 @@ export default async function StudentAnalyzePage({ searchParams }: PageProps) {
                     <td className="px-4 py-3">{student.className ?? "-"}</td>
                     <td className="px-4 py-3">{student.generation ?? "-"}기</td>
                     <td className="px-4 py-3">
-                      <a
-                        href={`/admin/students/${student.examNumber}?tab=cumulative`}
+                      <Link href={`/admin/students/${student.examNumber}?tab=cumulative`}
                         className="rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                       >
                         분석 보기
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 ))}

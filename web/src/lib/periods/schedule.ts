@@ -27,8 +27,10 @@ export function buildPeriodSessions(input: {
   startDate: Date;
   endDate: Date;
   totalWeeks: number;
+  enabledExamTypes?: ExamType[];
 }) {
   const sessions: SessionSeed[] = [];
+  const enabledExamTypes = new Set(input.enabledExamTypes ?? [ExamType.GONGCHAE, ExamType.GYEONGCHAE]);
 
   for (let week = 1; week <= input.totalWeeks; week += 1) {
     const weekStart = addDays(input.startDate, (week - 1) * 7);
@@ -48,18 +50,26 @@ export function buildPeriodSessions(input: {
       }
 
       if (template.examType === "ALL") {
-        sessions.push({
-          examType: ExamType.GONGCHAE,
-          week,
-          subject: template.subject,
-          examDate,
-        });
-        sessions.push({
-          examType: ExamType.GYEONGCHAE,
-          week,
-          subject: template.subject,
-          examDate,
-        });
+        if (enabledExamTypes.has(ExamType.GONGCHAE)) {
+          sessions.push({
+            examType: ExamType.GONGCHAE,
+            week,
+            subject: template.subject,
+            examDate,
+          });
+        }
+        if (enabledExamTypes.has(ExamType.GYEONGCHAE)) {
+          sessions.push({
+            examType: ExamType.GYEONGCHAE,
+            week,
+            subject: template.subject,
+            examDate,
+          });
+        }
+        continue;
+      }
+
+      if (!enabledExamTypes.has(template.examType)) {
         continue;
       }
 

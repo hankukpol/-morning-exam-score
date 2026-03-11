@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminRole } from "@/generated/prisma";
 import { ScoreEditPanel } from "@/components/scores/score-edit-panel";
 import { requireAdminContext } from "@/lib/auth";
+import { filterSessionsByEnabledExamTypes } from "@/lib/periods/exam-types";
 import { listPeriods } from "@/lib/periods/service";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function AdminScoreEditPage() {
             id: period.id,
             name: period.name,
             isActive: period.isActive,
-            sessions: period.sessions.map((session) => ({
+            sessions: filterSessionsByEnabledExamTypes(period, period.sessions).map((session) => ({
               id: session.id,
               examType: session.examType,
               week: session.week,

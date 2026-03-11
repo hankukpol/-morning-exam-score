@@ -1,6 +1,7 @@
 import { ExamType } from "@/generated/prisma";
 import { formatTuesdayWeekLabel, getTuesdayWeekKey, getTuesdayWeekStart } from "@/lib/analytics/week";
 import { type TuesdayWeekSummary } from "@/lib/analytics/service";
+import { resolveEnabledExamType } from "@/lib/periods/exam-types";
 import { getPeriodWithSessions, listPeriodsBasic } from "@/lib/periods/service";
 
 type SearchParamValue = string | string[] | undefined;
@@ -35,10 +36,11 @@ export async function getAnalyticsContext(searchParams?: SearchParams) {
   const activePeriod = periods.find((period) => period.isActive) ?? periods[0] ?? null;
   const selectedPeriodOption =
     periods.find((period) => period.id === requestedPeriodId) ?? activePeriod ?? null;
-  const examType = readExamTypeParam(searchParams);
+  const requestedExamType = readExamTypeParam(searchParams);
   const selectedPeriod = selectedPeriodOption
     ? await getPeriodWithSessions(selectedPeriodOption.id)
     : null;
+  const examType = resolveEnabledExamType(selectedPeriod, requestedExamType);
 
   return {
     periods,

@@ -24,6 +24,8 @@ type PeriodRecord = {
   endDate: string;
   totalWeeks: number;
   isActive: boolean;
+  isGongchaeEnabled: boolean;
+  isGyeongchaeEnabled: boolean;
   sessions: SessionRecord[];
   _count: {
     sessions: number;
@@ -40,6 +42,8 @@ type PeriodFormState = {
   startDate: string;
   endDate: string;
   totalWeeks: string;
+  isGongchaeEnabled: boolean;
+  isGyeongchaeEnabled: boolean;
   autoGenerateSessions: boolean;
 };
 
@@ -50,8 +54,15 @@ const defaultFormState: PeriodFormState = {
   startDate: "",
   endDate: "",
   totalWeeks: "8",
+  isGongchaeEnabled: true,
+  isGyeongchaeEnabled: true,
   autoGenerateSessions: true,
 };
+
+const examTypeToggleFields = [
+  { key: "isGongchaeEnabled", examType: "GONGCHAE" },
+  { key: "isGyeongchaeEnabled", examType: "GYEONGCHAE" },
+] as const;
 
 export function PeriodManager({ periods }: PeriodManagerProps) {
   const [view, setView] = useState<ViewState>("list");
@@ -103,6 +114,8 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
             startDate: toDateInputValue(period.startDate),
             endDate: toDateInputValue(period.endDate),
             totalWeeks: String(period.totalWeeks),
+            isGongchaeEnabled: period.isGongchaeEnabled,
+            isGyeongchaeEnabled: period.isGyeongchaeEnabled,
             autoGenerateSessions: false,
           },
         ]),
@@ -390,6 +403,26 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
               생성 직후 회차도 자동 생성
             </label>
           </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {examTypeToggleFields.map(({ key, examType }) => (
+              <label
+                key={key}
+                className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-slate"
+              >
+                <input
+                  type="checkbox"
+                  checked={createForm[key]}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      [key]: event.target.checked,
+                    }))
+                  }
+                />
+                {EXAM_TYPE_LABEL[examType]} ??
+              </label>
+            ))}
+          </div>
           <div className="mt-6 flex gap-3">
             <button
               type="button"
@@ -407,7 +440,13 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
                   refreshPage();
                 })
               }
-              disabled={isPending || !createForm.name.trim() || !createForm.startDate || !createForm.endDate}
+              disabled={
+                isPending ||
+                !createForm.name.trim() ||
+                !createForm.startDate ||
+                !createForm.endDate ||
+                (!createForm.isGongchaeEnabled && !createForm.isGyeongchaeEnabled)
+              }
               className="inline-flex items-center rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
             >
               기간 생성
@@ -544,6 +583,20 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
               {selectedPeriod.totalWeeks}주 · 회차 {selectedPeriod._count.sessions}개 · 수강생{" "}
               {currentEnrollmentCount}명
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {examTypeToggleFields.map(({ key, examType }) => (
+                <span
+                  key={key}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                    selectedPeriod[key]
+                      ? "border-forest/20 bg-forest/10 text-forest"
+                      : "border-ink/10 bg-white text-slate"
+                  }`}
+                >
+                  {EXAM_TYPE_LABEL[examType]} {selectedPeriod[key] ? "?? ?" : "???"}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -655,6 +708,26 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
                   className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
                 />
               </div>
+              <div className="flex flex-wrap gap-3">
+                {examTypeToggleFields.map(({ key, examType }) => (
+                  <label
+                    key={key}
+                    className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-slate"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={draft[key]}
+                      onChange={(event) =>
+                        setDraftPeriods((current) => ({
+                          ...current,
+                          [selectedPeriod.id]: { ...draft, [key]: event.target.checked },
+                        }))
+                      }
+                    />
+                    {EXAM_TYPE_LABEL[examType]} ??
+                  </label>
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() =>
@@ -671,7 +744,7 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
                     refreshPage();
                   })
                 }
-                disabled={isPending}
+                disabled={isPending || (!draft.isGongchaeEnabled && !draft.isGyeongchaeEnabled)}
                 className="mt-7 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
               >
                 저장

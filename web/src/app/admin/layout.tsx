@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SetupPanel } from "@/components/setup-panel";
 import { ADMIN_NAV_ITEMS, NavItem, ROLE_LABEL } from "@/lib/constants";
@@ -69,12 +70,11 @@ export default async function AdminLayout({
               SUPER_ADMIN 계정이 먼저 연결되어 있어야 합니다.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                                href="/login?error=unauthorized"
+              <Link href="/login?error=unauthorized"
                 className="inline-flex items-center border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 로그인 화면
-              </a>
+              </Link>
               <SignOutButton />
             </div>
           </div>
@@ -88,12 +88,11 @@ export default async function AdminLayout({
       <main className="min-h-screen px-6 py-8 sm:px-10 lg:px-16 bg-gray-50">
         <div className="mx-auto max-w-4xl card-border p-8">
           <p className="text-sm text-slate">로그인이 필요합니다.</p>
-          <a
-                        href="/login?redirectTo=/admin"
+          <Link href="/login?redirectTo=/admin"
             className="mt-4 inline-flex items-center bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
           >
             로그인하러 가기
-          </a>
+          </Link>
         </div>
       </main>
     );
@@ -116,12 +115,12 @@ export default async function AdminLayout({
     <div className="flex min-h-screen bg-[#F3F4F6] flex-col lg:flex-row">
       <aside className="w-full lg:w-[260px] bg-[#0B1120] text-gray-300 flex-shrink-0 flex flex-col min-h-screen">
         <div className="p-6 pb-2">
-          <a href="/" className="inline-flex items-center space-x-2">
+          <Link href="/" className="inline-flex items-center space-x-2">
             <span className="text-xl font-bold text-white tracking-tight flex items-center">
               <div className="w-8 h-8 bg-primary text-white flex items-center justify-center mr-2 font-black text-lg">M</div>
               Morning Mock
             </span>
-          </a>
+          </Link>
         </div>
 
         <div className="px-6 pb-4 pt-4 border-b border-white/5">
@@ -142,15 +141,13 @@ export default async function AdminLayout({
               </h3>
               <div className="space-y-1">
                 {items.map((item) => (
-                  <a
-                                        key={item.href}
-                    href={item.href}
+                  <Link key={item.href} href={item.href}
                     className="flex items-center px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/5 hover:text-white group border-l-2 border-transparent hover:border-primary"
                   >
                     <div className="flex-1">
                       <div className="text-gray-300 group-hover:text-white">{item.label}</div>
                     </div>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>

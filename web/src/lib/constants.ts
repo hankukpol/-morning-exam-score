@@ -19,7 +19,7 @@ export const ROLE_LEVEL: Record<AdminRole, number> = {
 export const ROLE_LABEL: Record<AdminRole, string> = {
   VIEWER: "조회 전용",
   TEACHER: "강사",
-  SUPER_ADMIN: "총괄 관리자",
+  SUPER_ADMIN: "최고 관리자",
 };
 
 export const EXAM_TYPE_LABEL: Record<ExamType, string> = {
@@ -30,8 +30,8 @@ export const EXAM_TYPE_LABEL: Record<ExamType, string> = {
 export const EXAM_TYPE_VALUES = Object.values(ExamType);
 
 export const STUDENT_TYPE_LABEL: Record<StudentType, string> = {
-  NEW: "신규생",
-  EXISTING: "기존생",
+  NEW: "신규",
+  EXISTING: "기존",
 };
 
 export const STUDENT_TYPE_VALUES = Object.values(StudentType);
@@ -85,7 +85,7 @@ export const SCORE_SOURCE_LABEL: Record<ScoreSource, string> = {
 };
 
 export const ABSENCE_CATEGORY_LABEL: Record<AbsenceCategory, string> = {
-  MILITARY: "예비군",
+  MILITARY: "군입대",
   MEDICAL: "병원",
   FAMILY: "경조사",
   OTHER: "기타",
@@ -114,34 +114,31 @@ export type NavItem = {
 };
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
-  // 메인
   {
     href: "/admin",
     label: "대시보드",
-    description: "오늘 시험, 경고/탈락, 미처리 이슈 요약",
+    description: "오늘 시험, 경고/탈락, 미처리 알림 요약",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
   {
     href: "/admin/analytics",
     label: "성적 종합 분석",
-    description: "일일, 월별, 과목별, 개인 분석 차트",
+    description: "일일, 월간, 과목별 개인 분석 차트",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
   {
     href: "/admin/students/analyze",
     label: "학생 누적 성적 분석",
-    description: "학생 검색 후 전체 기간 누적 성적·취약점·상태 이력 조회",
+    description: "학생 검색으로 전체 기간 누적 성적과 취약 유형을 조회",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
-
-  // 학사 관리
   {
     href: "/admin/periods",
     label: "시험 기간 관리",
-    description: "기간 생성, 회차 자동 생성, 취소/연기 관리",
+    description: "기간 생성, 세션 자동 생성, 취소/연기 관리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
@@ -162,12 +159,10 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/absence-notes",
     label: "사유서 심사",
-    description: "사유 결시 등록, 승인/반려, 개근 처리",
+    description: "사유 결시 등록, 승인/반려, 소급 처리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
-
-  // 성적/출결 연산
   {
     href: "/admin/scores/input",
     label: "성적 입력 (업로드)",
@@ -178,7 +173,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/scores/edit",
     label: "성적 수정",
-    description: "회차별 성적 조회·수정·삭제",
+    description: "세션별 성적 조회, 수정, 삭제",
     minRole: AdminRole.TEACHER,
     group: "성적 및 통계",
   },
@@ -192,58 +187,52 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/results/weekly",
     label: "주간 성적/석차",
-    description: "주차별 전체/신규생 석차 집계",
+    description: "주차별 전체와 신규자 석차 집계",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 전표",
+    group: "성적/석차 표",
   },
   {
     href: "/admin/results/monthly",
     label: "월간 성적/석차",
-    description: "월별 평균, 참여율, 개근 집계",
+    description: "월별 평균, 참여율, 결석 집계",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 전표",
+    group: "성적/석차 표",
   },
   {
     href: "/admin/results/integrated",
     label: "통합 2개월 성적",
     description: "기간 전체 통합 석차와 참여율",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 전표",
+    group: "성적/석차 표",
   },
-
-  // 포인트 및 정책
   {
     href: "/admin/dropout",
-    label: "탈락/경고 확정",
+    label: "탈락/경고 판정",
     description: "주 3회, 월 8회 기준 자동 판정",
     minRole: AdminRole.VIEWER,
-    group: "정책 관리",
+    group: "판정 관리",
   },
   {
     href: "/admin/points",
-    label: "포인트(장학) 관리",
-    description: "개근 장학 판정 및 수동 지급",
+    label: "포인트 관리",
+    description: "개근 포인트 산정 및 수동 지급",
     minRole: AdminRole.TEACHER,
-    group: "정책 관리",
+    group: "판정 관리",
   },
-
-  // 알림 및 소통
   {
     href: "/admin/notices",
     label: "공지사항",
-    description: "학생 포털 공지 작성, 발행",
+    description: "학생 대상 공지 작성 및 발행",
     minRole: AdminRole.TEACHER,
-    group: "알림 및 통신",
+    group: "알림 및 소통",
   },
   {
     href: "/admin/notifications",
-    label: "알림톡 발송 대기",
-    description: "자동 큐, 수신 동의, 발송 이력",
+    label: "알림 발송",
+    description: "자동 및 수동 발송, 수신 동의, 발송 이력",
     minRole: AdminRole.TEACHER,
-    group: "알림 및 통신",
+    group: "알림 및 소통",
   },
-
-  // 시스템 도구
   {
     href: "/admin/query",
     label: "다차원 데이터 조회",
@@ -261,7 +250,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/migration",
     label: "구 시스템 파일 이전",
-    description: "F-18 기존 운영 데이터 이전",
+    description: "기존 운영 데이터 파일 이관",
     minRole: AdminRole.SUPER_ADMIN,
     group: "시스템 도구",
   },
@@ -272,8 +261,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.SUPER_ADMIN,
     group: "시스템 도구",
   },
-
-  // 설정
   {
     href: "/admin/settings/accounts",
     label: "관리자 계정",
@@ -284,7 +271,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/settings/notifications",
     label: "알림 연동 설정",
-    description: "Solapi 키, 발신번호 설정",
+    description: "Solapi 키와 발신번호 설정",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
   },

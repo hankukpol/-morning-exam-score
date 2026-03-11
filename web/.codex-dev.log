@@ -1,0 +1,27 @@
+
+> web@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1861ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 3.7s (464 modules)
+ GET /_next/static/webpack/3d7dd6c9f62c6ead.webpack.hot-update.json 404 in 3940ms
+ ○ Compiling / ...
+ ✓ Compiled / in 3.4s (501 modules)
+ GET / 200 in 3457ms
+ GET / 200 in 151ms
+ GET /_next/static/webpack/3d7dd6c9f62c6ead.webpack.hot-update.json 404 in 170ms
+ GET / 307 in 76ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 767ms (607 modules)
+ GET /_next/static/webpack/3d7dd6c9f62c6ead.webpack.hot-update.json 404 in 163ms
+ GET /login 200 in 969ms
+ GET / 307 in 123ms
+ GET /login 200 in 53ms
+ ✓ Compiled /favicon.ico in 153ms (351 modules)
+ GET /favicon.ico 200 in 227ms

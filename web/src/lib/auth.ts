@@ -1,17 +1,25 @@
 import { cache } from "react";
 import { AdminRole, Prisma } from "@/generated/prisma";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_LEVEL } from "@/lib/constants";
 import { getSetupState } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
+const AUTH_USER_ID_HEADER = "x-morning-auth-user-id";
+const AUTH_USER_EMAIL_HEADER = "x-morning-auth-user-email";
+const ADMIN_CONTEXT_QUERY_RETRY_DELAY_MS = 75;
+const ADMIN_CONTEXT_QUERY_RETRY_COUNT = 2;
+
+type AuthenticatedUser = {
+  id: string;
+  email: string | null;
+};
+
 export function roleAtLeast(role: AdminRole, minimum: AdminRole) {
   return ROLE_LEVEL[role] >= ROLE_LEVEL[minimum];
 }
-
-const ADMIN_CONTEXT_QUERY_RETRY_DELAY_MS = 75;
-const ADMIN_CONTEXT_QUERY_RETRY_COUNT = 2;
 
 function isRetryableAdminContextError(error: unknown) {
   return (
@@ -36,11 +44,35 @@ async function findAdminUserWithRetry(id: string) {
   }
 }
 
+function readVerifiedAuthUserFromHeaders(): AuthenticatedUser | null {
+  const headerStore = headers();
+  const id = headerStore.get(AUTH_USER_ID_HEADER);
+
+  if (!id) {
+    return null;
+  }
+
+  const email = headerStore.get(AUTH_USER_EMAIL_HEADER);
+
+  return {
+    id,
+    email: email?.trim() ? email : null,
+  };
+}
+
 export const getCurrentAuthUser = cache(async () => {
   const setup = getSetupState();
 
   if (!setup.supabaseReady || !setup.databaseReady) {
     return null;
+  }
+
+  // Admin requests already pass through middleware auth verification.
+  // Reuse that result to avoid a second Supabase roundtrip while rendering.
+  const headerUser = readVerifiedAuthUserFromHeaders();
+
+  if (headerUser) {
+    return headerUser;
   }
 
   const supabase = createClient();
@@ -50,7 +82,10 @@ export const getCurrentAuthUser = cache(async () => {
     return null;
   }
 
-  return data.user;
+  return {
+    id: data.user.id,
+    email: data.user.email ?? null,
+  } satisfies AuthenticatedUser;
 });
 
 export const getCurrentAdminContext = cache(async () => {

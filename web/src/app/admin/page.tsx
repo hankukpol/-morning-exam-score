@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole, ExamType } from "@/generated/prisma";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
@@ -44,12 +45,11 @@ export default async function AdminDashboardPage() {
         <p className="mt-4 text-sm leading-7 text-slate">
           아직 생성된 시험 기간이 없습니다. 먼저 시험 기간과 회차를 생성해 주세요.
         </p>
-        <a
-                    href="/admin/periods"
+        <Link href="/admin/periods"
           className="mt-6 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
         >
           시험 기간 관리로 이동
-        </a>
+        </Link>
       </div>
     );
   }
@@ -165,9 +165,7 @@ export default async function AdminDashboardPage() {
       {/* KPI 카드 */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpiCards.map((card) => (
-          <a
-                        key={card.label}
-            href={card.href}
+          <Link key={card.label} href={card.href}
             className={`rounded-[24px] border p-5 transition hover:shadow-md ${card.color}`}
           >
             <p className="text-xs font-semibold uppercase tracking-wider text-slate">
@@ -175,7 +173,7 @@ export default async function AdminDashboardPage() {
             </p>
             <p className={`mt-2 text-4xl font-bold ${card.valueColor}`}>{card.value}</p>
             <p className="mt-2 text-xs text-slate">{card.sub}</p>
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -185,14 +183,12 @@ export default async function AdminDashboardPage() {
           <h2 className="text-lg font-semibold">처리 필요 항목</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {pendingActions.map((action) => (
-              <a
-                                key={action.href}
-                href={action.href}
+              <Link key={action.href} href={action.href}
                 className={`rounded-2xl border px-4 py-3 text-sm transition hover:opacity-80 ${action.color}`}
               >
                 <p className="font-semibold">{action.label}</p>
                 <p className="mt-1 text-xs opacity-80">{action.description}</p>
-              </a>
+              </Link>
             ))}
           </div>
         </section>
@@ -206,12 +202,11 @@ export default async function AdminDashboardPage() {
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">오늘 시험 입력 현황</h2>
-          <a
-                        href="/admin/scores/input"
+          <Link href="/admin/scores/input"
             className="text-sm font-semibold text-slate underline transition hover:text-ember"
           >
             성적 입력 화면으로 이동 →
-          </a>
+          </Link>
         </div>
 
         {summary.todaySessions.length === 0 ? (
@@ -279,9 +274,7 @@ export default async function AdminDashboardPage() {
         <h2 className="text-lg font-semibold">주요 바로가기</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {quickLinks.map((link) => (
-            <a
-                            key={link.href}
-              href={link.href}
+            <Link key={link.href} href={link.href}
               className="flex items-start justify-between rounded-[20px] border border-ink/10 p-4 transition hover:border-forest/30 hover:bg-forest/5"
             >
               <div>
@@ -289,7 +282,7 @@ export default async function AdminDashboardPage() {
                 <p className="mt-1 text-xs text-slate">{link.description}</p>
               </div>
               <span className="ml-2 mt-0.5 shrink-0 text-slate">→</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>

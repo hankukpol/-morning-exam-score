@@ -206,14 +206,14 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">학생 등록</h2>
+            <h2 className="text-xl font-semibold">수강생 등록</h2>
             <p className="mt-2 text-sm leading-7 text-slate">
-              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 페이지에서 처리합니다.
+              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 등록 화면에서 처리합니다.
             </p>
           </div>
           <Link
-                    prefetch={false}
-                    href={`/admin/students/paste-import?examType=${filters.examType}`}
+            prefetch={false}
+            href={`/admin/students/paste-import?examType=${filters.examType}`}
             className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
           >
             붙여넣기 등록
@@ -286,8 +286,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
             >
-              <option value="GONGCHAE">공채</option>
-              <option value="GYEONGCHAE">경채</option>
+              <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+              <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
             </select>
           </div>
           <div>
@@ -302,8 +302,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
             >
-              <option value="NEW">신규</option>
-              <option value="EXISTING">기존</option>
+              <option value="NEW">{STUDENT_TYPE_LABEL.NEW}</option>
+              <option value="EXISTING">{STUDENT_TYPE_LABEL.EXISTING}</option>
             </select>
           </div>
           <div>
@@ -351,7 +351,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                   method: "POST",
                   body: JSON.stringify(createForm),
                 });
-                setNotice("학생을 등록했습니다.");
+                setNotice("수강생을 등록했습니다.");
                 setCreateForm({
                   ...emptyForm,
                   examType: filters.examType,
@@ -453,7 +453,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                 <th className="px-4 py-3 font-semibold">기수</th>
                 <th className="px-4 py-3 font-semibold">반</th>
                 <th className="px-4 py-3 font-semibold">구분</th>
-                <th className="px-4 py-3 font-semibold">점수 수</th>
+                <th className="px-4 py-3 font-semibold">성적 수</th>
                 <th className="px-4 py-3 font-semibold">동작</th>
               </tr>
             </thead>
@@ -555,8 +555,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                    prefetch={false}
-                    href={`/admin/students/${student.examNumber}`}
+                          prefetch={false}
+                          href={`/admin/students/${student.examNumber}`}
                           className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                         >
                           상세 보기
@@ -571,7 +571,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     method: "PUT",
                                     body: JSON.stringify(draft),
                                   });
-                                  setNotice("학생 정보를 수정했습니다.");
+                                  setNotice("수강생 정보를 수정했습니다.");
                                   setEditingExamNumber(null);
                                   refreshWithFilters();
                                 })
@@ -612,7 +612,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "DELETE",
                                     });
-                                    setNotice("학생을 비활성화했습니다.");
+                                    setNotice("수강생을 비활성화했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
@@ -629,14 +629,14 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "PATCH",
                                     });
-                                    setNotice("학생을 다시 활성화했습니다.");
+                                    setNotice("수강생을 다시 활성화했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
                                 disabled={isPending}
                                 className="rounded-full border border-forest/30 px-3 py-2 text-xs font-semibold text-forest transition hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                재활성화
+                                활성화
                               </button>
                             )}
                           </>
@@ -661,8 +661,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                               }
                               className="rounded-xl border border-ink/10 px-3 py-2 text-sm"
                             >
-                              <option value="NEW">신규</option>
-                              <option value="EXISTING">기존</option>
+                              <option value="NEW">{STUDENT_TYPE_LABEL.NEW}</option>
+                              <option value="EXISTING">{STUDENT_TYPE_LABEL.EXISTING}</option>
                             </select>
                             <input
                               type="date"
@@ -718,7 +718,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               {filters.totalCount === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate">
-                    조건에 맞는 학생이 없습니다.
+                    조건에 맞는 수강생이 없습니다.
                   </td>
                 </tr>
               ) : null}
