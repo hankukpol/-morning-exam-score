@@ -46,25 +46,23 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
-      {/* 헤더 */}
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-14 Counseling
       </div>
       <h1 className="mt-5 text-3xl font-semibold">학생 면담 지원</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        면담 예약 관리, 학생 성적·출결 요약, 면담 기록 입력을 한 화면에서 처리합니다.
+        면담 예약, 상담 기록, 출결과 성적 요약을 한 화면에서 확인하고 관리합니다.
       </p>
 
-      {/* 대시보드 KPI */}
       <section className="mt-8 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-            <p className="text-sm text-slate">오늘 면담 예정</p>
+            <p className="text-sm text-slate">오늘 면담 일정</p>
             <p className="mt-3 text-3xl font-semibold">
               {dashboard.todayScheduled.length}
               <span className="ml-1 text-base font-normal text-slate">건</span>
             </p>
-            <p className="mt-2 text-xs text-slate">오늘 날짜로 예약된 면담</p>
+            <p className="mt-2 text-xs text-slate">당일 예약된 상담 일정</p>
           </article>
 
           <article className="rounded-[28px] border border-ink/10 bg-white p-6">
@@ -73,7 +71,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
               {dashboard.thisWeekDoneCount}
               <span className="ml-1 text-base font-normal text-slate">건</span>
             </p>
-            <p className="mt-2 text-xs text-slate">이번 주 진행된 면담 기록</p>
+            <p className="mt-2 text-xs text-slate">이번 주에 기록된 상담 건수</p>
           </article>
 
           <WarningStudentsDrawer
@@ -87,11 +85,10 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
               {dashboard.thisMonthCount}
               <span className="ml-1 text-base font-normal text-slate">건</span>
             </p>
-            <p className="mt-2 text-xs text-slate">이번 달 진행된 면담 기록</p>
+            <p className="mt-2 text-xs text-slate">이번 달 누적 상담 건수</p>
           </article>
         </div>
 
-        {/* 이번 주 예약 — 클릭 시 명단 확장 */}
         <details
           className={`group rounded-[28px] border transition ${
             dashboard.thisWeekScheduled.length > 0
@@ -112,7 +109,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 </span>
                 <span className="text-base font-normal text-slate">건 예정</span>
               </p>
-              <p className="mt-1 text-xs text-slate">클릭하여 예약 명단 확인</p>
+              <p className="mt-1 text-xs text-slate">클릭해서 예약 학생 목록 확인</p>
             </div>
             <span className="text-slate transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -128,6 +125,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                   const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
                   return (
                     <Link
+                      prefetch={false}
                       key={appt.id}
                       href={buildHref("/admin/counseling", {
                         examType: appt.student.examType,
@@ -139,11 +137,11 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                       <span className="w-28 shrink-0 font-semibold text-sky-800">{dateLabel}</span>
                       <span className="font-semibold">{appt.student.examNumber} · {appt.student.name}</span>
                       <span className="text-slate">{appt.counselorName}</span>
-                      {appt.agenda && (
+                      {appt.agenda ? (
                         <span className="ml-auto rounded-full border border-sky-200 bg-sky-50 px-3 py-0.5 text-xs text-sky-700">
                           {appt.agenda}
                         </span>
-                      )}
+                      ) : null}
                     </Link>
                   );
                 })}
@@ -153,15 +151,15 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         </details>
       </section>
 
-      {/* 오늘 면담 예정 퀵 링크 */}
-      {dashboard.todayScheduled.length > 0 && (
+      {dashboard.todayScheduled.length > 0 ? (
         <section className="mt-6 rounded-[28px] border border-sky-200 bg-sky-50/60 p-5">
           <h2 className="text-sm font-semibold text-sky-800">
-            오늘 면담 예정 ({dashboard.todayScheduled.length}건)
+            오늘 면담 일정 ({dashboard.todayScheduled.length}건)
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {dashboard.todayScheduled.map((appt) => (
               <Link
+                prefetch={false}
                 key={appt.id}
                 href={buildHref("/admin/counseling", {
                   examType: appt.student.examType,
@@ -175,16 +173,15 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 }`}
               >
                 {appt.student.examNumber} · {appt.student.name}
-                {appt.agenda && (
-                  <span className="ml-2 text-xs font-normal opacity-70">— {appt.agenda}</span>
-                )}
+                {appt.agenda ? (
+                  <span className="ml-2 text-xs font-normal opacity-70">· {appt.agenda}</span>
+                ) : null}
               </Link>
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {/* 예약 면담 관리 */}
       <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="mb-5 text-xl font-semibold">예약 면담 관리</h2>
         <AppointmentManager
@@ -204,7 +201,6 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         />
       </section>
 
-      {/* 학생 검색 */}
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[180px_minmax(0,1fr)_140px]">
         <div>
           <label className="mb-2 block text-sm font-medium">직렬</label>
@@ -237,18 +233,18 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         </div>
       </form>
 
-      {/* 검색 결과 */}
-      {search && students && (
+      {search && students ? (
         <section className="mt-3 rounded-[28px] border border-ink/10 bg-white p-5">
           <p className="text-sm font-medium text-slate">
             {students.totalCount === 0
               ? "검색된 학생이 없습니다."
-              : `${students.totalCount}명 검색됨${students.totalCount > 10 ? " · 상위 10명 표시" : ""}`}
+              : `${students.totalCount}명 검색됨${students.totalCount > 10 ? " · 상위 10명만 표시" : ""}`}
           </p>
-          {students.rows.length > 0 && (
+          {students.rows.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {students.rows.map((student) => (
                 <Link
+                  prefetch={false}
                   key={student.examNumber}
                   href={buildHref("/admin/counseling", {
                     examType,
@@ -264,7 +260,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                   <span>
                     {student.examNumber} · {student.name}
                   </span>
-                  {student.currentStatus !== "NORMAL" && (
+                  {student.currentStatus !== "NORMAL" ? (
                     <span
                       className={`rounded-full border px-2 py-0.5 text-xs ${
                         STATUS_BADGE_CLASS[student.currentStatus]
@@ -272,22 +268,20 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                     >
                       {STATUS_LABEL[student.currentStatus]}
                     </span>
-                  )}
+                  ) : null}
                 </Link>
               ))}
             </div>
-          )}
+          ) : null}
         </section>
-      )}
+      ) : null}
 
-      {/* 학생 프로필 / 빈 상태 */}
       {!profile ? (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-10 text-center text-sm text-slate">
-          학생을 검색하여 선택하면 성적·출결 요약과 면담 기록 입력 화면이 열립니다.
+          학생을 검색하고 선택하면 면담 기록과 성적 요약이 표시됩니다.
         </div>
       ) : (
         <div className="mt-8 space-y-8">
-          {/* 요약 KPI */}
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">학생</p>
@@ -299,11 +293,10 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
               </p>
               <p className="mt-2 text-xs text-slate">{profile.student.phone ?? "-"}</p>
             </article>
+
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">최근 4주 결시</p>
-              <p className="mt-4 text-2xl font-semibold">
-                {profile.attendanceSummary.absentCount}회
-              </p>
+              <p className="mt-4 text-2xl font-semibold">{profile.attendanceSummary.absentCount}회</p>
               <p className="mt-2 text-xs text-slate">
                 현재 상태{" "}
                 <span
@@ -315,26 +308,22 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 </span>
               </p>
             </article>
+
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">누적 포인트</p>
-              <p className="mt-4 text-2xl font-semibold">
-                {profile.totalPoints.toLocaleString("ko-KR")}P
-              </p>
-              <p className="mt-2 text-xs text-slate">최근 지급 이력 10건 기준</p>
+              <p className="mt-4 text-2xl font-semibold">{profile.totalPoints.toLocaleString("ko-KR")}P</p>
+              <p className="mt-2 text-xs text-slate">최근 포인트 지급 이력 기준</p>
             </article>
+
             <article className="rounded-[28px] border border-ink/10 bg-mist p-6">
               <p className="text-sm text-slate">면담 기록</p>
               <p className="mt-4 text-2xl font-semibold">{profile.counselingRecords.length}건</p>
               <p className="mt-2 text-xs text-slate">
-                최근 기록{" "}
-                {profile.counselingRecords[0]
-                  ? formatDateTime(profile.counselingRecords[0].counseledAt)
-                  : "-"}
+                최근 기록 {profile.counselingRecords[0] ? formatDateTime(profile.counselingRecords[0].counseledAt) : "-"}
               </p>
             </article>
           </section>
 
-          {/* 강점/약점 + 주간 평균 */}
           <section className="grid gap-6 xl:grid-cols-2">
             <article className="rounded-[28px] border border-ink/10 bg-white p-6">
               <h2 className="text-xl font-semibold">최근 4주 강점 / 약점</h2>
@@ -342,6 +331,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 <div className="rounded-[24px] border border-forest/20 bg-forest/10 p-4">
                   <p className="text-sm font-semibold text-forest">강점 과목</p>
                   <div className="mt-3 space-y-2 text-sm">
+                    {profile.strengths.length === 0 ? <p>-</p> : null}
                     {profile.strengths.map((row) => (
                       <p key={row.subject}>
                         {SUBJECT_LABEL[row.subject]} · {row.average ?? "-"}
@@ -352,6 +342,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
                 <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-700">보완 과목</p>
                   <div className="mt-3 space-y-2 text-sm">
+                    {profile.weaknesses.length === 0 ? <p>-</p> : null}
                     {profile.weaknesses.map((row) => (
                       <p key={row.subject}>
                         {SUBJECT_LABEL[row.subject]} · {row.average ?? "-"}
@@ -363,16 +354,23 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             </article>
 
             <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-              <h2 className="text-xl font-semibold">최근 주간 평균</h2>
+              <h2 className="text-xl font-semibold">최근 주차 평균</h2>
               <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
                 <table className="min-w-full divide-y divide-ink/10 text-sm">
                   <thead className="bg-mist/80 text-left">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">주간</th>
+                      <th className="px-4 py-3 font-semibold">주차</th>
                       <th className="px-4 py-3 font-semibold">평균</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/10">
+                    {profile.recentWeeklySummary.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="px-4 py-6 text-center text-slate">
+                          최근 주차 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : null}
                     {profile.recentWeeklySummary.map((row) => (
                       <tr key={row.week}>
                         <td className="px-4 py-3">{row.week}</td>
@@ -385,23 +383,22 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             </article>
           </section>
 
-          {/* 차트 */}
           {profile.monthlyAnalysis ? (
             <section className="grid gap-6 xl:grid-cols-2">
               <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-                <h2 className="text-xl font-semibold">이번 달 레이더</h2>
+                <h2 className="text-xl font-semibold">이번 달 과목별 비교</h2>
                 <div className="mt-4">
                   <RadarComparisonChart data={profile.monthlyAnalysis.radarData} />
                 </div>
               </article>
               <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-                <h2 className="text-xl font-semibold">이번 달 과목 비교</h2>
+                <h2 className="text-xl font-semibold">이번 달 평균 비교</h2>
                 <div className="mt-4">
                   <BarComparisonChart
                     data={profile.monthlyAnalysis.barData}
                     xKey="subject"
                     bars={[
-                      { dataKey: "studentAverage", color: "#EA580C", name: "개인 평균" },
+                      { dataKey: "studentAverage", color: "#EA580C", name: "학생 평균" },
                       { dataKey: "cohortAverage", color: "#2563EB", name: "전체 평균" },
                       { dataKey: "top10Average", color: "#0F766E", name: "상위 10%" },
                     ]}
@@ -411,7 +408,6 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             </section>
           ) : null}
 
-          {/* 목표 점수 + 면담 기록 */}
           <CounselingPanel
             examNumber={profile.student.examNumber}
             defaultCounselorName={context.adminUser.name}

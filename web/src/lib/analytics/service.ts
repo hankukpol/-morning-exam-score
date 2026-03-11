@@ -1673,8 +1673,6 @@ export async function getWeeklyResults(
       },
     });
 
-    await ensureLatestWeeklySnapshots(periodId, examType);
-
     const prisma = getPrisma();
     const [dataset, weekStatuses] = await Promise.all([
       datasetPromise,

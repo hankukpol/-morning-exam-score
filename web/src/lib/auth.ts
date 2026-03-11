@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole, Prisma } from "@/generated/prisma";
 import { redirect } from "next/navigation";
 import { ROLE_LEVEL } from "@/lib/constants";
 import { getSetupState } from "@/lib/env";
@@ -8,6 +8,32 @@ import { createClient } from "@/lib/supabase/server";
 
 export function roleAtLeast(role: AdminRole, minimum: AdminRole) {
   return ROLE_LEVEL[role] >= ROLE_LEVEL[minimum];
+}
+
+const ADMIN_CONTEXT_QUERY_RETRY_DELAY_MS = 75;
+const ADMIN_CONTEXT_QUERY_RETRY_COUNT = 2;
+
+function isRetryableAdminContextError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P1017"
+  );
+}
+
+async function findAdminUserWithRetry(id: string) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await getPrisma().adminUser.findUnique({
+        where: { id },
+      });
+    } catch (error) {
+      if (attempt >= ADMIN_CONTEXT_QUERY_RETRY_COUNT || !isRetryableAdminContextError(error)) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, ADMIN_CONTEXT_QUERY_RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
 }
 
 export const getCurrentAuthUser = cache(async () => {
@@ -34,9 +60,7 @@ export const getCurrentAdminContext = cache(async () => {
     return null;
   }
 
-  const adminUser = await getPrisma().adminUser.findUnique({
-    where: { id: user.id },
-  });
+  const adminUser = await findAdminUserWithRetry(user.id);
 
   if (!adminUser || !adminUser.isActive) {
     return null;

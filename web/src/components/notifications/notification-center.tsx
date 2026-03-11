@@ -138,6 +138,7 @@ export function NotificationCenter({
   const [missingMessage, setMissingMessage] = useState("");
   const missingSessions =
     periods.find((p) => p.id === Number(missingPeriodId))?.sessions ?? [];
+  const sendingEnabled = setup.notificationReady && !isPending;
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -251,6 +252,11 @@ export function NotificationCenter({
   }
 
   function sendSelectedLogs() {
+    if (!setup.notificationReady) {
+      setMessage(null, "?? ?? ?? ??? ??? ???.");
+      return;
+    }
+
     if (selectedLogIds.length === 0) {
       setMessage(null, "발송할 알림을 선택하세요.");
       return;
@@ -282,6 +288,11 @@ export function NotificationCenter({
   }
 
   function sendManualNotification() {
+    if (!setup.notificationReady) {
+      setMessage(null, "?? ?? ?? ??? ??? ???.");
+      return;
+    }
+
     setMessage(null, null);
 
     startTransition(async () => {
@@ -338,6 +349,11 @@ export function NotificationCenter({
   }
 
   function sendMissingNotification() {
+    if (!setup.notificationReady) {
+      setMessage(null, "?? ?? ?? ??? ??? ???.");
+      return;
+    }
+
     if (!missingStudents || missingStudents.length === 0) return;
 
     const examNumbers = missingStudents.map((s) => s.examNumber);
@@ -443,7 +459,7 @@ export function NotificationCenter({
           <button
             type="button"
             onClick={sendManualNotification}
-            disabled={isPending}
+            disabled={!sendingEnabled}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
             수동 발송 실행
@@ -510,7 +526,7 @@ export function NotificationCenter({
           <button
             type="button"
             onClick={sendSelectedLogs}
-            disabled={isPending || pendingLogs.length === 0}
+            disabled={!sendingEnabled || pendingLogs.length === 0}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
             선택 발송
@@ -769,7 +785,7 @@ export function NotificationCenter({
               <button
                 type="button"
                 onClick={sendMissingNotification}
-                disabled={isPending}
+                disabled={!sendingEnabled}
                 className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
               >
                 {missingStudents.length}명에게 알림 발송
