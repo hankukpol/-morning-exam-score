@@ -7,6 +7,8 @@ if /I "%~1"=="/?" goto :help
 set "ROOT=%~dp0"
 set "APP_DIR=%ROOT%web"
 set "ENV_FILE=%APP_DIR%\.env.local"
+set "ORIGINAL_USERPROFILE=%USERPROFILE%"
+set "ORIGINAL_HOME=%HOME%"
 
 if /I "%~1"=="--check" goto :check
 
@@ -86,10 +88,10 @@ if not exist ".vercel\project.json" (
   exit /b 1
 )
 
-set "USERPROFILE=%CD%"
-set "HOME=%CD%"
+set "USERPROFILE=%ORIGINAL_USERPROFILE%"
+set "HOME=%ORIGINAL_HOME%"
 
-call npx --yes vercel --prod --yes
+call npx --yes vercel deploy . --prod --yes
 exit /b %ERRORLEVEL%
 
 :load_env_file
@@ -159,6 +161,9 @@ if not exist ".vercel\project.json" (
   echo Missing web\.vercel\project.json.
   exit /b 1
 )
+
+set "USERPROFILE=%ORIGINAL_USERPROFILE%"
+set "HOME=%ORIGINAL_HOME%"
 
 call npx --yes vercel whoami
 if errorlevel 1 exit /b %ERRORLEVEL%
