@@ -8,6 +8,8 @@ set "ROOT=%~dp0"
 set "APP_DIR=%ROOT%web"
 set "ENV_FILE=%APP_DIR%\.env.local"
 
+if /I "%~1"=="--check" goto :check
+
 cd /d "%ROOT%" || (
   echo Failed to enter the repository root.
   exit /b 1
@@ -91,18 +93,78 @@ call npx --yes vercel --prod --yes
 exit /b %ERRORLEVEL%
 
 :load_env_file
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$path = '%~1';" ^
-  "Get-Content -LiteralPath $path | ForEach-Object {" ^
-  "  if (-not $_) { return }" ^
-  "  if ($_.Trim().StartsWith('#')) { return }" ^
-  "  if ($_ -match '^\s*([^=]+)=(.*)$') {" ^
-  "    $name = $matches[1].Trim();" ^
-  "    $value = $matches[2].Trim();" ^
-  "    if ($value.StartsWith('\"') -and $value.EndsWith('\"')) { $value = $value.Substring(1, $value.Length - 2) }" ^
-  "    Write-Output ('set ' + $name + '=' + $value)" ^
-  "  }" ^
-  "}"`) do %%I
+for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%~1") do (
+  if not "%%A"=="" set "%%A=%%B"
+)
+exit /b 0
+
+:check
+echo [check 1/4] Git remote access
+cd /d "%ROOT%" || (
+  echo Failed to enter the repository root.
+  exit /b 1
+)
+
+git ls-remote --heads origin >nul
+if errorlevel 1 (
+  echo GitHub remote access failed.
+  exit /b 1
+)
+
+echo [check 2/4] Supabase environment and migration status
+cd /d "%APP_DIR%" || (
+  echo Failed to enter the web directory.
+  exit /b 1
+)
+
+if not exist "%ENV_FILE%" (
+  echo Missing %ENV_FILE%
+  exit /b 1
+)
+
+call :load_env_file "%ENV_FILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+if "%DATABASE_URL%"=="" (
+  echo DATABASE_URL is not configured in web\.env.local.
+  exit /b 1
+)
+
+if "%DIRECT_URL%"=="" (
+  echo DIRECT_URL is not configured in web\.env.local.
+  exit /b 1
+)
+
+set "PRISMA_STATUS_FILE=%TEMP%\deploy-prisma-status-%RANDOM%.log"
+call npx prisma migrate status --schema prisma\schema.prisma > "%PRISMA_STATUS_FILE%" 2>&1
+set "PRISMA_STATUS_EXIT=%ERRORLEVEL%"
+type "%PRISMA_STATUS_FILE%"
+if not "%PRISMA_STATUS_EXIT%"=="0" (
+  findstr /C:"Following migrations have not yet been applied:" "%PRISMA_STATUS_FILE%" >nul
+  if errorlevel 1 (
+    del "%PRISMA_STATUS_FILE%" >nul 2>&1
+    exit /b %PRISMA_STATUS_EXIT%
+  )
+)
+del "%PRISMA_STATUS_FILE%" >nul 2>&1
+
+echo [check 3/4] Next.js production build
+set "USERPROFILE=%CD%"
+set "HOME=%CD%"
+call npm run build
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+echo [check 4/4] Vercel authentication and project link
+if not exist ".vercel\project.json" (
+  echo Missing web\.vercel\project.json.
+  exit /b 1
+)
+
+call npx --yes vercel whoami
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+echo.
+echo All deployment checks passed.
 exit /b 0
 
 :help
@@ -118,4 +180,7 @@ echo   1. Git push permission is available
 echo   2. web\.env.local contains DATABASE_URL and DIRECT_URL
 echo   3. web\.vercel\project.json already exists
 echo   4. Vercel CLI login is already completed
+echo.
+echo Verification:
+echo   deploy.bat --check
 exit /b 0
