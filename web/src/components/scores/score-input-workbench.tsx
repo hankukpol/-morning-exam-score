@@ -7,7 +7,7 @@ import {
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
+import { formatDate, todayDateInputValue } from "@/lib/format";
 import type {
   OfflineScorePreview,
   OnlineScorePreview,
@@ -79,6 +79,38 @@ function statusClass(status: ScorePreviewResult["rows"][number]["status"]) {
 
 function formatOxSessionLabel(session: PeriodOption["sessions"][number]) {
   return `${session.examDate.slice(0, 10)} · ${EXAM_TYPE_LABEL[session.examType]} · ${SUBJECT_LABEL[session.subject]} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
+}
+
+function sessionDateKey(session: PeriodOption["sessions"][number]) {
+  return session.examDate.slice(0, 10);
+}
+
+function findTodaySession(
+  sessions: PeriodOption["sessions"],
+  todayKey: string,
+) {
+  return sessions.find((session) => sessionDateKey(session) === todayKey) ?? null;
+}
+
+function getDefaultSessionId(period: PeriodOption | null, todayKey: string) {
+  if (!period) {
+    return null;
+  }
+
+  return findTodaySession(period.sessions, todayKey)?.id ?? period.sessions[0]?.id ?? null;
+}
+
+function getCalendarTargetSession(
+  sessions: PeriodOption["sessions"],
+  selectedSessionId: number | null,
+  todayKey: string,
+) {
+  return (
+    sessions.find((session) => session.id === selectedSessionId) ??
+    findTodaySession(sessions, todayKey) ??
+    sessions[0] ??
+    null
+  );
 }
 
 function SummaryCards({ preview }: { preview: ScorePreviewResult }) {
@@ -251,31 +283,36 @@ function SessionCalendar({
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, PeriodOption["sessions"]>();
     for (const s of sessions) {
-      const key = s.examDate.slice(0, 10);
+      const key = sessionDateKey(s);
       const existing = map.get(key) ?? [];
       existing.push(s);
       map.set(key, existing);
     }
     return map;
   }, [sessions]);
+  const todayKey = todayDateInputValue();
 
   const [viewYear, setViewYear] = useState(() => {
-    const target = sessions.find((s) => s.id === selectedSessionId) ?? sessions[0];
+    const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
     return target ? Number(target.examDate.slice(0, 4)) : new Date().getFullYear();
   });
   const [viewMonth, setViewMonth] = useState(() => {
-    const target = sessions.find((s) => s.id === selectedSessionId) ?? sessions[0];
+    const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
     return target ? Number(target.examDate.slice(5, 7)) - 1 : new Date().getMonth();
   });
   const [activeDateKey, setActiveDateKey] = useState<string | null>(() => {
-    const s = sessions.find((s) => s.id === selectedSessionId);
-    return s ? s.examDate.slice(0, 10) : null;
+    const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
+    return target ? sessionDateKey(target) : null;
   });
 
   useEffect(() => {
-    const s = sessions.find((s) => s.id === selectedSessionId);
-    setActiveDateKey(s ? s.examDate.slice(0, 10) : null);
-  }, [selectedSessionId, sessions]);
+    const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
+    setActiveDateKey(target ? sessionDateKey(target) : null);
+    if (target) {
+      setViewYear(Number(target.examDate.slice(0, 4)));
+      setViewMonth(Number(target.examDate.slice(5, 7)) - 1);
+    }
+  }, [selectedSessionId, sessions, todayKey]);
 
   const gridCells = useMemo(() => {
     const firstDow = new Date(viewYear, viewMonth, 1).getDay();
@@ -377,10 +414,14 @@ function SessionCalendar({
 }
 
 export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
+  const todayKey = todayDateInputValue();
   const initialPeriodId = periods.find((period) => period.isActive)?.id ?? periods[0]?.id ?? null;
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(initialPeriodId);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
-    periods.find((period) => period.id === initialPeriodId)?.sessions[0]?.id ?? null,
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(() =>
+    getDefaultSessionId(
+      periods.find((period) => period.id === initialPeriodId) ?? null,
+      todayKey,
+    ),
   );
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("offline");
   const [notice, setNotice] = useState<string | null>(null);
@@ -444,9 +485,9 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
 
     const exists = selectedPeriod.sessions.some((session) => session.id === selectedSessionId);
     if (!exists) {
-      setSelectedSessionId(selectedPeriod.sessions[0]?.id ?? null);
+      setSelectedSessionId(getDefaultSessionId(selectedPeriod, todayKey));
     }
-  }, [selectedPeriod, selectedSessionId]);
+  }, [selectedPeriod, selectedSessionId, todayKey]);
 
   useEffect(() => {
     setOfflineMainPreview(null);

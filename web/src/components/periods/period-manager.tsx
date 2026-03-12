@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { EXAM_TYPE_LABEL, EXAM_TYPE_SUBJECTS, SUBJECT_LABEL } from "@/lib/constants";
-import { formatDate, toDateInputValue } from "@/lib/format";
+import { formatDate, toDateInputValue, todayDateInputValue } from "@/lib/format";
 
 type SessionRecord = {
   id: number;
@@ -76,15 +76,17 @@ type EnrollmentPreview = {
 
 type ViewState = "list" | "create" | "detail";
 
-const defaultFormState: PeriodFormState = {
-  name: "",
-  startDate: "",
-  endDate: "",
-  totalWeeks: "8",
-  isGongchaeEnabled: true,
-  isGyeongchaeEnabled: true,
-  autoGenerateSessions: true,
-};
+function createDefaultFormState(): PeriodFormState {
+  return {
+    name: "",
+    startDate: todayDateInputValue(),
+    endDate: todayDateInputValue(),
+    totalWeeks: "8",
+    isGongchaeEnabled: true,
+    isGyeongchaeEnabled: true,
+    autoGenerateSessions: true,
+  };
+}
 
 const examTypeToggleFields = [
   { key: "isGongchaeEnabled", examType: "GONGCHAE" },
@@ -104,7 +106,7 @@ function buildCreateSessionForm(period: PeriodRecord | null): CreateSessionFormS
     examType,
     week: "1",
     subject: EXAM_TYPE_SUBJECTS[examType][0],
-    examDate: "",
+    examDate: todayDateInputValue(),
   };
 }
 
@@ -115,7 +117,7 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
     const activePeriod = periods.find((period) => period.isActive) ?? periods[0];
     return activePeriod ? activePeriod.startDate.slice(0, 4) : "";
   });
-  const [createForm, setCreateForm] = useState<PeriodFormState>(defaultFormState);
+  const [createForm, setCreateForm] = useState<PeriodFormState>(() => createDefaultFormState());
   const [editingPeriodId, setEditingPeriodId] = useState<number | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [draftPeriods, setDraftPeriods] = useState<Record<number, PeriodFormState>>({});
@@ -370,7 +372,7 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
             <button type="button" onClick={() => run(async () => {
               await requestJson("/api/periods", { method: "POST", body: JSON.stringify({ ...createForm, totalWeeks: Number(createForm.totalWeeks) }) });
               setNotice("시험 기간을 생성했습니다.");
-              setCreateForm(defaultFormState);
+              setCreateForm(createDefaultFormState());
               refreshPage();
             })} disabled={isPending || !createForm.name.trim() || !createForm.startDate || !createForm.endDate || (!createForm.isGongchaeEnabled && !createForm.isGyeongchaeEnabled)} className="inline-flex items-center rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">기간 생성</button>
             <button type="button" onClick={() => setView("list")} className="inline-flex items-center rounded-full border border-ink/10 px-6 py-3 text-sm font-semibold transition hover:border-ink/30">취소</button>

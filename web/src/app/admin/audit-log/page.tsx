@@ -1,6 +1,6 @@
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, todayDateInputValue } from "@/lib/format";
 import { listAuditLogs } from "@/lib/audit-log/service";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.SUPER_ADMIN);
   const admin = readParam(searchParams, "admin") ?? "";
   const action = readParam(searchParams, "action") ?? "";
-  const date = readParam(searchParams, "date") ?? "";
+  const date = readParam(searchParams, "date") ?? todayDateInputValue();
   const examNumber = readParam(searchParams, "examNumber") ?? "";
   const rows = await listAuditLogs({
     admin,

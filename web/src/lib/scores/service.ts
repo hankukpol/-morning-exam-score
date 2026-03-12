@@ -18,6 +18,14 @@ import {
   type ParsedQuestionRecord,
   type ParsedScoreImport,
 } from "@/lib/scores/parser";
+import {
+  applyDuplicateResolvedStudentIssues,
+  dedupeByKey,
+  dedupeScoreWriteRecords,
+  dedupeStudentAnswerWriteRecords,
+  type ScoreWriteRecord,
+  type StudentAnswerWriteRecord,
+} from "@/lib/scores/import-safety";
 import { shouldCreateDailyPoliceOxSession } from "@/lib/exam-session-rules";
 
 type StudentMatchRecord = {
@@ -102,6 +110,7 @@ type ExistingScoreSnapshot = {
 };
 
 const SCORE_IMPORT_WRITE_CONCURRENCY = 4;
+const SCORE_IMPORT_WRITE_BATCH_SIZE = 250;
 
 const OX_LINK_UNAVAILABLE_MESSAGE =
   "선택한 회차에는 경찰학 OX를 연동할 수 없습니다. 목요일 누적 모의고사와 OX 시작 전 회차는 제외됩니다.";
@@ -148,6 +157,91 @@ async function runWithConcurrency<T>(
       }
     }),
   );
+}
+
+function chunkItems<T>(items: readonly T[], chunkSize: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+
+async function bulkUpsertScores(
+  prisma: ReturnType<typeof getPrisma>,
+  rows: readonly ScoreWriteRecord[],
+) {
+  for (const batch of chunkItems(dedupeScoreWriteRecords(rows), SCORE_IMPORT_WRITE_BATCH_SIZE)) {
+    const values = batch.map((row) => Prisma.sql`
+      (
+        ${row.examNumber},
+        ${row.sessionId},
+        ${row.rawScore},
+        ${row.oxScore},
+        ${row.finalScore},
+        CAST(${row.attendType} AS "AttendType"),
+        CAST(${row.sourceType} AS "ScoreSource"),
+        ${row.note},
+        NOW()
+      )
+    `);
+
+    await prisma.$executeRaw`
+      INSERT INTO "scores" (
+        "examNumber",
+        "sessionId",
+        "rawScore",
+        "oxScore",
+        "finalScore",
+        "attendType",
+        "sourceType",
+        "note",
+        "updatedAt"
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
+        "rawScore" = EXCLUDED."rawScore",
+        "oxScore" = EXCLUDED."oxScore",
+        "finalScore" = EXCLUDED."finalScore",
+        "attendType" = EXCLUDED."attendType",
+        "sourceType" = EXCLUDED."sourceType",
+        "note" = EXCLUDED."note",
+        "updatedAt" = NOW()
+    `;
+  }
+}
+
+
+async function bulkUpsertStudentAnswers(
+  prisma: ReturnType<typeof getPrisma>,
+  rows: readonly StudentAnswerWriteRecord[],
+) {
+  for (const batch of chunkItems(dedupeStudentAnswerWriteRecords(rows), SCORE_IMPORT_WRITE_BATCH_SIZE)) {
+    const values = batch.map((row) => Prisma.sql`
+      (
+        ${row.examNumber},
+        ${row.questionId},
+        ${row.answer},
+        ${row.isCorrect}
+      )
+    `);
+
+    await prisma.$executeRaw`
+      INSERT INTO "student_answers" (
+        "examNumber",
+        "questionId",
+        "answer",
+        "isCorrect"
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("examNumber", "questionId") DO UPDATE SET
+        "answer" = EXCLUDED."answer",
+        "isCorrect" = EXCLUDED."isCorrect"
+    `;
+  }
 }
 
 async function recalculateScoreStatusCache(
@@ -545,6 +639,8 @@ async function buildPreview(
     } satisfies ScorePreviewRow;
   });
 
+  const sanitizedRows = applyDuplicateResolvedStudentIssues(rows);
+
   return {
     sourceType: parsed.sourceType,
     session: {
@@ -557,13 +653,13 @@ async function buildPreview(
       examDate: session.examDate.toISOString(),
       isCancelled: session.isCancelled,
     },
-    rows,
+    rows: sanitizedRows,
     summary: {
-      totalRows: rows.length,
-      readyRows: rows.filter((row) => row.status === "ready").length,
-      overwriteRows: rows.filter((row) => row.status === "overwrite").length,
-      resolveRows: rows.filter((row) => row.status === "resolve").length,
-      invalidRows: rows.filter((row) => row.status === "invalid").length,
+      totalRows: sanitizedRows.length,
+      readyRows: sanitizedRows.filter((row) => row.status === "ready").length,
+      overwriteRows: sanitizedRows.filter((row) => row.status === "overwrite").length,
+      resolveRows: sanitizedRows.filter((row) => row.status === "resolve").length,
+      invalidRows: sanitizedRows.filter((row) => row.status === "invalid").length,
       questionCount: parsed.questions.length,
       answerCount: parsed.answers.length,
     },
@@ -600,22 +696,25 @@ function buildQuestionStats(
   }
 
   return parsed.questions.map((question) => {
-    const answers = parsed.answers
-      .filter((answer) => answer.questionNo === question.questionNo)
-      .flatMap((answer) => {
-        const examNumber = keyToExamNumber.get(answer.studentKey);
+    const answers = dedupeByKey(
+      parsed.answers
+        .filter((answer) => answer.questionNo === question.questionNo)
+        .flatMap((answer) => {
+          const examNumber = keyToExamNumber.get(answer.studentKey);
 
-        if (!examNumber) {
-          return [];
-        }
+          if (!examNumber) {
+            return [];
+          }
 
-        const normalizedAnswer = answer.answer;
-        return {
-          examNumber,
-          answer: normalizedAnswer,
-          isCorrect: normalizedAnswer === question.correctAnswer,
-        };
-      });
+          const normalizedAnswer = answer.answer;
+          return {
+            examNumber,
+            answer: normalizedAnswer,
+            isCorrect: normalizedAnswer === question.correctAnswer,
+          };
+        }),
+      (answer) => answer.examNumber,
+    );
 
     const distributionCounts = answers.reduce<Record<string, number>>((accumulator, answer) => {
       accumulator[answer.answer] = (accumulator[answer.answer] ?? 0) + 1;
@@ -738,10 +837,10 @@ async function applyParsedImport(input: {
   const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
 
   // 성적 병렬 upsert
-  await runWithConcurrency(resolvedRows, SCORE_IMPORT_WRITE_CONCURRENCY, async (row) => {
+  const scoreWrites = dedupeScoreWriteRecords(resolvedRows.flatMap((row) => {
     const matchedStudent = row.matchedStudent;
     if (!matchedStudent) {
-      return;
+      return [];
     }
 
     const mergedScore = mergeImportedScore(
@@ -749,14 +848,8 @@ async function applyParsedImport(input: {
       row,
     );
 
-    await prisma.score.upsert({
-      where: {
-        examNumber_sessionId: {
-          examNumber: matchedStudent.examNumber,
-          sessionId: input.sessionId,
-        },
-      },
-      create: {
+    return [
+      {
         examNumber: matchedStudent.examNumber,
         sessionId: input.sessionId,
         rawScore: mergedScore.rawScore,
@@ -765,22 +858,16 @@ async function applyParsedImport(input: {
         attendType: row.attendType,
         sourceType: row.sourceType,
         note: row.note ?? null,
-      },
-      update: {
-        rawScore: mergedScore.rawScore,
-        oxScore: mergedScore.oxScore,
-        finalScore: mergedScore.finalScore,
-        attendType: row.attendType,
-        sourceType: row.sourceType,
-        note: row.note ?? null,
-      },
-    });
-  });
+      } satisfies ScoreWriteRecord,
+    ];
+  }));
 
-  const createdCount = resolvedRows.filter(
-    (row) => row.matchedStudent && !existingScoreMap.has(row.matchedStudent.examNumber),
+  await bulkUpsertScores(prisma, scoreWrites);
+
+  const createdCount = scoreWrites.filter(
+    (row) => !existingScoreMap.has(row.examNumber),
   ).length;
-  const updatedCount = resolvedRows.length - createdCount;
+  const updatedCount = scoreWrites.length - createdCount;
 
   // 온라인 ID 바인딩 병렬 처리
   const bindRows = resolvedRows.filter(
@@ -825,41 +912,19 @@ async function applyParsedImport(input: {
       },
     });
 
-    await runWithConcurrency(
-      question.answers,
-      SCORE_IMPORT_WRITE_CONCURRENCY,
-      async (answer) => {
-        await prisma.studentAnswer.upsert({
-          where: {
-            examNumber_questionId: {
-              examNumber: answer.examNumber,
-              questionId: questionRecord.id,
-            },
-          },
-          create: {
-            examNumber: answer.examNumber,
-            questionId: questionRecord.id,
-            answer: answer.answer,
-            isCorrect: answer.isCorrect,
-          },
-          update: {
-            answer: answer.answer,
-            isCorrect: answer.isCorrect,
-          },
-        });
-      },
+    await bulkUpsertStudentAnswers(
+      prisma,
+      question.answers.map((answer) => ({
+        examNumber: answer.examNumber,
+        questionId: questionRecord.id,
+        answer: answer.answer,
+        isCorrect: answer.isCorrect,
+      })),
     );
   }
 
-  const auditBefore = resolvedRows
-    .map((row) => {
-      const matchedStudent = row.matchedStudent;
-      if (!matchedStudent) {
-        return null;
-      }
-
-      return existingScoreMap.get(matchedStudent.examNumber) ?? null;
-    })
+  const auditBefore = scoreWrites
+    .map((row) => existingScoreMap.get(row.examNumber) ?? null)
     .filter((value): value is ExistingScoreSnapshot => value !== null);
   await prisma.auditLog.create({
     data: {

@@ -14,6 +14,7 @@ import {
 } from "@/lib/analytics/analysis";
 import {
   getAnalyticsContext,
+  getDefaultMonthOption,
   getMonthOptions,
   readStringParam,
 } from "@/lib/analytics/ui";
@@ -23,7 +24,7 @@ import {
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
+import { formatDate, todayDateInputValue } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -57,14 +58,14 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
     getAnalyticsContext(searchParams),
   );
   const tab = readAnalyticsTab(searchParams);
-  const date = readStringParam(searchParams, "date") ?? "";
+  const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
   const subject = readSubjectParam(searchParams);
   const examNumber = readStringParam(searchParams, "examNumber") ?? "";
   const monthOptions = getMonthOptions(selectedPeriod, examType);
   const monthKey = readStringParam(searchParams, "monthKey") ?? "";
   const selectedMonth =
     monthOptions.find((option) => `${option.year}-${option.month}` === monthKey) ??
-    monthOptions[0];
+    getDefaultMonthOption(monthOptions);
 
   const [dailyData, monthlyData, subjectData, subjectRanking] = await withPrismaReadRetry(() =>
     Promise.all([

@@ -3,6 +3,7 @@ import { formatMonthLabel } from "@/lib/analytics/presentation";
 import { getAttendanceCalendar } from "@/lib/analytics/service";
 import {
   getAnalyticsContext,
+  getDefaultMonthOption,
   getMonthOptions,
   readStringParam,
 } from "@/lib/analytics/ui";
@@ -24,7 +25,7 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
   const requestedMonthKey = readStringParam(searchParams, "monthKey");
   const selectedMonth =
     monthOptions.find((option) => `${option.year}-${option.month}` === requestedMonthKey) ??
-    monthOptions[0];
+    getDefaultMonthOption(monthOptions);
   const data =
     selectedPeriod && selectedMonth
       ? await getAttendanceCalendar(

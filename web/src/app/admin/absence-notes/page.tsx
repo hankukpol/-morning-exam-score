@@ -17,6 +17,7 @@ import {
   getAbsenceNoteDashboard,
   listAbsenceNotes,
 } from "@/lib/absence-notes/service";
+import { todayDateInputValue } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 
@@ -36,11 +37,12 @@ const STATUS_OPTIONS = [
 export default async function AdminAbsenceNotesPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.TEACHER);
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const defaultSubmittedDate = todayDateInputValue();
   const selectedStatus = readStringParam(searchParams, "status") ?? "ALL";
   const selectedCategory = readStringParam(searchParams, "absenceCategory") ?? "ALL";
   const search = readStringParam(searchParams, "search") ?? "";
-  const submittedFrom = readStringParam(searchParams, "submittedFrom") ?? "";
-  const submittedTo = readStringParam(searchParams, "submittedTo") ?? "";
+  const submittedFrom = readStringParam(searchParams, "submittedFrom") ?? defaultSubmittedDate;
+  const submittedTo = readStringParam(searchParams, "submittedTo") ?? defaultSubmittedDate;
 
   const [notes, students, dashboard] = await Promise.all([
     selectedPeriod

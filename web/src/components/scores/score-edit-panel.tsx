@@ -78,13 +78,31 @@ function formatKoreanDate(dateStr: string) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일 (${DAY_NAMES[date.getDay()]})`;
 }
 
+function findTodaySelection(periods: PeriodOption[], todayKey: string) {
+  for (const period of periods) {
+    const todaySession = period.sessions.find((session) => session.examDate.slice(0, 10) === todayKey);
+    if (todaySession) {
+      return {
+        dateKey: todayKey,
+        sessionId: String(todaySession.id),
+      };
+    }
+  }
+
+  return {
+    dateKey: null,
+    sessionId: "",
+  };
+}
+
 export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
+  const initialSelection = findTodaySelection(periods, todayKey);
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection.dateKey);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(initialSelection.sessionId);
   const [searchQuery, setSearchQuery] = useState("");
   const [scores, setScores] = useState<ScoreRow[] | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -185,6 +203,19 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   function goToToday() {
     setCalendarYear(today.getFullYear());
     setCalendarMonth(today.getMonth());
+
+    const todaySessions = sessionsByDate.get(todayKey) ?? [];
+    if (todaySessions.length === 0) {
+      return;
+    }
+
+    setSelectedDate(todayKey);
+    setSelectedSessionId(String(todaySessions[0].id));
+    setScores(null);
+    setEditingId(null);
+    setDrafts({});
+    resetMessages();
+    setPage(1);
   }
 
   function handleDateClick(dateKey: string) {

@@ -125,6 +125,23 @@ export function getMonthOptions(period: PeriodRecord | null, examType: ExamType)
   );
 }
 
+export function getDefaultMonthOption(
+  monthOptions: Array<{ year: number; month: number }>,
+  today = new Date(),
+) {
+  if (monthOptions.length === 0) {
+    return undefined;
+  }
+
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+
+  return (
+    monthOptions.find((option) => option.year === currentYear && option.month === currentMonth) ??
+    monthOptions[monthOptions.length - 1]
+  );
+}
+
 export function buildHref(
   pathname: string,
   params: Record<string, string | number | boolean | null | undefined>,

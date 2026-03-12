@@ -18,6 +18,10 @@ export function toDateInputValue(value: Date | string | null | undefined) {
   return formatDate(value);
 }
 
+export function todayDateInputValue() {
+  return toDateInputValue(new Date());
+}
+
 export function formatFileDate(value = new Date()) {
   return format(value, "yyyy-MM-dd");
 }

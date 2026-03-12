@@ -14,8 +14,8 @@ import {
   ABSENCE_CATEGORY_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
-import { formatDate, formatDateTime } from "@/lib/format";
-import { useRef, useMemo, useState, useTransition } from "react";
+import { formatDate, formatDateTime, todayDateInputValue } from "@/lib/format";
+import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 
 type SessionOption = {
   id: number;
@@ -88,6 +88,14 @@ function booleanFromFormData(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
 
+function getSessionDateKey(session: SessionOption) {
+  return session.examDate.slice(0, 10);
+}
+
+function findFirstSessionIdByDate(sessions: SessionOption[], dateKey: string) {
+  return sessions.find((session) => getSessionDateKey(session) === dateKey)?.id ?? null;
+}
+
 function SortIcon({ column, sortBy, sortOrder }: { column: SortColumn; sortBy: SortColumn; sortOrder: "asc" | "desc" }) {
   if (sortBy !== column) return <span className="ml-1 text-ink/20">⇅</span>;
   return <span className="ml-1 text-ember">{sortOrder === "asc" ? "↑" : "↓"}</span>;
@@ -98,6 +106,7 @@ export function AbsenceNoteManager({
   sessions,
   notes,
 }: AbsenceNoteManagerProps) {
+  const todayKey = todayDateInputValue();
   // ── 공통 등록 폼 상태 ──────────────────────────────────────
   const [createExamNumber, setCreateExamNumber] = useState(students[0]?.examNumber ?? "");
   const [studentSearch, setStudentSearch] = useState("");
@@ -107,22 +116,28 @@ export function AbsenceNoteManager({
   const [createPerfectAttendance, setCreatePerfectAttendance] = useState(false);
 
   // ── 단건 등록 ────────────────────────────────────────────
-  const [createDateFilter, setCreateDateFilter] = useState("");
-  const [createSessionId, setCreateSessionId] = useState(String(sessions[0]?.id ?? ""));
+  const [createDateFilter, setCreateDateFilter] = useState(todayKey);
+  const [createSessionId, setCreateSessionId] = useState(() => {
+    const sessionId = findFirstSessionIdByDate(sessions, todayKey);
+    return sessionId ? String(sessionId) : "";
+  });
 
   // ── 등록 모드: 단건 / 일괄 ────────────────────────────────
   const [createMode, setCreateMode] = useState<"single" | "bulk">("single");
 
   // ── 일괄 등록 상태 ────────────────────────────────────────
   const [bulkSubMode, setBulkSubMode] = useState<"pick" | "weekday">("pick");
-  const [bulkDateFrom, setBulkDateFrom] = useState("");
-  const [bulkDateTo, setBulkDateTo] = useState("");
+  const [bulkDateFrom, setBulkDateFrom] = useState(todayKey);
+  const [bulkDateTo, setBulkDateTo] = useState(todayKey);
   const [bulkWeekdays, setBulkWeekdays] = useState<number[]>([]);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<number[]>([]);
 
   // ── 드로어 회차 변경 상태 ─────────────────────────────────
-  const [changeSessionDateFilter, setChangeSessionDateFilter] = useState("");
-  const [changeSessionTargetId, setChangeSessionTargetId] = useState<string>("");
+  const [changeSessionDateFilter, setChangeSessionDateFilter] = useState(todayKey);
+  const [changeSessionTargetId, setChangeSessionTargetId] = useState<string>(() => {
+    const sessionId = findFirstSessionIdByDate(sessions, todayKey);
+    return sessionId ? String(sessionId) : "";
+  });
 
   // ── 공통 UI 상태 ──────────────────────────────────────────
   const [notice, setNotice] = useState<string | null>(null);
@@ -138,15 +153,24 @@ export function AbsenceNoteManager({
   const [currentPage, setCurrentPage] = useState(1);
 
   // ── 단건 등록 필터 ────────────────────────────────────────
-  const availableSessionIds = useMemo(
-    () => new Set(sessions.map((s) => String(s.id))),
-    [sessions],
-  );
-
   const filteredSessions = useMemo(() => {
     if (!createDateFilter) return sessions;
-    return sessions.filter((s) => s.examDate.slice(0, 10) === createDateFilter);
+    return sessions.filter((s) => getSessionDateKey(s) === createDateFilter);
   }, [sessions, createDateFilter]);
+  const hasSelectedCreateSession = filteredSessions.some((session) => String(session.id) === createSessionId);
+
+  useEffect(() => {
+    if (filteredSessions.length === 0) {
+      if (createSessionId !== "") {
+        setCreateSessionId("");
+      }
+      return;
+    }
+
+    if (!filteredSessions.some((session) => String(session.id) === createSessionId)) {
+      setCreateSessionId(String(filteredSessions[0].id));
+    }
+  }, [createSessionId, filteredSessions]);
 
   const isWeekdayBulkReady = Boolean(bulkDateFrom) && Boolean(bulkDateTo) && bulkWeekdays.length > 0;
 
@@ -157,7 +181,7 @@ export function AbsenceNoteManager({
     }
 
     return sessions.filter((s) => {
-      const date = s.examDate.slice(0, 10);
+      const date = getSessionDateKey(s);
       if (bulkDateFrom && date < bulkDateFrom) return false;
       if (bulkDateTo && date > bulkDateTo) return false;
       if (bulkSubMode === "weekday") {
@@ -184,8 +208,21 @@ export function AbsenceNoteManager({
   // ── 드로어 회차 변경: 날짜 필터 세션 목록 ────────────────
   const changeSessionOptions = useMemo(() => {
     if (!changeSessionDateFilter) return sessions;
-    return sessions.filter((s) => s.examDate.slice(0, 10) === changeSessionDateFilter);
+    return sessions.filter((s) => getSessionDateKey(s) === changeSessionDateFilter);
   }, [sessions, changeSessionDateFilter]);
+
+  useEffect(() => {
+    if (changeSessionOptions.length === 0) {
+      if (changeSessionTargetId !== "") {
+        setChangeSessionTargetId("");
+      }
+      return;
+    }
+
+    if (!changeSessionOptions.some((session) => String(session.id) === changeSessionTargetId)) {
+      setChangeSessionTargetId(String(changeSessionOptions[0].id));
+    }
+  }, [changeSessionOptions, changeSessionTargetId]);
 
   // ── 정렬된 노트 ───────────────────────────────────────────
   const sortedNotes = useMemo(() => {
@@ -604,8 +641,8 @@ export function AbsenceNoteManager({
                 onChange={(e) => {
                   const date = e.target.value;
                   setCreateDateFilter(date);
-                  const matched = sessions.filter((s) => s.examDate.slice(0, 10) === date);
-                  if (matched.length > 0) setCreateSessionId(String(matched[0].id));
+                  const matched = sessions.filter((s) => getSessionDateKey(s) === date);
+                  setCreateSessionId(matched[0] ? String(matched[0].id) : "");
                 }}
                 className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
               />
@@ -767,7 +804,7 @@ export function AbsenceNoteManager({
           <button
             type="button"
             onClick={createNote}
-            disabled={isPending || !createExamNumber || !createReason.trim() || !availableSessionIds.has(createSessionId)}
+            disabled={isPending || !createExamNumber || !createReason.trim() || !hasSelectedCreateSession}
             className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
             {createCategory === AbsenceCategory.MILITARY ? "사유서 등록 (즉시 승인)" : "사유서 등록"}
@@ -883,8 +920,9 @@ export function AbsenceNoteManager({
                         key={note.id}
                         onClick={() => {
                           setSelectedNote(note);
-                          setChangeSessionDateFilter("");
-                          setChangeSessionTargetId(String(note.sessionId));
+                          setChangeSessionDateFilter(todayKey);
+                          const todaySessionId = findFirstSessionIdByDate(sessions, todayKey);
+                          setChangeSessionTargetId(todaySessionId ? String(todaySessionId) : "");
                         }}
                         className="cursor-pointer transition-colors hover:bg-mist/40"
                       >
@@ -1080,8 +1118,8 @@ export function AbsenceNoteManager({
                         value={changeSessionDateFilter}
                         onChange={(e) => {
                           setChangeSessionDateFilter(e.target.value);
-                          const matched = sessions.filter((s) => s.examDate.slice(0, 10) === e.target.value);
-                          if (matched.length > 0) setChangeSessionTargetId(String(matched[0].id));
+                          const matched = sessions.filter((s) => getSessionDateKey(s) === e.target.value);
+                          setChangeSessionTargetId(matched[0] ? String(matched[0].id) : "");
                         }}
                         className="w-full rounded-2xl border border-ink/10 px-3 py-2 text-sm"
                       />

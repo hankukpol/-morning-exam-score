@@ -11,7 +11,7 @@ import {
   STUDENT_TYPE_LABEL,
   STUDENT_TYPE_VALUES,
 } from "@/lib/constants";
-import { toDateInputValue } from "@/lib/format";
+import { toDateInputValue, todayDateInputValue } from "@/lib/format";
 
 type StudentRow = {
   examNumber: string;
@@ -59,18 +59,20 @@ type StudentFormState = {
   note: string;
 };
 
-const emptyForm: StudentFormState = {
-  examNumber: "",
-  name: "",
-  phone: "",
-  generation: "",
-  className: "",
-  examType: "GONGCHAE",
-  studentType: "NEW",
-  onlineId: "",
-  registeredAt: "",
-  note: "",
-};
+function createEmptyForm(examType: ExamType = "GONGCHAE"): StudentFormState {
+  return {
+    examNumber: "",
+    name: "",
+    phone: "",
+    generation: "",
+    className: "",
+    examType,
+    studentType: "NEW",
+    onlineId: "",
+    registeredAt: todayDateInputValue(),
+    note: "",
+  };
+}
 
 function parseExamType(value: string, fallback: ExamType): ExamType {
   return EXAM_TYPE_VALUES.includes(value as ExamType) ? (value as ExamType) : fallback;
@@ -99,10 +101,7 @@ function buildDraft(student: StudentRow): StudentFormState {
 
 export function StudentManager({ students, filters }: StudentManagerProps) {
   const router = useRouter();
-  const [createForm, setCreateForm] = useState<StudentFormState>({
-    ...emptyForm,
-    examType: filters.examType,
-  });
+  const [createForm, setCreateForm] = useState<StudentFormState>(() => createEmptyForm(filters.examType));
   const [editingExamNumber, setEditingExamNumber] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, StudentFormState>>({});
   const [search, setSearch] = useState(filters.search);
@@ -367,10 +366,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                   body: JSON.stringify(createForm),
                 });
                 setNotice("수강생을 등록했습니다.");
-                setCreateForm({
-                  ...emptyForm,
-                  examType: filters.examType,
-                });
+                setCreateForm(createEmptyForm(filters.examType));
                 refreshWithFilters();
               })
             }

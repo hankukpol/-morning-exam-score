@@ -4,6 +4,7 @@ import { formatMonthLabel } from "@/lib/analytics/presentation";
 import { getPointManagementData } from "@/lib/analytics/service";
 import {
   getAnalyticsContext,
+  getDefaultMonthOption,
   getMonthOptions,
   readStringParam,
 } from "@/lib/analytics/ui";
@@ -23,7 +24,7 @@ export default async function AdminPointsPage({ searchParams }: PageProps) {
   const requestedMonthKey = readStringParam(searchParams, "monthKey");
   const selectedMonth =
     monthOptions.find((option) => `${option.year}-${option.month}` === requestedMonthKey) ??
-    monthOptions[0];
+    getDefaultMonthOption(monthOptions);
   const data =
     selectedPeriod && selectedMonth
       ? await getPointManagementData(

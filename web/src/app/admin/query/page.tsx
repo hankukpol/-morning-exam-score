@@ -10,7 +10,7 @@ import {
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
+import { formatDate, todayDateInputValue } from "@/lib/format";
 import {
   getDateQueryRows,
   getStudentHistoryRows,
@@ -35,7 +35,7 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.VIEWER);
   const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
   const mode = (readStringParam(searchParams, "mode") as QueryMode | undefined) ?? "date";
-  const date = readStringParam(searchParams, "date") ?? "";
+  const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
   const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;
   const keyword = readStringParam(searchParams, "keyword") ?? "";
 

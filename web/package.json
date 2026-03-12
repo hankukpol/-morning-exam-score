@@ -15,7 +15,8 @@
     "import:legacy:students": "tsx scripts/import-legacy-students.ts",
     "inspect:legacy": "tsx scripts/inspect-legacy-workbook.ts",
     "recalculate:status": "tsx scripts/recalculate-status-cache.ts",
-    "verify:analytics": "tsx scripts/verify-analytics-fixes.ts"
+    "verify:analytics": "tsx scripts/verify-analytics-fixes.ts",
+    "verify:score-import": "node --experimental-strip-types scripts/verify-score-import-safety.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
