@@ -187,6 +187,14 @@ export function AbsenceNoteManager({
     if (!createDateFilter) return sessions;
     return sessions.filter((s) => getSessionDateKey(s) === createDateFilter);
   }, [sessions, createDateFilter]);
+  const searchedStudents = useMemo(() => {
+    const keyword = studentSearch.trim();
+    if (!keyword) return students;
+    return students.filter(
+      (student) =>
+        student.examNumber.includes(keyword) || student.name.includes(keyword),
+    );
+  }, [studentSearch, students]);
   const hasSelectedCreateSession = filteredSessions.some((session) => String(session.id) === createSessionId);
 
   useEffect(() => {
@@ -795,16 +803,18 @@ export function AbsenceNoteManager({
               value={createExamNumber}
               onChange={(e) => setCreateExamNumber(e.target.value)}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              size={4}
+              disabled={searchedStudents.length === 0}
             >
-              {students
-                .filter((s) => !studentSearch || s.examNumber.includes(studentSearch) || s.name.includes(studentSearch))
-                .map((student) => (
+              {searchedStudents.length === 0 ? (
+                <option value="">검색 결과 없음</option>
+              ) : (
+                searchedStudents.map((student) => (
                   <option key={student.examNumber} value={student.examNumber}>
                     {student.examNumber} · {student.name}
                     {student.currentStatus !== "NORMAL" ? ` [${STATUS_LABEL[student.currentStatus]}]` : ""}
                   </option>
-                ))}
+                ))
+              )}
             </select>
             {selectedStudent && selectedStudent.currentStatus !== "NORMAL" && (
               <p className="mt-1.5 text-xs">
@@ -818,36 +828,45 @@ export function AbsenceNoteManager({
 
           {/* 단건: 단일 회차 선택 */}
           {createMode === "single" && (
-            <div>
-              <label className="mb-2 block text-sm font-medium">회차 날짜</label>
-              <input
-                type="date"
-                value={createDateFilter}
-                onChange={(e) => {
-                  const date = e.target.value;
-                  setCreateDateFilter(date);
-                  const matched = sessions.filter((s) => getSessionDateKey(s) === date);
-                  setCreateSessionId(matched[0] ? String(matched[0].id) : "");
-                }}
-                className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              />
-              <select
-                value={createSessionId}
-                onChange={(e) => setCreateSessionId(e.target.value)}
-                className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              >
-                {filteredSessions.length === 0 ? (
-                  <option value="">해당 날짜에 회차 없음</option>
-                ) : (
-                  filteredSessions.map((session) => (
-                    <option key={session.id} value={session.id}>
-                      {formatDate(session.examDate)} · {session.week}주차 · {SUBJECT_LABEL[session.subject]}
-                    </option>
-                  ))
-                )}
-              </select>
+            <div className="xl:col-span-2">
+              <label className="mb-2 block text-sm font-medium">회차 선택</label>
+              <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-slate">날짜</label>
+                  <input
+                    type="date"
+                    value={createDateFilter}
+                    onChange={(e) => {
+                      const date = e.target.value;
+                      setCreateDateFilter(date);
+                      const matched = sessions.filter((s) => getSessionDateKey(s) === date);
+                      setCreateSessionId(matched[0] ? String(matched[0].id) : "");
+                    }}
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-slate">회차</label>
+                  <select
+                    value={createSessionId}
+                    onChange={(e) => setCreateSessionId(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+                  >
+                    {filteredSessions.length === 0 ? (
+                      <option value="">해당 날짜에 회차 없음</option>
+                    ) : (
+                      filteredSessions.map((session) => (
+                        <option key={session.id} value={session.id}>
+                          {session.week}주차 · {SUBJECT_LABEL[session.subject]}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
             </div>
           )}
+
 
           {/* 일괄: 날짜 범위 */}
           {createMode === "bulk" && (

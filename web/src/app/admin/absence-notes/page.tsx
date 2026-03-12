@@ -1,4 +1,4 @@
-import {
+﻿import {
   AbsenceCategory,
   AbsenceStatus,
   AdminRole,
@@ -175,6 +175,36 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
     },
   ] as const;
 
+  const utilityCards = [
+    {
+      key: "policy",
+      title: "사유 정책 설정",
+      caption: "설정",
+      href: ABSENCE_POLICY_SETTINGS_HREF,
+      className: "border-amber-200 bg-amber-50/70 hover:bg-amber-50",
+      textClassName: "text-amber-700",
+      captionClassName: "text-amber-700/80",
+    },
+    {
+      key: "export",
+      title: "Excel 내보내기",
+      caption: "내보내기",
+      href: exportUrl,
+      className: "border-ink/10 bg-white hover:bg-mist/60",
+      textClassName: "text-ink",
+      captionClassName: "text-slate",
+    },
+    {
+      key: "review",
+      title: "사유서 조회 및 검토로 이동",
+      caption: "이동",
+      href: "#absence-review",
+      className: "border-sky-200 bg-sky-50/70 hover:bg-sky-50",
+      textClassName: "text-sky-800",
+      captionClassName: "text-sky-700/80",
+    },
+  ] as const;
+
   const selectedStatusLabel =
     STATUS_OPTIONS.find((option) => option.value === selectedStatus)?.label ?? "전체";
   const selectedCategoryLabel =
@@ -217,44 +247,41 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
 
       <section className="mt-8">
         <section className="rounded-[32px] border border-ink/10 bg-white p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-ink">사유서 등록</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
-                신규 사유서를 바로 입력하는 구역입니다. 등록 후 검토가 필요하면 아래 조회 및 검토
-                구역으로 바로 이동할 수 있습니다.
+          <div>
+            <h2 className="text-2xl font-semibold text-ink">사유서 등록</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
+              신규 사유서를 바로 입력하는 구역입니다. 등록 후 검토가 필요하면 아래 조회 및 검토
+              구역으로 바로 이동할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {utilityCards.map((card) => (
+              <a
+                key={card.key}
+                href={card.href}
+                className={`rounded-[24px] border p-5 transition ${card.className}`}
+              >
+                <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${card.captionClassName}`}>
+                  {card.caption}
+                </p>
+                <p className={`mt-3 text-base font-semibold leading-6 ${card.textClassName}`}>
+                  {card.title}
+                </p>
+              </a>
+            ))}
+            <article className="rounded-[24px] border border-sky-200 bg-sky-50/70 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                현재 작업 범위
               </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={ABSENCE_POLICY_SETTINGS_HREF}
-                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                사유 정책 설정
-              </a>
-              <a
-                href={exportUrl}
-                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                Excel 내보내기
-              </a>
-              <a
-                href="#absence-review"
-                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                사유서 조회 및 검토로 이동
-              </a>
-              <div className="rounded-[24px] border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-slate">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
-                  현재 작업 범위
-                </p>
-                <p className="mt-2 font-semibold text-ink">
-                  {selectedPeriod?.name ?? "기간을 먼저 선택하세요"}
-                </p>
-                <p className="mt-1">{EXAM_TYPE_LABEL[examType]}</p>
-                <p className="mt-1">활성 사유 정책 {activePolicyCount}개</p>
+              <p className="mt-3 text-base font-semibold leading-6 text-ink">
+                {selectedPeriod?.name ?? "기간을 먼저 선택하세요"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate">
+                <span>{EXAM_TYPE_LABEL[examType]}</span>
+                <span>활성 사유 정책 {activePolicyCount}개</span>
               </div>
-            </div>
+            </article>
           </div>
 
           <div className="mt-6">
@@ -270,7 +297,10 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
         </section>
       </section>
 
-      <section id="absence-review" className="mt-8 rounded-[32px] border border-ink/10 bg-white p-6 scroll-mt-24">
+      <section
+        id="absence-review"
+        className="mt-8 rounded-[32px] border border-ink/10 bg-white p-6 scroll-mt-24"
+      >
         <div>
           <h2 className="text-2xl font-semibold text-ink">사유서 조회 및 검토</h2>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
