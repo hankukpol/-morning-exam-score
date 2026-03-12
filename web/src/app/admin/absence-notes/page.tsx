@@ -1,4 +1,4 @@
-﻿import {
+import {
   AbsenceCategory,
   AbsenceStatus,
   AdminRole,
@@ -215,7 +215,7 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
         ))}
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
+      <section className="mt-8">
         <section className="rounded-[32px] border border-ink/10 bg-white p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -226,6 +226,18 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={ABSENCE_POLICY_SETTINGS_HREF}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                사유 정책 설정
+              </a>
+              <a
+                href={exportUrl}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                Excel 내보내기
+              </a>
               <a
                 href="#absence-review"
                 className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
@@ -256,39 +268,6 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
             />
           </div>
         </section>
-
-        <aside className="space-y-4 self-start xl:sticky xl:top-6">
-          <section className="rounded-[28px] border border-ink/10 bg-mist p-5">
-            <h2 className="text-xl font-semibold text-ink">빠른 작업</h2>
-            <p className="mt-2 text-sm leading-6 text-slate">
-              등록 직후 자주 이동하는 설정과 내보내기 기능을 모았습니다.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a
-                href={ABSENCE_POLICY_SETTINGS_HREF}
-                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                사유 정책 설정
-              </a>
-              <a
-                href={exportUrl}
-                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                Excel 내보내기
-              </a>
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-ink/10 bg-white p-5">
-            <h2 className="text-xl font-semibold text-ink">운영 기준</h2>
-            <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
-              <li>승인된 사유서는 경고와 탈락 계산에 포함되지 않습니다.</li>
-              <li>출석 포함 여부와 개근 인정 여부는 사유 정책 또는 건별 설정을 따릅니다.</li>
-              <li>예비군처럼 기본 정책이 정해진 사유는 등록 시 자동으로 값이 채워집니다.</li>
-              <li>등록 후 검토가 필요하면 아래 검토 구역에서 바로 승인 또는 반려를 처리하세요.</li>
-            </ul>
-          </section>
-        </aside>
       </section>
 
       <section id="absence-review" className="mt-8 rounded-[32px] border border-ink/10 bg-white p-6 scroll-mt-24">
