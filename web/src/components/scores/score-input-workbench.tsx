@@ -9,6 +9,7 @@ import {
 import { formatDate } from "@/lib/format";
 import type {
   OfflineScorePreview,
+  OnlineScorePreview,
   ScorePreviewResult,
   ScoreResolutionInput,
 } from "@/lib/scores/service";
@@ -52,6 +53,10 @@ function statusClass(status: ScorePreviewResult["rows"][number]["status"]) {
   if (status === "overwrite") return "bg-ember/10 text-ember";
   if (status === "resolve") return "bg-sky-50 text-sky-700";
   return "bg-red-50 text-red-700";
+}
+
+function formatOxSessionLabel(session: PeriodOption["sessions"][number]) {
+  return `${session.examDate.slice(0, 10)} · ${EXAM_TYPE_LABEL[session.examType]} · ${SUBJECT_LABEL[session.subject]} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
 }
 
 function SummaryCards({ preview }: { preview: ScorePreviewResult }) {
@@ -174,7 +179,7 @@ function PreviewTable({
                         <label className="inline-flex items-center gap-2 text-xs text-slate">
                           <input
                             type="checkbox"
-                            checked={Boolean(onlineResolutions[row.rowKey]?.bindOnlineId)}
+                            checked={onlineResolutions[row.rowKey]?.bindOnlineId ?? row.bindOnlineId}
                             onChange={(event) =>
                               setOnlineResolutions((current) => ({
                                 ...current,
@@ -352,14 +357,19 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [offlineAttendType, setOfflineAttendType] = useState<keyof typeof ATTEND_TYPE_LABEL>("NORMAL");
-  const [offlineFile, setOfflineFile] = useState<File | null>(null);
+  const [offlineMainFile, setOfflineMainFile] = useState<File | null>(null);
+  const [offlineAnalysisFile, setOfflineAnalysisFile] = useState<File | null>(null);
   const [offlineOxSessionId, setOfflineOxSessionId] = useState<number | null>(null);
   const [offlineMainPreview, setOfflineMainPreview] = useState<ScorePreviewResult | null>(null);
   const [offlineOxPreview, setOfflineOxPreview] = useState<ScorePreviewResult | null>(null);
   const [onlineAttendType, setOnlineAttendType] = useState<keyof typeof ATTEND_TYPE_LABEL>("LIVE");
   const [onlineMainFile, setOnlineMainFile] = useState<File | null>(null);
   const [onlineDetailFile, setOnlineDetailFile] = useState<File | null>(null);
-  const [onlinePreview, setOnlinePreview] = useState<ScorePreviewResult | null>(null);
+  const [onlineOxSessionId, setOnlineOxSessionId] = useState<number | null>(null);
+  const [onlineOxMainFile, setOnlineOxMainFile] = useState<File | null>(null);
+  const [onlineOxDetailFile, setOnlineOxDetailFile] = useState<File | null>(null);
+  const [onlineMainPreview, setOnlineMainPreview] = useState<ScorePreviewResult | null>(null);
+  const [onlineOxPreview, setOnlineOxPreview] = useState<ScorePreviewResult | null>(null);
   const [onlineResolutions, setOnlineResolutions] = useState<ScoreResolutionInput>({});
   const [pasteAttendType, setPasteAttendType] = useState<keyof typeof ATTEND_TYPE_LABEL>("NORMAL");
   const [pasteText, setPasteText] = useState("");
@@ -374,6 +384,26 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     () => selectedPeriod?.sessions.find((session) => session.id === selectedSessionId) ?? null,
     [selectedPeriod, selectedSessionId],
   );
+  const isCumulativeSession = selectedSession?.subject === "CUMULATIVE";
+  const oxAutoOptionLabel = isCumulativeSession
+    ? "자동 연동 없음 (누적 모의고사 회차)"
+    : "자동 연동 (같은 날짜 경찰학 회차)";
+  const oxRuleHint = isCumulativeSession
+    ? "목요일 누적 모의고사는 경찰학 OX가 없어 자동/수동 연동이 모두 비활성화됩니다."
+    : "비워두면 같은 날짜의 경찰학 회차로 자동 연동됩니다. 다른 날짜로 보낼 때만 직접 선택해 주세요.";
+
+  const oxSessionOptions = useMemo(() => {
+    if (!selectedPeriod || !selectedSession) {
+      return [];
+    }
+
+    return selectedPeriod.sessions.filter(
+      (session) =>
+        session.examType === selectedSession.examType &&
+        session.subject === "POLICE_SCIENCE" &&
+        !session.isCancelled,
+    );
+  }, [selectedPeriod, selectedSession]);
 
   useEffect(() => {
     if (!selectedPeriod?.sessions.length) {
@@ -390,10 +420,29 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   useEffect(() => {
     setOfflineMainPreview(null);
     setOfflineOxPreview(null);
-    setOnlinePreview(null);
+    setOnlineMainPreview(null);
+    setOnlineOxPreview(null);
     setPastePreview(null);
     setOnlineResolutions({});
   }, [selectedSessionId]);
+
+  useEffect(() => {
+    if (!isCumulativeSession) {
+      return;
+    }
+
+    setOfflineOxSessionId(null);
+    setOnlineOxSessionId(null);
+  }, [isCumulativeSession]);
+
+  useEffect(() => {
+    if (offlineOxSessionId && !oxSessionOptions.some((session) => session.id === offlineOxSessionId)) {
+      setOfflineOxSessionId(null);
+    }
+    if (onlineOxSessionId && !oxSessionOptions.some((session) => session.id === onlineOxSessionId)) {
+      setOnlineOxSessionId(null);
+    }
+  }, [offlineOxSessionId, onlineOxSessionId, oxSessionOptions]);
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, init);
@@ -421,7 +470,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     formData.append("mode", mode);
     formData.append("sessionId", String(selectedSessionId));
     formData.append("attendType", offlineAttendType);
-    if (offlineFile) formData.append("file", offlineFile);
+    if (offlineMainFile) formData.append("mainFile", offlineMainFile);
+    if (offlineAnalysisFile) formData.append("analysisFile", offlineAnalysisFile);
     if (offlineOxSessionId) formData.append("oxSessionId", String(offlineOxSessionId));
     return formData;
   }
@@ -434,6 +484,9 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     formData.append("resolutions", JSON.stringify(onlineResolutions));
     if (onlineMainFile) formData.append("mainFile", onlineMainFile);
     if (onlineDetailFile) formData.append("detailFile", onlineDetailFile);
+    if (onlineOxSessionId) formData.append("oxSessionId", String(onlineOxSessionId));
+    if (onlineOxMainFile) formData.append("oxMainFile", onlineOxMainFile);
+    if (onlineOxDetailFile) formData.append("oxDetailFile", onlineOxDetailFile);
     return formData;
   }
 
@@ -492,42 +545,57 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
         </div>
         {activeTab === "offline" ? (
           <div className="mt-6 space-y-6">
-            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)]">
               <select value={offlineAttendType} onChange={(event) => setOfflineAttendType(event.target.value as keyof typeof ATTEND_TYPE_LABEL)} className="rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm">
                 {Object.entries(ATTEND_TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
-              <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOfflineFile(event.target.files?.[0] ?? null); setOfflineMainPreview(null); setOfflineOxPreview(null); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-ink">성적 원본 파일 <span className="font-normal text-red-500">*필수</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOfflineMainFile(event.target.files?.[0] ?? null); setOfflineMainPreview(null); setOfflineOxPreview(null); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-ink">문항분석 파일 <span className="font-normal text-slate">(선택)</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOfflineAnalysisFile(event.target.files?.[0] ?? null); setOfflineMainPreview(null); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+              </label>
+            </div>
+            <div className="rounded-[24px] border border-ink/10 bg-mist px-4 py-3 text-xs leading-6 text-slate">
+              <span className="font-semibold text-ink">파일 규칙</span>
+              &nbsp;· 원본 파일 예시: <code className="rounded bg-ink/5 px-1">오프라인-성적표.xls</code>
+              &nbsp;· 문항분석 파일 예시: <code className="rounded bg-ink/5 px-1">오프라인-문항분석.xls</code>
+              &nbsp;· 경찰학 OX는 비워두면 같은 날짜 경찰학 회차로 자동 연동되며, 다른 날짜로 보낼 때만 아래 회차를 선택합니다.
+              &nbsp;· 목요일 누적 모의고사와 마지막 배부일은 경찰학 OX를 연동하지 않습니다.
+              &nbsp;· 분석 파일은 선택 입력이며, 없으면 원본 파일만 처리합니다.
             </div>
             <div className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <label className="mb-2 block text-sm font-medium">경찰학 OX 회차 연동 <span className="font-normal text-slate">(선택사항 — 주관식 점수를 별도 세션에 저장)</span></label>
+              <label className="mb-2 block text-sm font-medium">오프라인 OX 적용 회차 <span className="font-normal text-slate">(비워두면 같은 날짜 경찰학 회차로 자동 연동)</span></label>
               <select
                 value={offlineOxSessionId ?? ""}
                 onChange={(event) => { setOfflineOxSessionId(event.target.value ? Number(event.target.value) : null); setOfflineOxPreview(null); }}
-                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                disabled={isCumulativeSession}
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm disabled:bg-slate-100 disabled:text-slate"
               >
-                <option value="">연동 안 함</option>
-                {selectedPeriod?.sessions
-                  .filter((s) => s.id !== selectedSessionId)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.examDate.slice(0, 10)} · {SUBJECT_LABEL[s.subject]} · {s.week}주차{s.isCancelled ? " (취소)" : ""}
-                    </option>
-                  ))}
+                <option value="">{oxAutoOptionLabel}</option>
+                {oxSessionOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {formatOxSessionLabel(s)}
+                  </option>
+                ))}
               </select>
+              <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !offlineFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("preview") })) as OfflineScorePreview; setOfflineMainPreview(payload.main); setOfflineOxPreview(payload.ox); setNotice("오프라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !offlineMainPreview || !selectedSessionId || !offlineFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("execute") }) as { main: { createdCount: number; updatedCount: number }; ox: { createdCount: number; updatedCount: number } | null }; const mainMsg = `신규 ${payload.main.createdCount}건 / 업데이트 ${payload.main.updatedCount}건`; const oxMsg = payload.ox ? ` | OX: 신규 ${payload.ox.createdCount}건 / 업데이트 ${payload.ox.updatedCount}건` : ""; setNotice(`반영 완료: ${mainMsg}${oxMsg}`); setOfflineMainPreview(null); setOfflineOxPreview(null); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || !selectedSessionId || !offlineMainFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("preview") })) as OfflineScorePreview; setOfflineMainPreview(payload.main); setOfflineOxPreview(payload.ox); setNotice("오프라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || !offlineMainPreview || !selectedSessionId || !offlineMainFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("execute") }) as { main: { createdCount: number; updatedCount: number }; ox: { createdCount: number; updatedCount: number } | null }; const mainMsg = `일반 신규 ${payload.main.createdCount}건 / 업데이트 ${payload.main.updatedCount}건`; const oxMsg = payload.ox ? ` | OX 신규 ${payload.ox.createdCount}건 / 업데이트 ${payload.ox.updatedCount}건` : ""; setNotice(`반영 완료: ${mainMsg}${oxMsg}`); setOfflineMainPreview(null); setOfflineOxPreview(null); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {offlineMainPreview ? (
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-ink">객관식 성적 미리보기</p>
+                <p className="text-sm font-semibold text-ink">오프라인 일반 미리보기</p>
                 <PreviewTable preview={offlineMainPreview} source="offline" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} />
               </div>
             ) : null}
             {offlineOxPreview ? (
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-ink">경찰학 OX 성적 미리보기</p>
+                <p className="text-sm font-semibold text-ink">오프라인 경찰학 OX 미리보기</p>
                 <PreviewTable preview={offlineOxPreview} source="offline" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} />
               </div>
             ) : null}
@@ -540,27 +608,66 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
                 {Object.entries(ATTEND_TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
               <div className="rounded-[24px] border border-ink/10 bg-mist px-4 py-3 text-xs leading-6 text-slate">
-                <span className="font-semibold text-ink">파일 구성</span>
-                &nbsp;· 점수 파일: <code className="rounded bg-ink/5 px-1">데이터_날짜.xls</code>
-                &nbsp;· 채점표 (마킹 분석용): <code className="rounded bg-ink/5 px-1">데이터_날짜_채점표.xls</code>
-                &nbsp;· 경찰학 OX는 OX 세션을 선택 후 별도 업로드하세요.
+                <span className="font-semibold text-ink">파일 규칙</span>
+                &nbsp;· 기본 점수 파일 예시: <code className="rounded bg-ink/5 px-1">온라인_성적.xls</code>
+                &nbsp;· 상세 파일 예시: <code className="rounded bg-ink/5 px-1">온라인_상세결과.xls</code>
+                &nbsp;· OX 기본 파일 예시: <code className="rounded bg-ink/5 px-1">온라인_OX.xls</code>
+                &nbsp;· OX 상세 파일 예시: <code className="rounded bg-ink/5 px-1">온라인_OX_상세.xls</code>
+                &nbsp;· OX 파일은 비워두면 같은 날짜 경찰학 회차로 자동 연동되며, 다른 날짜로 보낼 때만 아래 회차를 직접 선택합니다.
+                &nbsp;· 목요일 누적 모의고사와 마지막 배부일은 경찰학 OX를 연동하지 않습니다.
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-ink">점수 파일 <span className="font-normal text-red-500">*필수</span></span>
-                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineMainFile(event.target.files?.[0] ?? null); setOnlinePreview(null); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+                <span className="text-xs font-semibold text-ink">온라인 기본 파일 <span className="font-normal text-red-500">*필수</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineMainFile(event.target.files?.[0] ?? null); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-ink">채점표 <span className="font-normal text-slate">(마킹 분석용)</span></span>
-                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineDetailFile(event.target.files?.[0] ?? null); setOnlinePreview(null); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+                <span className="text-xs font-semibold text-ink">온라인 상세 파일 <span className="font-normal text-slate">(선택)</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineDetailFile(event.target.files?.[0] ?? null); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-ink">온라인 OX 기본 파일 <span className="font-normal text-slate">(선택)</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineOxMainFile(event.target.files?.[0] ?? null); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-ink">온라인 OX 상세 파일 <span className="font-normal text-slate">(선택)</span></span>
+                <input type="file" accept=".xls,.xlsx" onChange={(event) => { setOnlineOxDetailFile(event.target.files?.[0] ?? null); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); }} className="block w-full rounded-2xl border border-dashed border-ink/20 bg-mist px-4 py-4 text-sm" />
               </label>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("preview") })) as ScorePreviewResult; setOnlinePreview(payload); setNotice("온라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !onlinePreview || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("execute") }); setNotice(`반영 완료: 신규 ${payload.createdCount}건 / 업데이트 ${payload.updatedCount}건 / onlineId 연결 ${payload.boundOnlineIdCount}건`); setOnlinePreview(null); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+            <div className="rounded-[24px] border border-ink/10 bg-mist p-4">
+              <label className="mb-2 block text-sm font-medium">온라인 OX 적용 회차 <span className="font-normal text-slate">(비워두면 같은 날짜 경찰학 회차로 자동 연동)</span></label>
+              <select
+                value={onlineOxSessionId ?? ""}
+                onChange={(event) => { setOnlineOxSessionId(event.target.value ? Number(event.target.value) : null); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); }}
+                disabled={isCumulativeSession}
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm disabled:bg-slate-100 disabled:text-slate"
+              >
+                <option value="">{oxAutoOptionLabel}</option>
+                {oxSessionOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {formatOxSessionLabel(s)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
-            {onlinePreview ? <PreviewTable preview={onlinePreview} source="online" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} /> : null}
+            <div className="flex flex-wrap gap-3">
+              <button type="button" disabled={isPending || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("preview") })) as OnlineScorePreview; setOnlineMainPreview(payload.main); setOnlineOxPreview(payload.ox); setNotice("온라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || !onlineMainPreview || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("execute") }) as { main: { createdCount: number; updatedCount: number; boundOnlineIdCount: number }; ox: { createdCount: number; updatedCount: number; boundOnlineIdCount: number } | null }; const mainMsg = `일반 신규 ${payload.main.createdCount}건 / 업데이트 ${payload.main.updatedCount}건 / onlineId 저장 ${payload.main.boundOnlineIdCount}건`; const oxMsg = payload.ox ? ` | OX 신규 ${payload.ox.createdCount}건 / 업데이트 ${payload.ox.updatedCount}건 / onlineId 저장 ${payload.ox.boundOnlineIdCount}건` : ""; setNotice(`반영 완료: ${mainMsg}${oxMsg}`); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+            </div>
+            {onlineMainPreview ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-ink">온라인 일반 미리보기</p>
+                <PreviewTable preview={onlineMainPreview} source="online" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} />
+              </div>
+            ) : null}
+            {onlineOxPreview ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-ink">온라인 경찰학 OX 미리보기</p>
+                <PreviewTable preview={onlineOxPreview} source="online" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} />
+              </div>
+            ) : null}
           </div>
         ) : null}
         {activeTab === "paste" ? (

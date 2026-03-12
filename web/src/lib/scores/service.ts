@@ -4,17 +4,20 @@ import {
   Prisma,
   ScoreSource,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { getPrisma } from "@/lib/prisma";
 import {
+  parseOfflineAnalysisQuestions,
   parseOfflineScoreImport,
+  parseOnlineOxScoreImport,
   parseOnlineScoreImport,
   parseScorePasteImport,
   type ParsedOfflineScoreImport,
+  type ParsedQuestionRecord,
   type ParsedScoreImport,
 } from "@/lib/scores/parser";
-import { recalculateStatusCache } from "@/lib/analytics/service";
+import { shouldCreateDailyPoliceOxSession } from "@/lib/exam-session-rules";
 
 type StudentMatchRecord = {
   examNumber: string;
@@ -89,24 +92,82 @@ export type ScorePreviewResult = {
   metadata: Record<string, unknown>;
 };
 
+type ExistingScoreSnapshot = {
+  examNumber: string;
+  rawScore: number | null;
+  oxScore: number | null;
+  finalScore: number | null;
+};
+
+const OX_LINK_UNAVAILABLE_MESSAGE =
+  "선택한 회차에는 경찰학 OX를 연동할 수 없습니다. 목요일 누적 모의고사와 OX 시작 전 회차는 제외됩니다.";
+
 function normalizeName(value: string) {
   return value.replace(/\s+/g, "");
 }
 
 function computeFinalScore(rawScore: number | null, oxScore: number | null, finalScore: number | null) {
-  if (finalScore !== null) {
-    return finalScore;
+  if (rawScore !== null || oxScore !== null) {
+    return (rawScore ?? 0) + (oxScore ?? 0);
   }
 
-  if (rawScore === null && oxScore === null) {
-    return null;
-  }
-
-  return (rawScore ?? 0) + (oxScore ?? 0);
+  return finalScore;
 }
 
 function roundToOneDecimal(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+async function recalculateScoreStatusCache(
+  periodId: number,
+  examType: ExamType,
+  options?: { examNumbers?: string[] },
+) {
+  const { recalculateStatusCache } = await import("@/lib/analytics/service");
+  return recalculateStatusCache(periodId, examType, options);
+}
+
+function mergeImportedScore(
+  existing: ExistingScoreSnapshot | null | undefined,
+  incoming: Pick<ScorePreviewRow, "rawScore" | "oxScore" | "finalScore">,
+) {
+  const rawScore = incoming.rawScore ?? existing?.rawScore ?? null;
+  const oxScore = incoming.oxScore ?? existing?.oxScore ?? null;
+  const finalScore = computeFinalScore(
+    rawScore,
+    oxScore,
+    incoming.finalScore ?? existing?.finalScore ?? null,
+  );
+
+  return {
+    rawScore,
+    oxScore,
+    finalScore,
+  };
+}
+
+function mergeQuestionRecords(
+  baseQuestions: ParsedQuestionRecord[],
+  overrideQuestions: ParsedQuestionRecord[] = [],
+) {
+  const merged = new Map<number, ParsedQuestionRecord>();
+
+  for (const question of baseQuestions) {
+    merged.set(question.questionNo, question);
+  }
+
+  for (const question of overrideQuestions) {
+    const existing = merged.get(question.questionNo);
+    merged.set(question.questionNo, {
+      questionNo: question.questionNo,
+      correctAnswer: question.correctAnswer || existing?.correctAnswer || "",
+      correctRate: question.correctRate ?? existing?.correctRate ?? null,
+      answerDistribution: question.answerDistribution ?? existing?.answerDistribution ?? null,
+      difficulty: question.difficulty ?? existing?.difficulty ?? null,
+    });
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.questionNo - right.questionNo);
 }
 
 async function getSessionOrThrow(sessionId: number) {
@@ -118,6 +179,87 @@ async function getSessionOrThrow(sessionId: number) {
       period: true,
     },
   });
+}
+
+async function resolveOxSessionId(sessionId: number, explicitOxSessionId?: number) {
+  const session = await getSessionOrThrow(sessionId);
+
+  if (session.subject === Subject.POLICE_SCIENCE) {
+    return session.id;
+  }
+
+  if (session.subject === Subject.CUMULATIVE) {
+    return undefined;
+  }
+
+  const firstPoliceSession = await getPrisma().examSession.findFirst({
+    where: {
+      periodId: session.periodId,
+      examType: session.examType,
+      subject: Subject.POLICE_SCIENCE,
+      isCancelled: false,
+    },
+    orderBy: {
+      examDate: "asc",
+    },
+    select: {
+      examDate: true,
+    },
+  });
+
+  if (
+    !shouldCreateDailyPoliceOxSession(
+      session.subject,
+      session.examDate,
+      firstPoliceSession?.examDate ?? null,
+    )
+  ) {
+    return undefined;
+  }
+
+  if (explicitOxSessionId) {
+    const explicitSession = await getPrisma().examSession.findUnique({
+      where: {
+        id: explicitOxSessionId,
+      },
+      select: {
+        periodId: true,
+        examType: true,
+        subject: true,
+        isCancelled: true,
+      },
+    });
+
+    if (
+      !explicitSession ||
+      explicitSession.periodId !== session.periodId ||
+      explicitSession.examType !== session.examType ||
+      explicitSession.subject !== Subject.POLICE_SCIENCE ||
+      explicitSession.isCancelled
+    ) {
+      throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
+    }
+
+    return explicitOxSessionId;
+  }
+
+  const policeSession = await getPrisma().examSession.findFirst({
+    where: {
+      periodId: session.periodId,
+      examType: session.examType,
+      examDate: session.examDate,
+      subject: Subject.POLICE_SCIENCE,
+      isCancelled: false,
+    },
+    orderBy: {
+      examDate: "asc",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return policeSession?.id;
 }
 
 async function loadStudentMatches(examType: ExamType, periodId: number) {
@@ -225,9 +367,12 @@ async function buildPreview(
     },
     select: {
       examNumber: true,
+      rawScore: true,
+      oxScore: true,
+      finalScore: true,
     },
   });
-  const existingScoreSet = new Set(existingScores.map((score) => score.examNumber));
+  const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
   const counts = duplicateCounts(parsed);
 
   const rows = parsed.records.map((record) => {
@@ -256,7 +401,7 @@ async function buildPreview(
       parsed.matchingKey === "examNumber" ? record.examNumber : record.onlineId;
 
     if (duplicateKey && (counts.get(duplicateKey) ?? 0) > 1) {
-      issues.push("입력 데이터에 동일 식별자가 중복되어 있습니다.");
+      issues.push("입력 데이터에 동일 키가 중복되어 있습니다.");
     }
 
     if (issues.length === 0) {
@@ -295,9 +440,11 @@ async function buildPreview(
       }
     }
 
-    const hasExistingScore = matchedStudent
-      ? existingScoreSet.has(matchedStudent.examNumber)
-      : false;
+    const existingScore = matchedStudent
+      ? existingScoreMap.get(matchedStudent.examNumber) ?? null
+      : null;
+    const mergedScore = mergeImportedScore(existingScore, record);
+    const hasExistingScore = Boolean(existingScore);
     const bindOnlineIdSuggested = Boolean(
       matchedBy === "name" && record.onlineId && matchedStudent && !matchedStudent.onlineId,
     );
@@ -323,9 +470,9 @@ async function buildPreview(
       examNumber: matchedStudent?.examNumber ?? record.examNumber,
       name: record.name,
       onlineId: record.onlineId,
-      rawScore: record.rawScore,
-      oxScore: record.oxScore,
-      finalScore: computeFinalScore(record.rawScore, record.oxScore, record.finalScore),
+      rawScore: mergedScore.rawScore,
+      oxScore: mergedScore.oxScore,
+      finalScore: mergedScore.finalScore,
       attendType: record.attendType,
       sourceType: record.sourceType,
       note: record.note,
@@ -370,6 +517,7 @@ type QuestionStatRecord = {
   questionNo: number;
   correctAnswer: string;
   correctRate: number | null;
+  difficulty: string | null;
   answerDistribution: Prisma.InputJsonValue;
   answers: Array<{
     examNumber: string;
@@ -428,11 +576,13 @@ function buildQuestionStats(
       questionNo: question.questionNo,
       correctAnswer: question.correctAnswer,
       correctRate:
-        totalAnswers === 0
+        question.correctRate ??
+        (totalAnswers === 0
           ? null
-          : roundToOneDecimal((correctCount / totalAnswers) * 100),
+          : roundToOneDecimal((correctCount / totalAnswers) * 100)),
+      difficulty: question.difficulty,
       answerDistribution: JSON.parse(
-        JSON.stringify(answerDistribution),
+        JSON.stringify(question.answerDistribution ?? answerDistribution),
       ) as Prisma.InputJsonValue,
       answers,
     } satisfies QuestionStatRecord;
@@ -458,33 +608,39 @@ async function applyParsedImport(input: {
   }
 
   if (resolvedRows.length === 0) {
-    throw new Error("반영할 수 있는 성적 행이 없습니다.");
+    throw new Error("반영 가능한 성적 행이 없습니다.");
   }
 
   const prisma = getPrisma();
 
   // 기존 성적 일괄 조회
-  const existingScoreSet = new Set(
-    (
-      await prisma.score.findMany({
-        where: {
-          sessionId: input.sessionId,
-          examNumber: {
-            in: resolvedRows
-              .map((row) => row.matchedStudent?.examNumber)
-              .filter((v): v is string => Boolean(v)),
-          },
-        },
-        select: { examNumber: true },
-      })
-    ).map((s) => s.examNumber),
-  );
+  const existingScores = await prisma.score.findMany({
+    where: {
+      sessionId: input.sessionId,
+      examNumber: {
+        in: resolvedRows
+          .map((row) => row.matchedStudent?.examNumber)
+          .filter((v): v is string => Boolean(v)),
+      },
+    },
+    select: {
+      examNumber: true,
+      rawScore: true,
+      oxScore: true,
+      finalScore: true,
+    },
+  });
+  const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
 
   // 성적 병렬 upsert
   await Promise.all(
     resolvedRows.map((row) => {
       const matchedStudent = row.matchedStudent;
       if (!matchedStudent) return Promise.resolve();
+      const mergedScore = mergeImportedScore(
+        existingScoreMap.get(matchedStudent.examNumber),
+        row,
+      );
       return prisma.score.upsert({
         where: {
           examNumber_sessionId: {
@@ -495,17 +651,17 @@ async function applyParsedImport(input: {
         create: {
           examNumber: matchedStudent.examNumber,
           sessionId: input.sessionId,
-          rawScore: row.rawScore,
-          oxScore: row.oxScore,
-          finalScore: row.finalScore,
+          rawScore: mergedScore.rawScore,
+          oxScore: mergedScore.oxScore,
+          finalScore: mergedScore.finalScore,
           attendType: row.attendType,
           sourceType: row.sourceType,
           note: row.note ?? null,
         },
         update: {
-          rawScore: row.rawScore,
-          oxScore: row.oxScore,
-          finalScore: row.finalScore,
+          rawScore: mergedScore.rawScore,
+          oxScore: mergedScore.oxScore,
+          finalScore: mergedScore.finalScore,
           attendType: row.attendType,
           sourceType: row.sourceType,
           note: row.note ?? null,
@@ -515,7 +671,7 @@ async function applyParsedImport(input: {
   );
 
   const createdCount = resolvedRows.filter(
-    (row) => row.matchedStudent && !existingScoreSet.has(row.matchedStudent.examNumber),
+    (row) => row.matchedStudent && !existingScoreMap.has(row.matchedStudent.examNumber),
   ).length;
   const updatedCount = resolvedRows.length - createdCount;
 
@@ -553,11 +709,13 @@ async function applyParsedImport(input: {
         questionNo: question.questionNo,
         correctAnswer: question.correctAnswer,
         correctRate: question.correctRate,
+        difficulty: question.difficulty,
         answerDistribution: question.answerDistribution,
       },
       update: {
         correctAnswer: question.correctAnswer,
         correctRate: question.correctRate,
+        difficulty: question.difficulty,
         answerDistribution: question.answerDistribution,
       },
     });
@@ -586,13 +744,23 @@ async function applyParsedImport(input: {
     );
   }
 
+  const auditBefore = resolvedRows
+    .map((row) => {
+      const matchedStudent = row.matchedStudent;
+      if (!matchedStudent) {
+        return null;
+      }
+
+      return existingScoreMap.get(matchedStudent.examNumber) ?? null;
+    })
+    .filter((value): value is ExistingScoreSnapshot => value !== null);
   await prisma.auditLog.create({
     data: {
       adminId: input.adminId,
       action: `SCORE_IMPORT_${input.parsed.sourceType}`,
       targetType: "ScoreImport",
       targetId: String(input.sessionId),
-      before: toAuditJson(null),
+      before: toAuditJson(auditBefore.length > 0 ? auditBefore : null),
       after: toAuditJson({
         sessionId: input.sessionId,
         sourceType: input.parsed.sourceType,
@@ -619,7 +787,7 @@ async function applyParsedImport(input: {
     importedCount: resolvedRows.length,
   };
 
-  await recalculateStatusCache(preview.session.periodId, preview.session.examType);
+  await recalculateScoreStatusCache(preview.session.periodId, preview.session.examType);
 
   return result;
 }
@@ -629,45 +797,89 @@ export type OfflineScorePreview = {
   ox: ScorePreviewResult | null;
 };
 
-function offlineMainImport(offline: ParsedOfflineScoreImport): ParsedScoreImport {
+export type OnlineScorePreview = {
+  main: ScorePreviewResult;
+  ox: ScorePreviewResult | null;
+};
+
+function offlineMainImport(
+  offline: ParsedOfflineScoreImport,
+  analysisQuestions: ParsedQuestionRecord[] = [],
+  metadata: Record<string, unknown> = {},
+): ParsedScoreImport {
   return {
     sourceType: offline.sourceType,
     matchingKey: offline.matchingKey,
     records: offline.records,
-    questions: offline.questions,
+    questions: mergeQuestionRecords(offline.questions, analysisQuestions),
     answers: offline.answers,
-    metadata: offline.metadata,
+    metadata: {
+      ...offline.metadata,
+      ...metadata,
+    },
   };
 }
 
-function offlineOxImport(offline: ParsedOfflineScoreImport): ParsedScoreImport {
+function offlineOxImport(
+  offline: ParsedOfflineScoreImport,
+  metadata: Record<string, unknown> = {},
+): ParsedScoreImport {
   return {
     sourceType: offline.sourceType,
     matchingKey: offline.matchingKey,
     records: offline.oxRecords,
     questions: offline.oxQuestions,
     answers: offline.oxAnswers,
-    metadata: offline.metadata,
+    metadata: {
+      ...offline.metadata,
+      ...metadata,
+    },
   };
 }
 
 export async function previewOfflineScoreUpload(input: {
   sessionId: number;
   oxSessionId?: number;
-  fileName: string;
-  buffer: Buffer | ArrayBuffer;
+  mainFileName: string;
+  mainBuffer: Buffer | ArrayBuffer;
+  analysisFileName?: string;
+  analysisBuffer?: Buffer | ArrayBuffer;
   attendType?: AttendType;
 }): Promise<OfflineScorePreview> {
   const parsed = parseOfflineScoreImport({
-    fileName: input.fileName,
-    buffer: input.buffer,
+    fileName: input.mainFileName,
+    buffer: input.mainBuffer,
     attendType: input.attendType,
   });
+  const analysisQuestions =
+    input.analysisBuffer && input.analysisFileName
+      ? parseOfflineAnalysisQuestions({
+          fileName: input.analysisFileName,
+          buffer: input.analysisBuffer,
+        })
+      : [];
+  const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
 
-  const main = await buildPreview(input.sessionId, offlineMainImport(parsed));
+  if (parsed.oxRecords.length > 0 && !resolvedOxSessionId) {
+    throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
+  }
+
+  const main = await buildPreview(
+    input.sessionId,
+    offlineMainImport(parsed, analysisQuestions, {
+      mainFileName: input.mainFileName,
+      analysisFileName: input.analysisFileName ?? null,
+    }),
+  );
   const ox =
-    input.oxSessionId && parsed.oxRecords.length > 0
-      ? await buildPreview(input.oxSessionId, offlineOxImport(parsed))
+    resolvedOxSessionId && parsed.oxRecords.length > 0
+      ? await buildPreview(
+          resolvedOxSessionId,
+          offlineOxImport(parsed, {
+            mainFileName: input.mainFileName,
+            analysisFileName: input.analysisFileName ?? null,
+          }),
+        )
       : null;
 
   return { main, ox };
@@ -677,30 +889,50 @@ export async function executeOfflineScoreUpload(input: {
   adminId: string;
   sessionId: number;
   oxSessionId?: number;
-  fileName: string;
-  buffer: Buffer | ArrayBuffer;
+  mainFileName: string;
+  mainBuffer: Buffer | ArrayBuffer;
+  analysisFileName?: string;
+  analysisBuffer?: Buffer | ArrayBuffer;
   attendType?: AttendType;
   ipAddress?: string | null;
 }) {
   const parsed = parseOfflineScoreImport({
-    fileName: input.fileName,
-    buffer: input.buffer,
+    fileName: input.mainFileName,
+    buffer: input.mainBuffer,
     attendType: input.attendType,
   });
+  const analysisQuestions =
+    input.analysisBuffer && input.analysisFileName
+      ? parseOfflineAnalysisQuestions({
+          fileName: input.analysisFileName,
+          buffer: input.analysisBuffer,
+        })
+      : [];
+  const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
+
+  if (parsed.oxRecords.length > 0 && !resolvedOxSessionId) {
+    throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
+  }
 
   const mainResult = await applyParsedImport({
     adminId: input.adminId,
     sessionId: input.sessionId,
-    parsed: offlineMainImport(parsed),
+    parsed: offlineMainImport(parsed, analysisQuestions, {
+      mainFileName: input.mainFileName,
+      analysisFileName: input.analysisFileName ?? null,
+    }),
     ipAddress: input.ipAddress,
   });
 
   let oxResult = null;
-  if (input.oxSessionId && parsed.oxRecords.length > 0) {
+  if (resolvedOxSessionId && parsed.oxRecords.length > 0) {
     oxResult = await applyParsedImport({
       adminId: input.adminId,
-      sessionId: input.oxSessionId,
-      parsed: offlineOxImport(parsed),
+      sessionId: resolvedOxSessionId,
+      parsed: offlineOxImport(parsed, {
+        mainFileName: input.mainFileName,
+        analysisFileName: input.analysisFileName ?? null,
+      }),
       ipAddress: input.ipAddress,
     });
   }
@@ -710,36 +942,93 @@ export async function executeOfflineScoreUpload(input: {
 
 export async function previewOnlineScoreUpload(input: {
   sessionId: number;
+  oxSessionId?: number;
   mainFileName: string;
   mainBuffer: Buffer | ArrayBuffer;
   detailFileName?: string;
   detailBuffer?: Buffer | ArrayBuffer;
+  oxMainFileName?: string;
+  oxMainBuffer?: Buffer | ArrayBuffer;
+  oxDetailFileName?: string;
+  oxDetailBuffer?: Buffer | ArrayBuffer;
   resolutions?: ScoreResolutionInput;
   attendType?: AttendType;
-}) {
+}): Promise<OnlineScorePreview> {
   const parsed = parseOnlineScoreImport(input);
-  return buildPreview(input.sessionId, parsed, input.resolutions);
+  const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
+
+  if (input.oxMainBuffer && input.oxMainFileName && !resolvedOxSessionId) {
+    throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
+  }
+
+  const main = await buildPreview(input.sessionId, parsed, input.resolutions);
+  const ox =
+    resolvedOxSessionId && input.oxMainBuffer && input.oxMainFileName
+      ? await buildPreview(
+          resolvedOxSessionId,
+          parseOnlineOxScoreImport({
+            mainFileName: input.oxMainFileName,
+            mainBuffer: input.oxMainBuffer,
+            detailFileName: input.oxDetailFileName,
+            detailBuffer: input.oxDetailBuffer,
+            attendType: input.attendType,
+          }),
+          input.resolutions,
+        )
+      : null;
+
+  return { main, ox };
 }
 
 export async function executeOnlineScoreUpload(input: {
   adminId: string;
   sessionId: number;
+  oxSessionId?: number;
   mainFileName: string;
   mainBuffer: Buffer | ArrayBuffer;
   detailFileName?: string;
   detailBuffer?: Buffer | ArrayBuffer;
+  oxMainFileName?: string;
+  oxMainBuffer?: Buffer | ArrayBuffer;
+  oxDetailFileName?: string;
+  oxDetailBuffer?: Buffer | ArrayBuffer;
   resolutions?: ScoreResolutionInput;
   attendType?: AttendType;
   ipAddress?: string | null;
 }) {
   const parsed = parseOnlineScoreImport(input);
-  return applyParsedImport({
+  const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
+
+  if (input.oxMainBuffer && input.oxMainFileName && !resolvedOxSessionId) {
+    throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
+  }
+
+  const mainResult = await applyParsedImport({
     adminId: input.adminId,
     sessionId: input.sessionId,
     parsed,
     resolutions: input.resolutions,
     ipAddress: input.ipAddress,
   });
+
+  let oxResult = null;
+  if (resolvedOxSessionId && input.oxMainBuffer && input.oxMainFileName) {
+    oxResult = await applyParsedImport({
+      adminId: input.adminId,
+      sessionId: resolvedOxSessionId,
+      parsed: parseOnlineOxScoreImport({
+        mainFileName: input.oxMainFileName,
+        mainBuffer: input.oxMainBuffer,
+        detailFileName: input.oxDetailFileName,
+        detailBuffer: input.oxDetailBuffer,
+        attendType: input.attendType,
+      }),
+      resolutions: input.resolutions,
+      ipAddress: input.ipAddress,
+    });
+  }
+
+  return { main: mainResult, ox: oxResult };
 }
 
 export async function previewPastedScores(input: {
@@ -836,7 +1125,7 @@ export function parseScoreUpdate(raw: Record<string, unknown>) {
       (value) => value !== null && !Number.isFinite(value),
     )
   ) {
-    throw new Error("점수 형식을 확인하세요.");
+    throw new Error("점수 형식을 확인해 주세요.");
   }
 
   return {
@@ -895,13 +1184,122 @@ export async function updateScoreEntry(input: {
     };
   });
 
-  await recalculateStatusCache(score.session.periodId, score.session.examType, {
+  await recalculateScoreStatusCache(score.session.periodId, score.session.examType, {
     examNumbers: [score.examNumber],
   });
 
   return score.score;
 }
 
+export async function deleteSessionScores(input: {
+  adminId: string;
+  sessionId: number;
+  ipAddress?: string | null;
+}) {
+  const prisma = getPrisma();
+  const session = await prisma.examSession.findUniqueOrThrow({
+    where: {
+      id: input.sessionId,
+    },
+    select: {
+      id: true,
+      periodId: true,
+      examType: true,
+    },
+  });
+
+  const [scores, questions] = await Promise.all([
+    prisma.score.findMany({
+      where: {
+        sessionId: input.sessionId,
+      },
+      select: {
+        id: true,
+        examNumber: true,
+      },
+    }),
+    prisma.examQuestion.findMany({
+      where: {
+        sessionId: input.sessionId,
+      },
+      select: {
+        id: true,
+      },
+    }),
+  ]);
+
+  const examNumbers = scores.map((score) => score.examNumber);
+  const questionIds = questions.map((question) => question.id);
+
+  const [deletedAnswerCount, deletedBookmarkCount] = questionIds.length
+    ? await Promise.all([
+        prisma.studentAnswer.count({
+          where: {
+            questionId: {
+              in: questionIds,
+            },
+          },
+        }),
+        prisma.wrongNoteBookmark.count({
+          where: {
+            questionId: {
+              in: questionIds,
+            },
+          },
+        }),
+      ])
+    : [0, 0];
+
+  const deletedScoreCount = scores.length;
+  const deletedQuestionCount = questions.length;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.score.deleteMany({
+      where: {
+        sessionId: input.sessionId,
+      },
+    });
+
+    await tx.examQuestion.deleteMany({
+      where: {
+        sessionId: input.sessionId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "SCORE_SESSION_DELETE",
+        targetType: "ExamSession",
+        targetId: String(input.sessionId),
+        before: toAuditJson({
+          sessionId: input.sessionId,
+          deletedScoreCount,
+          deletedQuestionCount,
+          deletedAnswerCount,
+          deletedBookmarkCount,
+          examNumbers,
+        }),
+        after: toAuditJson(null),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+  });
+
+  if (examNumbers.length > 0) {
+    await recalculateScoreStatusCache(session.periodId, session.examType, {
+      examNumbers,
+    });
+  }
+
+  return {
+    success: true,
+    deletedScoreCount,
+    deletedQuestionCount,
+    deletedAnswerCount,
+    deletedBookmarkCount,
+  };
+}
 export async function deleteScoreEntry(input: {
   adminId: string;
   scoreId: number;
@@ -947,7 +1345,7 @@ export async function deleteScoreEntry(input: {
     };
   });
 
-  await recalculateStatusCache(result.session.periodId, result.session.examType, {
+  await recalculateScoreStatusCache(result.session.periodId, result.session.examType, {
     examNumbers: [result.examNumber],
   });
 
@@ -955,3 +1353,5 @@ export async function deleteScoreEntry(input: {
     success: true,
   };
 }
+
+

@@ -1,12 +1,13 @@
 "use client";
 
-import { Subject } from "@/generated/prisma";
+import { Subject } from "@prisma/client";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/format";
 import { useState, useTransition } from "react";
 
 type CounselingRecord = {
   id: number;
+  examNumber: string;
   counselorName: string;
   content: string;
   recommendation: string | null;
@@ -37,6 +38,147 @@ function Spinner() {
         d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
       />
     </svg>
+  );
+}
+
+/**
+ * 개별 면담 기록 카드 컴포넌트
+ *
+ * 기존 기능: 수정 저장, 삭제
+ * 추가 기능: 학생 변경 (잘못 등록된 경우 수험번호 교체)
+ *   - 카드 하단 토글 버튼으로 표시/숨김
+ *   - 변경 후 해당 기록은 현재 학생 패널에서 제거됨
+ *     (다른 학생으로 이전되므로 현재 목록에 남아있으면 안 됨)
+ */
+function RecordCard({
+  record,
+  isPending,
+  onDelete,
+  onUpdate,
+  onChangeStudent,
+}: {
+  record: CounselingRecord;
+  isPending: boolean;
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, formData: FormData) => void;
+  onChangeStudent: (id: number, newExamNumber: string) => void;
+}) {
+  // 학생 변경 섹션 표시 여부 (기본 숨김, 필요할 때만 노출)
+  const [showChangeStudent, setShowChangeStudent] = useState(false);
+  const [newExamNumber, setNewExamNumber] = useState("");
+
+  return (
+    <form className="rounded-[24px] border border-ink/10 bg-mist p-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium">담당 강사</label>
+          <input
+            name="counselorName"
+            defaultValue={record.counselorName}
+            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">면담 일자</label>
+          <input
+            type="date"
+            name="counseledAt"
+            defaultValue={toDateInputValue(record.counseledAt)}
+            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+          />
+        </div>
+        <div className="xl:col-span-2">
+          <label className="mb-2 block text-sm font-medium">다음 면담 일정</label>
+          <input
+            type="date"
+            name="nextSchedule"
+            defaultValue={toDateInputValue(record.nextSchedule)}
+            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+          />
+        </div>
+      </div>
+      <div className="mt-4">
+        <label className="mb-2 block text-sm font-medium">면담 내용</label>
+        <textarea
+          name="content"
+          rows={3}
+          defaultValue={record.content}
+          className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
+        />
+      </div>
+      <div className="mt-4">
+        <label className="mb-2 block text-sm font-medium">추천 학습 방향</label>
+        <textarea
+          name="recommendation"
+          rows={2}
+          defaultValue={record.recommendation ?? ""}
+          className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
+        />
+      </div>
+      <div className="mt-4 flex justify-between">
+        <button
+          type="button"
+          onClick={() => onDelete(record.id)}
+          disabled={isPending}
+          className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isPending && <Spinner />}
+          삭제
+        </button>
+        <button
+          type="button"
+          onClick={(event) => onUpdate(record.id, new FormData(event.currentTarget.form!))}
+          disabled={isPending}
+          className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isPending && <Spinner />}
+          수정 저장
+        </button>
+      </div>
+
+      {/* 학생 변경 섹션 */}
+      <div className="mt-4 border-t border-ink/10 pt-4">
+        <button
+          type="button"
+          onClick={() => setShowChangeStudent((v) => !v)}
+          className="text-xs font-semibold text-slate hover:text-ember"
+        >
+          {showChangeStudent ? "▲ 학생 변경 닫기" : "▼ 학생 변경 (잘못 등록된 경우)"}
+        </button>
+
+        {showChangeStudent ? (
+          <div className="mt-3 flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-2 block text-xs font-medium text-slate">
+                현재: <span className="font-semibold text-ink">{record.examNumber}</span>
+                <span className="ml-2">→ 변경할 수험번호</span>
+              </label>
+              <input
+                type="text"
+                value={newExamNumber}
+                onChange={(e) => setNewExamNumber(e.target.value)}
+                placeholder="새 수험번호 입력"
+                className="w-full rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={isPending || !newExamNumber.trim()}
+              onClick={() => {
+                if (!confirm(`이 면담 기록의 학생을 "${newExamNumber}"으로 변경하시겠습니까?`)) return;
+                onChangeStudent(record.id, newExamNumber);
+                setNewExamNumber("");
+                setShowChangeStudent(false);
+              }}
+              className="inline-flex items-center rounded-full bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPending && <Spinner />}
+              학생 변경
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </form>
   );
 }
 
@@ -184,6 +326,37 @@ export function CounselingPanel({
     });
   }
 
+  /**
+   * 면담 기록의 수험번호를 변경한다.
+   *
+   * 이 패널은 특정 학생(examNumber)에 고정되어 있으므로,
+   * 다른 학생으로 이전된 기록은 현재 목록에서 제거한다.
+   * (새 수험번호의 학생 패널을 열면 해당 기록이 보임)
+   */
+  function changeStudent(recordId: number, newExamNumber: string) {
+    setMessage(null, null);
+
+    startTransition(async () => {
+      try {
+        const { record } = await requestJson(`/api/counseling/${recordId}`, {
+          method: "PUT",
+          body: JSON.stringify({ action: "changeStudent", newExamNumber }),
+        });
+
+        // 다른 학생으로 이전됐으므로 현재 패널 목록에서 제거
+        setRecords((prev) => prev.filter((r) => r.id !== recordId));
+        setNotice(
+          `면담 기록(#${recordId})을 수험번호 "${record.examNumber}"으로 이전했습니다. 이 학생의 목록에서는 제거됩니다.`,
+        );
+      } catch (error) {
+        setMessage(
+          null,
+          error instanceof Error ? error.message : "학생 변경에 실패했습니다.",
+        );
+      }
+    });
+  }
+
   return (
     <div className="space-y-8">
       {notice ? (
@@ -323,74 +496,14 @@ export function CounselingPanel({
             </div>
           ) : null}
           {records.map((record) => (
-            <form key={record.id} className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">담당 강사</label>
-                  <input
-                    name="counselorName"
-                    defaultValue={record.counselorName}
-                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">면담 일자</label>
-                  <input
-                    type="date"
-                    name="counseledAt"
-                    defaultValue={toDateInputValue(record.counseledAt)}
-                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-                  />
-                </div>
-                <div className="xl:col-span-2">
-                  <label className="mb-2 block text-sm font-medium">다음 면담 일정</label>
-                  <input
-                    type="date"
-                    name="nextSchedule"
-                    defaultValue={toDateInputValue(record.nextSchedule)}
-                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label className="mb-2 block text-sm font-medium">면담 내용</label>
-                <textarea
-                  name="content"
-                  rows={3}
-                  defaultValue={record.content}
-                  className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
-                />
-              </div>
-              <div className="mt-4">
-                <label className="mb-2 block text-sm font-medium">추천 학습 방향</label>
-                <textarea
-                  name="recommendation"
-                  rows={2}
-                  defaultValue={record.recommendation ?? ""}
-                  className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
-                />
-              </div>
-              <div className="mt-4 flex justify-between">
-                <button
-                  type="button"
-                  onClick={() => deleteRecord(record.id)}
-                  disabled={isPending}
-                  className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPending && <Spinner />}
-                  삭제
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => updateRecord(record.id, new FormData(event.currentTarget.form!))}
-                  disabled={isPending}
-                  className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPending && <Spinner />}
-                  수정 저장
-                </button>
-              </div>
-            </form>
+            <RecordCard
+              key={record.id}
+              record={record}
+              isPending={isPending}
+              onDelete={deleteRecord}
+              onUpdate={updateRecord}
+              onChangeStudent={changeStudent}
+            />
           ))}
         </div>
       </section>

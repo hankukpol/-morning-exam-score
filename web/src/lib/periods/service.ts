@@ -1,11 +1,13 @@
-import { cache } from "react";
+﻿import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { ExamType, Subject } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
-import { getEnabledExamTypes } from "@/lib/periods/exam-types";
+import { getEnabledExamTypes, isExamTypeEnabled } from "@/lib/periods/exam-types";
 import { CACHE_TAGS, revalidateAdminReadCaches } from "@/lib/cache-tags";
 import { rebuildWeeklyStatusSnapshots } from "@/lib/analytics/service";
+import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_VALUES, SUBJECT_VALUES } from "@/lib/constants";
 
 export type PeriodFormInput = {
   name: string;
@@ -14,6 +16,13 @@ export type PeriodFormInput = {
   totalWeeks: number;
   isGongchaeEnabled: boolean;
   isGyeongchaeEnabled: boolean;
+};
+
+export type SessionFormInput = {
+  examType: ExamType;
+  week: number;
+  subject: Subject;
+  examDate: Date;
 };
 
 function reviveDate(value: Date | string) {
@@ -38,6 +47,7 @@ function normalizeSession<T extends { examDate: Date | string }>(
     examDate: reviveDate(session.examDate),
   };
 }
+
 const listPeriodsBasicShared = unstable_cache(
   async () => {
     return getPrisma().examPeriod.findMany({
@@ -68,7 +78,7 @@ export async function listPeriods() {
     orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
     include: {
       sessions: {
-        orderBy: [{ examDate: "asc" }, { examType: "asc" }],
+        orderBy: [{ examDate: "asc" }, { examType: "asc" }, { subject: "asc" }],
         include: {
           _count: {
             select: {
@@ -103,7 +113,7 @@ const getPeriodWithSessionsShared = unstable_cache(
         isGongchaeEnabled: true,
         isGyeongchaeEnabled: true,
         sessions: {
-          orderBy: [{ examDate: "asc" }, { examType: "asc" }],
+          orderBy: [{ examDate: "asc" }, { examType: "asc" }, { subject: "asc" }],
           select: {
             id: true,
             examType: true,
@@ -111,6 +121,7 @@ const getPeriodWithSessionsShared = unstable_cache(
             subject: true,
             examDate: true,
             isCancelled: true,
+            cancelReason: true,
           },
         },
       },
@@ -352,11 +363,85 @@ export async function generatePeriodSessions(input: {
   return result;
 }
 
+export async function createSession(input: {
+  adminId: string;
+  periodId: number;
+  session: SessionFormInput;
+  ipAddress?: string | null;
+}) {
+  const session = await getPrisma().$transaction(async (tx) => {
+    const period = await tx.examPeriod.findUniqueOrThrow({
+      where: { id: input.periodId },
+      select: {
+        id: true,
+        name: true,
+        totalWeeks: true,
+        isGongchaeEnabled: true,
+        isGyeongchaeEnabled: true,
+      },
+    });
+
+    if (!isExamTypeEnabled(period, input.session.examType)) {
+      throw new Error("선택한 직렬은 이 기간에서 비활성화되어 있습니다.");
+    }
+
+    if (!EXAM_TYPE_SUBJECTS[input.session.examType].includes(input.session.subject)) {
+      throw new Error("선택한 직렬에서 사용할 수 없는 과목입니다.");
+    }
+
+    if (input.session.week < 1 || input.session.week > Math.max(period.totalWeeks, 12)) {
+      throw new Error("주차는 1 이상이어야 하며 기간 범위를 크게 벗어날 수 없습니다.");
+    }
+
+    const duplicated = await tx.examSession.findFirst({
+      where: {
+        periodId: input.periodId,
+        examType: input.session.examType,
+        examDate: input.session.examDate,
+        subject: input.session.subject,
+      },
+      select: { id: true },
+    });
+
+    if (duplicated) {
+      throw new Error("같은 기간에 동일한 직렬·날짜·과목 회차가 이미 존재합니다.");
+    }
+
+    const session = await tx.examSession.create({
+      data: {
+        periodId: input.periodId,
+        examType: input.session.examType,
+        week: input.session.week,
+        subject: input.session.subject,
+        examDate: input.session.examDate,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "SESSION_CREATE",
+        targetType: "ExamSession",
+        targetId: String(session.id),
+        before: toAuditJson(null),
+        after: toAuditJson(session),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return session;
+  });
+
+  revalidateAdminReadCaches({ analytics: true, periods: true });
+  return session;
+}
+
 export async function updateSession(input: {
   adminId: string;
   sessionId: number;
   payload: {
     examDate?: Date;
+    subject?: Subject;
     isCancelled?: boolean;
     cancelReason?: string | null;
   };
@@ -369,12 +454,31 @@ export async function updateSession(input: {
       },
     });
 
+    const nextExamDate = input.payload.examDate ?? before.examDate;
+    const nextSubject = input.payload.subject ?? before.subject;
+
+    const duplicated = await tx.examSession.findFirst({
+      where: {
+        periodId: before.periodId,
+        examType: before.examType,
+        examDate: nextExamDate,
+        subject: nextSubject,
+        id: { not: input.sessionId },
+      },
+      select: { id: true },
+    });
+
+    if (duplicated) {
+      throw new Error("같은 기간에 동일한 직렬·날짜·과목 회차가 이미 존재합니다.");
+    }
+
     const session = await tx.examSession.update({
       where: {
         id: input.sessionId,
       },
       data: {
-        examDate: input.payload.examDate ?? before.examDate,
+        examDate: nextExamDate,
+        subject: nextSubject,
         isCancelled: input.payload.isCancelled ?? before.isCancelled,
         cancelReason:
           input.payload.isCancelled === false
@@ -412,29 +516,27 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
   const isGyeongchaeEnabled = raw.isGyeongchaeEnabled === undefined ? true : Boolean(raw.isGyeongchaeEnabled);
 
   if (!name) {
-    throw new Error("??れ삀??㉱??땬壤??怨룰도 ????곸죷??筌뚯뼚???");
+    throw new Error("기간명을 입력해 주세요.");
   }
 
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    throw new Error("??筌믨퀣援????븍븕 ???ろ꼤嶺??繹먮끏援??嶺뚮Ĳ?됮??筌뚯뼚???");
+    throw new Error("시작일과 종료일을 올바른 날짜 형식으로 입력해 주세요.");
   }
 
   if (startDate > endDate) {
-    throw new Error("??筌믨퀣援??? ???ろ꼤嶺???⑤벚?????鴉??????ㅻ쿅????좊즵??λ눀????筌뤾퍓???");
+    throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
   }
 
-  // ??釉먯뒭?앗낆녃??????쾷 ?袁⑸즲??????濡ろ뜑??댁쾸?? ????????類??袁ъ??? 癲??嶺뚮Ĳ?뉒댆戮ル탶? ????ш끽維?? ???嶺뚮㉡???????ш낄援??
-  // ??筌믨퀣援??? ?袁⑸즵?쀫쓧?????釉먯뒭???繹먮끏????⑤；????筌뤾퍓???
   if (startDate.getDay() !== 2) {
-    throw new Error("??筌믨퀣援??? ??釉먯뒭???繹먮끏????⑤；????筌뤾퍓??? (?????쾷 ???濚욌꼬釉먮쳮??????ヂ???⑸쇀獄?????筌?留?????筌??袁⑸즲????筌뤾퍓???)");
+    throw new Error("기간 시작일은 화요일이어야 합니다. 주차 계산 기준이 화요일 시작으로 고정되어 있습니다.");
   }
 
   if (!Number.isInteger(totalWeeks) || totalWeeks < 1 || totalWeeks > 12) {
-    throw new Error("? ??? 1~12 ???? ???.");
+    throw new Error("총 주차는 1부터 12 사이로 입력해 주세요.");
   }
 
   if (!isGongchaeEnabled && !isGyeongchaeEnabled) {
-    throw new Error("At least one exam type must be enabled.");
+    throw new Error("최소 한 개 이상의 직렬을 활성화해야 합니다.");
   }
 
   return {
@@ -447,9 +549,40 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
   } satisfies PeriodFormInput;
 }
 
+export function parseSessionCreate(raw: Record<string, unknown>) {
+  const examType = String(raw.examType ?? "").trim() as ExamType;
+  const subject = String(raw.subject ?? "").trim() as Subject;
+  const week = Number(raw.week ?? 0);
+  const examDate = new Date(String(raw.examDate ?? ""));
+
+  if (!EXAM_TYPE_VALUES.includes(examType)) {
+    throw new Error("직렬을 올바르게 선택해 주세요.");
+  }
+
+  if (!SUBJECT_VALUES.includes(subject)) {
+    throw new Error("과목을 올바르게 선택해 주세요.");
+  }
+
+  if (!Number.isInteger(week) || week < 1) {
+    throw new Error("주차는 1 이상의 정수여야 합니다.");
+  }
+
+  if (Number.isNaN(examDate.getTime())) {
+    throw new Error("회차 날짜를 올바르게 입력해 주세요.");
+  }
+
+  return {
+    examType,
+    week,
+    subject,
+    examDate,
+  } satisfies SessionFormInput;
+}
+
 export function parseSessionUpdate(raw: Record<string, unknown>) {
   const result: {
     examDate?: Date;
+    subject?: Subject;
     isCancelled?: boolean;
     cancelReason?: string | null;
   } = {};
@@ -458,10 +591,18 @@ export function parseSessionUpdate(raw: Record<string, unknown>) {
     const examDate = new Date(String(raw.examDate));
 
     if (Number.isNaN(examDate.getTime())) {
-      throw new Error("?????쾷 ???モ? ?嶺뚮Ĳ?뉛쭛???嶺뚮Ĳ?됮??筌뚯뼚???");
+      throw new Error("회차 날짜를 올바르게 입력해 주세요.");
     }
 
     result.examDate = examDate;
+  }
+
+  if (raw.subject !== undefined) {
+    const subject = String(raw.subject ?? "").trim() as Subject;
+    if (!SUBJECT_VALUES.includes(subject)) {
+      throw new Error("과목을 올바르게 선택해 주세요.");
+    }
+    result.subject = subject;
   }
 
   if (raw.isCancelled !== undefined) {

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ExamType, ScoreSource, StudentStatus } from "../src/generated/prisma";
+import { ExamType, ScoreSource, StudentStatus } from "@prisma/client";
 import { getStudentCumulativeAnalysis } from "../src/lib/analytics/analysis";
 import { getDropoutMonitor, getWeeklyStatusHistory } from "../src/lib/analytics/service";
 import { getPrisma } from "../src/lib/prisma";

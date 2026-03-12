@@ -1,8 +1,7 @@
 import { cache } from "react";
-import { AdminRole, Prisma } from "@/generated/prisma";
+import { AdminRole, Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ROLE_LEVEL } from "@/lib/constants";
 import { getSetupState } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
@@ -12,13 +11,19 @@ const AUTH_USER_EMAIL_HEADER = "x-morning-auth-user-email";
 const ADMIN_CONTEXT_QUERY_RETRY_DELAY_MS = 75;
 const ADMIN_CONTEXT_QUERY_RETRY_COUNT = 2;
 
+const LOCAL_ROLE_LEVEL: Record<AdminRole, number> = {
+  VIEWER: 0,
+  TEACHER: 1,
+  SUPER_ADMIN: 2,
+};
+
 type AuthenticatedUser = {
   id: string;
   email: string | null;
 };
 
 export function roleAtLeast(role: AdminRole, minimum: AdminRole) {
-  return ROLE_LEVEL[role] >= ROLE_LEVEL[minimum];
+  return LOCAL_ROLE_LEVEL[role] >= LOCAL_ROLE_LEVEL[minimum];
 }
 
 function isRetryableAdminContextError(error: unknown) {

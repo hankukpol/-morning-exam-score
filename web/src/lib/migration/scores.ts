@@ -3,7 +3,7 @@ import {
   ExamType,
   ScoreSource,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import {
   getSheetRows,
@@ -15,6 +15,7 @@ import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { ensurePeriodEnrollments } from "@/lib/periods/enrollments";
 import { recalculateStatusCache } from "@/lib/analytics/service";
+import { SUBJECT_LABEL } from "@/lib/constants";
 
 const MIGRATION_TRANSACTION_OPTIONS = {
   maxWait: 10_000,
@@ -95,12 +96,12 @@ type LegacyWorkbookParsedRow = {
 };
 
 const SUBJECT_NAME_MAP: Array<[string, Subject]> = [
-  ["헌법", Subject.CONSTITUTIONAL_LAW],
-  ["형소법", Subject.CRIMINAL_PROCEDURE],
-  ["형법", Subject.CRIMINAL_LAW],
-  ["경찰학", Subject.POLICE_SCIENCE],
-  ["범죄학", Subject.CRIMINOLOGY],
-  ["누적", Subject.CUMULATIVE],
+  ["\uD5CC\uBC95", Subject.CONSTITUTIONAL_LAW],
+  ["\uD615\uC0AC\uC18C\uC1A1\uBC95", Subject.CRIMINAL_PROCEDURE],
+  ["\uD615\uBC95", Subject.CRIMINAL_LAW],
+  ["\uACBD\uCC30\uD559", Subject.POLICE_SCIENCE],
+  ["\uBC94\uC8C4\uD559", Subject.CRIMINOLOGY],
+  ["\uB204\uC801", Subject.CUMULATIVE],
 ];
 
 function normalizeText(value: unknown) {
@@ -164,21 +165,21 @@ function detectScoreFileType(fileName: string, headers: string[], sheetNames: st
   );
 
   if (
-    normalizedSheetNames.includes("수강생명단".toLowerCase()) &&
-    normalizedSheetNames.some((sheetName) => /^\d+주차$/i.test(sheetName))
+    normalizedSheetNames.includes("\uC218\uAC15\uC0DD\uBA85\uB2E8") &&
+    normalizedSheetNames.some((sheetName) => /^\d+\uC8FC\uCC28$/i.test(sheetName))
   ) {
     return "legacy-workbook";
   }
 
-  if (normalizedName.includes("모의고사채점표")) {
-    return normalizedHeaders.includes("수험번호") ? "offline-score" : "offline-errata";
+  if (normalizedName.includes("\uBAA8\uC758\uACE0\uC0AC\uCC44\uC810\uD45C")) {
+    return normalizedHeaders.includes("\uC218\uD5D8\uBC88\uD638") ? "offline-score" : "offline-errata";
   }
 
-  if (normalizedName.includes("o,x_채점표") || normalizedName.includes("ox_채점표")) {
+  if (normalizedName.includes("o,x_\uCC44\uC810\uD45C") || normalizedName.includes("ox_\uCC44\uC810\uD45C")) {
     return "online-ox-detail";
   }
 
-  if (normalizedName.includes("채점표")) {
+  if (normalizedName.includes("\uCC44\uC810\uD45C")) {
     return "online-detail";
   }
 
@@ -186,13 +187,12 @@ function detectScoreFileType(fileName: string, headers: string[], sheetNames: st
     return "online-ox-score";
   }
 
-  if (normalizedHeaders.includes("아이디") && normalizedHeaders.includes("점수")) {
+  if (normalizedHeaders.includes("\uC544\uC774\uB514") && normalizedHeaders.includes("\uC810\uC218")) {
     return "online-score";
   }
 
   return "unknown";
 }
-
 export function previewScoreFiles(
   files: Array<{
     fileName: string;
@@ -240,7 +240,7 @@ function findSubjectColumns(rows: Array<Array<unknown>>) {
     }
   }
 
-  throw new Error("주차 시트에서 과목 블록을 찾지 못했습니다.");
+  throw new Error("\uC8FC\uCC28 \uC2DC\uD2B8\uC5D0\uC11C \uACFC\uBAA9 \uBE14\uB85D\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
 }
 
 function findHeaderRowIndex(
@@ -248,9 +248,13 @@ function findHeaderRowIndex(
   subjectColumns: Array<{ columnIndex: number; subject: Subject }>,
   startRowIndex: number,
 ) {
-  for (let rowIndex = startRowIndex + 1; rowIndex < Math.min(rows.length, startRowIndex + 8); rowIndex += 1) {
+  for (
+    let rowIndex = startRowIndex + 1;
+    rowIndex < Math.min(rows.length, startRowIndex + 8);
+    rowIndex += 1
+  ) {
     const count = subjectColumns.filter(({ columnIndex }) =>
-      normalizeText(rows[rowIndex]?.[columnIndex]).includes("번호"),
+      normalizeText(rows[rowIndex]?.[columnIndex]).includes("\uBC88\uD638"),
     ).length;
 
     if (count >= Math.max(1, Math.floor(subjectColumns.length / 2))) {
@@ -258,7 +262,7 @@ function findHeaderRowIndex(
     }
   }
 
-  throw new Error("주차 시트에서 점수 헤더 행을 찾지 못했습니다.");
+  throw new Error("\uC8FC\uCC28 \uC2DC\uD2B8\uC5D0\uC11C \uC810\uC218 \uD5E4\uB354 \uD589\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
 }
 
 type ParsedAttendScore = {
@@ -285,7 +289,10 @@ function parseAttendTypeAndScores(
     return null;
   }
 
-  if (combined.includes("참석성적") || combined.includes("참석")) {
+  if (
+    combined.includes("\uCC38\uC11D\uC131\uC801") ||
+    combined.includes("\uCC38\uC11D")
+  ) {
     return {
       attendType: AttendType.NORMAL,
       rawScore: null,
@@ -296,35 +303,35 @@ function parseAttendTypeAndScores(
     };
   }
 
-  if (combined.includes("사유")) {
+  if (combined.includes("\uC0AC\uC720")) {
     return {
       attendType: AttendType.EXCUSED,
       rawScore: null,
       oxScore: null,
       finalScore: null,
-      note: "기존 통합본: 사유 결시",
+      note: "\uAE30\uC874 \uD1B5\uD569\uBCF8 \uC0AC\uC720 \uACB0\uC2DC",
     };
   }
 
   if (
-    combined.includes("탈락") ||
-    combined.includes("결시") ||
-    combined.includes("불참")
+    combined.includes("\uACB0\uC2DC") ||
+    combined.includes("\uBD88\uCC38") ||
+    combined.includes("\uBBF8\uC751\uC2DC")
   ) {
     return {
       attendType: AttendType.ABSENT,
       rawScore: null,
       oxScore: null,
       finalScore: null,
-      note: `기존 통합본 상태값: ${combined}`,
+      note: `\uAE30\uC874 \uD1B5\uD569\uBCF8 \uC0C1\uD0DC\uAC12 ${combined}`,
     };
   }
 
   const liveLike =
-    rawText.includes("(라)") ||
-    bonusText.includes("(라)") ||
-    totalText.includes("(라)") ||
-    combined.includes("라이브");
+    rawText.includes("(\uB77C)") ||
+    bonusText.includes("(\uB77C)") ||
+    totalText.includes("(\uB77C)") ||
+    combined.includes("\uB77C\uC774\uBE0C");
 
   if (liveLike) {
     const liveScore = parseNumericScore(totalValue) ?? parseNumericScore(rawValue);
@@ -373,12 +380,11 @@ function parseAttendTypeAndScores(
     note: null,
   };
 }
-
 function parseWeekNumber(sheetName: string) {
   const matched = sheetName.match(/(\d+)/);
 
   if (!matched) {
-    throw new Error(`주차 시트 이름에서 주차를 읽지 못했습니다: ${sheetName}`);
+    throw new Error(`시트 이름에서 주차 번호를 찾을 수 없습니다. 시트명을 확인해 주세요: ${sheetName}`);
   }
 
   return Number(matched[1]);
@@ -512,7 +518,7 @@ async function loadSessionMap(periodId: number, examType: ExamType) {
         id: session.id,
         isCancelled: session.isCancelled,
         examDate: session.examDate.toISOString().slice(0, 10),
-        label: `${session.week}주차 · ${session.subject} · ${session.examDate.toISOString().slice(0, 10)}`,
+        label: `${session.week}주차 ${SUBJECT_LABEL[session.subject]} / ${session.examDate.toISOString().slice(0, 10)}`,
       },
     ]),
   );
@@ -523,7 +529,7 @@ async function loadSessionMap(periodId: number, examType: ExamType) {
       {
         id: session.id,
         isCancelled: session.isCancelled,
-        label: `${session.week}주차 · ${session.subject} · ${session.examDate.toISOString().slice(0, 10)}`,
+        label: `${session.week}주차 ${SUBJECT_LABEL[session.subject]} / ${session.examDate.toISOString().slice(0, 10)}`,
       },
     ]),
   );
@@ -534,7 +540,6 @@ async function loadSessionMap(periodId: number, examType: ExamType) {
     daySessionMap,
   };
 }
-
 async function parseLegacyWorkbookRows(input: {
   fileName: string;
   fileBuffer: Buffer | ArrayBuffer;
@@ -543,10 +548,10 @@ async function parseLegacyWorkbookRows(input: {
 }) {
   const workbook = readWorkbookFromBuffer(input.fileBuffer);
   const sheetNames = workbook.SheetNames;
-  const weekSheetNames = sheetNames.filter((sheetName) => /^\d+주차$/i.test(sheetName.trim()));
+  const weekSheetNames = sheetNames.filter((sheetName) => /^\d+\uC8FC\uCC28$/i.test(sheetName.trim()));
 
   if (weekSheetNames.length === 0) {
-    throw new Error("주차 시트를 찾지 못했습니다. 월간 통합본 파일인지 확인해 주세요.");
+    throw new Error("\uC8FC\uCC28 \uC2DC\uD2B8\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uAD6C\uAC04 \uD1B5\uD569\uBCF8 \uD30C\uC77C\uC778\uC9C0 \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
   }
 
   const { period, weekSessionMap, daySessionMap } = await loadSessionMap(
@@ -690,19 +695,19 @@ export async function previewLegacyWorkbookScores(input: {
     const issues: string[] = [];
 
     if (!row.sessionId) {
-      issues.push("선택한 기간에서 일치하는 시험 회차를 찾지 못했습니다.");
+      issues.push("파일 행과 대응되는 회차를 찾을 수 없습니다.");
     }
 
     if (!row.examNumber) {
-      issues.push("수험번호가 없습니다.");
+      issues.push("수험번호를 입력해 주세요.");
     }
 
     if (row.sessionId && row.examNumber && (duplicateCount.get(`${row.sessionId}:${row.examNumber}`) ?? 0) > 1) {
-      issues.push("같은 회차에 동일 수험번호가 중복되어 있습니다.");
+      issues.push("같은 회차와 수험번호 조합이 중복되었습니다.");
     }
 
     if (row.examNumber && studentSet.size > 0 && !studentSet.has(row.examNumber)) {
-      issues.push("학생 DB에 없는 수험번호입니다. 먼저 수강생 명단을 가져와 주세요.");
+      issues.push("학생 DB에 없는 수험번호입니다. 먼저 학생 데이터를 이관했는지 확인해 주세요.");
     }
 
     if (
@@ -711,7 +716,7 @@ export async function previewLegacyWorkbookScores(input: {
       row.oxScore === null &&
       row.finalScore === null
     ) {
-      issues.push("점수를 읽지 못했습니다.");
+      issues.push("점수 정보가 없습니다.");
     }
 
     const overwrite =
@@ -760,7 +765,7 @@ export async function executeLegacyWorkbookScores(input: {
   const validRows = preview.rows.filter((row) => row.status !== "invalid" && row.sessionId && row.examNumber);
 
   if (validRows.length === 0) {
-    throw new Error("반영 가능한 성적 데이터가 없습니다.");
+    throw new Error("반영할 수 있는 점수 행이 없습니다. 파일 내용을 확인해 주세요.");
   }
 
   const prisma = getPrisma();
@@ -863,3 +868,12 @@ export async function executeLegacyWorkbookScores(input: {
     affectedSessions: preview.summary.affectedSessions,
   };
 }
+
+
+
+
+
+
+
+
+

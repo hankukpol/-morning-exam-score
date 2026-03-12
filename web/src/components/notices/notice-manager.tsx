@@ -1,6 +1,6 @@
 "use client";
 
-import { NoticeTargetType } from "@/generated/prisma";
+import { NoticeTargetType } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
 import { useState, useTransition } from "react";
 

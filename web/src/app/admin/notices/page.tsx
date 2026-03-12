@@ -1,4 +1,4 @@
-import { AdminRole, NoticeTargetType } from "@/generated/prisma";
+import { AdminRole, NoticeTargetType } from "@prisma/client";
 import { NoticeManager } from "@/components/notices/notice-manager";
 import { requireAdminContext } from "@/lib/auth";
 import { listNotices } from "@/lib/notices/service";

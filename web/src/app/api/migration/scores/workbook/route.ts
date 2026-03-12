@@ -1,4 +1,4 @@
-import { AdminRole, ExamType } from "@/generated/prisma";
+﻿import { AdminRole, ExamType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const mode = (formData.get("mode") as Mode | null) ?? "preview";
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "월간 통합본 파일을 선택해 주세요." }, { status: 400 });
+      return NextResponse.json({ error: "구간 통합본 파일을 선택해 주세요." }, { status: 400 });
     }
 
     if (!Number.isFinite(periodId) || periodId <= 0) {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "월간 통합본 마이그레이션 처리에 실패했습니다.",
+            : "구간 통합본 마이그레이션 처리에 실패했습니다.",
       },
       { status: 400 },
     );

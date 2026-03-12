@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminRole, ExamType } from "@/generated/prisma";
+import { AdminRole, ExamType } from "@prisma/client";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";

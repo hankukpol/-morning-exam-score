@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import {
   BarComparisonChart,
   RadarComparisonChart,
 } from "@/components/analytics/charts";
 import { AppointmentManager } from "@/components/counseling/appointment-manager";
+import { BulkCounselingForm } from "@/components/counseling/bulk-counseling-form";
 import { CounselingPanel } from "@/components/counseling/counseling-panel";
 import { WarningStudentsDrawer } from "@/components/counseling/warning-students-drawer";
 import {
@@ -181,6 +182,22 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
           </div>
         </section>
       ) : null}
+
+      <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
+        <div className="mb-5 flex items-baseline justify-between">
+          <h2 className="text-xl font-semibold">일괄 면담 기록 등록</h2>
+          <p className="text-sm text-slate">여러 학생에게 동일 내용의 면담 기록을 한 번에 등록합니다</p>
+        </div>
+        <BulkCounselingForm
+          defaultCounselorName={context.adminUser.name}
+          warningStudents={dashboard.bulkWarningStudents.map((s) => ({
+            examNumber: s.examNumber,
+            name: s.name,
+            currentStatus: s.currentStatus,
+            examType: s.examType,
+          }))}
+        />
+      </section>
 
       <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="mb-5 text-xl font-semibold">예약 면담 관리</h2>
@@ -415,6 +432,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             subjects={EXAM_TYPE_SUBJECTS[profile.student.examType]}
             records={profile.counselingRecords.map((record) => ({
               id: record.id,
+              examNumber: record.examNumber,
               counselorName: record.counselorName,
               content: record.content,
               recommendation: record.recommendation,

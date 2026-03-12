@@ -1,4 +1,4 @@
-import { AdminRole, ExamType } from "@/generated/prisma";
+﻿import { AdminRole, ExamType } from "@prisma/client";
 import { StudentManager } from "@/components/students/student-manager";
 import { requireAdminContext } from "@/lib/auth";
 import { listStudentsPage } from "@/lib/students/service";
@@ -42,8 +42,7 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
       </div>
       <h1 className="mt-5 text-3xl font-semibold">수강생 관리</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        공채와 경채 수강생을 구분해 조회하고, 개별 등록과 수정, 비활성화, 학생 이력 조회까지 한
-        화면에서 처리합니다.
+        공채와 경채 수강생을 구분해 조회하고, 개별 등록과 수정, 비활성화, 학생 상세 이력 조회를 이 화면에서 처리합니다.
       </p>
       <div className="mt-8">
         <StudentManager

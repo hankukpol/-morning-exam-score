@@ -1,4 +1,4 @@
-import { Subject } from "@/generated/prisma";
+import { Subject } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentPortalStudent } from "@/lib/student-portal/api";
 import {

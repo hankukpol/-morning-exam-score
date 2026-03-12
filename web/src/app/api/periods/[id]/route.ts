@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import { AdminRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
@@ -23,6 +23,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const periodId = Number(params.id);
     const body = (await request.json()) as Record<string, unknown>;
+
+    if (!Number.isInteger(periodId)) {
+      throw new Error("기간 ID가 올바르지 않습니다.");
+    }
 
     if (body.action === "generateSessions") {
       const result = await generatePeriodSessions({

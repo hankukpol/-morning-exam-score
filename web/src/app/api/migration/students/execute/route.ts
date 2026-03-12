@@ -1,4 +1,4 @@
-import { AdminRole, ExamType, StudentType } from "@/generated/prisma";
+﻿import { AdminRole, ExamType, StudentType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { executeStudentMigration } from "@/lib/migration/students";
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "저장에 실패했습니다.",
+        error: error instanceof Error ? error.message : "학생 명단 반영에 실패했습니다.",
       },
       { status: 400 },
     );

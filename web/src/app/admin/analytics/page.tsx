@@ -1,4 +1,4 @@
-import { AdminRole, Subject } from "@/generated/prisma";
+import { AdminRole, Subject } from "@prisma/client";
 import {
   BarComparisonChart,
   DistributionChart,

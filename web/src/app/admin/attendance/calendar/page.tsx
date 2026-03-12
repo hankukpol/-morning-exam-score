@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { formatMonthLabel } from "@/lib/analytics/presentation";
 import { getAttendanceCalendar } from "@/lib/analytics/service";
 import {

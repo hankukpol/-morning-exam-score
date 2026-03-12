@@ -1,4 +1,4 @@
-import { AdminRole, AttendType } from "@/generated/prisma";
+import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
@@ -28,9 +28,14 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const mainFile = formData.get("mainFile");
     const detailFile = formData.get("detailFile");
+    const oxMainFile = formData.get("oxMainFile");
+    const oxDetailFile = formData.get("oxDetailFile");
     const sessionId = Number(formData.get("sessionId"));
     const mode = (formData.get("mode") as Mode | null) ?? "preview";
     const attendType = formData.get("attendType") as AttendType | null;
+    const oxSessionIdRaw = Number(formData.get("oxSessionId"));
+    const oxSessionId =
+      Number.isFinite(oxSessionIdRaw) && oxSessionIdRaw > 0 ? oxSessionIdRaw : undefined;
     const resolutions = parseResolutions(formData.get("resolutions"));
 
     if (!Number.isFinite(sessionId) || sessionId <= 0) {
@@ -44,14 +49,23 @@ export async function POST(request: Request) {
     const mainBuffer = Buffer.from(await mainFile.arrayBuffer());
     const detailBuffer =
       detailFile instanceof File ? Buffer.from(await detailFile.arrayBuffer()) : undefined;
+    const oxMainBuffer =
+      oxMainFile instanceof File ? Buffer.from(await oxMainFile.arrayBuffer()) : undefined;
+    const oxDetailBuffer =
+      oxDetailFile instanceof File ? Buffer.from(await oxDetailFile.arrayBuffer()) : undefined;
 
     if (mode === "preview") {
       const preview = await previewOnlineScoreUpload({
         sessionId,
+        oxSessionId,
         mainFileName: mainFile.name,
         mainBuffer,
         detailFileName: detailFile instanceof File ? detailFile.name : undefined,
         detailBuffer,
+        oxMainFileName: oxMainFile instanceof File ? oxMainFile.name : undefined,
+        oxMainBuffer,
+        oxDetailFileName: oxDetailFile instanceof File ? oxDetailFile.name : undefined,
+        oxDetailBuffer,
         resolutions,
         attendType: attendType ?? undefined,
       });
@@ -62,10 +76,15 @@ export async function POST(request: Request) {
     const result = await executeOnlineScoreUpload({
       adminId: auth.context.adminUser.id,
       sessionId,
+      oxSessionId,
       mainFileName: mainFile.name,
       mainBuffer,
       detailFileName: detailFile instanceof File ? detailFile.name : undefined,
       detailBuffer,
+      oxMainFileName: oxMainFile instanceof File ? oxMainFile.name : undefined,
+      oxMainBuffer,
+      oxDetailFileName: oxDetailFile instanceof File ? oxDetailFile.name : undefined,
+      oxDetailBuffer,
       resolutions,
       attendType: attendType ?? undefined,
       ipAddress: request.headers.get("x-forwarded-for"),

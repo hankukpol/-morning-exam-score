@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { ScoreInputWorkbench } from "@/components/scores/score-input-workbench";
 import { requireAdminContext } from "@/lib/auth";
 import { filterSessionsByEnabledExamTypes } from "@/lib/periods/exam-types";

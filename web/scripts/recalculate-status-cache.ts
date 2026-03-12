@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ExamType } from "../src/generated/prisma";
+import { ExamType } from "@prisma/client";
 import { recalculateStatusCache } from "../src/lib/analytics/service";
 import { getPrisma } from "../src/lib/prisma";
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NoticeTargetType } from "@/generated/prisma";
+import { NoticeTargetType } from "@prisma/client";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { listStudentNotices } from "@/lib/notices/service";

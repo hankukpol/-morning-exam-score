@@ -1,6 +1,6 @@
 "use client";
 
-import { PointType, StudentStatus, StudentType } from "@/generated/prisma";
+import { PointType, StudentStatus, StudentType } from "@prisma/client";
 import {
   formatMonthLabel,
   formatPoint,

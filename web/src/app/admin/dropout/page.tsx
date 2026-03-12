@@ -1,4 +1,4 @@
-import { AdminRole, StudentStatus } from "@/generated/prisma";
+import { AdminRole, StudentStatus } from "@prisma/client";
 import { DropoutNotificationActions } from "@/components/dropout/dropout-notification-actions";
 import { DropoutMonitorTable } from "@/components/dropout/dropout-monitor-table";
 import { WeeklyStatusHistoryTable } from "@/components/dropout/weekly-status-history-table";

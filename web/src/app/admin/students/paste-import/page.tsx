@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminRole, ExamType } from "@/generated/prisma";
+import { AdminRole, ExamType } from "@prisma/client";
 import { PasteImportWorkbench } from "@/components/students/paste-import-workbench";
 import { requireAdminContext } from "@/lib/auth";
 

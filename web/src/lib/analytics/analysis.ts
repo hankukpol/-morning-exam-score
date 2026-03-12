@@ -1,11 +1,11 @@
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 import {
   AttendType,
   ExamType,
   StudentStatus,
   StudentType,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
 import {

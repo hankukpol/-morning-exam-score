@@ -1,9 +1,9 @@
-import { AdminRole, AttendType } from "@/generated/prisma";
+﻿import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { executePastedScores, previewPastedScores } from "@/lib/scores/service";
+import { deleteSessionScores, executePastedScores, previewPastedScores } from "@/lib/scores/service";
 
-type Mode = "preview" | "execute";
+type Mode = "preview" | "execute" | "deleteSession";
 
 export async function POST(request: Request) {
   const auth = await requireApiAdmin(AdminRole.TEACHER);
@@ -21,11 +21,21 @@ export async function POST(request: Request) {
     };
 
     if (!body.sessionId) {
-      return NextResponse.json({ error: "시험 회차를 선택하세요." }, { status: 400 });
+      return NextResponse.json({ error: "회차를 선택해 주세요." }, { status: 400 });
+    }
+
+    if ((body.mode ?? "preview") === "deleteSession") {
+      const result = await deleteSessionScores({
+        adminId: auth.context.adminUser.id,
+        sessionId: Number(body.sessionId),
+        ipAddress: request.headers.get("x-forwarded-for"),
+      });
+
+      return NextResponse.json(result);
     }
 
     if (!body.text?.trim()) {
-      return NextResponse.json({ error: "붙여넣기 텍스트를 입력하세요." }, { status: 400 });
+      return NextResponse.json({ error: "붙여넣기 텍스트를 입력해 주세요." }, { status: 400 });
     }
 
     if ((body.mode ?? "preview") === "preview") {

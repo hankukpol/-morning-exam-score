@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { listAuditLogs } from "@/lib/audit-log/service";

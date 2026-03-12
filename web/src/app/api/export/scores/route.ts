@@ -1,4 +1,4 @@
-import { AdminRole, ExamType } from "@/generated/prisma";
+import { AdminRole, ExamType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createCsvBuffer,

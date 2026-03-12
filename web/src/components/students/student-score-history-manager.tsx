@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AttendType, StudentStatus, Subject } from "@/generated/prisma";
+import { AttendType, StudentStatus, Subject } from "@prisma/client";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,

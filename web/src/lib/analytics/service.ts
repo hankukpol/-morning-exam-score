@@ -8,7 +8,7 @@ import {
   StudentStatus,
   StudentType,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { ATTENDANCE_STATUS_RULES, EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import {
   buildNotificationMessage,
@@ -40,6 +40,11 @@ import {
   getPoliceOxScore,
   getScoredMockScore,
 } from "@/lib/scores/calculation";
+import {
+  getMockRankingSessions,
+  getPoliceOxSessions,
+  isPoliceOxOnlySession,
+} from "@/lib/exam-session-rules";
 
 type StudentEntry = {
   session: DatasetSession;
@@ -282,6 +287,12 @@ function percentage(numerator: number, denominator: number) {
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
+function getOccurredSessions(sessions: DatasetSession[]) {
+  const today = endOfToday();
+  return sessions.filter((session) => !session.isCancelled && session.examDate <= today);
+}
+
+
 function assignRank(rows: Array<{ examNumber: string; average: number | null }>) {
   const ranked = rows
     .filter((row) => row.average !== null)
@@ -323,17 +334,16 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
   const scoreMap = new Map<string, DatasetScore>();
   const absenceMap = new Map<string, DatasetAbsence>();
   const today = endOfToday();
-  const occurredSessions = dataset.sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= today,
-  );
-  const latestOccurredSession = occurredSessions.at(-1) ?? null;
+  const occurredSessions = getOccurredSessions(dataset.sessions);
+  const countedOccurredSessions = getMockRankingSessions(occurredSessions);
+  const latestOccurredSession = countedOccurredSessions.at(-1) ?? occurredSessions.at(-1) ?? null;
   const currentWeekKey = latestOccurredSession
     ? getTuesdayWeekKey(latestOccurredSession.examDate)
     : null;
   const currentMonthKey = latestOccurredSession ? monthKey(latestOccurredSession.examDate) : null;
   const occurredWeekSessions = new Map<string, DatasetSession[]>();
 
-  for (const session of occurredSessions) {
+  for (const session of countedOccurredSessions) {
     const weekKey = getTuesdayWeekKey(session.examDate);
     const current = occurredWeekSessions.get(weekKey) ?? [];
     current.push(session);
@@ -388,7 +398,11 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
     const monthPerfectAttendance = new Map<string, boolean>();
 
     for (const entry of entries) {
-      if (!entry.isOccurred || entry.session.isCancelled) {
+      if (
+        !entry.isOccurred ||
+        entry.session.isCancelled ||
+        isPoliceOxOnlySession(entry.session, dataset.sessions)
+      ) {
         continue;
       }
 
@@ -417,7 +431,12 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
 
     const currentWeekAbsenceCount = currentWeekKey ? (weekAbsences.get(currentWeekKey) ?? 0) : 0;
     const currentMonthAbsenceCount = currentMonthKey ? (monthAbsences.get(currentMonthKey) ?? 0) : 0;
-    const occurredEntries = entries.filter((entry) => entry.isOccurred && !entry.session.isCancelled);
+    const occurredEntries = entries.filter(
+      (entry) =>
+        entry.isOccurred &&
+        !entry.session.isCancelled &&
+        !isPoliceOxOnlySession(entry.session, dataset.sessions),
+    );
     let activeDropoutUntil: Date | null = null;
     let activeDropoutReason: DropoutReason | null = null;
     const weeklySnapshots = Array.from(occurredWeekSessions.entries())
@@ -563,10 +582,10 @@ function buildWeeklyResultsSheetRowsLightweight(
   weekStatusByExamNumber: Map<string, StudentStatus>,
 ) {
   const today = endOfToday();
-  const occurredSessions = dataset.sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= today,
-  );
-  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+  const occurredSessions = getOccurredSessions(dataset.sessions);
+  const mockSessions = getMockRankingSessions(occurredSessions);
+  const mockSessionIds = new Set(mockSessions.map((session) => session.id));
+  const policeSessions = getPoliceOxSessions(occurredSessions);
   const scoreLookup = buildResultsScoreLookup(dataset.scores);
   const approvedAbsenceLookup = buildApprovedAbsenceLookup(dataset.approvedAbsences);
 
@@ -584,7 +603,7 @@ function buildWeeklyResultsSheetRowsLightweight(
         today,
       );
 
-      if (countsAsAttendance(attendType)) {
+      if (mockSessionIds.has(session.id) && countsAsAttendance(attendType)) {
         attendanceCount += 1;
       }
 
@@ -593,7 +612,9 @@ function buildWeeklyResultsSheetRowsLightweight(
         session.subject === Subject.POLICE_SCIENCE && score ? getPoliceOxScore(score) : null;
 
       if (attendType === AttendType.NORMAL) {
-        mockTotal += mockScore ?? 0;
+        if (mockSessionIds.has(session.id)) {
+          mockTotal += mockScore ?? 0;
+        }
         if (session.subject === Subject.POLICE_SCIENCE) {
           policeOxTotal += policeOxScore ?? 0;
         }
@@ -613,9 +634,9 @@ function buildWeeklyResultsSheetRowsLightweight(
       studentType: student.studentType,
       isActive: student.isActive,
       weekStatus: weekStatusByExamNumber.get(student.examNumber) ?? StudentStatus.NORMAL,
-      attendanceRate: percentage(attendanceCount, occurredSessions.length),
+      attendanceRate: percentage(attendanceCount, mockSessions.length),
       mockAverage:
-        occurredSessions.length === 0 ? 0 : Math.round((mockTotal / occurredSessions.length) * 100) / 100,
+        mockSessions.length === 0 ? 0 : Math.round((mockTotal / mockSessions.length) * 100) / 100,
       policeOxAverage:
         policeSessions.length === 0 ? null : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
       mockRank: null,
@@ -654,10 +675,10 @@ function buildSummaryResultsSheetRowsLightweight(
   includePerfectAttendanceNote: boolean,
 ) {
   const today = endOfToday();
-  const occurredSessions = dataset.sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= today,
-  );
-  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+  const occurredSessions = getOccurredSessions(dataset.sessions);
+  const mockSessions = getMockRankingSessions(occurredSessions);
+  const mockSessionIds = new Set(mockSessions.map((session) => session.id));
+  const policeSessions = getPoliceOxSessions(occurredSessions);
   const scoreLookup = buildResultsScoreLookup(dataset.scores);
   const approvedAbsenceLookup = buildApprovedAbsenceLookup(dataset.approvedAbsences);
 
@@ -666,7 +687,7 @@ function buildSummaryResultsSheetRowsLightweight(
     let mockTotal = 0;
     let policeOxTotal = 0;
     let combinedTotal = 0;
-    let hasPerfectAttendance = occurredSessions.length > 0;
+    let hasPerfectAttendance = mockSessions.length > 0;
 
     for (const session of occurredSessions) {
       const key = `${student.examNumber}:${session.id}`;
@@ -678,11 +699,11 @@ function buildSummaryResultsSheetRowsLightweight(
         today,
       );
 
-      if (countsAsAttendance(attendType)) {
+      if (mockSessionIds.has(session.id) && countsAsAttendance(attendType)) {
         attendanceCount += 1;
       }
 
-      if (attendType === AttendType.ABSENT || attendType === null) {
+      if (mockSessionIds.has(session.id) && (attendType === AttendType.ABSENT || attendType === null)) {
         hasPerfectAttendance = false;
       }
 
@@ -690,8 +711,10 @@ function buildSummaryResultsSheetRowsLightweight(
         continue;
       }
 
-      mockTotal += getMockScore(score) ?? 0;
-      combinedTotal += getCombinedScore(score) ?? 0;
+      if (mockSessionIds.has(session.id)) {
+        mockTotal += getMockScore(score) ?? 0;
+        combinedTotal += getCombinedScore(score) ?? 0;
+      }
 
       if (session.subject === Subject.POLICE_SCIENCE) {
         policeOxTotal += getPoliceOxScore(score) ?? 0;
@@ -704,16 +727,16 @@ function buildSummaryResultsSheetRowsLightweight(
       studentType: student.studentType,
       isActive: student.isActive,
       mockAverage:
-        occurredSessions.length === 0 ? 0 : Math.round((mockTotal / occurredSessions.length) * 100) / 100,
+        mockSessions.length === 0 ? 0 : Math.round((mockTotal / mockSessions.length) * 100) / 100,
       mockRank: null,
       policeOxAverage:
         policeSessions.length === 0 ? null : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
       policeOxRank: null,
       combinedAverage:
-        occurredSessions.length === 0 ? 0 : Math.round((combinedTotal / occurredSessions.length) * 100) / 100,
+        mockSessions.length === 0 ? 0 : Math.round((combinedTotal / mockSessions.length) * 100) / 100,
       combinedRank: null,
-      participationRate: percentage(attendanceCount, occurredSessions.length),
-      note: includePerfectAttendanceNote && hasPerfectAttendance ? "媛쒓렐" : null,
+      participationRate: percentage(attendanceCount, mockSessions.length),
+      note: includePerfectAttendanceNote && hasPerfectAttendance ? "개근" : null,
     } satisfies MonthlyResultsSheetRow;
   });
 
@@ -875,11 +898,10 @@ function buildWeeklyResultsSheetRows(
   weekKey: string,
   view: "overall" | "new",
 ) {
-  const occurredSessions = sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= endOfToday(),
-  );
+  const occurredSessions = getOccurredSessions(sessions);
   const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+  const mockSessions = getMockRankingSessions(occurredSessions);
+  const policeSessions = getPoliceOxSessions(occurredSessions);
 
   const rows: WeeklyResultsSheetRow[] = aggregates.map((aggregate) => {
     const scopedEntries = aggregate.entries
@@ -889,21 +911,24 @@ function buildWeeklyResultsSheetRows(
           reviveDate(left.session.examDate).getTime() - reviveDate(right.session.examDate).getTime() ||
           left.session.id - right.session.id,
       );
+    const entryMap = new Map(scopedEntries.map((entry) => [entry.session.id, entry]));
     const weekSnapshot =
       aggregate.weeklySnapshots.find((snapshot) => snapshot.weekKey === weekKey) ?? null;
-    const attendanceCount = scopedEntries.filter(
-      (entry) => countsAsAttendance(entry.attendType),
-    ).length;
+    const attendanceCount = mockSessions.filter((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      return countsAsAttendance(entry?.attendType ?? null);
+    }).length;
 
-    const mockScores = scopedEntries.map((entry) => {
-      if (entry.attendType !== AttendType.NORMAL) {
+    const mockScores = mockSessions.map((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
       }
 
       return getMockScore(entry) ?? 0;
     });
     const policeOxScores = policeSessions.map((session) => {
-      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+      const entry = entryMap.get(session.id) ?? null;
 
       if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
@@ -918,8 +943,8 @@ function buildWeeklyResultsSheetRows(
       studentType: aggregate.student.studentType,
       isActive: aggregate.student.isActive,
       weekStatus: weekSnapshot?.status ?? StudentStatus.NORMAL,
-      attendanceRate: percentage(attendanceCount, occurredSessions.length),
-      mockAverage: occurredSessions.length === 0 ? 0 : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100,
+      attendanceRate: percentage(attendanceCount, mockSessions.length),
+      mockAverage: mockSessions.length === 0 ? 0 : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100,
       policeOxAverage:
         policeSessions.length === 0
           ? null
@@ -927,7 +952,7 @@ function buildWeeklyResultsSheetRows(
       mockRank: null,
       policeOxRank: null,
       cells: occurredSessions.map((session) => {
-        const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+        const entry = entryMap.get(session.id) ?? null;
 
         return {
           sessionId: session.id,
@@ -968,26 +993,28 @@ function buildMonthlyResultsSheetRows(
   sessions: DatasetSession[],
   view: "overall" | "new",
 ) {
-  const occurredSessions = sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= endOfToday(),
-  );
+  const occurredSessions = getOccurredSessions(sessions);
   const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+  const mockSessions = getMockRankingSessions(occurredSessions);
+  const policeSessions = getPoliceOxSessions(occurredSessions);
 
   const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
     const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
-    const attendanceCount = scopedEntries.filter(
-      (entry) => countsAsAttendance(entry.attendType),
-    ).length;
-    const mockScores = scopedEntries.map((entry) => {
-      if (entry.attendType !== AttendType.NORMAL) {
+    const entryMap = new Map(scopedEntries.map((entry) => [entry.session.id, entry]));
+    const attendanceCount = mockSessions.filter((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      return countsAsAttendance(entry?.attendType ?? null);
+    }).length;
+    const mockScores = mockSessions.map((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
       }
 
       return getMockScore(entry) ?? 0;
     });
     const policeOxScores = policeSessions.map((session) => {
-      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+      const entry = entryMap.get(session.id) ?? null;
 
       if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
@@ -996,24 +1023,25 @@ function buildMonthlyResultsSheetRows(
       return getPoliceOxScore(entry) ?? 0;
     });
     const mockAverage =
-      occurredSessions.length === 0
+      mockSessions.length === 0
         ? 0
-        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100;
     const policeOxAverage =
       policeSessions.length === 0
         ? null
         : Math.round((policeOxScores.reduce((sum, value) => sum + value, 0) / policeSessions.length) * 100) / 100;
-    const combinedScores = scopedEntries.map((entry) => {
-      if (entry.attendType !== AttendType.NORMAL) {
+    const combinedScores = mockSessions.map((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
       }
 
       return getCombinedScore(entry) ?? 0;
     });
     const combinedAverage =
-      occurredSessions.length === 0
+      mockSessions.length === 0
         ? 0
-        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100;
 
     return {
       examNumber: aggregate.student.examNumber,
@@ -1026,11 +1054,11 @@ function buildMonthlyResultsSheetRows(
       policeOxRank: null,
       combinedAverage,
       combinedRank: null,
-      participationRate: percentage(attendanceCount, occurredSessions.length),
+      participationRate: percentage(attendanceCount, mockSessions.length),
       note:
-        occurredSessions.length > 0 &&
-        occurredSessions.every((session) => {
-          const entry = scopedEntries.find((e) => e.session.id === session.id);
+        mockSessions.length > 0 &&
+        mockSessions.every((session) => {
+          const entry = entryMap.get(session.id);
           return entry !== undefined && entry.attendType !== AttendType.ABSENT;
         })
           ? "개근"
@@ -1071,26 +1099,28 @@ function buildIntegratedResultsSheetRows(
   sessions: DatasetSession[],
   view: "overall" | "new",
 ) {
-  const occurredSessions = sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= endOfToday(),
-  );
+  const occurredSessions = getOccurredSessions(sessions);
   const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const policeSessions = occurredSessions.filter((session) => session.subject === Subject.POLICE_SCIENCE);
+  const mockSessions = getMockRankingSessions(occurredSessions);
+  const policeSessions = getPoliceOxSessions(occurredSessions);
 
   const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
     const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
-    const attendanceCount = scopedEntries.filter(
-      (entry) => countsAsAttendance(entry.attendType),
-    ).length;
-    const mockScores = scopedEntries.map((entry) => {
-      if (entry.attendType !== AttendType.NORMAL) {
+    const entryMap = new Map(scopedEntries.map((entry) => [entry.session.id, entry]));
+    const attendanceCount = mockSessions.filter((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      return countsAsAttendance(entry?.attendType ?? null);
+    }).length;
+    const mockScores = mockSessions.map((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
       }
 
       return getMockScore(entry) ?? 0;
     });
     const policeOxScores = policeSessions.map((session) => {
-      const entry = scopedEntries.find((candidate) => candidate.session.id === session.id) ?? null;
+      const entry = entryMap.get(session.id) ?? null;
 
       if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
@@ -1099,24 +1129,25 @@ function buildIntegratedResultsSheetRows(
       return getPoliceOxScore(entry) ?? 0;
     });
     const mockAverage =
-      occurredSessions.length === 0
+      mockSessions.length === 0
         ? 0
-        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+        : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100;
     const policeOxAverage =
       policeSessions.length === 0
         ? null
         : Math.round((policeOxScores.reduce((sum, value) => sum + value, 0) / policeSessions.length) * 100) / 100;
-    const combinedScores = scopedEntries.map((entry) => {
-      if (entry.attendType !== AttendType.NORMAL) {
+    const combinedScores = mockSessions.map((session) => {
+      const entry = entryMap.get(session.id) ?? null;
+      if (!entry || entry.attendType !== AttendType.NORMAL) {
         return 0;
       }
 
       return getCombinedScore(entry) ?? 0;
     });
     const combinedAverage =
-      occurredSessions.length === 0
+      mockSessions.length === 0
         ? 0
-        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / occurredSessions.length) * 100) / 100;
+        : Math.round((combinedScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100;
 
     return {
       examNumber: aggregate.student.examNumber,
@@ -1129,7 +1160,7 @@ function buildIntegratedResultsSheetRows(
       policeOxRank: null,
       combinedAverage,
       combinedRank: null,
-      participationRate: percentage(attendanceCount, occurredSessions.length),
+      participationRate: percentage(attendanceCount, mockSessions.length),
       note: null,
     } satisfies MonthlyResultsSheetRow;
   });
@@ -1465,8 +1496,8 @@ export async function recalculateStatusCache(
           failReason: canQueue
             ? null
             : aggregate.student.notificationConsent
-              ? "????꾣뤃???⑺꺐??ㅻ쿋??????? ????ㅿ폎?????嶺??熬곣뫖利든뜏????????곌숯??????????딅젩"
-              : "????뽓?????곌틖??좊읈? ???⑤９苑????筌??袁⑸즵獒???????ㅼ굡?????筌믨퀡???筌뤾퍓???",
+              ? "전화번호가 없어 자동 발송에 실패했습니다"
+              : "학생의 동의 없이 자동 발송 대상에서 제외됩니다",
         },
       ];
     });
@@ -1937,8 +1968,9 @@ export async function getAttendanceCalendar(
     const totalScores = scoreCountMap.get(`${session.id}:__ALL__`) ?? 0;
     const approvedAbsenceCount = approvedAbsenceMap.get(session.id) ?? 0;
     const explicitAbsentCount = scoreCountMap.get(`${session.id}:${AttendType.ABSENT}`) ?? 0;
+    const isOxOnlySession = isPoliceOxOnlySession(session, sessions);
     const inferredAbsentCount =
-      !session.isCancelled && session.examDate <= endOfToday()
+      !isOxOnlySession && !session.isCancelled && session.examDate <= endOfToday()
         ? Math.max(totalStudents - totalScores - approvedAbsenceCount, 0)
         : 0;
 
@@ -1951,7 +1983,7 @@ export async function getAttendanceCalendar(
       weekLabel: formatTuesdayWeekLabel(weekKey),
       normalCount: scoreCountMap.get(`${session.id}:${AttendType.NORMAL}`) ?? 0,
       liveCount: scoreCountMap.get(`${session.id}:${AttendType.LIVE}`) ?? 0,
-      absentCount: explicitAbsentCount + inferredAbsentCount,
+      absentCount: isOxOnlySession ? 0 : explicitAbsentCount + inferredAbsentCount,
       warningCount:
         (statusCountMap.get(`${weekKey}:${StudentStatus.WARNING_1}`) ?? 0) +
         (statusCountMap.get(`${weekKey}:${StudentStatus.WARNING_2}`) ?? 0),
@@ -2099,3 +2131,11 @@ export const getDashboardSummary = unstable_cache(
   ["admin-dashboard-summary"],
   { revalidate: 60, tags: ["dashboard-summary"] },
 );
+
+
+
+
+
+
+
+

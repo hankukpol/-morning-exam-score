@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { PointManager } from "@/components/points/point-manager";
 import { formatMonthLabel } from "@/lib/analytics/presentation";
 import { getPointManagementData } from "@/lib/analytics/service";

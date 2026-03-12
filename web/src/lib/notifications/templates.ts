@@ -1,4 +1,4 @@
-import { NotificationType, StudentStatus } from "@/generated/prisma";
+﻿import { NotificationType, StudentStatus } from "@prisma/client";
 
 type MessageInput = {
   type: NotificationType;
@@ -55,11 +55,11 @@ export function buildNotificationMessage(input: MessageInput) {
 
   switch (input.type) {
     case NotificationType.WARNING_1:
-      return `[아침모의고사] ${input.studentName}님, 이번 주 무단 결시 ${input.weekAbsenceCount ?? 1}회로 1차 경고 상태입니다. 다음 시험 참여를 확인해주세요.`;
+      return `[아침모의고사] ${input.studentName}님, 이번 주 무단 결시 ${input.weekAbsenceCount ?? 1}회로 1차 경고 상태입니다. 다음 시험 참여를 확인해 주세요.`;
     case NotificationType.WARNING_2:
       return `[아침모의고사] ${input.studentName}님, 이번 주 무단 결시 ${input.weekAbsenceCount ?? 2}회로 2차 경고 상태입니다. 추가 결시 시 탈락 처리됩니다.`;
     case NotificationType.DROPOUT:
-      return `[아침모의고사] ${input.studentName}님은 결시 기준 초과로 탈락 처리되었습니다. 주간 ${input.weekAbsenceCount ?? 0}회 / 월간 ${input.monthAbsenceCount ?? 0}회 기준이며 복귀 가능일은 ${formatRecoveryDate(input.recoveryDate)}입니다.`;
+      return `[아침모의고사] ${input.studentName}님은 결시 기준 초과로 탈락 처리되었습니다. 주간 ${input.weekAbsenceCount ?? 0}회 / 월간 ${input.monthAbsenceCount ?? 0}회 기준이며 복구 가능일은 ${formatRecoveryDate(input.recoveryDate)}입니다.`;
     case NotificationType.POINT:
       return `[아침모의고사] ${input.studentName}님께 포인트 ${input.pointAmount?.toLocaleString("ko-KR") ?? "0"}P가 지급되었습니다.`;
     case NotificationType.NOTICE:

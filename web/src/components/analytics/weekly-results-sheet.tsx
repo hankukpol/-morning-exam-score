@@ -1,13 +1,15 @@
-import { Fragment } from "react";
+﻿import { Fragment } from "react";
 import Link from "next/link";
-import { AttendType, Subject, StudentStatus } from "@/generated/prisma";
+import { AttendType, Subject, StudentStatus, type ExamType } from "@prisma/client";
 import { WeeklyResultsSheetRow, type TuesdayWeekSummary } from "@/lib/analytics/service";
 import { STATUS_LABEL, STATUS_ROW_CLASS, formatRank, formatScore } from "@/lib/analytics/presentation";
 import { SUBJECT_LABEL } from "@/lib/constants";
+import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
 import { formatDate } from "@/lib/format";
 
 type SessionColumn = {
   id: number;
+  examType: ExamType;
   subject: Subject;
   examDate: Date | string;
 };
@@ -33,7 +35,7 @@ function formatCellValue(
 
   if (attendType === AttendType.LIVE) {
     if (value !== null && mode === "mock") {
-      return `${formatScore(value)}(라)`;
+      return `${formatScore(value)}(라이브)`;
     }
 
     return "라이브";
@@ -68,21 +70,22 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
   const subHeadCellClass = "border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold";
   const sortedSessions = [...sessions].sort(
     (left, right) =>
-      reviveDate(left.examDate).getTime() - reviveDate(right.examDate).getTime() ||
-      left.id - right.id,
+      reviveDate(left.examDate).getTime() - reviveDate(right.examDate).getTime() || left.id - right.id,
   );
-  const averages = sortedSessions.map((session) => {
-    const mockValues = rows
-      .map((row) => row.cells.find((cell) => cell.sessionId === session.id))
-      .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.mockScore !== null)
-      .map((cell) => cell?.mockScore as number);
-    const oxValues =
-      session.subject === Subject.POLICE_SCIENCE
-        ? rows
-            .map((row) => row.cells.find((cell) => cell.sessionId === session.id))
-            .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.policeOxScore !== null)
-            .map((cell) => cell?.policeOxScore as number)
-        : [];
+  const displayColumns = buildSessionDisplayColumns(sortedSessions);
+  const averages = displayColumns.map((column) => {
+    const mockValues = column.mainSession
+      ? rows
+          .map((row) => row.cells.find((cell) => cell.sessionId === column.mainSession?.id))
+          .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.mockScore !== null)
+          .map((cell) => cell?.mockScore as number)
+      : [];
+    const oxValues = column.oxSession
+      ? rows
+          .map((row) => row.cells.find((cell) => cell.sessionId === column.oxSession?.id))
+          .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.policeOxScore !== null)
+          .map((cell) => cell?.policeOxScore as number)
+      : [];
 
     return {
       mock:
@@ -112,15 +115,15 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
             <tr>
               <th rowSpan={2} className={headCellClass}>번호</th>
               <th rowSpan={2} className={headNameCellClass}>이름</th>
-              {sortedSessions.map((session) => (
+              {displayColumns.map((column) => (
                 <th
-                  key={session.id}
-                  colSpan={session.subject === Subject.POLICE_SCIENCE ? 2 : 1}
+                  key={column.key}
+                  colSpan={column.oxSession ? 2 : 1}
                   className={headCellClass}
                 >
-                  <div>{formatDate(reviveDate(session.examDate))}</div>
+                  <div>{formatDate(column.examDate)}</div>
                   <div className="mt-1 text-xs font-medium text-slate">
-                    {SUBJECT_LABEL[session.subject]}
+                    {SUBJECT_LABEL[column.subject]}
                   </div>
                 </th>
               ))}
@@ -132,22 +135,22 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
               <th rowSpan={2} className={headCellClass}>비고</th>
             </tr>
             <tr>
-              {sortedSessions.map((session) =>
-                session.subject === Subject.POLICE_SCIENCE ? (
-                  <Fragment key={session.id}>
+              {displayColumns.map((column) =>
+                column.oxSession ? (
+                  <Fragment key={`${column.key}-sub`}>
                     <th className={subHeadCellClass}>모의고사</th>
                     <th className={subHeadCellClass}>경찰학 OX</th>
                   </Fragment>
                 ) : (
-                  <th key={`${session.id}-mock`} className={subHeadCellClass}>모의고사</th>
+                  <th key={`${column.key}-mock`} className={subHeadCellClass}>모의고사</th>
                 ),
               )}
             </tr>
             <tr className="bg-slate-50">
               <th colSpan={2} className="border border-slate-200 px-3 py-3 font-semibold">응시자 평균</th>
               {averages.map((average, index) =>
-                sortedSessions[index]?.subject === Subject.POLICE_SCIENCE ? (
-                  <Fragment key={`avg-${sortedSessions[index].id}`}>
+                displayColumns[index]?.oxSession ? (
+                  <Fragment key={`avg-${displayColumns[index].key}`}>
                     <th className="border border-slate-200 px-3 py-2 font-semibold text-ember">
                       {formatScore(average.mock)}
                     </th>
@@ -157,7 +160,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                   </Fragment>
                 ) : (
                   <th
-                    key={`avg-${sortedSessions[index].id}-mock`}
+                    key={`avg-${displayColumns[index].key}-mock`}
                     className="border border-slate-200 px-3 py-2 font-semibold text-ember"
                   >
                     {formatScore(average.mock)}
@@ -188,22 +191,27 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                     {row.name}
                   </Link>
                 </td>
-                {sortedSessions.map((session) => {
-                  const cell = row.cells.find((item) => item.sessionId === session.id);
+                {displayColumns.map((column) => {
+                  const mainCell = column.mainSession
+                    ? row.cells.find((item) => item.sessionId === column.mainSession?.id) ?? null
+                    : null;
+                  const oxCell = column.oxSession
+                    ? row.cells.find((item) => item.sessionId === column.oxSession?.id) ?? null
+                    : null;
                   const mockDisplay = formatCellValue(
-                    cell?.attendType ?? null,
-                    cell?.mockScore ?? null,
+                    mainCell?.attendType ?? null,
+                    mainCell?.mockScore ?? null,
                     "mock",
                   );
 
-                  if (session.subject === Subject.POLICE_SCIENCE) {
+                  if (column.oxSession) {
                     const oxDisplay = formatCellValue(
-                      cell?.attendType ?? null,
-                      cell?.policeOxScore ?? null,
+                      oxCell?.attendType ?? mainCell?.attendType ?? null,
+                      oxCell?.policeOxScore ?? null,
                       "ox",
                     );
                     return (
-                      <Fragment key={`${row.examNumber}-${session.id}`}>
+                      <Fragment key={`${row.examNumber}-${column.key}`}>
                         <td className="border border-ink/10 px-3 py-3">{mockDisplay}</td>
                         <td className="border border-ink/10 px-3 py-3">{oxDisplay}</td>
                       </Fragment>
@@ -212,7 +220,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
 
                   return (
                     <td
-                      key={`${row.examNumber}-${session.id}-mock`}
+                      key={`${row.examNumber}-${column.key}-mock`}
                       className="border border-ink/10 px-3 py-3"
                     >
                       {mockDisplay}

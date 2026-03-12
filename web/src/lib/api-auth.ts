@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { getCurrentAdminContext, roleAtLeast } from "@/lib/auth";
 
 export async function requireApiAdmin(minRole: AdminRole) {

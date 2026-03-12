@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Subject } from "@/generated/prisma";
+import { Subject } from "@prisma/client";
 import {
   BarComparisonChart,
   RadarComparisonChart,

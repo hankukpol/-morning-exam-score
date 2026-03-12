@@ -1,4 +1,5 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import Link from "next/link";
+import { AdminRole } from "@prisma/client";
 import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
 import {
   buildHref,
@@ -6,12 +7,12 @@ import {
   getWeekOptions,
   readStringParam,
 } from "@/lib/analytics/ui";
+import { getTuesdayWeekKey } from "@/lib/analytics/week";
 import { requireAdminContext } from "@/lib/auth";
 import { getWeeklyResults } from "@/lib/analytics/service";
-import { getTuesdayWeekKey } from "@/lib/analytics/week";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
 import { formatDate } from "@/lib/format";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -48,15 +49,16 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           view,
         })
       : null;
+  const displayColumns = data ? buildSessionDisplayColumns(data.sessions) : [];
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-05-B Weekly Results
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 석차표</h1>
+      <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 출감표</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 엑셀도 바로 내려받을 수 있습니다.
+        선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 표도 바로 내려받을 수 있습니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
@@ -148,7 +150,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
               href={downloadHref ?? undefined}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
             >
-              인쇄용 엑셀 다운로드
+              인쇄용 표 다운로드
             </a>
           </div>
 
@@ -161,12 +163,13 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
                 : ""}
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
-              {data.sessions.map((session) => (
+              {displayColumns.map((column) => (
                 <span
-                  key={session.id}
+                  key={column.key}
                   className="rounded-full border border-ink/10 px-3 py-2"
                 >
-                  {formatDate(session.examDate)} · {SUBJECT_LABEL[session.subject]}
+                  {formatDate(column.examDate)} · {SUBJECT_LABEL[column.subject]}
+                  {column.oxSession ? " + 경찰학 OX" : ""}
                 </span>
               ))}
             </div>

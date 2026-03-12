@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExamType, StudentType } from "@/generated/prisma";
+import { ExamType, StudentType } from "@prisma/client";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   EXAM_TYPE_LABEL,
@@ -125,7 +125,9 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   }
 
   function refreshWithFilters(
-    nextFilters?: Partial<Pick<Filters, "examType" | "search" | "generation" | "activeOnly" | "page" | "pageSize">>,
+    nextFilters?: Partial<
+      Pick<Filters, "examType" | "search" | "generation" | "activeOnly" | "page" | "pageSize">
+    >,
   ) {
     const params = new URLSearchParams();
     const merged = {
@@ -198,9 +200,6 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
     });
   }
 
-  const currentPage = filters.page;
-  const pageSize = filters.pageSize;
-
   return (
     <div className="space-y-8">
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
@@ -208,16 +207,32 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
           <div>
             <h2 className="text-xl font-semibold">수강생 등록</h2>
             <p className="mt-2 text-sm leading-7 text-slate">
-              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 등록 화면에서 처리합니다.
+              개별 등록과 수정은 이 화면에서 처리하고, 대량 등록은 붙여넣기 등록 화면을 사용합니다.
             </p>
           </div>
-          <Link
-            prefetch={false}
-            href={`/admin/students/paste-import?examType=${filters.examType}`}
-            className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
-          >
-            붙여넣기 등록
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              prefetch={false}
+              href={`/admin/students/paste-import?examType=${filters.examType}`}
+              className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
+            >
+              붙여넣기 등록
+            </Link>
+            <Link
+              prefetch={false}
+              href="/admin/students/transfer"
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest"
+            >
+              수험번호 이전
+            </Link>
+            <Link
+              prefetch={false}
+              href="/admin/students/merge"
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest"
+            >
+              학생 병합
+            </Link>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -411,7 +426,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               checked={activeOnly}
               onChange={(event) => setActiveOnly(event.target.checked)}
             />
-            활성만 보기
+            활성 학생만 보기
           </label>
           <button
             type="button"
@@ -436,8 +451,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
         <div className="mt-6 overflow-hidden rounded-[24px] border border-ink/10">
           <PaginationControls
             totalCount={filters.totalCount}
-            page={currentPage}
-            pageSize={pageSize}
+            page={filters.page}
+            pageSize={filters.pageSize}
             onPageChange={(nextPage) => refreshWithFilters({ page: nextPage })}
             onPageSizeChange={(nextPageSize) =>
               refreshWithFilters({ page: 1, pageSize: nextPageSize })
@@ -463,17 +478,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
 
                 return (
                   <tr key={student.examNumber}>
-                    <td className="px-4 py-3 font-medium">
-                      {editingExamNumber === student.examNumber ? (
-                        <input
-                          value={draft.examNumber}
-                          disabled
-                          className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
-                        />
-                      ) : (
-                        student.examNumber
-                      )}
-                    </td>
+                    <td className="px-4 py-3 font-medium">{student.examNumber}</td>
                     <td className="px-4 py-3">
                       {editingExamNumber === student.examNumber ? (
                         <input
@@ -636,7 +641,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                 disabled={isPending}
                                 className="rounded-full border border-forest/30 px-3 py-2 text-xs font-semibold text-forest transition hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                활성화
+                                재활성화
                               </button>
                             )}
                           </>

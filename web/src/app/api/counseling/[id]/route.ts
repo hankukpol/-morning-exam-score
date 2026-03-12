@@ -1,9 +1,24 @@
-import { AdminRole } from "@/generated/prisma";
+/**
+ * PUT  /api/counseling/[id]  - 면담 기록 수정
+ * DELETE /api/counseling/[id] - 면담 기록 삭제
+ *
+ * PUT action 분기:
+ * - action 없음 (기본): 면담 내용·일자·강사 수정
+ * - action === "changeStudent": 면담 기록의 수험번호 변경
+ *   → 잘못된 학생으로 등록된 기록을 올바른 학생으로 이전
+ */
+import { AdminRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { deleteCounselingRecord, updateCounselingRecord } from "@/lib/counseling/service";
+import {
+  changeCounselingStudent,
+  deleteCounselingRecord,
+  updateCounselingRecord,
+} from "@/lib/counseling/service";
 
 type RequestBody = {
+  action?: "changeStudent";
+  newExamNumber?: string;    // action === "changeStudent" 일 때 필수
   counselorName?: string;
   content?: string;
   recommendation?: string | null;
@@ -32,6 +47,19 @@ export async function PUT(request: Request, { params }: RouteContext) {
     }
 
     const body = (await request.json()) as RequestBody;
+
+    // 학생 변경 액션: 수험번호만 교체, 기타 필드는 건드리지 않음
+    if (body.action === "changeStudent") {
+      const record = await changeCounselingStudent({
+        adminId: auth.context.adminUser.id,
+        recordId,
+        newExamNumber: String(body.newExamNumber ?? ""),
+        ipAddress: request.headers.get("x-forwarded-for"),
+      });
+      return NextResponse.json({ record });
+    }
+
+    // 기본 액션: 면담 내용·일자·강사명 수정
     const record = await updateCounselingRecord({
       adminId: auth.context.adminUser.id,
       recordId,

@@ -1,4 +1,4 @@
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
 
 const PLACEHOLDER_EXAM_NUMBER = "수험번호";
 const PLACEHOLDER_NAME = "이름";

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ExamType, ScoreSource, StudentType } from "../src/generated/prisma";
+import { ExamType, ScoreSource, StudentType } from "@prisma/client";
 import { executeLegacyWorkbookScores, previewLegacyWorkbookScores } from "../src/lib/migration/scores";
 import { getPrisma } from "../src/lib/prisma";
 

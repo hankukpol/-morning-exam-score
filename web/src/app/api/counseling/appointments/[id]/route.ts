@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { deleteAppointment, updateAppointment } from "@/lib/counseling/service";

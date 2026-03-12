@@ -5,7 +5,7 @@ import {
   AbsenceStatus,
   StudentStatus,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import {
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
@@ -81,6 +81,7 @@ const STATUS_SORT_ORDER: Record<AbsenceStatus, number> = {
   APPROVED: 2,
 };
 
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const PAGE_SIZE = 20;
 
 function booleanFromFormData(formData: FormData, key: string) {
@@ -97,14 +98,33 @@ export function AbsenceNoteManager({
   sessions,
   notes,
 }: AbsenceNoteManagerProps) {
+  // ── 공통 등록 폼 상태 ──────────────────────────────────────
   const [createExamNumber, setCreateExamNumber] = useState(students[0]?.examNumber ?? "");
   const [studentSearch, setStudentSearch] = useState("");
-  const [createDateFilter, setCreateDateFilter] = useState("");
-  const [createSessionId, setCreateSessionId] = useState(String(sessions[0]?.id ?? ""));
   const [createCategory, setCreateCategory] = useState<AbsenceCategory>(AbsenceCategory.OTHER);
   const [createReason, setCreateReason] = useState("");
   const [createAdminNote, setCreateAdminNote] = useState("");
   const [createPerfectAttendance, setCreatePerfectAttendance] = useState(false);
+
+  // ── 단건 등록 ────────────────────────────────────────────
+  const [createDateFilter, setCreateDateFilter] = useState("");
+  const [createSessionId, setCreateSessionId] = useState(String(sessions[0]?.id ?? ""));
+
+  // ── 등록 모드: 단건 / 일괄 ────────────────────────────────
+  const [createMode, setCreateMode] = useState<"single" | "bulk">("single");
+
+  // ── 일괄 등록 상태 ────────────────────────────────────────
+  const [bulkSubMode, setBulkSubMode] = useState<"pick" | "weekday">("pick");
+  const [bulkDateFrom, setBulkDateFrom] = useState("");
+  const [bulkDateTo, setBulkDateTo] = useState("");
+  const [bulkWeekdays, setBulkWeekdays] = useState<number[]>([]);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<number[]>([]);
+
+  // ── 드로어 회차 변경 상태 ─────────────────────────────────
+  const [changeSessionDateFilter, setChangeSessionDateFilter] = useState("");
+  const [changeSessionTargetId, setChangeSessionTargetId] = useState<string>("");
+
+  // ── 공통 UI 상태 ──────────────────────────────────────────
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -112,25 +132,62 @@ export function AbsenceNoteManager({
   const [selectedNote, setSelectedNote] = useState<AbsenceNoteRecord | null>(null);
   const drawerFormRef = useRef<HTMLFormElement>(null);
 
-  // 정렬 상태
+  // ── 정렬 / 페이지 ─────────────────────────────────────────
   const [sortBy, setSortBy] = useState<SortColumn>("status");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  // 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
 
+  // ── 단건 등록 필터 ────────────────────────────────────────
   const availableSessionIds = useMemo(
-    () => new Set(sessions.map((session) => String(session.id))),
+    () => new Set(sessions.map((s) => String(s.id))),
     [sessions],
   );
 
   const filteredSessions = useMemo(() => {
     if (!createDateFilter) return sessions;
-    return sessions.filter(
-      (session) => session.examDate.slice(0, 10) === createDateFilter,
-    );
+    return sessions.filter((s) => s.examDate.slice(0, 10) === createDateFilter);
   }, [sessions, createDateFilter]);
 
-  // 정렬된 노트
+  const isWeekdayBulkReady = Boolean(bulkDateFrom) && Boolean(bulkDateTo) && bulkWeekdays.length > 0;
+
+  // ── 일괄 등록: 조건에 맞는 세션 목록 ─────────────────────
+  const bulkFilteredSessions = useMemo(() => {
+    if (bulkSubMode === "weekday" && !isWeekdayBulkReady) {
+      return [];
+    }
+
+    return sessions.filter((s) => {
+      const date = s.examDate.slice(0, 10);
+      if (bulkDateFrom && date < bulkDateFrom) return false;
+      if (bulkDateTo && date > bulkDateTo) return false;
+      if (bulkSubMode === "weekday") {
+        const dow = new Date(`${date}T00:00:00`).getDay();
+        if (!bulkWeekdays.includes(dow)) return false;
+      }
+      return true;
+    });
+  }, [sessions, bulkDateFrom, bulkDateTo, bulkSubMode, bulkWeekdays, isWeekdayBulkReady]);
+
+  const bulkFilteredSessionIds = useMemo(
+    () => new Set(bulkFilteredSessions.map((s) => s.id)),
+    [bulkFilteredSessions],
+  );
+
+  // pick 모드일 때는 bulkSelectedIds 사용, weekday/range 모드는 자동 선택
+  const effectiveSessionIds = useMemo(() => {
+    if (bulkSubMode === "pick") {
+      return bulkSelectedIds.filter((id) => bulkFilteredSessionIds.has(id));
+    }
+    return bulkFilteredSessions.map((s) => s.id);
+  }, [bulkSubMode, bulkSelectedIds, bulkFilteredSessionIds, bulkFilteredSessions]);
+
+  // ── 드로어 회차 변경: 날짜 필터 세션 목록 ────────────────
+  const changeSessionOptions = useMemo(() => {
+    if (!changeSessionDateFilter) return sessions;
+    return sessions.filter((s) => s.examDate.slice(0, 10) === changeSessionDateFilter);
+  }, [sessions, changeSessionDateFilter]);
+
+  // ── 정렬된 노트 ───────────────────────────────────────────
   const sortedNotes = useMemo(() => {
     return [...notes].sort((a, b) => {
       let cmp = 0;
@@ -140,7 +197,7 @@ export function AbsenceNoteManager({
           break;
         case "status":
           cmp = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
-          if (cmp === 0) cmp = (b.session.examDate).localeCompare(a.session.examDate);
+          if (cmp === 0) cmp = b.session.examDate.localeCompare(a.session.examDate);
           break;
         case "absenceCategory":
           cmp = (a.absenceCategory ?? "").localeCompare(b.absenceCategory ?? "");
@@ -178,15 +235,10 @@ export function AbsenceNoteManager({
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     });
     const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error ?? "요청에 실패했습니다.");
-    }
+    if (!response.ok) throw new Error(payload.error ?? "요청에 실패했습니다.");
     return payload;
   }
 
@@ -200,6 +252,7 @@ export function AbsenceNoteManager({
     window.location.reload();
   }
 
+  // ── 단건 등록 ─────────────────────────────────────────────
   function createNote() {
     setMessage(null, null);
     startTransition(async () => {
@@ -211,8 +264,7 @@ export function AbsenceNoteManager({
             sessionId: Number(createSessionId),
             reason: createReason,
             absenceCategory: createCategory,
-            attendGrantsPerfectAttendance:
-              createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance,
+            attendGrantsPerfectAttendance: createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance,
             adminNote: createAdminNote,
           }),
         });
@@ -227,6 +279,73 @@ export function AbsenceNoteManager({
     });
   }
 
+  // ── 일괄 등록 ─────────────────────────────────────────────
+  function bulkCreateNotes() {
+    if (bulkSubMode === "weekday" && !isWeekdayBulkReady) {
+      setMessage(null, "요일 반복 등록은 시작일, 종료일, 반복 요일을 모두 선택해야 합니다.");
+      return;
+    }
+    if (effectiveSessionIds.length === 0) {
+      setMessage(null, "등록할 회차를 선택하세요.");
+      return;
+    }
+    setMessage(null, null);
+    startTransition(async () => {
+      try {
+        const result = await requestJson("/api/absence-notes/bulk-create", {
+          method: "POST",
+          body: JSON.stringify({
+            examNumber: createExamNumber,
+            sessionIds: effectiveSessionIds,
+            reason: createReason,
+            absenceCategory: createCategory,
+            attendGrantsPerfectAttendance: createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance,
+            adminNote: createAdminNote,
+          }),
+        });
+        const parts = [`${result.succeeded}건 등록 완료`];
+        if (result.skipped > 0) parts.push(`${result.skipped}건 이미 존재(건너뜀)`);
+        if (result.errors.length > 0) parts.push(`${result.errors.length}건 실패`);
+        reloadPage(parts.join(", "));
+      } catch (error) {
+        setMessage(null, error instanceof Error ? error.message : "일괄 등록에 실패했습니다.");
+      }
+    });
+  }
+
+  // ── 드로어 회차 변경 ──────────────────────────────────────
+  function changeNoteSession(noteId: number) {
+    if (!changeSessionTargetId) {
+      setMessage(null, "변경할 회차를 선택하세요.");
+      return;
+    }
+    if (changeSessionTargetId === String(selectedNote?.sessionId)) {
+      setMessage(null, "현재 회차와 동일합니다.");
+      return;
+    }
+    const isApproved = selectedNote?.status === AbsenceStatus.APPROVED;
+    if (isApproved) {
+      if (!window.confirm("승인된 사유서의 회차를 변경하면 승인이 취소되고 대기 상태로 변경됩니다. 계속하시겠습니까?")) return;
+    }
+    setMessage(null, null);
+    startTransition(async () => {
+      try {
+        await requestJson(`/api/absence-notes/${noteId}`, {
+          method: "PUT",
+          body: JSON.stringify({ action: "changeSession", newSessionId: Number(changeSessionTargetId) }),
+        });
+        reloadPage(
+          isApproved
+            ? "회차를 변경했습니다. 승인이 취소되었으니 재승인하세요."
+            : "사유서 회차를 변경했습니다.",
+        );
+      } catch (error) {
+        setMessage(null, error instanceof Error ? error.message : "회차 변경에 실패했습니다.");
+      }
+    });
+  }
+
+  // ── 기존 함수들 ───────────────────────────────────────────
   function updateNote(noteId: number, formData: FormData) {
     setMessage(null, null);
     startTransition(async () => {
@@ -297,9 +416,7 @@ export function AbsenceNoteManager({
           body: JSON.stringify({ action, ids: selectedNoteIds }),
         });
         setSelectedNoteIds([]);
-        reloadPage(
-          `${result.succeeded}건 ${label} 완료${result.failed > 0 ? `, ${result.failed}건 실패` : ""}`,
-        );
+        reloadPage(`${result.succeeded}건 ${label} 완료${result.failed > 0 ? `, ${result.failed}건 실패` : ""}`);
       } catch (error) {
         setMessage(null, error instanceof Error ? error.message : "일괄 처리에 실패했습니다.");
       }
@@ -322,181 +439,50 @@ export function AbsenceNoteManager({
   function handleDrawerAction(action: "update" | "approve" | "reject") {
     if (!selectedNote || !drawerFormRef.current) return;
     const formData = new FormData(drawerFormRef.current);
-    if (action === "update") {
-      updateNote(selectedNote.id, formData);
-    } else {
-      reviewNote(selectedNote.id, formData, action);
-    }
+    if (action === "update") updateNote(selectedNote.id, formData);
+    else reviewNote(selectedNote.id, formData, action);
   }
 
-  // 전체 선택 가능 항목: PENDING + REJECTED
-  const allSelectableIds = notes
-    .filter((n) => n.status !== AbsenceStatus.APPROVED)
-    .map((n) => n.id);
-  const allSelectableSelected =
-    allSelectableIds.length > 0 &&
-    allSelectableIds.every((id) => selectedNoteIds.includes(id));
-
+  const allSelectableIds = notes.filter((n) => n.status !== AbsenceStatus.APPROVED).map((n) => n.id);
+  const allSelectableSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedNoteIds.includes(id));
   const pendingCount = notes.filter((n) => n.status === AbsenceStatus.PENDING).length;
   const rejectedCount = notes.filter((n) => n.status === AbsenceStatus.REJECTED).length;
-
-  // 선택된 학생 정보
   const selectedStudent = students.find((s) => s.examNumber === createExamNumber);
 
-  return (
-    <div className="space-y-8">
-      {/* 운영 규정 */}
-      <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
-        <h2 className="text-xl font-semibold">운영 규정</h2>
-        <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
-          <li>과거·미래 모든 회차에 사유서를 등록할 수 있습니다.</li>
-          <li>
-            <span className="font-semibold text-ink">예비군</span>은 사유서 등록 시
-            자동으로 즉시 승인되며 개근 인정이 적용됩니다.
-          </li>
-          <li>병원, 경조사, 기타는 승인 시 개근 인정 여부를 직접 선택합니다.</li>
-          <li>승인되면 ABSENT는 EXCUSED로 변경되고 상태 판정이 다시 계산됩니다.</li>
-          <li>반려된 사유서는 재검토하여 다시 승인할 수 있습니다.</li>
-        </ul>
-      </section>
-
-      {notice ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {notice}
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
-      {/* 사유서 등록 */}
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
-        <h2 className="text-xl font-semibold">사유서 등록</h2>
-        <p className="mt-3 text-sm leading-7 text-slate">
-          해당 기간의 모든 회차(과거·미래 포함)에서 사유서를 등록할 수 있습니다.
-        </p>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {/* 수강생 선택 */}
-          <div>
-            <label className="mb-2 block text-sm font-medium">수강생</label>
-            <input
-              type="text"
-              value={studentSearch}
-              onChange={(event) => setStudentSearch(event.target.value)}
-              placeholder="수험번호 또는 이름 검색"
-              className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-            />
-            <select
-              value={createExamNumber}
-              onChange={(event) => setCreateExamNumber(event.target.value)}
-              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              size={4}
-            >
-              {students
-                .filter(
-                  (s) =>
-                    !studentSearch ||
-                    s.examNumber.includes(studentSearch) ||
-                    s.name.includes(studentSearch),
-                )
-                .map((student) => (
-                  <option key={student.examNumber} value={student.examNumber}>
-                    {student.examNumber} · {student.name}
-                    {student.currentStatus !== "NORMAL"
-                      ? ` [${STATUS_LABEL[student.currentStatus]}]`
-                      : ""}
-                  </option>
-                ))}
-            </select>
-            {/* 선택된 학생 상태 표시 */}
-            {selectedStudent && selectedStudent.currentStatus !== "NORMAL" && (
-              <p className="mt-1.5 text-xs">
-                <span
-                  className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[selectedStudent.currentStatus]}`}
-                >
-                  {STATUS_LABEL[selectedStudent.currentStatus]}
-                </span>
-                <span className="ml-1.5 text-slate">상태 학생입니다.</span>
-              </p>
-            )}
-          </div>
-
-          {/* 회차 선택 */}
-          <div>
-            <label className="mb-2 block text-sm font-medium">회차 날짜</label>
-            <input
-              type="date"
-              value={createDateFilter}
-              onChange={(event) => {
-                const date = event.target.value;
-                setCreateDateFilter(date);
-                const matched = sessions.filter((s) => s.examDate.slice(0, 10) === date);
-                if (matched.length > 0) setCreateSessionId(String(matched[0].id));
-              }}
-              className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-            />
-            <select
-              value={createSessionId}
-              onChange={(event) => setCreateSessionId(event.target.value)}
-              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-            >
-              {filteredSessions.length === 0 ? (
-                <option value="">해당 날짜에 회차 없음</option>
-              ) : (
-                filteredSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {formatDate(session.examDate)} · {session.week}주차 · {SUBJECT_LABEL[session.subject]}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          {/* 사유 유형 */}
+  // ── 공통 등록 폼 하단 (학생, 사유 유형, 개근, 사유 내용, 관리자 메모) ──
+  function renderCommonFormFields() {
+    return (
+      <>
+        {/* 사유 유형 + 개근 인정 */}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium">사유 유형</label>
             <select
               value={createCategory}
-              onChange={(event) => setCreateCategory(event.target.value as AbsenceCategory)}
+              onChange={(e) => setCreateCategory(e.target.value as AbsenceCategory)}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
             >
               {Object.values(AbsenceCategory).map((category) => (
-                <option key={category} value={category}>
-                  {ABSENCE_CATEGORY_LABEL[category]}
-                </option>
+                <option key={category} value={category}>{ABSENCE_CATEGORY_LABEL[category]}</option>
               ))}
             </select>
-            {/* 예비군 자동승인 안내 */}
             {createCategory === AbsenceCategory.MILITARY && (
               <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 예비군은 등록 즉시 자동승인되고 개근이 인정됩니다.
               </p>
             )}
           </div>
-
-          {/* 개근 인정 */}
           <div className="flex items-end">
-            <label
-              className={`inline-flex w-full items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${
-                createCategory === AbsenceCategory.MILITARY
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : "border-ink/10"
-              }`}
-            >
+            <label className={`inline-flex w-full items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${createCategory === AbsenceCategory.MILITARY ? "border-amber-200 bg-amber-50 text-amber-700" : "border-ink/10"}`}>
               <input
                 type="checkbox"
                 checked={createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance}
                 disabled={createCategory === AbsenceCategory.MILITARY}
-                onChange={(event) => setCreatePerfectAttendance(event.target.checked)}
+                onChange={(e) => setCreatePerfectAttendance(e.target.checked)}
                 className="h-4 w-4"
               />
               개근 인정
-              {createCategory === AbsenceCategory.MILITARY && (
-                <span className="text-xs">(자동)</span>
-              )}
+              {createCategory === AbsenceCategory.MILITARY && <span className="text-xs">(자동)</span>}
             </label>
           </div>
         </div>
@@ -504,9 +490,9 @@ export function AbsenceNoteManager({
         <div className="mt-4">
           <label className="mb-2 block text-sm font-medium">사유 내용</label>
           <textarea
-            rows={4}
+            rows={3}
             value={createReason}
-            onChange={(event) => setCreateReason(event.target.value)}
+            onChange={(e) => setCreateReason(e.target.value)}
             className="w-full rounded-3xl border border-ink/10 px-4 py-3 text-sm"
             placeholder="예: 병원 진료로 오전 시험 참석 불가"
           />
@@ -516,25 +502,290 @@ export function AbsenceNoteManager({
           <label className="mb-2 block text-sm font-medium">관리자 메모</label>
           <input
             value={createAdminNote}
-            onChange={(event) => setCreateAdminNote(event.target.value)}
+            onChange={(e) => setCreateAdminNote(e.target.value)}
             className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
             placeholder="내부 확인 메모"
           />
         </div>
+      </>
+    );
+  }
 
-        <button
-          type="button"
-          onClick={createNote}
-          disabled={
-            isPending ||
-            !createExamNumber ||
-            !createReason.trim() ||
-            !availableSessionIds.has(createSessionId)
-          }
-          className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
-        >
-          {createCategory === AbsenceCategory.MILITARY ? "사유서 등록 (즉시 승인)" : "사유서 등록"}
-        </button>
+  return (
+    <div className="space-y-8">
+      {/* 운영 규정 */}
+      <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
+        <h2 className="text-xl font-semibold">운영 규정</h2>
+        <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
+          <li>과거·미래 모든 회차에 사유서를 등록할 수 있습니다.</li>
+          <li><span className="font-semibold text-ink">예비군</span>은 사유서 등록 시 자동으로 즉시 승인되며 개근 인정이 적용됩니다.</li>
+          <li>병원, 경조사, 기타는 승인 시 개근 인정 여부를 직접 선택합니다.</li>
+          <li>승인되면 ABSENT는 EXCUSED로 변경되고 상태 판정이 다시 계산됩니다.</li>
+          <li>반려된 사유서는 재검토하여 다시 승인할 수 있습니다.</li>
+        </ul>
+      </section>
+
+      {notice ? (
+        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div>
+      ) : null}
+      {errorMessage ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
+      ) : null}
+
+      {/* 사유서 등록 */}
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">사유서 등록</h2>
+            <p className="mt-1 text-sm text-slate">해당 기간의 모든 회차(과거·미래 포함)에서 사유서를 등록할 수 있습니다.</p>
+          </div>
+          {/* 단건 / 일괄 탭 */}
+          <div className="flex rounded-full border border-ink/10 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setCreateMode("single")}
+              className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "single" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
+            >
+              단건 등록
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateMode("bulk")}
+              className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "bulk" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
+            >
+              일괄 등록
+            </button>
+          </div>
+        </div>
+
+        {/* 수강생 선택 (공통) */}
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">수강생</label>
+            <input
+              type="text"
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              placeholder="수험번호 또는 이름 검색"
+              className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+            />
+            <select
+              value={createExamNumber}
+              onChange={(e) => setCreateExamNumber(e.target.value)}
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+              size={4}
+            >
+              {students
+                .filter((s) => !studentSearch || s.examNumber.includes(studentSearch) || s.name.includes(studentSearch))
+                .map((student) => (
+                  <option key={student.examNumber} value={student.examNumber}>
+                    {student.examNumber} · {student.name}
+                    {student.currentStatus !== "NORMAL" ? ` [${STATUS_LABEL[student.currentStatus]}]` : ""}
+                  </option>
+                ))}
+            </select>
+            {selectedStudent && selectedStudent.currentStatus !== "NORMAL" && (
+              <p className="mt-1.5 text-xs">
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[selectedStudent.currentStatus]}`}>
+                  {STATUS_LABEL[selectedStudent.currentStatus]}
+                </span>
+                <span className="ml-1.5 text-slate">상태 학생입니다.</span>
+              </p>
+            )}
+          </div>
+
+          {/* 단건: 단일 회차 선택 */}
+          {createMode === "single" && (
+            <div>
+              <label className="mb-2 block text-sm font-medium">회차 날짜</label>
+              <input
+                type="date"
+                value={createDateFilter}
+                onChange={(e) => {
+                  const date = e.target.value;
+                  setCreateDateFilter(date);
+                  const matched = sessions.filter((s) => s.examDate.slice(0, 10) === date);
+                  if (matched.length > 0) setCreateSessionId(String(matched[0].id));
+                }}
+                className="mb-2 w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+              />
+              <select
+                value={createSessionId}
+                onChange={(e) => setCreateSessionId(e.target.value)}
+                className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+              >
+                {filteredSessions.length === 0 ? (
+                  <option value="">해당 날짜에 회차 없음</option>
+                ) : (
+                  filteredSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {formatDate(session.examDate)} · {session.week}주차 · {SUBJECT_LABEL[session.subject]}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
+
+          {/* 일괄: 날짜 범위 */}
+          {createMode === "bulk" && (
+            <div className="xl:col-span-3">
+              {/* 서브모드 탭 */}
+              <div className="mb-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkSubMode("pick")}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${bulkSubMode === "pick" ? "border-ember bg-ember/10 text-ember" : "border-ink/10 text-slate hover:border-ink/30"}`}
+                >
+                  날짜 직접 선택
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkSubMode("weekday")}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${bulkSubMode === "weekday" ? "border-ember bg-ember/10 text-ember" : "border-ink/10 text-slate hover:border-ink/30"}`}
+                >
+                  요일 반복
+                </button>
+              </div>
+
+              {/* 날짜 범위 */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate">시작일</label>
+                  <input
+                    type="date"
+                    value={bulkDateFrom}
+                    onChange={(e) => setBulkDateFrom(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-3 py-2.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate">종료일</label>
+                  <input
+                    type="date"
+                    value={bulkDateTo}
+                    onChange={(e) => setBulkDateTo(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-3 py-2.5 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* 요일 선택 (weekday 모드) */}
+              {bulkSubMode === "weekday" && (
+                <div className="mt-3">
+                  <label className="mb-2 block text-xs font-medium text-slate">반복 요일 선택</label>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAY_LABELS.map((label, i) => (
+                      <label
+                        key={i}
+                        className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1.5 text-sm font-semibold transition ${bulkWeekdays.includes(i) ? "border-ink bg-ink text-white" : "border-ink/10 text-slate hover:border-ink/30"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={bulkWeekdays.includes(i)}
+                          onChange={(e) =>
+                            setBulkWeekdays((prev) =>
+                              e.target.checked ? [...prev, i] : prev.filter((d) => d !== i),
+                            )
+                          }
+                          className="sr-only"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* pick 모드: 체크박스 목록 */}
+              {bulkSubMode === "pick" && bulkFilteredSessions.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate">회차 선택</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBulkSelectedIds(
+                          bulkSelectedIds.length === bulkFilteredSessions.length
+                            ? []
+                            : bulkFilteredSessions.map((s) => s.id),
+                        )
+                      }
+                      className="text-xs text-ember underline"
+                    >
+                      {bulkSelectedIds.length === bulkFilteredSessions.length ? "전체 해제" : "전체 선택"}
+                    </button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto rounded-2xl border border-ink/10 divide-y divide-ink/5">
+                    {bulkFilteredSessions.map((s) => (
+                      <label key={s.id} className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-mist/40">
+                        <input
+                          type="checkbox"
+                          checked={bulkSelectedIds.includes(s.id)}
+                          onChange={(e) =>
+                            setBulkSelectedIds((prev) =>
+                              e.target.checked ? [...prev, s.id] : prev.filter((id) => id !== s.id),
+                            )
+                          }
+                          className="h-4 w-4"
+                        />
+                        <span>{formatDate(s.examDate)} · {s.week}주차 · {SUBJECT_LABEL[s.subject]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* weekday 모드: 미리보기 */}
+              {bulkSubMode === "weekday" ? (
+                <div className="mt-3 rounded-2xl border border-ink/10 p-3">
+                  {!isWeekdayBulkReady ? (
+                    <p className="text-xs text-amber-700">시작일, 종료일, 반복 요일을 모두 선택해야 회차가 계산됩니다.</p>
+                  ) : effectiveSessionIds.length > 0 ? (
+                    <>
+                      <p className="mb-2 text-xs font-medium text-slate">해당 회차 ({effectiveSessionIds.length}건)</p>
+                      <ul className="max-h-32 overflow-y-auto space-y-1 text-xs text-slate">
+                        {bulkFilteredSessions.map((s) => (
+                          <li key={s.id}>{formatDate(s.examDate)} · {s.week}주차 · {SUBJECT_LABEL[s.subject]}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="text-xs text-slate">선택한 조건에 맞는 회차가 없습니다.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        {/* 공통 필드 */}
+        {renderCommonFormFields()}
+
+        {/* 등록 버튼 */}
+        {createMode === "single" ? (
+          <button
+            type="button"
+            onClick={createNote}
+            disabled={isPending || !createExamNumber || !createReason.trim() || !availableSessionIds.has(createSessionId)}
+            className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            {createCategory === AbsenceCategory.MILITARY ? "사유서 등록 (즉시 승인)" : "사유서 등록"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={bulkCreateNotes}
+            disabled={isPending || !createExamNumber || !createReason.trim() || effectiveSessionIds.length === 0 || (bulkSubMode === "weekday" && !isWeekdayBulkReady)}
+            className="mt-4 inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            {bulkSubMode === "weekday" && !isWeekdayBulkReady
+              ? "일괄 등록 (기간·요일 선택 필요)"
+              : effectiveSessionIds.length > 0
+                ? `${effectiveSessionIds.length}개 회차 일괄 등록`
+                : "일괄 등록 (회차 선택 필요)"}
+          </button>
+        )}
       </section>
 
       {/* 사유서 검토 — 테이블 */}
@@ -599,54 +850,28 @@ export function AbsenceNoteManager({
                         className="h-4 w-4 cursor-pointer"
                         checked={allSelectableSelected}
                         disabled={allSelectableIds.length === 0}
-                        onChange={(e) =>
-                          setSelectedNoteIds(e.target.checked ? allSelectableIds : [])
-                        }
+                        onChange={(e) => setSelectedNoteIds(e.target.checked ? allSelectableIds : [])}
                         title="대기·반려 항목 전체 선택"
                       />
                     </th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("examNumber")}
-                    >
-                      수험번호 · 이름
-                      <SortIcon column="examNumber" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("examNumber")}>
+                      수험번호 · 이름 <SortIcon column="examNumber" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("status")}
-                    >
-                      상태
-                      <SortIcon column="status" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("status")}>
+                      상태 <SortIcon column="status" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
                     <th className="px-4 py-3">학생 상태</th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("absenceCategory")}
-                    >
-                      사유 유형
-                      <SortIcon column="absenceCategory" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("absenceCategory")}>
+                      사유 유형 <SortIcon column="absenceCategory" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("attendGrantsPerfectAttendance")}
-                    >
-                      개근인정
-                      <SortIcon column="attendGrantsPerfectAttendance" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("attendGrantsPerfectAttendance")}>
+                      개근인정 <SortIcon column="attendGrantsPerfectAttendance" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("examDate")}
-                    >
-                      회차 정보
-                      <SortIcon column="examDate" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("examDate")}>
+                      회차 정보 <SortIcon column="examDate" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
-                    <th
-                      className="cursor-pointer select-none px-4 py-3 hover:text-ink"
-                      onClick={() => toggleSort("submittedAt")}
-                    >
-                      제출일
-                      <SortIcon column="submittedAt" sortBy={sortBy} sortOrder={sortOrder} />
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("submittedAt")}>
+                      제출일 <SortIcon column="submittedAt" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
                   </tr>
                 </thead>
@@ -656,7 +881,11 @@ export function AbsenceNoteManager({
                     return (
                       <tr
                         key={note.id}
-                        onClick={() => setSelectedNote(note)}
+                        onClick={() => {
+                          setSelectedNote(note);
+                          setChangeSessionDateFilter("");
+                          setChangeSessionTargetId(String(note.sessionId));
+                        }}
                         className="cursor-pointer transition-colors hover:bg-mist/40"
                       >
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -667,9 +896,7 @@ export function AbsenceNoteManager({
                               checked={selectedNoteIds.includes(note.id)}
                               onChange={(e) =>
                                 setSelectedNoteIds((current) =>
-                                  e.target.checked
-                                    ? [...current, note.id]
-                                    : current.filter((id) => id !== note.id),
+                                  e.target.checked ? [...current, note.id] : current.filter((id) => id !== note.id),
                                 )
                               }
                             />
@@ -677,33 +904,23 @@ export function AbsenceNoteManager({
                             <div className="h-4 w-4" />
                           )}
                         </td>
-                        <td className="px-4 py-3 font-medium">
-                          {note.examNumber} · {note.student.name}
-                        </td>
+                        <td className="px-4 py-3 font-medium">{note.examNumber} · {note.student.name}</td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${NOTE_STATUS_CLASS[note.status]}`}
-                          >
+                          <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${NOTE_STATUS_CLASS[note.status]}`}>
                             {NOTE_STATUS_LABEL[note.status]}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[note.student.currentStatus]}`}
-                          >
+                          <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[note.student.currentStatus]}`}>
                             {STATUS_LABEL[note.student.currentStatus]}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate">
-                          {note.absenceCategory
-                            ? ABSENCE_CATEGORY_LABEL[note.absenceCategory]
-                            : "-"}
+                          {note.absenceCategory ? ABSENCE_CATEGORY_LABEL[note.absenceCategory] : "-"}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {note.attendGrantsPerfectAttendance ? (
-                            <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-2 py-0.5 text-xs font-semibold text-forest">
-                              인정
-                            </span>
+                            <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-2 py-0.5 text-xs font-semibold text-forest">인정</span>
                           ) : (
                             <span className="text-slate">-</span>
                           )}
@@ -725,60 +942,23 @@ export function AbsenceNoteManager({
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-between text-sm">
                 <span className="text-slate">
-                  {(currentPage - 1) * PAGE_SIZE + 1}–
-                  {Math.min(currentPage * PAGE_SIZE, sortedNotes.length)} / {sortedNotes.length}건
+                  {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, sortedNotes.length)} / {sortedNotes.length}건
                 </span>
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30"
-                  >
-                    «
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30"
-                  >
-                    ‹
-                  </button>
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30">«</button>
+                  <button type="button" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30">‹</button>
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
                     const page = start + i;
                     return (
-                      <button
-                        key={page}
-                        type="button"
-                        onClick={() => setCurrentPage(page)}
-                        className={`min-w-[2rem] rounded-lg px-2 py-1 transition ${
-                          page === currentPage
-                            ? "bg-ink font-semibold text-white"
-                            : "text-slate hover:bg-mist"
-                        }`}
-                      >
+                      <button key={page} type="button" onClick={() => setCurrentPage(page)}
+                        className={`min-w-[2rem] rounded-lg px-2 py-1 transition ${page === currentPage ? "bg-ink font-semibold text-white" : "text-slate hover:bg-mist"}`}>
                         {page}
                       </button>
                     );
                   })}
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30"
-                  >
-                    ›
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30"
-                  >
-                    »
-                  </button>
+                  <button type="button" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30">›</button>
+                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg px-2 py-1 text-slate transition hover:bg-mist disabled:opacity-30">»</button>
                 </div>
               </div>
             )}
@@ -789,32 +969,17 @@ export function AbsenceNoteManager({
       {/* 사이드 드로어 */}
       {selectedNote ? (
         <>
-          {/* 배경 오버레이 */}
-          <div
-            className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]"
-            onClick={() => setSelectedNote(null)}
-          />
-
-          {/* 드로어 패널 */}
-          <div
-            key={selectedNote.id}
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col overflow-hidden bg-white shadow-2xl"
-          >
+          <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]" onClick={() => setSelectedNote(null)} />
+          <div key={selectedNote.id} className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col overflow-hidden bg-white shadow-2xl">
             {/* 헤더 */}
             <div className="shrink-0 flex items-start justify-between border-b border-ink/10 px-6 py-5">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold">
-                    {selectedNote.examNumber} · {selectedNote.student.name}
-                  </h3>
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${NOTE_STATUS_CLASS[selectedNote.status]}`}
-                  >
+                  <h3 className="text-lg font-semibold">{selectedNote.examNumber} · {selectedNote.student.name}</h3>
+                  <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${NOTE_STATUS_CLASS[selectedNote.status]}`}>
                     {NOTE_STATUS_LABEL[selectedNote.status]}
                   </span>
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[selectedNote.student.currentStatus]}`}
-                  >
+                  <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[selectedNote.student.currentStatus]}`}>
                     {STATUS_LABEL[selectedNote.student.currentStatus]}
                   </span>
                 </div>
@@ -826,27 +991,18 @@ export function AbsenceNoteManager({
                   <span>승인: {selectedNote.approvedAt ? formatDateTime(selectedNote.approvedAt) : "-"}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedNote(null)}
-                className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate transition hover:bg-ink/10 hover:text-ink"
-                aria-label="닫기"
-              >
-                ✕
-              </button>
+              <button type="button" onClick={() => setSelectedNote(null)} className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate transition hover:bg-ink/10 hover:text-ink" aria-label="닫기">✕</button>
             </div>
 
-            {/* 폼 + 액션 스크롤 영역 */}
+            {/* 폼 스크롤 영역 */}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="px-6 py-5">
-                {/* 승인 완료 배너 */}
                 {selectedNote.status === AbsenceStatus.APPROVED && (
                   <div className="mb-5 flex items-center gap-2 rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
                     <span className="font-semibold">승인 완료</span>
                     <span className="text-forest/70">— 내용 수정이 불가합니다. 변경이 필요하면 삭제 후 재등록하세요.</span>
                   </div>
                 )}
-                {/* 반려 상태 안내 */}
                 {selectedNote.status === AbsenceStatus.REJECTED && (
                   <div className="mb-5 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     <span className="font-semibold">반려됨</span>
@@ -875,17 +1031,12 @@ export function AbsenceNoteManager({
                         className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm disabled:bg-slate-50 disabled:text-slate"
                       >
                         {Object.values(AbsenceCategory).map((category) => (
-                          <option key={category} value={category}>
-                            {ABSENCE_CATEGORY_LABEL[category]}
-                          </option>
+                          <option key={category} value={category}>{ABSENCE_CATEGORY_LABEL[category]}</option>
                         ))}
                       </select>
-                      {selectedNote.absenceCategory === AbsenceCategory.MILITARY &&
-                        selectedNote.status !== AbsenceStatus.APPROVED && (
-                          <p className="mt-1.5 text-xs text-amber-600">
-                            예비군: 승인 시 자동으로 개근 인정
-                          </p>
-                        )}
+                      {selectedNote.absenceCategory === AbsenceCategory.MILITARY && selectedNote.status !== AbsenceStatus.APPROVED && (
+                        <p className="mt-1.5 text-xs text-amber-600">예비군: 승인 시 자동으로 개근 인정</p>
+                      )}
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium">관리자 메모</label>
@@ -901,11 +1052,7 @@ export function AbsenceNoteManager({
                     <input
                       type="checkbox"
                       name="attendGrantsPerfectAttendance"
-                      defaultChecked={
-                        selectedNote.absenceCategory === AbsenceCategory.MILITARY
-                          ? true
-                          : selectedNote.attendGrantsPerfectAttendance
-                      }
+                      defaultChecked={selectedNote.absenceCategory === AbsenceCategory.MILITARY ? true : selectedNote.attendGrantsPerfectAttendance}
                       disabled={selectedNote.absenceCategory === AbsenceCategory.MILITARY}
                       className="h-4 w-4"
                     />
@@ -915,6 +1062,58 @@ export function AbsenceNoteManager({
                     )}
                   </label>
                 </form>
+
+                {/* 회차 변경 섹션 */}
+                <div className="mt-6 rounded-2xl border border-ink/10 p-4">
+                  <h4 className="text-sm font-semibold">회차 변경</h4>
+                  <p className="mt-1 text-xs text-slate">
+                    잘못 등록된 날짜를 수정합니다.
+                    {selectedNote.status === AbsenceStatus.APPROVED && (
+                      <span className="ml-1 font-medium text-amber-600">변경 시 승인이 취소됩니다.</span>
+                    )}
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate">날짜 필터</label>
+                      <input
+                        type="date"
+                        value={changeSessionDateFilter}
+                        onChange={(e) => {
+                          setChangeSessionDateFilter(e.target.value);
+                          const matched = sessions.filter((s) => s.examDate.slice(0, 10) === e.target.value);
+                          if (matched.length > 0) setChangeSessionTargetId(String(matched[0].id));
+                        }}
+                        className="w-full rounded-2xl border border-ink/10 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate">변경할 회차</label>
+                      <select
+                        value={changeSessionTargetId}
+                        onChange={(e) => setChangeSessionTargetId(e.target.value)}
+                        className="w-full rounded-2xl border border-ink/10 px-3 py-2 text-sm"
+                      >
+                        {changeSessionOptions.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {formatDate(s.examDate)} · {s.week}주차 · {SUBJECT_LABEL[s.subject]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => changeNoteSession(selectedNote.id)}
+                    disabled={
+                      isPending ||
+                      !changeSessionTargetId ||
+                      changeSessionTargetId === String(selectedNote.sessionId)
+                    }
+                    className="mt-3 inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    회차 변경
+                  </button>
+                </div>
               </div>
 
               {/* 푸터 액션 */}

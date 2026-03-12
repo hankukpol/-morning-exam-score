@@ -1,4 +1,4 @@
-import { PointType, StudentStatus } from "@/generated/prisma";
+﻿import { PointType, StudentStatus } from "@prisma/client";
 
 export const STATUS_LABEL: Record<StudentStatus, string> = {
   NORMAL: "정상",
@@ -22,7 +22,7 @@ export const STATUS_ROW_CLASS: Record<StudentStatus, string> = {
 };
 
 export const POINT_TYPE_LABEL: Record<PointType, string> = {
-  PERFECT_ATTENDANCE: "개근 장학",
+  PERFECT_ATTENDANCE: "개근 포인트",
   SCORE_EXCELLENCE: "성적 우수",
   ESSAY_EXCELLENCE: "주관식 우수",
   MANUAL: "수동 지급",

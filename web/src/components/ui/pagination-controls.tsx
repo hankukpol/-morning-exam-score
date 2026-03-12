@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 type PaginationControlsProps = {
   totalCount: number;
@@ -52,7 +52,8 @@ export function PaginationControls({
   return (
     <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-slate">
-        {`총 ${totalCount.toLocaleString("ko-KR")}${itemLabel} 중 ${start.toLocaleString("ko-KR")} - ${end.toLocaleString("ko-KR")}`}
+        총 {totalCount.toLocaleString("ko-KR")}
+        {itemLabel} 중 {start.toLocaleString("ko-KR")} - {end.toLocaleString("ko-KR")}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-slate">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExamType, StudentStatus } from "@/generated/prisma";
+import { ExamType, StudentStatus } from "@prisma/client";
 import { useState, useTransition } from "react";
 
 type Props = {

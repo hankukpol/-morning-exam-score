@@ -1,4 +1,4 @@
-import { ExamType } from "@/generated/prisma";
+import { ExamType } from "@prisma/client";
 import { formatTuesdayWeekLabel, getTuesdayWeekKey, getTuesdayWeekStart } from "@/lib/analytics/week";
 import { type TuesdayWeekSummary } from "@/lib/analytics/service";
 import { resolveEnabledExamType } from "@/lib/periods/exam-types";

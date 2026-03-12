@@ -1,18 +1,26 @@
-import ExcelJS from "exceljs";
-import { AttendType, ExamType, StudentStatus, Subject } from "@/generated/prisma";
+import { AttendType, ExamType, StudentStatus } from "@prisma/client";
 import {
   getIntegratedResults,
   getMonthlyResults,
   getWeeklyResults,
 } from "@/lib/analytics/service";
+import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatRank, formatScore } from "@/lib/analytics/presentation";
 import { formatTuesdayWeekLabel } from "@/lib/analytics/week";
 import { formatDate } from "@/lib/format";
+import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
 
 type WeeklyPrintData = Awaited<ReturnType<typeof getWeeklyResults>>;
 type MonthlyPrintData = Awaited<ReturnType<typeof getMonthlyResults>>;
 type IntegratedPrintData = Awaited<ReturnType<typeof getIntegratedResults>>;
 type PrintableSession = WeeklyPrintData["sessions"][number] & { examDate: Date };
+type ExcelAlignment = import("exceljs").Alignment;
+type ExcelBorders = import("exceljs").Borders;
+type ExcelCell = import("exceljs").Cell;
+type ExcelFill = import("exceljs").Fill;
+type ExcelPaperSize = import("exceljs").PaperSize;
+type ExcelWorkbook = import("exceljs").Workbook;
+type ExcelWorksheet = import("exceljs").Worksheet;
 
 function reviveDate(value: Date | string) {
   return value instanceof Date ? value : new Date(value);
@@ -25,20 +33,6 @@ function normalizeSessions<T extends { examDate: Date | string }>(sessions: T[])
   }));
 }
 
-const EXAM_TYPE_LABEL: Record<ExamType, string> = {
-  GONGCHAE: "공채",
-  GYEONGCHAE: "경채",
-};
-
-const SUBJECT_LABEL: Record<Subject, string> = {
-  POLICE_SCIENCE: "경찰학",
-  CONSTITUTIONAL_LAW: "헌법",
-  CRIMINOLOGY: "형사학",
-  CRIMINAL_PROCEDURE: "형사소송법",
-  CUMULATIVE: "누적 모의고사",
-  CRIMINAL_LAW: "형법",
-};
-
 const STATUS_LABEL: Record<StudentStatus, string> = {
   NORMAL: "",
   WARNING_1: "1차 경고",
@@ -47,44 +41,45 @@ const STATUS_LABEL: Record<StudentStatus, string> = {
 };
 
 const BASE_FONT = { name: "Malgun Gothic", size: 9 };
-const BASE_ALIGNMENT: Partial<ExcelJS.Alignment> = {
+const BASE_ALIGNMENT: Partial<ExcelAlignment> = {
   horizontal: "center",
   vertical: "middle",
   wrapText: true,
 };
-const GRID_BORDER: Partial<ExcelJS.Borders> = {
+const GRID_BORDER: Partial<ExcelBorders> = {
   top: { style: "thin", color: { argb: "FFB7B7B7" } },
   left: { style: "thin", color: { argb: "FFB7B7B7" } },
   bottom: { style: "thin", color: { argb: "FFB7B7B7" } },
   right: { style: "thin", color: { argb: "FFB7B7B7" } },
 };
-const HEADER_FILL: ExcelJS.Fill = {
+const HEADER_FILL: ExcelFill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FFEDEDED" },
 };
-const AVERAGE_FILL: ExcelJS.Fill = {
+const AVERAGE_FILL: ExcelFill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FFF5F5F5" },
 };
-const WARNING_1_FILL: ExcelJS.Fill = {
+const WARNING_1_FILL: ExcelFill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FFFBE5E5" },
 };
-const WARNING_2_FILL: ExcelJS.Fill = {
+const WARNING_2_FILL: ExcelFill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FFF8EDC7" },
 };
-const DROPOUT_FILL: ExcelJS.Fill = {
+const DROPOUT_FILL: ExcelFill = {
   type: "pattern",
   pattern: "solid",
   fgColor: { argb: "FFFF3B30" },
 };
 
-function createWorkbook() {
+async function createWorkbook() {
+  const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "OpenAI Codex";
   workbook.lastModifiedBy = "OpenAI Codex";
@@ -94,14 +89,14 @@ function createWorkbook() {
 }
 
 function configurePrintSheet(
-  worksheet: ExcelJS.Worksheet,
+  worksheet: ExcelWorksheet,
   widths: number[],
   titleRows: number[],
 ) {
   worksheet.properties.defaultRowHeight = 20;
   worksheet.views = [{ showGridLines: false }];
   worksheet.pageSetup = {
-    paperSize: 12 as unknown as ExcelJS.PaperSize,
+    paperSize: 12 as unknown as ExcelPaperSize,
     orientation: "landscape",
     fitToPage: true,
     fitToWidth: 1,
@@ -125,13 +120,13 @@ function configurePrintSheet(
 }
 
 function styleCell(
-  cell: ExcelJS.Cell,
+  cell: ExcelCell,
   options?: {
     bold?: boolean;
     fontSize?: number;
     color?: string;
-    fill?: ExcelJS.Fill;
-    border?: Partial<ExcelJS.Borders> | null;
+    fill?: ExcelFill;
+    border?: Partial<ExcelBorders> | null;
   },
 ) {
   cell.font = {
@@ -148,7 +143,7 @@ function styleCell(
 }
 
 function styleRange(
-  worksheet: ExcelJS.Worksheet,
+  worksheet: ExcelWorksheet,
   startRow: number,
   endRow: number,
   startCol: number,
@@ -157,8 +152,8 @@ function styleRange(
     bold?: boolean;
     fontSize?: number;
     color?: string;
-    fill?: ExcelJS.Fill;
-    border?: Partial<ExcelJS.Borders> | null;
+    fill?: ExcelFill;
+    border?: Partial<ExcelBorders> | null;
   },
 ) {
   for (let row = startRow; row <= endRow; row += 1) {
@@ -169,7 +164,7 @@ function styleRange(
 }
 
 function setMergedTitle(
-  worksheet: ExcelJS.Worksheet,
+  worksheet: ExcelWorksheet,
   row: number,
   startCol: number,
   endCol: number,
@@ -182,7 +177,7 @@ function setMergedTitle(
   styleCell(cell, { bold: true, fontSize, border: null });
 }
 
-function writeCell(worksheet: ExcelJS.Worksheet, row: number, col: number, value: string | number) {
+function writeCell(worksheet: ExcelWorksheet, row: number, col: number, value: string | number) {
   worksheet.getRow(row).getCell(col).value = value;
 }
 
@@ -213,7 +208,7 @@ function toPrintCell(
 
   if (attendType === AttendType.LIVE) {
     if (value !== null && mode === "mock") {
-      return `${formatScore(value)}(라)`;
+      return `${formatScore(value)}(라이브)`;
     }
 
     return "라이브";
@@ -230,31 +225,27 @@ function weeklyAverageValues(data: WeeklyPrintData) {
   const sessions = normalizeSessions(data.sessions).sort(
     (left, right) => left.examDate.getTime() - right.examDate.getTime() || left.id - right.id,
   );
+  const displayColumns = buildSessionDisplayColumns(sessions);
 
-  return sessions.map((session) => {
-    const matching = data.sheetRows
-      .map((row) => row.cells.find((cell) => cell.sessionId === session.id))
-      .filter(Boolean);
-    const mockValues = matching
-      .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.mockScore !== null)
-      .map((cell) => cell?.mockScore as number);
-    const oxValues =
-      session.subject === Subject.POLICE_SCIENCE
-        ? matching
-            .filter(
-              (cell) =>
-                cell?.attendType === AttendType.NORMAL && cell.policeOxScore !== null,
-            )
-            .map((cell) => cell?.policeOxScore as number)
-        : [];
+  return displayColumns.map((column) => {
+    const mockValues = column.mainSession
+      ? data.sheetRows
+          .map((row) => row.cells.find((cell) => cell.sessionId === column.mainSession?.id))
+          .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.mockScore !== null)
+          .map((cell) => cell?.mockScore as number)
+      : [];
+    const oxValues = column.oxSession
+      ? data.sheetRows
+          .map((row) => row.cells.find((cell) => cell.sessionId === column.oxSession?.id))
+          .filter((cell) => cell?.attendType === AttendType.NORMAL && cell.policeOxScore !== null)
+          .map((cell) => cell?.policeOxScore as number)
+      : [];
 
     return {
       mock:
         mockValues.length === 0
           ? "-"
-          : formatScore(
-              mockValues.reduce((sum, value) => sum + value, 0) / mockValues.length,
-            ),
+          : formatScore(mockValues.reduce((sum, value) => sum + value, 0) / mockValues.length),
       ox:
         oxValues.length === 0
           ? "-"
@@ -263,7 +254,7 @@ function weeklyAverageValues(data: WeeklyPrintData) {
   });
 }
 
-async function workbookToBuffer(workbook: ExcelJS.Workbook) {
+async function workbookToBuffer(workbook: ExcelWorkbook) {
   const value = await workbook.xlsx.writeBuffer();
   return Buffer.from(value);
 }
@@ -273,22 +264,23 @@ export async function createWeeklyResultsPrintWorkbook(
   examType: ExamType,
   view: "overall" | "new",
 ) {
-  const workbook = createWorkbook();
+  const workbook = await createWorkbook();
   const worksheet = workbook.addWorksheet("주간성적표");
   const sessions: PrintableSession[] = normalizeSessions(data.sessions).sort(
     (left, right) => left.examDate.getTime() - right.examDate.getTime() || left.id - right.id,
   );
-  const sessionColumnCount = sessions.reduce(
-    (count, session) => count + (session.subject === Subject.POLICE_SCIENCE ? 2 : 1),
+  const displayColumns = buildSessionDisplayColumns(sessions);
+  const sessionColumnCount = displayColumns.reduce(
+    (count, column) => count + (column.oxSession ? 2 : 1),
     0,
   );
   const totalColumns = 2 + sessionColumnCount + 6;
   const widths = [5, 10];
   const averages = weeklyAverageValues(data);
 
-  sessions.forEach((session) => {
-    widths.push(session.subject === Subject.POLICE_SCIENCE ? 8 : 9);
-    if (session.subject === Subject.POLICE_SCIENCE) {
+  displayColumns.forEach((column) => {
+    widths.push(column.oxSession ? 8 : 9);
+    if (column.oxSession) {
       widths.push(8);
     }
   });
@@ -320,19 +312,19 @@ export async function createWeeklyResultsPrintWorkbook(
   writeCell(worksheet, 3, 2, "이름");
 
   let columnIndex = 3;
-  sessions.forEach((session, index) => {
-    const span = session.subject === Subject.POLICE_SCIENCE ? 2 : 1;
+  displayColumns.forEach((column, index) => {
+    const span = column.oxSession ? 2 : 1;
     worksheet.mergeCells(3, columnIndex, 3, columnIndex + span - 1);
     writeCell(
       worksheet,
       3,
       columnIndex,
-      `${formatDate(session.examDate)} ${SUBJECT_LABEL[session.subject]}`,
+      `${formatDate(column.examDate)} ${SUBJECT_LABEL[column.subject]}`,
     );
     writeCell(worksheet, 4, columnIndex, "모의고사");
     writeCell(worksheet, 5, columnIndex, averages[index]?.mock ?? "-");
 
-    if (session.subject === Subject.POLICE_SCIENCE) {
+    if (column.oxSession) {
       writeCell(worksheet, 4, columnIndex + 1, "경찰학 OX");
       writeCell(worksheet, 5, columnIndex + 1, averages[index]?.ox ?? "-");
       columnIndex += 2;
@@ -366,21 +358,26 @@ export async function createWeeklyResultsPrintWorkbook(
     writeCell(worksheet, sheetRow, 2, row.name);
 
     let valueColumn = 3;
-    sessions.forEach((session) => {
-      const cell = row.cells.find((candidate) => candidate.sessionId === session.id) ?? null;
+    displayColumns.forEach((column) => {
+      const mainCell = column.mainSession
+        ? row.cells.find((candidate) => candidate.sessionId === column.mainSession?.id) ?? null
+        : null;
+      const oxCell = column.oxSession
+        ? row.cells.find((candidate) => candidate.sessionId === column.oxSession?.id) ?? null
+        : null;
       writeCell(
         worksheet,
         sheetRow,
         valueColumn,
-        toPrintCell(cell?.attendType ?? null, cell?.mockScore ?? null, "mock"),
+        toPrintCell(mainCell?.attendType ?? null, mainCell?.mockScore ?? null, "mock"),
       );
 
-      if (session.subject === Subject.POLICE_SCIENCE) {
+      if (column.oxSession) {
         writeCell(
           worksheet,
           sheetRow,
           valueColumn + 1,
-          toPrintCell(cell?.attendType ?? null, cell?.policeOxScore ?? null, "ox"),
+          toPrintCell(oxCell?.attendType ?? mainCell?.attendType ?? null, oxCell?.policeOxScore ?? null, "ox"),
         );
         valueColumn += 2;
         return;
@@ -458,7 +455,7 @@ async function createSummaryWorkbook(
   subtitle: string,
   rows: MonthlyPrintData["sheetRows"] | IntegratedPrintData["sheetRows"],
 ) {
-  const workbook = createWorkbook();
+  const workbook = await createWorkbook();
   const worksheet = workbook.addWorksheet(sheetName);
   const headers = summaryHeaders();
   const widths = [5, 10, 11, 9, 11, 9, 10, 9, 8, 10];

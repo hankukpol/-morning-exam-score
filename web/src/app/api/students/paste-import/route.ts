@@ -1,4 +1,4 @@
-import { AdminRole, ExamType, StudentType } from "@/generated/prisma";
+import { AdminRole, ExamType, StudentType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {

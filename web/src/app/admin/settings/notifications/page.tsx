@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getSetupState } from "@/lib/env";
 
@@ -10,7 +10,7 @@ const REQUIRED_KEYS = [
   "SOLAPI_TEMPLATE_WARNING_1",
   "SOLAPI_TEMPLATE_WARNING_2",
   "SOLAPI_TEMPLATE_DROPOUT",
- ] as const;
+] as const;
 
 const OPTIONAL_KEYS = ["SOLAPI_TEMPLATE_POINT", "SOLAPI_TEMPLATE_NOTICE"] as const;
 
@@ -27,8 +27,7 @@ export default async function AdminNotificationSettingsPage() {
       </div>
       <h1 className="mt-5 text-3xl font-semibold">알림 설정</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        Solapi 키와 알림톡 템플릿 준비 상태를 확인합니다. 값 자체는 표시하지 않고 연결
-        여부만 안내합니다.
+        Solapi 연동 상태와 템플릿 준비 상태를 확인합니다. 값 자체는 표시하지 않고 연결 여부만 안내합니다.
       </p>
 
       <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
@@ -42,9 +41,7 @@ export default async function AdminNotificationSettingsPage() {
           >
             {setup.notificationReady ? "Ready" : "Needs Setup"}
           </span>
-          <p className="text-sm text-slate">
-            누락 키: {setup.missingNotificationKeys.join(", ") || "없음"}
-          </p>
+          <p className="text-sm text-slate">누락 키: {setup.missingNotificationKeys.join(", ") || "없음"}</p>
         </div>
       </section>
 

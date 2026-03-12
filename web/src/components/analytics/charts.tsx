@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Subject } from "@/generated/prisma";
+import { Subject } from "@prisma/client";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import {
   Bar,

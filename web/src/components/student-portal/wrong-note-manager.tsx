@@ -1,6 +1,6 @@
 "use client";
 
-import { Subject } from "@/generated/prisma";
+import { Subject } from "@prisma/client";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { useMemo, useState, useTransition } from "react";

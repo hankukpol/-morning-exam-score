@@ -1,4 +1,4 @@
-import { AdminRole, PointType } from "@/generated/prisma";
+import { AdminRole, PointType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { grantPoints } from "@/lib/points/service";

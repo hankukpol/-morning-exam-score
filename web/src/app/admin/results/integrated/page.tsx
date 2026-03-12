@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { MonthlyResultsSheet } from "@/components/analytics/monthly-results-sheet";
 import { getIntegratedResults } from "@/lib/analytics/service";
 import { buildHref, getAnalyticsContext, readStringParam } from "@/lib/analytics/ui";

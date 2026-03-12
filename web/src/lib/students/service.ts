@@ -1,5 +1,5 @@
-import { Prisma } from "@/generated/prisma";
-import { ExamType, StudentType } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
+import { ExamType, StudentType } from "@prisma/client";
 import {
   DUPLICATE_STRATEGY_LABEL,
   EXAM_TYPE_VALUES,

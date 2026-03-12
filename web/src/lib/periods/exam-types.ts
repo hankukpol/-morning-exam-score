@@ -1,4 +1,4 @@
-import { ExamType } from "@/generated/prisma";
+import { ExamType } from "@prisma/client";
 
 type PeriodExamTypeFlags = {
   isGongchaeEnabled: boolean;

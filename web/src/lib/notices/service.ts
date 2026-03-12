@@ -2,7 +2,7 @@ import {
   ExamType,
   NoticeTargetType,
   NotificationType,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { sendManualNotification } from "@/lib/notifications/service";
 import { getPrisma } from "@/lib/prisma";

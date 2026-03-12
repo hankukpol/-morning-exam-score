@@ -3,7 +3,7 @@ import {
   ExamType,
   StudentStatus,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createCsvBuffer,
@@ -19,7 +19,7 @@ import {
 } from "@/lib/constants";
 import { formatDate, formatFileDate } from "@/lib/format";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import {
   getDateQueryRows,
   getStudentHistoryRows,

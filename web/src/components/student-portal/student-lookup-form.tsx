@@ -1,6 +1,6 @@
 "use client";
 
-import { ExamType } from "@/generated/prisma";
+import { ExamType } from "@prisma/client";
 import { useState, useTransition } from "react";
 
 type StudentLookupFormProps = {

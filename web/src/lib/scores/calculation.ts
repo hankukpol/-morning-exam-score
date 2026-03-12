@@ -1,4 +1,4 @@
-import { AttendType } from "@/generated/prisma";
+import { AttendType } from "@prisma/client";
 
 type ScoreFields = {
   rawScore: number | null;

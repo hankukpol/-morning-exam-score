@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { StudentStatus, ExamType } from "@/generated/prisma";
+import { StudentStatus, ExamType } from "@prisma/client";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { buildHref } from "@/lib/analytics/ui";
 

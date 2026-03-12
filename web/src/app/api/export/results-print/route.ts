@@ -1,14 +1,9 @@
-import { AdminRole, ExamType } from "@/generated/prisma";
+import { AdminRole, ExamType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegratedResults, getMonthlyResults, getWeeklyResults } from "@/lib/analytics/service";
 import { formatTuesdayWeekLabel } from "@/lib/analytics/week";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { createDownloadResponse } from "@/lib/export";
-import {
-  createIntegratedResultsPrintWorkbook,
-  createMonthlyResultsPrintWorkbook,
-  createWeeklyResultsPrintWorkbook,
-} from "@/lib/results-print-export";
 
 const EXAM_TYPE_LABEL: Record<ExamType, string> = {
   GONGCHAE: "공채",
@@ -16,6 +11,7 @@ const EXAM_TYPE_LABEL: Record<ExamType, string> = {
 };
 
 const PRINT_MODE = ["weekly", "monthly", "integrated"] as const;
+export const runtime = "nodejs";
 
 function readExamType(value: string | null) {
   return value && Object.values(ExamType).includes(value as ExamType)
@@ -64,6 +60,7 @@ export async function GET(request: NextRequest) {
     const result = await getWeeklyResults(periodId, examType, weekKey, view, {
       includeRankingRows: false,
     });
+    const { createWeeklyResultsPrintWorkbook } = await import("@/lib/results-print-export");
     const buffer = await createWeeklyResultsPrintWorkbook(result, examType, view);
     const fileName = `주간성적표_${result.period.name}_${examTypeLabel}_${formatTuesdayWeekLabel(
       weekKey,
@@ -83,6 +80,7 @@ export async function GET(request: NextRequest) {
     const result = await getMonthlyResults(periodId, examType, fromWeekKey, toWeekKey, view, {
       includeRankingRows: false,
     });
+    const { createMonthlyResultsPrintWorkbook } = await import("@/lib/results-print-export");
     const buffer = await createMonthlyResultsPrintWorkbook(result, examType, label, view);
     const fileName = `월간성적표_${result.period.name}_${examTypeLabel}_${label}${viewLabel}.xlsx`;
     return createDownloadResponse(buffer, fileName, "xlsx");
@@ -92,6 +90,7 @@ export async function GET(request: NextRequest) {
     const result = await getIntegratedResults(periodId, examType, view, {
       includeRankingRows: false,
     });
+    const { createIntegratedResultsPrintWorkbook } = await import("@/lib/results-print-export");
     const buffer = await createIntegratedResultsPrintWorkbook(result, examType, view);
     const fileName = `통합2개월성적표_${result.period.name}_${examTypeLabel}${viewLabel}.xlsx`;
     return createDownloadResponse(buffer, fileName, "xlsx");

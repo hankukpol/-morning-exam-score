@@ -1,4 +1,4 @@
-import {
+﻿import {
   AdminRole,
   AbsenceCategory,
   AttendType,
@@ -8,7 +8,7 @@ import {
   ScoreSource,
   StudentType,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 
 export const ROLE_LEVEL: Record<AdminRole, number> = {
   VIEWER: 0,
@@ -41,9 +41,11 @@ export const SUBJECT_LABEL: Record<Subject, string> = {
   CONSTITUTIONAL_LAW: "헌법",
   CRIMINOLOGY: "범죄학",
   CRIMINAL_PROCEDURE: "형사소송법",
-  CUMULATIVE: "누적 모의고사",
   CRIMINAL_LAW: "형법",
+  CUMULATIVE: "누적 모의고사",
 };
+
+export const SUBJECT_VALUES = Object.values(Subject);
 
 export const EXAM_TYPE_SUBJECTS: Record<ExamType, Subject[]> = {
   GONGCHAE: [
@@ -63,8 +65,8 @@ export const EXAM_TYPE_SUBJECTS: Record<ExamType, Subject[]> = {
 };
 
 export const ATTEND_TYPE_LABEL: Record<AttendType, string> = {
-  NORMAL: "현장",
-  LIVE: "온라인",
+  NORMAL: "정상",
+  LIVE: "라이브",
   EXCUSED: "사유 결시",
   ABSENT: "무단 결시",
 };
@@ -117,28 +119,28 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin",
     label: "대시보드",
-    description: "오늘 시험, 경고/탈락, 미처리 알림 요약",
+    description: "오늘의 시험, 경고 및 탈락, 미처리 알림 요약",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
   {
     href: "/admin/analytics",
     label: "성적 종합 분석",
-    description: "일일, 월간, 과목별 개인 분석 차트",
+    description: "일간, 주간, 과목별 개인 분석 차트",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
   {
     href: "/admin/students/analyze",
     label: "학생 누적 성적 분석",
-    description: "학생 검색으로 전체 기간 누적 성적과 취약 유형을 조회",
+    description: "학생 검색으로 전체 기간 누적 성적과 취약 유형 조회",
     minRole: AdminRole.VIEWER,
     group: "메인",
   },
   {
     href: "/admin/periods",
     label: "시험 기간 관리",
-    description: "기간 생성, 세션 자동 생성, 취소/연기 관리",
+    description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
@@ -146,6 +148,20 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/students",
     label: "수강생 명단",
     description: "명단 조회, CRUD, 붙여넣기 등록",
+    minRole: AdminRole.TEACHER,
+    group: "학사 관리",
+  },
+  {
+    href: "/admin/students/transfer",
+    label: "수험번호 이전",
+    description: "잘못 등록된 수험번호의 연결 데이터를 새 번호로 이전",
+    minRole: AdminRole.TEACHER,
+    group: "학사 관리",
+  },
+  {
+    href: "/admin/students/merge",
+    label: "학생 병합",
+    description: "중복 등록된 학생 계정의 연결 데이터를 하나로 병합",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
@@ -159,7 +175,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/absence-notes",
     label: "사유서 심사",
-    description: "사유 결시 등록, 승인/반려, 소급 처리",
+    description: "사유 결시 등록, 승인 및 반려, 소급 처리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
@@ -173,7 +189,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/scores/edit",
     label: "성적 수정",
-    description: "세션별 성적 조회, 수정, 삭제",
+    description: "회차별 성적 조회, 수정, 삭제",
     minRole: AdminRole.TEACHER,
     group: "성적 및 통계",
   },
@@ -186,29 +202,29 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/results/weekly",
-    label: "주간 성적/석차",
-    description: "주차별 전체와 신규자 석차 집계",
+    label: "주간 성적/출감",
+    description: "주차별 전체 및 신규생 출감 집계",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 표",
+    group: "성적/출감표",
   },
   {
     href: "/admin/results/monthly",
-    label: "월간 성적/석차",
+    label: "월간 성적/출감",
     description: "월별 평균, 참여율, 결석 집계",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 표",
+    group: "성적/출감표",
   },
   {
     href: "/admin/results/integrated",
     label: "통합 2개월 성적",
-    description: "기간 전체 통합 석차와 참여율",
+    description: "기간 전체 통합 출감과 참여율",
     minRole: AdminRole.VIEWER,
-    group: "성적/석차 표",
+    group: "성적/출감표",
   },
   {
     href: "/admin/dropout",
     label: "탈락/경고 판정",
-    description: "주 3회, 월 8회 기준 자동 판정",
+    description: "주 3회 및 월 8회 기준 자동 판정",
     minRole: AdminRole.VIEWER,
     group: "판정 관리",
   },
@@ -235,8 +251,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/query",
-    label: "다차원 데이터 조회",
-    description: "날짜별, 과목별, 수강생별 통합 조회",
+    label: "교차표 데이터 조회",
+    description: "날짜별 과목별 수강생 집계 통합 조회",
     minRole: AdminRole.VIEWER,
     group: "시스템 도구",
   },
@@ -249,7 +265,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/migration",
-    label: "구 시스템 파일 이전",
+    label: "구 시스템 파일 이관",
     description: "기존 운영 데이터 파일 이관",
     minRole: AdminRole.SUPER_ADMIN,
     group: "시스템 도구",
@@ -264,14 +280,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/settings/accounts",
     label: "관리자 계정",
-    description: "Supabase Auth 역할 연결",
+    description: "Supabase Auth 연동 계정 관리",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
   },
   {
     href: "/admin/settings/notifications",
     label: "알림 연동 설정",
-    description: "Solapi 키와 발신번호 설정",
+    description: "Solapi 키와 발신 번호 설정",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
   },

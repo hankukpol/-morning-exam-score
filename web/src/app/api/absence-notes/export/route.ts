@@ -1,4 +1,4 @@
-import { AbsenceCategory, AbsenceStatus, AdminRole, ExamType } from "@/generated/prisma";
+import { AbsenceCategory, AbsenceStatus, AdminRole, ExamType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { listAbsenceNotes } from "@/lib/absence-notes/service";

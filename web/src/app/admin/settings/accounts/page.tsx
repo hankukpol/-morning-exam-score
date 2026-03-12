@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import { getSetupState } from "@/lib/env";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getStudentCumulativeAnalysis } from "@/lib/analytics/analysis";
 import { listStudents } from "@/lib/students/service";

@@ -1,4 +1,4 @@
-import { StudentStatus } from "@/generated/prisma";
+import { StudentStatus } from "@prisma/client";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 
 type StatusBadgeProps = {

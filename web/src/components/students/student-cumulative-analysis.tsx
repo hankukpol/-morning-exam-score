@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Subject, StudentStatus } from "@/generated/prisma";
+import { Subject, StudentStatus } from "@prisma/client";
 import { SUBJECT_LABEL, ATTEND_TYPE_LABEL } from "@/lib/constants";
 import { TrendLineChart, BarComparisonChart, RadarComparisonChart } from "@/components/analytics/charts";
 import type { CumulativeAnalysisData } from "@/lib/analytics/analysis";

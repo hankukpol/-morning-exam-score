@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import { AdminRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { parseSessionUpdate, updateSession } from "@/lib/periods/service";
@@ -19,6 +19,11 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const sessionId = Number(params.id);
+
+    if (!Number.isInteger(sessionId)) {
+      throw new Error("회차 ID가 올바르지 않습니다.");
+    }
+
     const payload = parseSessionUpdate(body);
     const session = await updateSession({
       adminId: auth.context.adminUser.id,

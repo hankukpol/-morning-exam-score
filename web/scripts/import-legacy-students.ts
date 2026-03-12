@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { type ExamType, type Prisma, type StudentType } from "../src/generated/prisma";
+import { type ExamType, type Prisma, type StudentType } from "@prisma/client";
 import { getPrisma } from "../src/lib/prisma";
 import { previewStudentMigration } from "../src/lib/migration/students";
 

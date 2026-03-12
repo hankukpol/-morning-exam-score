@@ -1,4 +1,4 @@
-import { AdminRole, Subject } from "@/generated/prisma";
+import { AdminRole, Subject } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { updateStudentTargetScores } from "@/lib/counseling/service";

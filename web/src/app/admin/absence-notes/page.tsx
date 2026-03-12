@@ -2,7 +2,7 @@ import {
   AbsenceCategory,
   AbsenceStatus,
   AdminRole,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { AbsenceNoteManager } from "@/components/absence-notes/absence-note-manager";
 import {
   getAnalyticsContext,

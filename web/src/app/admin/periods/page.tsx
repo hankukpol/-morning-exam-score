@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+﻿import { AdminRole } from "@prisma/client";
 import { PeriodManager } from "@/components/periods/period-manager";
 import { requireAdminContext } from "@/lib/auth";
 import { listPeriods } from "@/lib/periods/service";
@@ -16,8 +16,7 @@ export default async function AdminPeriodsPage() {
       </div>
       <h1 className="mt-5 text-3xl font-semibold">시험 기간과 회차 관리</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        기간 생성, 활성화, 회차 자동 생성, 개별 회차의 취소/연기까지 Phase 2에서 필요한 입력
-        베이스를 이 화면에 모아 두었습니다.
+        기간 생성, 활성화, 자동 회차 생성, 개별 회차 추가, 회차 수정과 수강생 등록/해제를 한 화면에서 관리합니다.
       </p>
       <div className="mt-8">
         <PeriodManager

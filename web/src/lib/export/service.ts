@@ -1,4 +1,4 @@
-import { ExamType } from "@/generated/prisma";
+import { ExamType } from "@prisma/client";
 import { ATTEND_TYPE_LABEL, EXAM_TYPE_LABEL, SCORE_SOURCE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, formatFileDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";

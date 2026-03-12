@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { StudentType } from "@/generated/prisma";
+import { StudentType } from "@prisma/client";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { StudentResultDrawer } from "@/components/analytics/student-result-drawer";
 import { RankingRow, StudentResultProfile } from "@/lib/analytics/service";

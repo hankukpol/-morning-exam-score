@@ -1,13 +1,16 @@
-import { AdminRole, ExamType, NotificationType, StudentStatus } from "@/generated/prisma";
+﻿import { AdminRole, ExamType, NotificationType, StudentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
+  previewManualNotification,
+  previewQueuedNotifications,
   sendManualNotification,
   sendQueuedNotifications,
   sendStatusNotifications,
 } from "@/lib/notifications/service";
 
 type RequestBody = {
+  preview?: boolean;
   logIds?: number[];
   type?: NotificationType;
   message?: string;
@@ -29,6 +32,28 @@ export async function POST(request: Request) {
     const body = (await request.json()) as RequestBody;
     const logIds =
       body.logIds?.map((value) => Number(value)).filter((value) => Number.isInteger(value)) ?? [];
+
+    if (body.preview) {
+      if (logIds.length > 0) {
+        const result = await previewQueuedNotifications({ logIds });
+        return NextResponse.json(result);
+      }
+
+      const examNumbers =
+        body.examNumbers?.map((value) => String(value).trim()).filter(Boolean) ?? undefined;
+      const result = await previewManualNotification({
+        type: body.type ?? NotificationType.NOTICE,
+        message: body.message,
+        examType: body.examType,
+        examNumbers,
+        pointAmount:
+          body.pointAmount === null || body.pointAmount === undefined
+            ? null
+            : Number(body.pointAmount),
+      });
+
+      return NextResponse.json(result);
+    }
 
     if (logIds.length > 0) {
       const result = await sendQueuedNotifications({

@@ -1,9 +1,9 @@
-import {
+﻿import {
   ExamType,
   NotificationChannel,
   NotificationType,
   StudentStatus,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { SolapiMessageService } from "solapi";
 import { toAuditJson } from "@/lib/audit";
 import { getSetupState } from "@/lib/env";
@@ -22,6 +22,19 @@ type ConsentFilters = {
   search?: string;
 };
 
+type NotificationPreviewRow = {
+  examNumber: string;
+  name: string;
+  phone: string | null;
+  currentStatus: StudentStatus;
+  notificationConsent: boolean;
+  message: string;
+  state: "ready" | "excluded";
+  exclusionReason: string | null;
+  logId?: number;
+  notificationType: NotificationType;
+};
+
 function getNotificationConfig() {
   const apiKey = process.env.SOLAPI_API_KEY;
   const apiSecret = process.env.SOLAPI_API_SECRET;
@@ -29,7 +42,7 @@ function getNotificationConfig() {
   const pfId = process.env.SOLAPI_PF_ID;
 
   if (!apiKey || !apiSecret || !sender) {
-    throw new Error("Solapi 환경변수가 설정되지 않았습니다.");
+    throw new Error("Solapi 환경 변수가 설정되지 않았습니다.");
   }
 
   return {
@@ -62,6 +75,97 @@ function getStatusNotificationType(
   status: StudentStatus,
 ): "WARNING_1" | "WARNING_2" | "DROPOUT" | null {
   return notificationTypeFromStatus(status);
+}
+
+function getExclusionReason(input: {
+  phone: string | null;
+  notificationConsent: boolean;
+}) {
+  if (!input.notificationConsent) {
+    return "수신 동의 없음";
+  }
+
+  if (!normalizePhone(input.phone ?? "")) {
+    return "전화번호 없음";
+  }
+
+  return null;
+}
+
+function buildPreviewResponse(rows: NotificationPreviewRow[], missingExamNumbers: string[] = []) {
+  return {
+    rows,
+    readyCount: rows.filter((row) => row.state === "ready").length,
+    excludedCount: rows.filter((row) => row.state === "excluded").length,
+    missingExamNumbers,
+    messageSamples: Array.from(new Set(rows.map((row) => row.message))).slice(0, 3),
+  };
+}
+
+async function resolveManualRecipients(input: {
+  examType?: ExamType;
+  examNumbers?: string[];
+}) {
+  const prisma = getPrisma();
+  const requestedExamNumbers = Array.from(
+    new Set(
+      (input.examNumbers ?? [])
+        .map((examNumber) => examNumber.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const recipients = await prisma.student.findMany({
+    where: {
+      examType: input.examType,
+      isActive: true,
+      examNumber: requestedExamNumbers.length
+        ? {
+            in: requestedExamNumbers,
+          }
+        : undefined,
+    },
+    select: {
+      examNumber: true,
+      name: true,
+      phone: true,
+      notificationConsent: true,
+      currentStatus: true,
+    },
+    orderBy: [{ examNumber: "asc" }],
+  });
+
+  const missingExamNumbers = requestedExamNumbers.filter(
+    (examNumber) => !recipients.some((recipient) => recipient.examNumber === examNumber),
+  );
+
+  return {
+    recipients,
+    missingExamNumbers,
+  };
+}
+
+async function loadQueuedLogs(logIds: number[]) {
+  return getPrisma().notificationLog.findMany({
+    where: {
+      id: {
+        in: logIds,
+      },
+    },
+    include: {
+      student: {
+        select: {
+          name: true,
+          phone: true,
+          notificationConsent: true,
+          currentStatus: true,
+        },
+      },
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
 }
 
 export async function listNotificationCenterData(filters: ConsentFilters) {
@@ -194,6 +298,83 @@ export async function updateNotificationConsent(input: {
   });
 }
 
+export async function previewQueuedNotifications(input: { logIds: number[] }) {
+  if (input.logIds.length === 0) {
+    throw new Error("발송할 대기 알림을 선택해 주세요.");
+  }
+
+  const logs = await loadQueuedLogs(input.logIds);
+
+  if (logs.length === 0) {
+    throw new Error("미리보기할 대기 알림이 없습니다.");
+  }
+
+  const rows: NotificationPreviewRow[] = logs.map((log) => {
+    const exclusionReason = getExclusionReason(log.student);
+
+    return {
+      logId: log.id,
+      examNumber: log.examNumber,
+      name: log.student.name,
+      phone: log.student.phone,
+      currentStatus: log.student.currentStatus,
+      notificationConsent: log.student.notificationConsent,
+      message: log.message,
+      state: exclusionReason ? "excluded" : "ready",
+      exclusionReason,
+      notificationType: log.type,
+    };
+  });
+
+  return buildPreviewResponse(rows);
+}
+
+export async function previewManualNotification(input: {
+  type: NotificationType;
+  message?: string;
+  examType?: ExamType;
+  examNumbers?: string[];
+  pointAmount?: number | null;
+}) {
+  const message = input.message?.trim() ?? "";
+
+  if (!message && input.type === NotificationType.NOTICE) {
+    throw new Error("공지 알림은 발송 메시지를 입력해 주세요.");
+  }
+
+  const { recipients, missingExamNumbers } = await resolveManualRecipients({
+    examType: input.examType,
+    examNumbers: input.examNumbers,
+  });
+
+  if (recipients.length === 0) {
+    throw new Error("발송 대상 학생이 없습니다.");
+  }
+
+  const rows: NotificationPreviewRow[] = recipients.map((student) => {
+    const exclusionReason = getExclusionReason(student);
+
+    return {
+      examNumber: student.examNumber,
+      name: student.name,
+      phone: student.phone,
+      currentStatus: student.currentStatus,
+      notificationConsent: student.notificationConsent,
+      message: buildNotificationMessage({
+        type: input.type,
+        studentName: student.name,
+        customMessage: message || undefined,
+        pointAmount: input.pointAmount ?? undefined,
+      }),
+      state: exclusionReason ? "excluded" : "ready",
+      exclusionReason,
+      notificationType: input.type,
+    };
+  });
+
+  return buildPreviewResponse(rows, missingExamNumbers);
+}
+
 async function deliverNotificationLog(log: {
   id: number;
   type: NotificationType;
@@ -208,7 +389,7 @@ async function deliverNotificationLog(log: {
     return {
       status: "skipped",
       channel: NotificationChannel.SMS,
-      failReason: "수신 동의가 없어 발송 대상에서 제외되었습니다.",
+      failReason: "수신 동의가 없어 발송 대상에서 제외했습니다.",
     } as const;
   }
 
@@ -218,7 +399,7 @@ async function deliverNotificationLog(log: {
     return {
       status: "skipped",
       channel: NotificationChannel.SMS,
-      failReason: "연락처가 없어 발송할 수 없습니다.",
+      failReason: "전화번호가 없어 발송할 수 없습니다.",
     } as const;
   }
 
@@ -250,7 +431,9 @@ async function deliverNotificationLog(log: {
       } as const;
     } catch (error) {
       const fallbackReason =
-        error instanceof Error ? `알림톡 실패 후 SMS 발송: ${error.message}` : "알림톡 실패 후 SMS 발송";
+        error instanceof Error
+          ? `알림톡 발송 실패 후 SMS로 재시도: ${error.message}`
+          : "알림톡 발송 실패 후 SMS로 재시도";
 
       try {
         await client.sendOne({
@@ -306,29 +489,15 @@ export async function sendQueuedNotifications(input: {
   ipAddress?: string | null;
 }) {
   if (input.logIds.length === 0) {
-    throw new Error("발송할 알림을 선택하세요.");
+    throw new Error("발송할 대기 알림을 선택해 주세요.");
   }
 
   const prisma = getPrisma();
-  const logs = await prisma.notificationLog.findMany({
-    where: {
-      id: {
-        in: input.logIds,
-      },
-    },
-    include: {
-      student: {
-        select: {
-          name: true,
-          phone: true,
-          notificationConsent: true,
-        },
-      },
-    },
-    orderBy: {
-      id: "asc",
-    },
-  });
+  const logs = await loadQueuedLogs(input.logIds);
+
+  if (logs.length === 0) {
+    throw new Error("발송할 대기 알림이 없습니다.");
+  }
 
   const updated = [];
 
@@ -376,13 +545,11 @@ export async function sendStatusNotifications(input: {
   ipAddress?: string | null;
 }) {
   const targetStatuses = Array.from(
-    new Set(
-      input.statuses.filter((status) => isSendableStatus(status)),
-    ),
+    new Set(input.statuses.filter((status) => isSendableStatus(status))),
   );
 
   if (targetStatuses.length === 0) {
-    throw new Error("발송할 경고/탈락 상태를 선택해주세요.");
+    throw new Error("발송할 경고 또는 탈락 상태를 선택해 주세요.");
   }
 
   const monitor = await getDropoutMonitor(input.periodId, input.examType);
@@ -419,9 +586,7 @@ export async function sendStatusNotifications(input: {
       type: true,
     },
   });
-  const existingSet = new Set(
-    existingLogs.map((log) => `${log.examNumber}:${log.type}`),
-  );
+  const existingSet = new Set(existingLogs.map((log) => `${log.examNumber}:${log.type}`));
 
   const createdLogs = [];
 
@@ -441,7 +606,7 @@ export async function sendStatusNotifications(input: {
       continue;
     }
 
-    const canQueue = Boolean(row.phone?.trim());
+    const canQueue = Boolean(normalizePhone(row.phone ?? ""));
     const log = await prisma.notificationLog.create({
       data: {
         examNumber: row.examNumber,
@@ -455,7 +620,7 @@ export async function sendStatusNotifications(input: {
           monthAbsenceCount: row.currentMonthAbsenceCount,
         }),
         status: canQueue ? "pending" : "skipped",
-        failReason: canQueue ? null : "전화번호가 없어 발송 대상에서 제외되었습니다.",
+        failReason: canQueue ? null : "전화번호가 없어 발송 대상에서 제외했습니다.",
       },
     });
 
@@ -500,32 +665,19 @@ export async function sendManualNotification(input: {
   const message = input.message?.trim() ?? "";
 
   if (!message && input.type === NotificationType.NOTICE) {
-    throw new Error("발송 메시지를 입력하세요.");
+    throw new Error("공지 알림은 발송 메시지를 입력해 주세요.");
   }
 
-  const prisma = getPrisma();
-  const recipients = await prisma.student.findMany({
-    where: {
-      examType: input.examType,
-      isActive: true,
-      examNumber: input.examNumbers?.length
-        ? {
-            in: input.examNumbers,
-          }
-        : undefined,
-    },
-    select: {
-      examNumber: true,
-      name: true,
-      phone: true,
-      notificationConsent: true,
-    },
+  const { recipients } = await resolveManualRecipients({
+    examType: input.examType,
+    examNumbers: input.examNumbers,
   });
 
   if (recipients.length === 0) {
     throw new Error("발송 대상 학생이 없습니다.");
   }
 
+  const prisma = getPrisma();
   const createdLogs = [];
 
   for (const student of recipients) {

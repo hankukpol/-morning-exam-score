@@ -1,4 +1,4 @@
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { ExportPanel } from "@/components/export/export-panel";
 import { requireAdminContext } from "@/lib/auth";
 import { listPeriods } from "@/lib/periods/service";

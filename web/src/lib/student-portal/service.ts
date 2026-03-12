@@ -1,4 +1,4 @@
-import { ExamType, Subject } from "@/generated/prisma";
+import { ExamType, Subject } from "@prisma/client";
 import {
   getDailyAnalysis,
   getMonthlyStudentAnalysis,

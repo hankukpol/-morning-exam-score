@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { AttendType, StudentType } from "@/generated/prisma";
+import { AttendType, StudentType } from "@prisma/client";
 import { StudentResultProfile } from "@/lib/analytics/service";
 import {
   STATUS_BADGE_CLASS,

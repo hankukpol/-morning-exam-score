@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AdminRole } from "@/generated/prisma";
+import { AdminRole } from "@prisma/client";
 import { requireAdminContext, roleAtLeast } from "@/lib/auth";
 import { getStudentHistory } from "@/lib/students/service";
 import { getStudentCumulativeAnalysis, getStudentDetailAnalysis } from "@/lib/analytics/analysis";
@@ -313,6 +313,7 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             subjects={EXAM_TYPE_SUBJECTS[counselingProfile.student.examType]}
             records={counselingProfile.counselingRecords.map((record) => ({
               id: record.id,
+              examNumber: record.examNumber,
               counselorName: record.counselorName,
               content: record.content,
               recommendation: record.recommendation,

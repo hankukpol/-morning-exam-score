@@ -1,5 +1,5 @@
 import { load } from "cheerio";
-import { AttendType, ScoreSource } from "@/generated/prisma";
+import { AttendType, ScoreSource } from "@prisma/client";
 import { getSheetRows, readWorkbookFromBuffer, toCellString } from "@/lib/excel/workbook";
 
 export type ParsedScoreRecord = {
@@ -19,6 +19,9 @@ export type ParsedScoreRecord = {
 export type ParsedQuestionRecord = {
   questionNo: number;
   correctAnswer: string;
+  correctRate: number | null;
+  answerDistribution: Record<string, number> | null;
+  difficulty: string | null;
 };
 
 export type ParsedAnswerRecord = {
@@ -69,6 +72,17 @@ function normalizeAnswerValue(value: unknown) {
 
 function parseScoreNumber(value: unknown) {
   const raw = toCellString(value).replace(/,/g, "");
+
+  if (!raw || raw === "-") {
+    return null;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parsePercentNumber(value: unknown) {
+  const raw = toCellString(value).replace(/,/g, "").replace(/%/g, "").trim();
 
   if (!raw || raw === "-") {
     return null;
@@ -215,6 +229,9 @@ function buildOfflineAnswerBundle(rows: Array<Array<unknown>>) {
   const questions = answerKeyRow.slice(answerStartIndex).map((value, index) => ({
     questionNo: index + 1,
     correctAnswer: normalizeAnswerValue(value),
+    correctRate: null,
+    answerDistribution: null,
+    difficulty: null,
   }));
 
   const answers = rows
@@ -260,21 +277,96 @@ function splitOfflineBundle(bundle: {
   const oxQuestionsRaw = bundle.questions.filter(
     (q) => q.correctAnswer === "O" || q.correctAnswer === "X",
   );
-  const oxRenumberMap = new Map(oxQuestionsRaw.map((q, i) => [q.questionNo, i + 1]));
-  const oxQuestions = oxQuestionsRaw.map((q, i) => ({
-    questionNo: i + 1,
-    correctAnswer: q.correctAnswer,
-  }));
+  const oxQuestionNos = new Set(oxQuestionsRaw.map((q) => q.questionNo));
+  const oxQuestions = oxQuestionsRaw.map((q) => ({ ...q }));
 
   const mcqAnswers = bundle.answers.filter((a) => mcqQuestionNos.has(a.questionNo));
   const oxAnswers = bundle.answers
-    .filter((a) => oxRenumberMap.has(a.questionNo))
-    .map((a) => ({ ...a, questionNo: oxRenumberMap.get(a.questionNo)! }));
+    .filter((a) => oxQuestionNos.has(a.questionNo))
+    .map((a) => ({ ...a }));
 
   return {
     main: { questions: mcqQuestions, answers: mcqAnswers },
     ox: { questions: oxQuestions, answers: oxAnswers },
   };
+}
+
+export function parseOfflineAnalysisQuestions(input: {
+  fileName: string;
+  buffer: Buffer | ArrayBuffer;
+}) {
+  const workbook = readWorkbookFromBuffer(input.buffer);
+  const sheetName =
+    workbook.SheetNames.find((name) =>
+      name.replace(/\s+/g, "").toLowerCase().includes("moon"),
+    ) ?? workbook.SheetNames[0];
+
+  if (!sheetName) {
+    return [] as ParsedQuestionRecord[];
+  }
+
+  const rows = getSheetRows(workbook, sheetName);
+  const headerRowIndex = rows.findIndex(
+    (row, index) =>
+      index < 10 &&
+      normalizeHeader(row[0]).includes("\uBB38\uD56D\uBC88\uD638") &&
+      row.some((cell) =>
+        ["1", "2", "3", "4", "\uAE30\uD0C0", "o", "x"].includes(
+          toCellString(cell).trim().toLowerCase(),
+        ),
+      ),
+  );
+
+  if (headerRowIndex === -1) {
+    return [] as ParsedQuestionRecord[];
+  }
+
+  const headerRow = rows[headerRowIndex] ?? [];
+  const questionNoIndex = 0;
+  const correctAnswerIndex = 1;
+  const correctRateIndex = findColumnIndex(headerRow, ["\uC815\uB2F5\uB960(%)", "\uC815\uB2F5\uB960"]);
+  const distributionColumns = headerRow
+    .map((cell, index) => ({
+      index,
+      label: toCellString(cell).trim(),
+    }))
+    .filter(({ label }) => ["1", "2", "3", "4", "\uAE30\uD0C0", "O", "X", "o", "x"].includes(label));
+
+  return rows
+    .slice(headerRowIndex + 1)
+    .flatMap((row) => {
+      const questionNo = Number.parseInt(toCellString(row[questionNoIndex]), 10);
+      const correctAnswer = normalizeAnswerValue(row[correctAnswerIndex]);
+
+      if (!Number.isFinite(questionNo) || !correctAnswer) {
+        return [];
+      }
+
+      const answerDistributionEntries = distributionColumns
+        .map(({ index, label }) => {
+          const percent = parsePercentNumber(row[index]);
+
+          if (percent === null) {
+            return null;
+          }
+
+          const normalizedLabel = normalizeAnswerValue(label) || label;
+          return [normalizedLabel, percent] as const;
+        })
+        .filter((entry): entry is readonly [string, number] => Boolean(entry));
+
+      return {
+        questionNo,
+        correctAnswer,
+        correctRate:
+          correctRateIndex === -1 ? null : parsePercentNumber(row[correctRateIndex]),
+        answerDistribution:
+          answerDistributionEntries.length > 0
+            ? Object.fromEntries(answerDistributionEntries)
+            : null,
+        difficulty: null,
+      } satisfies ParsedQuestionRecord;
+    });
 }
 
 function parseIdentifierCell(value: string) {
@@ -326,6 +418,9 @@ function buildOnlineDetailBundle(
     questions.push({
       questionNo,
       correctAnswer,
+      correctRate: null,
+      answerDistribution: null,
+      difficulty: null,
     });
 
     for (const student of students) {
@@ -416,8 +511,8 @@ export function parseOfflineScoreImport(input: {
             examNumber: r.examNumber,
             name: r.name,
             onlineId: null,
-            rawScore: r.oxScoreValue,
-            oxScore: null,
+            rawScore: null,
+            oxScore: r.oxScoreValue,
             finalScore: r.oxScoreValue,
             attendType: input.attendType ?? AttendType.NORMAL,
             sourceType: ScoreSource.OFFLINE_UPLOAD,
@@ -512,6 +607,55 @@ export function parseOnlineScoreImport(input: {
     metadata: {
       mainFileName: input.mainFileName,
       detailFileName: input.detailFileName ?? null,
+    },
+  } satisfies ParsedScoreImport;
+}
+
+export function parseOnlineOxScoreImport(input: {
+  mainFileName: string;
+  mainBuffer: Buffer | ArrayBuffer;
+  detailFileName?: string;
+  detailBuffer?: Buffer | ArrayBuffer;
+  attendType?: AttendType;
+}) {
+  const mainRows = maybeHtmlRows(input.mainBuffer);
+  const mainRecords = parseOnlineScoreRows(mainRows);
+
+  const records = mainRecords
+    .map((record) => ({
+      rowKey: `${record.rowKey}:ox`,
+      rowNumber: record.rowNumber,
+      examNumber: null,
+      name: record.name,
+      onlineId: record.onlineId,
+      rawScore: null,
+      oxScore: record.score,
+      finalScore: record.score,
+      attendType: input.attendType ?? AttendType.LIVE,
+      sourceType: ScoreSource.ONLINE_UPLOAD,
+      note: null,
+    }))
+    .filter(
+      (record) =>
+        Boolean(record.onlineId || record.name) &&
+        record.oxScore !== null,
+    );
+
+  const detailBundle =
+    input.detailBuffer && input.detailFileName
+      ? buildOnlineDetailBundle(maybeHtmlRows(input.detailBuffer), 20)
+      : { questions: [] as ParsedQuestionRecord[], answers: [] as ParsedAnswerRecord[] };
+
+  return {
+    sourceType: ScoreSource.ONLINE_UPLOAD,
+    matchingKey: "onlineId",
+    records,
+    questions: detailBundle.questions,
+    answers: detailBundle.answers,
+    metadata: {
+      mainFileName: input.mainFileName,
+      detailFileName: input.detailFileName ?? null,
+      isOxImport: true,
     },
   } satisfies ParsedScoreImport;
 }

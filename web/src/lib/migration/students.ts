@@ -5,7 +5,7 @@ import {
   type AuditLog,
   type Prisma,
   type Student,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import {
   STUDENT_MIGRATION_FIELDS,
   type StudentMigrationFieldKey,
@@ -105,13 +105,13 @@ type StudentSnapshot = Pick<
 >;
 
 const fieldSynonyms: Record<StudentMigrationFieldKey, string[]> = {
-  examNumber: ["수험번호", "학번", "응시번호"],
-  name: ["이름", "성명", "이 름"],
+  examNumber: ["수험번호", "학번", "접수번호"],
+  name: ["이름", "성명", "학생명"],
   phone: ["연락처", "전화번호", "휴대폰", "핸드폰"],
-  generation: ["기수", "회차"],
+  generation: ["기수", "차수"],
   className: ["반", "반명", "강좌", "과정", "수강반"],
   registeredAt: ["등록일", "접수일", "수강등록일"],
-  onlineId: ["온라인id", "수강자id", "아이디", "id"],
+  onlineId: ["온라인id", "수강생id", "아이디", "id"],
   note: ["메모", "비고", "노트"],
 };
 
@@ -125,9 +125,8 @@ function inferStudentSheetName(sheetNames: string[]) {
       const normalized = sheetName.replace(/\s+/g, "").toLowerCase();
       return normalized.includes("수강생명단") && !normalized.includes("new");
     }) ??
-    sheetNames.find((sheetName) =>
-      /수강생|명단|student/i.test(sheetName.replace(/\s+/g, "")),
-    ) ?? sheetNames[0]
+    sheetNames.find((sheetName) => /수강생명단|student/i.test(sheetName.replace(/\s+/g, ""))) ??
+    sheetNames[0]
   );
 }
 
@@ -153,7 +152,6 @@ function inferHeaderRowIndex(rows: Array<Array<unknown>>) {
 
   return bestIndex;
 }
-
 function buildColumns(rows: Array<Array<unknown>>, headerRowIndex: number) {
   const headerRow = rows[headerRowIndex] ?? [];
   const maxLength = rows.reduce((length, row) => Math.max(length, row.length), 0);
@@ -348,14 +346,14 @@ export async function previewStudentMigration(config: StudentMigrationConfig) {
     }
 
     if (record.onlineId && !/^[A-Za-z0-9._@-]+$/.test(record.onlineId)) {
-      issues.push("온라인 ID 형식을 확인하세요.");
+      issues.push("온라인 ID 형식을 확인해 주세요.");
     }
 
     if (
       record.examNumber &&
       (duplicateCount.get(record.examNumber) ?? 0) > 1
     ) {
-      issues.push("파일 내 수험번호 중복입니다.");
+      issues.push("파일 내 수험번호가 중복되었습니다.");
     }
 
     const isExisting = existingExamNumbers.has(record.examNumber);
@@ -435,7 +433,7 @@ export async function executeStudentMigration(
   const validRows = preview.previewRows.filter((row) => row.status !== "invalid");
 
   if (validRows.length === 0) {
-    throw new Error("저장 가능한 행이 없습니다.");
+    throw new Error("반영 가능한 행이 없습니다.");
   }
 
   const prisma = getPrisma();
@@ -571,7 +569,7 @@ export async function rollbackStudentMigration(params: {
   });
 
   if (!targetLog || targetLog.action !== "MIGRATION_STUDENTS_EXECUTE") {
-    throw new Error("롤백 가능한 수강생 마이그레이션 이력이 없습니다.");
+    throw new Error("롤백 가능한 학생 마이그레이션 이력이 없습니다.");
   }
 
   const payload = parseRollbackPayload(targetLog);
@@ -588,7 +586,7 @@ export async function rollbackStudentMigration(params: {
     });
 
     if (existingRollback) {
-      throw new Error("This student migration batch has already been rolled back.");
+      throw new Error("이미 롤백된 학생 마이그레이션입니다.");
     }
 
     const skippedDeletes: string[] = [];
@@ -685,3 +683,7 @@ export async function rollbackStudentMigration(params: {
     };
   });
 }
+
+
+
+

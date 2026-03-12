@@ -2,7 +2,7 @@ import {
   AttendType,
   ExamType,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 import { getScoredMockScore } from "@/lib/scores/calculation";

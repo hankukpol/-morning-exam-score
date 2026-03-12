@@ -1,4 +1,4 @@
-import { PointType } from "@/generated/prisma";
+﻿import { PointType } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { getPointManagementData } from "@/lib/analytics/service";
 import { getPrisma } from "@/lib/prisma";
@@ -40,7 +40,7 @@ export async function grantPoints(input: {
   ipAddress?: string | null;
 }) {
   if (input.entries.length === 0) {
-    throw new Error("吏湲됲븷 ?ъ씤????곸쓣 ?좏깮?섏꽭??");
+    throw new Error("지급할 포인트 대상을 선택해 주세요.");
   }
 
   const normalizedEntries = input.entries.map((entry) => {
@@ -48,15 +48,15 @@ export async function grantPoints(input: {
     const reason = entry.reason.trim();
 
     if (!examNumber) {
-      throw new Error("?섑뿕踰덊샇媛 鍮꾩뼱 ?덉뒿?덈떎.");
+      throw new Error("수험번호가 비어 있습니다.");
     }
 
     if (!Number.isFinite(entry.amount) || entry.amount <= 0) {
-      throw new Error("?ъ씤??湲덉븸? 1 ?댁긽?댁뼱???⑸땲??");
+      throw new Error("포인트 금액은 1 이상이어야 합니다.");
     }
 
     if (!reason) {
-      throw new Error("吏湲??ъ쑀瑜??낅젰?섏꽭??");
+      throw new Error("지급 사유를 입력해 주세요.");
     }
 
     return {
@@ -88,7 +88,7 @@ export async function grantPoints(input: {
         skipped.push({
           examNumber: entry.examNumber,
           type: entry.type,
-          reason: "?대? ?숈씪 ??媛쒓렐 ?ъ씤?멸? 吏湲됰릺?덉뒿?덈떎.",
+          reason: "이미 동일한 월 개근 포인트가 지급되어 있습니다.",
         });
         continue;
       }

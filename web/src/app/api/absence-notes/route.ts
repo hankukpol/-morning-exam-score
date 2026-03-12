@@ -3,7 +3,7 @@ import {
   AbsenceStatus,
   AdminRole,
   ExamType,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {

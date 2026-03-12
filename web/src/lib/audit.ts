@@ -1,4 +1,4 @@
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 
 export function toAuditJson(value: unknown) {
   if (value === null || value === undefined) {

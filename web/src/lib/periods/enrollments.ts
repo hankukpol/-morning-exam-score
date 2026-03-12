@@ -1,4 +1,4 @@
-import { StudentType } from "@/generated/prisma";
+﻿import { StudentType } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { getPrisma } from "@/lib/prisma";
 import { revalidateAdminReadCaches } from "@/lib/cache-tags";
@@ -34,14 +34,14 @@ export async function previewEnrollmentPaste(periodId: number, text: string) {
     };
   });
 
-  const validRows = parsedRows.filter((r) => r.examNumber);
+  const validRows = parsedRows.filter((row) => row.examNumber);
 
   if (validRows.length === 0) {
     return { rows: [], totalCount: 0 };
   }
 
   const prisma = getPrisma();
-  const examNumbers = validRows.map((r) => r.examNumber);
+  const examNumbers = validRows.map((row) => row.examNumber);
 
   const [existingStudents, existingEnrollments] = await Promise.all([
     prisma.student.findMany({
@@ -54,8 +54,8 @@ export async function previewEnrollmentPaste(periodId: number, text: string) {
     }),
   ]);
 
-  const studentMap = new Map(existingStudents.map((s) => [s.examNumber, s]));
-  const enrolledSet = new Set(existingEnrollments.map((e) => e.examNumber));
+  const studentMap = new Map(existingStudents.map((student) => [student.examNumber, student]));
+  const enrolledSet = new Set(existingEnrollments.map((enrollment) => enrollment.examNumber));
 
   const rows = validRows.map((row) => {
     const student = studentMap.get(row.examNumber) ?? null;
@@ -89,7 +89,6 @@ export async function executeEnrollmentPaste(input: {
   const prisma = getPrisma();
 
   const result = await prisma.$transaction(async (tx) => {
-    // ?꾩옱 ?뚯감 ?쒖옉??議고쉶 (?댁쟾 ?뚯감 ?먮퀎??
     const currentPeriod = await tx.examPeriod.findUniqueOrThrow({
       where: { id: input.periodId },
       select: { startDate: true },
@@ -100,37 +99,52 @@ export async function executeEnrollmentPaste(input: {
       select: { examNumber: true },
     });
 
-    const validExamNumbers = students.map((s) => s.examNumber);
+    const validExamNumbers = students.map((student) => student.examNumber);
 
-    await tx.periodEnrollment.createMany({
-      data: validExamNumbers.map((examNumber) => ({
+    if (validExamNumbers.length === 0) {
+      return { enrolledCount: 0, upgradedCount: 0 };
+    }
+
+    const existingEnrollments = await tx.periodEnrollment.findMany({
+      where: {
         periodId: input.periodId,
-        examNumber,
-      })),
-      skipDuplicates: true,
+        examNumber: { in: validExamNumbers },
+      },
+      select: { examNumber: true },
     });
+    const existingSet = new Set(existingEnrollments.map((enrollment) => enrollment.examNumber));
+    const newExamNumbers = validExamNumbers.filter((examNumber) => !existingSet.has(examNumber));
 
-    // ?댁쟾 ?뚯감 ?깅줉 ?대젰???덈뒗 ?좉퇋????湲곗〈???먮룞 蹂??
+    if (newExamNumbers.length > 0) {
+      await tx.periodEnrollment.createMany({
+        data: newExamNumbers.map((examNumber) => ({
+          periodId: input.periodId,
+          examNumber,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     const priorEnrollments = await tx.periodEnrollment.findMany({
       where: {
-        examNumber: { in: validExamNumbers },
+        examNumber: { in: newExamNumbers },
         period: { startDate: { lt: currentPeriod.startDate } },
       },
       select: { examNumber: true },
     });
 
-    const examNumbersToUpgrade = [...new Set(priorEnrollments.map((e) => e.examNumber))];
+    const examNumbersToUpgrade = [...new Set(priorEnrollments.map((enrollment) => enrollment.examNumber))];
     let upgradedCount = 0;
 
     if (examNumbersToUpgrade.length > 0) {
-      const result = await tx.student.updateMany({
+      const updateResult = await tx.student.updateMany({
         where: {
           examNumber: { in: examNumbersToUpgrade },
           studentType: StudentType.NEW,
         },
         data: { studentType: StudentType.EXISTING },
       });
-      upgradedCount = result.count;
+      upgradedCount = updateResult.count;
     }
 
     await tx.auditLog.create({
@@ -140,12 +154,16 @@ export async function executeEnrollmentPaste(input: {
         targetType: "ExamPeriod",
         targetId: String(input.periodId),
         before: toAuditJson(null),
-        after: toAuditJson({ examNumbers: validExamNumbers, upgradedToExisting: examNumbersToUpgrade }),
+        after: toAuditJson({
+          examNumbers: newExamNumbers,
+          skippedExamNumbers: validExamNumbers.filter((examNumber) => existingSet.has(examNumber)),
+          upgradedToExisting: examNumbersToUpgrade,
+        }),
         ipAddress: input.ipAddress ?? null,
       },
     });
 
-    return { enrolledCount: validExamNumbers.length, upgradedCount };
+    return { enrolledCount: newExamNumbers.length, upgradedCount };
   });
 
   revalidateAdminReadCaches({ analytics: true, periods: false });
@@ -192,7 +210,6 @@ export async function ensurePeriodEnrollments(periodId: number, examNumbers: str
       skipDuplicates: true,
     });
 
-    // ?댁쟾 ?뚯감 ?깅줉 ?대젰???덈뒗 ?좉퇋????湲곗〈???먮룞 蹂??
     const priorEnrollments = await tx.periodEnrollment.findMany({
       where: {
         examNumber: { in: validExamNumbers },
@@ -201,7 +218,7 @@ export async function ensurePeriodEnrollments(periodId: number, examNumbers: str
       select: { examNumber: true },
     });
 
-    const examNumbersToUpgrade = [...new Set(priorEnrollments.map((e) => e.examNumber))];
+    const examNumbersToUpgrade = [...new Set(priorEnrollments.map((enrollment) => enrollment.examNumber))];
 
     if (examNumbersToUpgrade.length > 0) {
       await tx.student.updateMany({
@@ -250,4 +267,81 @@ export async function removeEnrollment(input: {
   });
 
   revalidateAdminReadCaches({ analytics: true, periods: false });
+}
+
+export async function bulkRemoveEnrollments(input: {
+  adminId: string;
+  periodId: number;
+  examNumbers?: string[];
+  removeAll?: boolean;
+  ipAddress?: string | null;
+}) {
+  const requestedExamNumbers = Array.from(
+    new Set(
+      (input.examNumbers ?? [])
+        .map((examNumber) => examNumber.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (!input.removeAll && requestedExamNumbers.length === 0) {
+    throw new Error("해제할 수강생을 선택해 주세요.");
+  }
+
+  const prisma = getPrisma();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const targets = await tx.periodEnrollment.findMany({
+      where: {
+        periodId: input.periodId,
+        examNumber: input.removeAll ? undefined : { in: requestedExamNumbers },
+      },
+      include: {
+        student: {
+          select: {
+            examNumber: true,
+            name: true,
+            examType: true,
+          },
+        },
+      },
+    });
+
+    if (targets.length === 0) {
+      throw new Error("해제할 수강생이 없습니다.");
+    }
+
+    const examNumbers = targets.map((target) => target.examNumber);
+
+    const deleteResult = await tx.periodEnrollment.deleteMany({
+      where: {
+        periodId: input.periodId,
+        examNumber: { in: examNumbers },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "PERIOD_ENROLLMENT_BULK_REMOVE",
+        targetType: "ExamPeriod",
+        targetId: String(input.periodId),
+        before: toAuditJson(targets.map((target) => ({
+          examNumber: target.examNumber,
+          name: target.student.name,
+          examType: target.student.examType,
+        }))),
+        after: toAuditJson({ removedCount: deleteResult.count }),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return {
+      removedCount: deleteResult.count,
+      examNumbers,
+    };
+  });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return result;
 }

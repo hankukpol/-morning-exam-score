@@ -1,4 +1,4 @@
-import { AdminRole, NoticeTargetType } from "@/generated/prisma";
+import { AdminRole, NoticeTargetType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { deleteNotice, updateNotice } from "@/lib/notices/service";

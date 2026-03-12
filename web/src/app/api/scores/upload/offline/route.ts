@@ -1,4 +1,4 @@
-import { AdminRole, AttendType } from "@/generated/prisma";
+import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
@@ -17,7 +17,8 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get("file");
+    const mainFile = formData.get("mainFile") ?? formData.get("file");
+    const analysisFile = formData.get("analysisFile");
     const sessionId = Number(formData.get("sessionId"));
     const mode = (formData.get("mode") as Mode | null) ?? "preview";
     const attendType = formData.get("attendType") as AttendType | null;
@@ -29,18 +30,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "시험 회차를 선택하세요." }, { status: 400 });
     }
 
-    if (!(file instanceof File)) {
+    if (!(mainFile instanceof File)) {
       return NextResponse.json({ error: "오프라인 채점 파일을 선택하세요." }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const mainBuffer = Buffer.from(await mainFile.arrayBuffer());
+    const analysisBuffer =
+      analysisFile instanceof File ? Buffer.from(await analysisFile.arrayBuffer()) : undefined;
 
     if (mode === "preview") {
       const result = await previewOfflineScoreUpload({
         sessionId,
         oxSessionId,
-        fileName: file.name,
-        buffer,
+        mainFileName: mainFile.name,
+        mainBuffer,
+        analysisFileName: analysisFile instanceof File ? analysisFile.name : undefined,
+        analysisBuffer,
         attendType: attendType ?? undefined,
       });
 
@@ -51,8 +56,10 @@ export async function POST(request: Request) {
       adminId: auth.context.adminUser.id,
       sessionId,
       oxSessionId,
-      fileName: file.name,
-      buffer,
+      mainFileName: mainFile.name,
+      mainBuffer,
+      analysisFileName: analysisFile instanceof File ? analysisFile.name : undefined,
+      analysisBuffer,
       attendType: attendType ?? undefined,
       ipAddress: request.headers.get("x-forwarded-for"),
     });

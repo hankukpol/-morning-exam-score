@@ -1,4 +1,4 @@
-import { cache } from "react";
+﻿import { cache as reactCache } from "react";
 import { unstable_cache } from "next/cache";
 import {
   AbsenceStatus,
@@ -9,11 +9,17 @@ import {
   StudentStatus,
   StudentType,
   Subject,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const ANALYTICS_REVALIDATE_SECONDS = 15;
+
+const cacheFn: typeof reactCache =
+  typeof reactCache === "function"
+    ? reactCache
+    : (((fn: Parameters<typeof reactCache>[0]) => fn) as typeof reactCache);
+
 
 type DatasetPeriod = Prisma.ExamPeriodGetPayload<{
   select: {
@@ -371,7 +377,7 @@ const loadDatasetShared = unstable_cache(
   { revalidate: ANALYTICS_REVALIDATE_SECONDS, tags: [CACHE_TAGS.analyticsDataset] },
 );
 
-const loadDatasetCached = cache(async (
+const loadDatasetCached = cacheFn(async (
   periodId: number,
   examType: ExamType,
   serializedExamNumbers: string,
@@ -503,7 +509,7 @@ const loadResultsSheetDatasetShared = unstable_cache(
   { revalidate: ANALYTICS_REVALIDATE_SECONDS, tags: [CACHE_TAGS.analyticsResultsSheet] },
 );
 
-const loadResultsSheetDatasetCached = cache(async (
+const loadResultsSheetDatasetCached = cacheFn(async (
   periodId: number,
   examType: ExamType,
   serializedGte: string,

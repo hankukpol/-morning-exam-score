@@ -1,5 +1,5 @@
-import { Prisma } from "@/generated/prisma";
-import { AppointmentStatus, ExamType, StudentStatus, Subject } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
+import { AppointmentStatus, ExamType, StudentStatus, Subject } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import {
   getMonthlyStudentAnalysis,
@@ -96,15 +96,26 @@ export async function getCounselingDashboard() {
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const warningWhere = {
+  const warningStatusWhere = {
     isActive: true,
     currentStatus: {
       in: [StudentStatus.WARNING_1, StudentStatus.WARNING_2, StudentStatus.DROPOUT],
     },
-    counselingRecords: { none: { counseledAt: { gte: thirtyDaysAgo } } },
   } satisfies Prisma.StudentWhereInput;
 
-  const [todayScheduled, thisWeekScheduled, thisWeekDoneCount, thisMonthCount, warningNoRecentCount, warningStudents] =
+  const warningNoRecentWhere = {
+    AND: [
+      NON_PLACEHOLDER_STUDENT_FILTER,
+      warningStatusWhere,
+      { counselingRecords: { none: { counseledAt: { gte: thirtyDaysAgo } } } },
+    ],
+  } satisfies Prisma.StudentWhereInput;
+
+  const bulkWarningWhere = {
+    AND: [NON_PLACEHOLDER_STUDENT_FILTER, warningStatusWhere],
+  } satisfies Prisma.StudentWhereInput;
+
+  const [todayScheduled, thisWeekScheduled, thisWeekDoneCount, thisMonthCount, warningNoRecentCount, warningStudents, bulkWarningStudents] =
     await Promise.all([
       getPrisma().counselingAppointment.findMany({
         where: { status: AppointmentStatus.SCHEDULED, scheduledAt: { gte: todayStart, lte: todayEnd } },
@@ -135,14 +146,16 @@ export async function getCounselingDashboard() {
       getPrisma().counselingRecord.count({
         where: { counseledAt: { gte: monthStart } },
       }),
-      getPrisma().student.count({ where: warningWhere }),
+      getPrisma().student.count({ where: warningNoRecentWhere }),
       getPrisma().student.findMany({
-        where: {
-          AND: [NON_PLACEHOLDER_STUDENT_FILTER, warningWhere],
-        },
+        where: warningNoRecentWhere,
         select: { examNumber: true, name: true, currentStatus: true, examType: true },
         orderBy: { examNumber: "asc" },
-        take: 50,
+      }),
+      getPrisma().student.findMany({
+        where: bulkWarningWhere,
+        select: { examNumber: true, name: true, currentStatus: true, examType: true },
+        orderBy: { examNumber: "asc" },
       }),
     ]);
 
@@ -153,6 +166,7 @@ export async function getCounselingDashboard() {
     thisMonthCount,
     warningNoRecentCount,
     warningStudents,
+    bulkWarningStudents,
   };
 }
 
@@ -628,5 +642,155 @@ export async function deleteAppointment(input: {
         ipAddress: input.ipAddress ?? null,
       },
     });
+  });
+}
+
+// ── 편의 기능 ──────────────────────────────────────────────
+
+/**
+ * 일괄 면담 기록 등록 결과 타입
+ * - succeeded: 정상 등록된 학생 수
+ * - errors: 실패한 학생 목록과 오류 메시지 (한 명 실패가 전체를 막지 않음)
+ */
+export type BulkCreateCounselingResult = {
+  succeeded: number;
+  errors: { examNumber: string; message: string }[];
+};
+
+/**
+ * 여러 학생에게 동일한 면담 내용을 한 번에 등록한다.
+ *
+ * 운영 시나리오:
+ * - 경고·탈락 학생 5명을 선택해 같은 날 같은 내용으로 면담 기록
+ * - AppointmentManager 없이 빠르게 기록이 필요한 집단 면담 처리
+ *
+ * 동작 원칙:
+ * - Promise.allSettled 사용 → 한 학생 실패 시에도 나머지는 계속 진행
+ * - 각 학생마다 독립된 트랜잭션으로 처리 (원자성 보장)
+ * - 각 등록마다 AuditLog 기록
+ */
+export async function bulkCreateCounselingRecords(input: {
+  adminId: string;
+  payload: {
+    examNumbers: string[];
+    counselorName: string;
+    content: string;
+    recommendation?: string | null;
+    counseledAt: Date;
+    nextSchedule?: Date | null;
+  };
+  ipAddress?: string | null;
+}): Promise<BulkCreateCounselingResult> {
+  const { counselorName, content, recommendation, counseledAt, nextSchedule } = input.payload;
+
+  // 필수 입력값 사전 검증 (DB 호출 전)
+  if (!counselorName.trim()) throw new Error("담당 강사명을 입력하세요.");
+  if (!content.trim()) throw new Error("면담 내용을 입력하세요.");
+  if (Number.isNaN(counseledAt.getTime())) throw new Error("면담 일자를 확인하세요.");
+  if (input.payload.examNumbers.length === 0) throw new Error("학생을 1명 이상 선택하세요.");
+
+  // 각 학생을 병렬로 처리, 실패해도 다른 학생에게 영향 없음
+  const results = await Promise.allSettled(
+    input.payload.examNumbers.map((examNumber) =>
+      getPrisma().$transaction(async (tx) => {
+        const record = await tx.counselingRecord.create({
+          data: {
+            examNumber: examNumber.trim(),
+            counselorName: counselorName.trim(),
+            content: content.trim(),
+            recommendation: recommendation?.trim() || null,
+            counseledAt,
+            nextSchedule: nextSchedule ?? null,
+          },
+        });
+
+        // 감사 로그: 관리자가 언제 어떤 기록을 생성했는지 추적
+        await tx.auditLog.create({
+          data: {
+            adminId: input.adminId,
+            action: "COUNSELING_CREATE",
+            targetType: "CounselingRecord",
+            targetId: String(record.id),
+            before: toAuditJson(null),
+            after: toAuditJson(record),
+            ipAddress: input.ipAddress ?? null,
+          },
+        });
+
+        return record;
+      }),
+    ),
+  );
+
+  // 결과 집계: 성공/실패 분류
+  let succeeded = 0;
+  const errors: { examNumber: string; message: string }[] = [];
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      succeeded++;
+    } else {
+      errors.push({
+        examNumber: input.payload.examNumbers[index],
+        message: result.reason instanceof Error ? result.reason.message : "등록 실패",
+      });
+    }
+  });
+
+  return { succeeded, errors };
+}
+
+/**
+ * 면담 기록의 학생(수험번호)을 변경한다.
+ *
+ * 운영 시나리오:
+ * - 수험번호를 착각해서 엉뚱한 학생에게 면담 기록을 저장한 경우
+ * - 예) A학생 면담인데 B학생 수험번호로 저장 → 이 함수로 수정
+ *
+ * 동작 원칙:
+ * - 변경 전 상태를 AuditLog에 before/after로 기록 (분쟁 추적 가능)
+ * - 새 수험번호가 DB에 존재하지 않으면 오류 반환 (잘못된 수험번호 방지)
+ * - 면담 기록은 사유서와 달리 상태(APPROVED/PENDING)가 없으므로
+ *   성적/출결 재계산 없이 단순 examNumber 교체만 수행
+ */
+export async function changeCounselingStudent(input: {
+  adminId: string;
+  recordId: number;
+  newExamNumber: string;
+  ipAddress?: string | null;
+}) {
+  const newExamNumber = input.newExamNumber.trim();
+
+  if (!newExamNumber) throw new Error("새 수험번호를 입력하세요.");
+
+  return getPrisma().$transaction(async (tx) => {
+    // 변경 전 상태 스냅샷 (AuditLog용, 원본 examNumber 보존)
+    const before = await tx.counselingRecord.findUniqueOrThrow({
+      where: { id: input.recordId },
+    });
+
+    // 존재하지 않는 수험번호로 변경 시도 방지
+    const newStudent = await tx.student.findUnique({ where: { examNumber: newExamNumber } });
+    if (!newStudent) throw new Error(`수험번호 ${newExamNumber}인 학생이 없습니다.`);
+
+    const record = await tx.counselingRecord.update({
+      where: { id: input.recordId },
+      data: { examNumber: newExamNumber },
+    });
+
+    // 감사 로그: 누가 어떤 기록을 어느 학생으로 변경했는지 기록
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "COUNSELING_CHANGE_STUDENT",
+        targetType: "CounselingRecord",
+        targetId: String(record.id),
+        before: toAuditJson(before),  // 변경 전: 기존 examNumber 포함
+        after: toAuditJson(record),   // 변경 후: 새 examNumber 포함
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return record;
   });
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -140,7 +140,7 @@ const scoreStatusStyle = {
 } as const;
 
 function inferExamTypeFromFileName(fileName: string) {
-  return fileName.includes("경행경채") ? "GYEONGCHAE" : "GONGCHAE";
+  return fileName.includes("경채") ? "GYEONGCHAE" : "GONGCHAE";
 }
 
 export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchProps) {
@@ -160,12 +160,11 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
   const [studentPreview, setStudentPreview] = useState<StudentPreviewResponse | null>(null);
   const [workbookFile, setWorkbookFile] = useState<File | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(initialPeriodId);
-  const [selectedExamType, setSelectedExamType] =
-    useState<keyof typeof EXAM_TYPE_LABEL>("GONGCHAE");
+  const [selectedExamType, setSelectedExamType] = useState<keyof typeof EXAM_TYPE_LABEL>("GONGCHAE");
   const [workbookPreview, setWorkbookPreview] = useState<LegacyWorkbookPreview | null>(null);
+  const [completionModal, setCompletionModal] = useState<CompletionModalState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [completionModal, setCompletionModal] = useState<CompletionModalState | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedPeriod = useMemo(
@@ -185,11 +184,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
   }
 
   function openCompletionModal(title: string, description: string, details: string[]) {
-    setCompletionModal({
-      title,
-      description,
-      details,
-    });
+    setCompletionModal({ title, description, details });
   }
 
   function closeCompletionModal() {
@@ -213,7 +208,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
 
   function createStudentPayload() {
     if (!studentFile) {
-      throw new Error("수강생 명단 파일을 먼저 선택해 주세요.");
+      throw new Error("학생 명단 파일을 먼저 선택해 주세요.");
     }
 
     const formData = new FormData();
@@ -227,7 +222,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
 
   function createWorkbookPayload(mode: "preview" | "execute") {
     if (!workbookFile) {
-      throw new Error("월간 통합본 파일을 선택해 주세요.");
+      throw new Error("구간 통합본 파일을 선택해 주세요.");
     }
 
     if (!selectedPeriodId) {
@@ -248,16 +243,15 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       try {
         await action();
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "마이그레이션 처리 중 오류가 발생했습니다.",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "작업 처리 중 오류가 발생했습니다.");
       }
     });
   }
 
   async function requestJson<T>(url: string, init?: RequestInit) {
     const response = await fetch(url, init);
-    const payload = await response.json();
+    const text = await response.text();
+    const payload = text.trim() ? (JSON.parse(text) as T & { error?: string }) : ({} as T & { error?: string });
 
     if (!response.ok) {
       throw new Error(payload.error ?? "요청 처리에 실패했습니다.");
@@ -266,7 +260,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
     return payload as T;
   }
 
-  async function fetchStudentPreview() {
+  function fetchStudentPreview() {
     run(async () => {
       const payload = await requestJson<StudentPreviewResponse>("/api/migration/students/preview", {
         method: "POST",
@@ -277,11 +271,11 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       setSheetName(payload.sheetName);
       setHeaderRowIndex(payload.headerRowIndex);
       setMapping(payload.mapping ?? {});
-      setNotice("수강생 명단 미리보기를 갱신했습니다.");
+      setNotice("학생 명단 미리보기를 생성했습니다.");
     });
   }
 
-  async function executeStudentImport() {
+  function executeStudentImport() {
     run(async () => {
       const payload = await requestJson<{
         importedCount: number;
@@ -293,18 +287,18 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       });
 
       setNotice(
-        `수강생 ${payload.importedCount}건을 반영했습니다. 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건입니다.`,
+        `학생 ${payload.importedCount}건을 반영했습니다. 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건입니다.`,
       );
-      openCompletionModal("학생 명단 반영 완료", "수강생 명단 마이그레이션이 데이터베이스에 반영되었습니다.", [
+      openCompletionModal("학생 명단 반영 완료", "학생 명단 마이그레이션을 정상적으로 반영했습니다.", [
         `반영 건수 ${payload.importedCount}건`,
-        `신규 ${payload.createdCount}건`,
-        `업데이트 ${payload.updatedCount}건`,
+        `신규 생성 ${payload.createdCount}건`,
+        `기존 업데이트 ${payload.updatedCount}건`,
       ]);
       router.refresh();
     });
   }
 
-  async function rollbackRun(auditLogId: number) {
+  function rollbackRun(auditLogId: number) {
     run(async () => {
       const payload = await requestJson<{
         deletedCount: number;
@@ -320,10 +314,10 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
 
       setNotice(
         payload.skippedDeletes.length > 0
-          ? `Rollback complete: deleted ${payload.deletedCount}, restored ${payload.restoredCount}, skipped ${payload.skippedDeletes.join(", ")}.`
-          : `Rollback complete: deleted ${payload.deletedCount}, restored ${payload.restoredCount}.`,
+          ? `롤백 완료: 삭제 ${payload.deletedCount}건, 복원 ${payload.restoredCount}건, 보류 ${payload.skippedDeletes.join(", ")}`
+          : `롤백 완료: 삭제 ${payload.deletedCount}건, 복원 ${payload.restoredCount}건`,
       );
-      openCompletionModal("롤백 완료", "선택한 학생 명단 마이그레이션 롤백이 완료되었습니다.", [
+      openCompletionModal("롤백 완료", "선택한 학생 마이그레이션을 롤백했습니다.", [
         `삭제 ${payload.deletedCount}건`,
         `복원 ${payload.restoredCount}건`,
         payload.skippedDeletes.length > 0
@@ -334,7 +328,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
     });
   }
 
-  async function previewLegacyWorkbook() {
+  function previewLegacyWorkbook() {
     run(async () => {
       const payload = await requestJson<LegacyWorkbookPreview>("/api/migration/scores/workbook", {
         method: "POST",
@@ -342,11 +336,11 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       });
 
       setWorkbookPreview(payload);
-      setNotice("월간 통합본 점수 미리보기를 생성했습니다.");
+      setNotice("구간 통합본 점수 미리보기를 생성했습니다.");
     });
   }
 
-  async function executeLegacyWorkbook() {
+  function executeLegacyWorkbook() {
     run(async () => {
       const payload = await requestJson<{
         importedCount: number;
@@ -359,12 +353,12 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       });
 
       setNotice(
-        `점수 ${payload.importedCount}건을 반영했습니다. 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건, 제외 ${payload.invalidCount}건입니다.`,
+        `점수 ${payload.importedCount}건을 반영했습니다. 신규 ${payload.createdCount}건, 덮어쓰기 ${payload.updatedCount}건, 제외 ${payload.invalidCount}건입니다.`,
       );
-      openCompletionModal("점수 반영 완료", "월간 통합본 점수 마이그레이션이 데이터베이스에 반영되었습니다.", [
+      openCompletionModal("점수 반영 완료", "구간 통합본 점수 마이그레이션을 정상적으로 반영했습니다.", [
         `반영 건수 ${payload.importedCount}건`,
-        `신규 ${payload.createdCount}건`,
-        `업데이트 ${payload.updatedCount}건`,
+        `신규 생성 ${payload.createdCount}건`,
+        `기존 덮어쓰기 ${payload.updatedCount}건`,
         `제외 ${payload.invalidCount}건`,
       ]);
       router.refresh();
@@ -374,15 +368,14 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
   return (
     <div className="space-y-8">
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
-        <h2 className="text-xl font-semibold">수강생 명단 마이그레이션</h2>
+        <h2 className="text-xl font-semibold">학생 명단 마이그레이션</h2>
         <p className="mt-3 text-sm leading-7 text-slate">
-          월간 통합본의 <span className="font-medium text-ink">수강생명단</span> 시트를 읽어
-          학생 DB로 upsert 합니다.
+          기존 통합본의 학생 명단 시트를 읽어 학생 DB에 반영합니다. 필요하면 시트명, 헤더 행, 열 매핑을 조정할 수 있습니다.
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="xl:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-ink">수강생 파일</label>
+            <label className="mb-2 block text-sm font-medium text-ink">학생 명단 파일</label>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -441,11 +434,11 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                 }))
               }
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-              placeholder="파일에 반 정보가 없으면 이 값을 사용합니다."
+              placeholder="파일에 반 정보가 없을 때 사용할 값"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-ink">시트</label>
+            <label className="mb-2 block text-sm font-medium text-ink">시트명</label>
             <select
               value={sheetName}
               onChange={(event) => setSheetName(event.target.value)}
@@ -454,9 +447,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
             >
               <option value="">자동 선택</option>
               {studentPreview?.sheetNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
           </div>
@@ -494,46 +485,24 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
         {studentPreview ? (
           <>
             <div className="mt-8 grid gap-4 md:grid-cols-4">
-              <article className="rounded-3xl bg-white p-5">
-                <p className="text-sm text-slate">전체 행</p>
-                <p className="mt-3 text-3xl font-semibold">{studentPreview.summary.totalRows}</p>
-              </article>
-              <article className="rounded-3xl bg-white p-5">
-                <p className="text-sm text-slate">신규 반영 가능</p>
-                <p className="mt-3 text-3xl font-semibold text-forest">
-                  {studentPreview.summary.validRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-white p-5">
-                <p className="text-sm text-slate">업데이트 대상</p>
-                <p className="mt-3 text-3xl font-semibold text-ember">
-                  {studentPreview.summary.updateRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-white p-5">
-                <p className="text-sm text-slate">제외</p>
-                <p className="mt-3 text-3xl font-semibold text-red-700">
-                  {studentPreview.summary.invalidRows}
-                </p>
-              </article>
+              <article className="rounded-3xl bg-white p-5"><p className="text-sm text-slate">전체 행</p><p className="mt-3 text-3xl font-semibold">{studentPreview.summary.totalRows}</p></article>
+              <article className="rounded-3xl bg-white p-5"><p className="text-sm text-slate">신규 반영 가능</p><p className="mt-3 text-3xl font-semibold text-forest">{studentPreview.summary.validRows}</p></article>
+              <article className="rounded-3xl bg-white p-5"><p className="text-sm text-slate">업데이트 대상</p><p className="mt-3 text-3xl font-semibold text-ember">{studentPreview.summary.updateRows}</p></article>
+              <article className="rounded-3xl bg-white p-5"><p className="text-sm text-slate">제외</p><p className="mt-3 text-3xl font-semibold text-red-700">{studentPreview.summary.invalidRows}</p></article>
             </div>
 
             <div className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-              <h3 className="text-lg font-semibold">컬럼 매핑</h3>
+              <h3 className="text-lg font-semibold">열 매핑</h3>
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {STUDENT_MIGRATION_FIELDS.map((field) => (
                   <div key={field.key}>
-                    <label className="mb-2 block text-sm font-medium text-ink">
-                      {field.label}
-                      {field.required ? " *" : ""}
-                    </label>
+                    <label className="mb-2 block text-sm font-medium text-ink">{field.label}{field.required ? " *" : ""}</label>
                     <select
                       value={mapping[field.key] ?? ""}
                       onChange={(event) =>
                         setMapping((current) => ({
                           ...current,
-                          [field.key]:
-                            event.target.value === "" ? undefined : Number(event.target.value),
+                          [field.key]: event.target.value === "" ? undefined : Number(event.target.value),
                         }))
                       }
                       className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm"
@@ -541,8 +510,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                       <option value="">매핑 안 함</option>
                       {studentPreview.columns.map((column) => (
                         <option key={column.index} value={column.index}>
-                          {column.label}
-                          {column.sample ? ` | 예시 ${column.sample}` : ""}
+                          {column.label}{column.sample ? ` | 예시 ${column.sample}` : ""}
                         </option>
                       ))}
                     </select>
@@ -552,9 +520,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
             </div>
 
             <div className="mt-8 overflow-hidden rounded-[28px] border border-ink/10 bg-white">
-              <div className="border-b border-ink/10 px-6 py-4">
-                <h3 className="text-lg font-semibold">미리보기 상위 20건</h3>
-              </div>
+              <div className="border-b border-ink/10 px-6 py-4"><h3 className="text-lg font-semibold">미리보기 상위 20건</h3></div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-ink/10 text-sm">
                   <thead className="bg-mist text-left">
@@ -565,31 +531,19 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                       <th className="px-5 py-4 font-semibold">이름</th>
                       <th className="px-5 py-4 font-semibold">기수</th>
                       <th className="px-5 py-4 font-semibold">연락처</th>
-                      <th className="px-5 py-4 font-semibold">메모</th>
+                      <th className="px-5 py-4 font-semibold">검토 결과</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-ink/10">
+                  <tbody className="divide-y divide-ink/10 bg-white">
                     {studentPreview.previewRows.slice(0, 20).map((row) => (
                       <tr key={`${row.rowNumber}-${row.record.examNumber}-${row.record.name}`}>
                         <td className="px-5 py-4 text-slate">{row.rowNumber}</td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle[row.status]}`}
-                          >
-                            {row.status === "valid"
-                              ? "신규"
-                              : row.status === "update"
-                                ? "업데이트"
-                                : "제외"}
-                          </span>
-                        </td>
+                        <td className="px-5 py-4"><span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle[row.status]}`}>{row.status === "valid" ? "신규" : row.status === "update" ? "업데이트" : "제외"}</span></td>
                         <td className="px-5 py-4 font-medium">{row.record.examNumber}</td>
                         <td className="px-5 py-4">{row.record.name}</td>
                         <td className="px-5 py-4">{row.record.generation ?? "-"}</td>
                         <td className="px-5 py-4">{row.record.phone ?? "-"}</td>
-                        <td className="px-5 py-4 text-slate">
-                          {row.issues.length > 0 ? row.issues.join(", ") : "정상"}
-                        </td>
+                        <td className="px-5 py-4 text-slate">{row.issues.length > 0 ? row.issues.join(", ") : "정상"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -601,15 +555,14 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
-        <h2 className="text-xl font-semibold">월간 통합본 성적 마이그레이션</h2>
+        <h2 className="text-xl font-semibold">구간 통합본 점수 마이그레이션</h2>
         <p className="mt-3 text-sm leading-7 text-slate">
-          <span className="font-medium text-ink">1주차~5주차</span> 시트를 직접 읽어 선택한
-          기간의 시험 회차에 점수를 반영합니다. 파일은 한 번에 하나씩 실행하는 방식입니다.
+          주차 시트를 직접 읽어 선택한 기간의 회차와 매칭한 뒤 점수를 반영합니다.
         </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_220px_220px]">
           <div>
-            <label className="mb-2 block text-sm font-medium text-ink">월간 통합본 파일</label>
+            <label className="mb-2 block text-sm font-medium text-ink">구간 통합본 파일</label>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -627,32 +580,13 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-ink">시험 기간</label>
-            <select
-              value={selectedPeriodId ?? ""}
-              onChange={(event) => {
-                setSelectedPeriodId(Number(event.target.value));
-                setWorkbookPreview(null);
-              }}
-              className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm"
-            >
-              {periods.map((period) => (
-                <option key={period.id} value={period.id}>
-                  {period.name}
-                  {period.isActive ? " · 활성" : ""}
-                </option>
-              ))}
+            <select value={selectedPeriodId ?? ""} onChange={(event) => { setSelectedPeriodId(Number(event.target.value)); setWorkbookPreview(null); }} className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm">
+              {periods.map((period) => <option key={period.id} value={period.id}>{period.name}{period.isActive ? " · 활성" : ""}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-ink">직렬</label>
-            <select
-              value={selectedExamType}
-              onChange={(event) => {
-                setSelectedExamType(event.target.value as keyof typeof EXAM_TYPE_LABEL);
-                setWorkbookPreview(null);
-              }}
-              className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm"
-            >
+            <select value={selectedExamType} onChange={(event) => { setSelectedExamType(event.target.value as keyof typeof EXAM_TYPE_LABEL); setWorkbookPreview(null); }} className="w-full rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-sm">
               <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
               <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
             </select>
@@ -662,9 +596,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
         <div className="mt-4 rounded-[24px] border border-ink/10 bg-mist px-5 py-4 text-sm leading-7 text-slate">
           {selectedPeriod ? (
             <>
-              선택 기간에는 <span className="font-semibold text-ink">{matchedSessionCount}개</span>의{" "}
-              {EXAM_TYPE_LABEL[selectedExamType]} 시험 회차가 있습니다. 주차 시트의 과목별 점수는
-              같은 주차와 과목의 회차에 매핑됩니다.
+              선택 기간에는 <span className="font-semibold text-ink">{matchedSessionCount}개</span>의 {EXAM_TYPE_LABEL[selectedExamType]} 회차가 있습니다.
             </>
           ) : (
             "시험 기간을 먼저 선택해 주세요."
@@ -672,65 +604,23 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={previewLegacyWorkbook}
-            disabled={!workbookFile || !selectedPeriodId || isPending}
-            className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
-          >
-            점수 미리보기
-          </button>
-          <button
-            type="button"
-            onClick={executeLegacyWorkbook}
-            disabled={!workbookPreview || isPending}
-            className="inline-flex items-center rounded-full border border-ember/30 bg-white px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate"
-          >
-            점수 DB 반영
-          </button>
+          <button type="button" onClick={previewLegacyWorkbook} disabled={!workbookFile || !selectedPeriodId || isPending} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">점수 미리보기</button>
+          <button type="button" onClick={executeLegacyWorkbook} disabled={!workbookPreview || isPending} className="inline-flex items-center rounded-full border border-ember/30 bg-white px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">점수 DB 반영</button>
         </div>
 
         {workbookPreview ? (
           <>
             <div className="mt-8 grid gap-4 md:grid-cols-6">
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">전체 행</p>
-                <p className="mt-3 text-3xl font-semibold">{workbookPreview.summary.totalRows}</p>
-              </article>
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">신규 반영</p>
-                <p className="mt-3 text-3xl font-semibold text-forest">
-                  {workbookPreview.summary.readyRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">덮어쓰기</p>
-                <p className="mt-3 text-3xl font-semibold text-ember">
-                  {workbookPreview.summary.overwriteRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">제외</p>
-                <p className="mt-3 text-3xl font-semibold text-red-700">
-                  {workbookPreview.summary.invalidRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">무단 결시</p>
-                <p className="mt-3 text-3xl font-semibold">
-                  {workbookPreview.summary.absentRows}
-                </p>
-              </article>
-              <article className="rounded-3xl bg-mist p-5">
-                <p className="text-sm text-slate">사유 결시</p>
-                <p className="mt-3 text-3xl font-semibold">
-                  {workbookPreview.summary.excusedRows}
-                </p>
-              </article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">전체 행</p><p className="mt-3 text-3xl font-semibold">{workbookPreview.summary.totalRows}</p></article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">신규 반영</p><p className="mt-3 text-3xl font-semibold text-forest">{workbookPreview.summary.readyRows}</p></article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">덮어쓰기</p><p className="mt-3 text-3xl font-semibold text-ember">{workbookPreview.summary.overwriteRows}</p></article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">제외</p><p className="mt-3 text-3xl font-semibold text-red-700">{workbookPreview.summary.invalidRows}</p></article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">무단 결시</p><p className="mt-3 text-3xl font-semibold">{workbookPreview.summary.absentRows}</p></article>
+              <article className="rounded-3xl bg-mist p-5"><p className="text-sm text-slate">사유 결시</p><p className="mt-3 text-3xl font-semibold">{workbookPreview.summary.excusedRows}</p></article>
             </div>
 
             <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-              매핑 정보의 마지막 날짜가 실제 반영 대상 시험일입니다. 예: <code>5주차 · 경찰학 · 2026-02-09</code>
+              미리보기에서 회차 매칭 결과를 반드시 확인해 주세요. 날짜와 과목이 실제 반영 대상과 일치해야 합니다.
             </div>
 
             <div className="mt-6 rounded-[24px] border border-ink/10 bg-mist px-5 py-4 text-sm leading-7 text-slate">
@@ -741,9 +631,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
             </div>
 
             <div className="mt-8 overflow-hidden rounded-[28px] border border-ink/10 bg-white">
-              <div className="border-b border-ink/10 px-6 py-4">
-                <h3 className="text-lg font-semibold">점수 미리보기 상위 120건</h3>
-              </div>
+              <div className="border-b border-ink/10 px-6 py-4"><h3 className="text-lg font-semibold">점수 미리보기 상위 120건</h3></div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-ink/10 text-sm">
                   <thead className="bg-mist text-left">
@@ -751,15 +639,15 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                       <th className="px-4 py-3 font-semibold">주차</th>
                       <th className="px-4 py-3 font-semibold">과목</th>
                       <th className="px-4 py-3 font-semibold">상태</th>
-                      <th className="px-4 py-3 font-semibold">매핑 정보</th>
-                      <th className="px-4 py-3 font-semibold">매칭 시험일</th>
+                      <th className="px-4 py-3 font-semibold">회차 매칭</th>
+                      <th className="px-4 py-3 font-semibold">회차 날짜</th>
                       <th className="px-4 py-3 font-semibold">수험번호</th>
                       <th className="px-4 py-3 font-semibold">이름</th>
-                      <th className="px-4 py-3 font-semibold">객관식</th>
-                      <th className="px-4 py-3 font-semibold">가산/OX</th>
+                      <th className="px-4 py-3 font-semibold">원점수</th>
+                      <th className="px-4 py-3 font-semibold">OX</th>
                       <th className="px-4 py-3 font-semibold">최종</th>
                       <th className="px-4 py-3 font-semibold">응시 유형</th>
-                      <th className="px-4 py-3 font-semibold">이슈</th>
+                      <th className="px-4 py-3 font-semibold">비고</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/10 bg-white">
@@ -767,18 +655,8 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                       <tr key={row.rowKey}>
                         <td className="px-4 py-3">{row.week}주차</td>
                         <td className="px-4 py-3">{SUBJECT_LABEL[row.subject]}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${scoreStatusStyle[row.status]}`}
-                          >
-                            {row.status === "ready"
-                              ? "신규"
-                              : row.status === "overwrite"
-                                ? "덮어쓰기"
-                                : "제외"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate">{row.sessionLabel ?? "매핑 실패"}</td>
+                        <td className="px-4 py-3"><span className={`rounded-full border px-3 py-1 text-xs font-semibold ${scoreStatusStyle[row.status]}`}>{row.status === "ready" ? "신규" : row.status === "overwrite" ? "덮어쓰기" : "제외"}</span></td>
+                        <td className="px-4 py-3 text-slate">{row.sessionLabel ?? "매칭 실패"}</td>
                         <td className="px-4 py-3 text-slate">{row.sessionExamDate ?? "-"}</td>
                         <td className="px-4 py-3 font-medium">{row.examNumber || "-"}</td>
                         <td className="px-4 py-3">{row.name || "-"}</td>
@@ -786,9 +664,7 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                         <td className="px-4 py-3">{row.oxScore ?? "-"}</td>
                         <td className="px-4 py-3">{row.finalScore ?? "-"}</td>
                         <td className="px-4 py-3">{ATTEND_TYPE_LABEL[row.attendType]}</td>
-                        <td className="px-4 py-3 text-slate">
-                          {row.issues.length > 0 ? row.issues.join(", ") : row.note ?? "정상"}
-                        </td>
+                        <td className="px-4 py-3 text-slate">{row.issues.length > 0 ? row.issues.join(", ") : row.note ?? "정상"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -799,16 +675,8 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
         ) : null}
       </section>
 
-      {notice ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {notice}
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
+      {notice ? <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div> : null}
+      {errorMessage ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-xl font-semibold">최근 학생 명단 마이그레이션</h2>
@@ -819,102 +687,59 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
                 <th className="px-5 py-4 font-semibold">실행 시각</th>
                 <th className="px-5 py-4 font-semibold">작업자</th>
                 <th className="px-5 py-4 font-semibold">파일명</th>
-                <th className="px-5 py-4 font-semibold">반영</th>
+                <th className="px-5 py-4 font-semibold">반영 수</th>
                 <th className="px-5 py-4 font-semibold">신규 / 업데이트</th>
                 <th className="px-5 py-4 font-semibold">동작</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10 bg-white">
+              {recentRuns.length === 0 ? (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate">최근 실행한 학생 명단 마이그레이션이 없습니다.</td></tr>
+              ) : null}
               {recentRuns.map((run) => (
                 <tr key={run.id}>
                   <td className="px-5 py-4">{new Date(run.createdAt).toLocaleString("ko-KR")}</td>
                   <td className="px-5 py-4">{run.adminName}</td>
                   <td className="px-5 py-4">{run.fileName}</td>
                   <td className="px-5 py-4">{run.importedCount}건</td>
-                  <td className="px-5 py-4">
-                    신규 {run.createdCount} / 업데이트 {run.updatedCount}
-                  </td>
+                  <td className="px-5 py-4">신규 {run.createdCount} / 업데이트 {run.updatedCount}</td>
                   <td className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       {run.rolledBackAt ? (
-                        <span className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
-                          Rolled back
-                        </span>
+                        <span className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">롤백 완료</span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
-                          Active
-                        </span>
+                        <span className="inline-flex items-center rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">반영됨</span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => rollbackRun(run.id)}
-                        disabled={isPending || Boolean(run.rolledBackAt)}
-                        className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {run.rolledBackAt ? "Rolled back" : "롤백"}
-                      </button>
+                      <button type="button" onClick={() => rollbackRun(run.id)} disabled={isPending || Boolean(run.rolledBackAt)} className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">{run.rolledBackAt ? "롤백 완료" : "롤백"}</button>
                     </div>
                     {run.rolledBackAt ? (
                       <div className="mt-2 space-y-1 text-xs text-slate">
                         <div>{new Date(run.rolledBackAt).toLocaleString("ko-KR")}</div>
-                        <div>
-                          del {run.rollbackDeletedCount} / restore {run.rollbackRestoredCount}
-                        </div>
-                        {run.rollbackSkippedDeletes.length > 0 ? (
-                          <div className="text-red-700">
-                            skipped: {run.rollbackSkippedDeletes.join(", ")}
-                          </div>
-                        ) : null}
+                        <div>삭제 {run.rollbackDeletedCount} / 복원 {run.rollbackRestoredCount}</div>
+                        {run.rollbackSkippedDeletes.length > 0 ? <div className="text-red-700">보류: {run.rollbackSkippedDeletes.join(", ")}</div> : null}
                       </div>
                     ) : null}
                   </td>
                 </tr>
               ))}
-              {recentRuns.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-slate">
-                    아직 실행한 학생 명단 마이그레이션이 없습니다.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
       </section>
+
       {completionModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-4 py-8"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="migration-complete-title"
-          onClick={closeCompletionModal}
-        >
-          <div
-            className="w-full max-w-md rounded-[28px] border border-ink/10 bg-white p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-forest">
-              Completed
-            </div>
-            <h3 id="migration-complete-title" className="mt-4 text-2xl font-semibold text-ink">
-              {completionModal.title}
-            </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="migration-complete-title" onClick={closeCompletionModal}>
+          <div className="w-full max-w-md rounded-[28px] border border-ink/10 bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-forest">Completed</div>
+            <h3 id="migration-complete-title" className="mt-4 text-2xl font-semibold text-ink">{completionModal.title}</h3>
             <p className="mt-3 text-sm leading-7 text-slate">{completionModal.description}</p>
             <div className="mt-5 rounded-3xl bg-mist p-4">
               <div className="space-y-2 text-sm text-ink">
-                {completionModal.details.map((detail) => (
-                  <p key={detail}>{detail}</p>
-                ))}
+                {completionModal.details.map((detail) => <p key={detail}>{detail}</p>)}
               </div>
             </div>
             <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={closeCompletionModal}
-                className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-              >
-                확인
-              </button>
+              <button type="button" onClick={closeCompletionModal} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest">확인</button>
             </div>
           </div>
         </div>
