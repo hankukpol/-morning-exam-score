@@ -101,6 +101,8 @@ type ExistingScoreSnapshot = {
   finalScore: number | null;
 };
 
+const SCORE_IMPORT_WRITE_CONCURRENCY = 4;
+
 const OX_LINK_UNAVAILABLE_MESSAGE =
   "선택한 회차에는 경찰학 OX를 연동할 수 없습니다. 목요일 누적 모의고사와 OX 시작 전 회차는 제외됩니다.";
 
@@ -118,6 +120,34 @@ function computeFinalScore(rawScore: number | null, oxScore: number | null, fina
 
 function roundToOneDecimal(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+async function runWithConcurrency<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  if (items.length === 0) {
+    return;
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  let nextIndex = 0;
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+
+        if (currentIndex >= items.length) {
+          return;
+        }
+
+        await worker(items[currentIndex], currentIndex);
+      }
+    }),
+  );
 }
 
 async function recalculateScoreStatusCache(
@@ -708,42 +738,44 @@ async function applyParsedImport(input: {
   const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
 
   // 성적 병렬 upsert
-  await Promise.all(
-    resolvedRows.map((row) => {
-      const matchedStudent = row.matchedStudent;
-      if (!matchedStudent) return Promise.resolve();
-      const mergedScore = mergeImportedScore(
-        existingScoreMap.get(matchedStudent.examNumber),
-        row,
-      );
-      return prisma.score.upsert({
-        where: {
-          examNumber_sessionId: {
-            examNumber: matchedStudent.examNumber,
-            sessionId: input.sessionId,
-          },
-        },
-        create: {
+  await runWithConcurrency(resolvedRows, SCORE_IMPORT_WRITE_CONCURRENCY, async (row) => {
+    const matchedStudent = row.matchedStudent;
+    if (!matchedStudent) {
+      return;
+    }
+
+    const mergedScore = mergeImportedScore(
+      existingScoreMap.get(matchedStudent.examNumber),
+      row,
+    );
+
+    await prisma.score.upsert({
+      where: {
+        examNumber_sessionId: {
           examNumber: matchedStudent.examNumber,
           sessionId: input.sessionId,
-          rawScore: mergedScore.rawScore,
-          oxScore: mergedScore.oxScore,
-          finalScore: mergedScore.finalScore,
-          attendType: row.attendType,
-          sourceType: row.sourceType,
-          note: row.note ?? null,
         },
-        update: {
-          rawScore: mergedScore.rawScore,
-          oxScore: mergedScore.oxScore,
-          finalScore: mergedScore.finalScore,
-          attendType: row.attendType,
-          sourceType: row.sourceType,
-          note: row.note ?? null,
-        },
-      });
-    }),
-  );
+      },
+      create: {
+        examNumber: matchedStudent.examNumber,
+        sessionId: input.sessionId,
+        rawScore: mergedScore.rawScore,
+        oxScore: mergedScore.oxScore,
+        finalScore: mergedScore.finalScore,
+        attendType: row.attendType,
+        sourceType: row.sourceType,
+        note: row.note ?? null,
+      },
+      update: {
+        rawScore: mergedScore.rawScore,
+        oxScore: mergedScore.oxScore,
+        finalScore: mergedScore.finalScore,
+        attendType: row.attendType,
+        sourceType: row.sourceType,
+        note: row.note ?? null,
+      },
+    });
+  });
 
   const createdCount = resolvedRows.filter(
     (row) => row.matchedStudent && !existingScoreMap.has(row.matchedStudent.examNumber),
@@ -759,14 +791,12 @@ async function applyParsedImport(input: {
       row.matchedStudent &&
       row.matchedStudent.onlineId !== row.onlineId,
   );
-  await Promise.all(
-    bindRows.map((row) =>
-      prisma.student.update({
-        where: { examNumber: row.matchedStudent!.examNumber },
-        data: { onlineId: row.onlineId },
-      }),
-    ),
-  );
+  await runWithConcurrency(bindRows, SCORE_IMPORT_WRITE_CONCURRENCY, async (row) => {
+    await prisma.student.update({
+      where: { examNumber: row.matchedStudent!.examNumber },
+      data: { onlineId: row.onlineId },
+    });
+  });
   const boundOnlineIdCount = bindRows.length;
 
   // 문항 통계 처리
@@ -795,9 +825,11 @@ async function applyParsedImport(input: {
       },
     });
 
-    await Promise.all(
-      question.answers.map((answer) =>
-        prisma.studentAnswer.upsert({
+    await runWithConcurrency(
+      question.answers,
+      SCORE_IMPORT_WRITE_CONCURRENCY,
+      async (answer) => {
+        await prisma.studentAnswer.upsert({
           where: {
             examNumber_questionId: {
               examNumber: answer.examNumber,
@@ -814,8 +846,8 @@ async function applyParsedImport(input: {
             answer: answer.answer,
             isCorrect: answer.isCorrect,
           },
-        }),
-      ),
+        });
+      },
     );
   }
 
