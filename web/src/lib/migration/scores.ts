@@ -1,6 +1,7 @@
 import {
   AttendType,
   ExamType,
+  Prisma,
   ScoreSource,
   Subject,
 } from "@prisma/client";
@@ -16,11 +17,70 @@ import { getPrisma } from "@/lib/prisma";
 import { ensurePeriodEnrollments } from "@/lib/periods/enrollments";
 import { recalculateStatusCache } from "@/lib/analytics/service";
 import { SUBJECT_LABEL } from "@/lib/constants";
+import {
+  dedupeScoreWriteRecords,
+  type ScoreWriteRecord,
+} from "@/lib/scores/import-safety";
 
 const MIGRATION_TRANSACTION_OPTIONS = {
   maxWait: 10_000,
   timeout: 600_000,
 } as const;
+const MIGRATION_WRITE_BATCH_SIZE = 250;
+
+function chunkItems<T>(items: readonly T[], chunkSize: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+async function bulkUpsertMigrationScores(
+  tx: Prisma.TransactionClient,
+  rows: readonly ScoreWriteRecord[],
+) {
+  for (const batch of chunkItems(dedupeScoreWriteRecords(rows), MIGRATION_WRITE_BATCH_SIZE)) {
+    const values = batch.map((row) => Prisma.sql`
+      (
+        ${row.examNumber},
+        ${row.sessionId},
+        ${row.rawScore},
+        ${row.oxScore},
+        ${row.finalScore},
+        CAST(${row.attendType} AS "AttendType"),
+        CAST(${row.sourceType} AS "ScoreSource"),
+        ${row.note},
+        NOW()
+      )
+    `);
+
+    await tx.$executeRaw`
+      INSERT INTO "scores" (
+        "examNumber",
+        "sessionId",
+        "rawScore",
+        "oxScore",
+        "finalScore",
+        "attendType",
+        "sourceType",
+        "note",
+        "updatedAt"
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
+        "rawScore" = EXCLUDED."rawScore",
+        "oxScore" = EXCLUDED."oxScore",
+        "finalScore" = EXCLUDED."finalScore",
+        "attendType" = EXCLUDED."attendType",
+        "sourceType" = EXCLUDED."sourceType",
+        "note" = EXCLUDED."note",
+        "updatedAt" = NOW()
+    `;
+  }
+}
 
 export type ScoreFilePreview = {
   fileName: string;
@@ -785,37 +845,26 @@ export async function executeLegacyWorkbookScores(input: {
     },
   });
   const existingScoreSet = new Set(existingScores.map((score) => `${score.sessionId}:${score.examNumber}`));
+  const scoreWrites = dedupeScoreWriteRecords(
+    validRows.map((row) => ({
+      examNumber: row.examNumber,
+      sessionId: row.sessionId!,
+      rawScore: row.rawScore,
+      oxScore: row.oxScore,
+      finalScore: row.finalScore,
+      attendType: row.attendType,
+      sourceType: ScoreSource.MIGRATION,
+      note: row.note,
+    } satisfies ScoreWriteRecord)),
+  );
+  const createdCount = scoreWrites.filter(
+    (row) => !existingScoreSet.has(`${row.sessionId}:${row.examNumber}`),
+  ).length;
+  const updatedCount = scoreWrites.length - createdCount;
 
   await prisma.$transaction(
     async (tx) => {
-      for (const row of validRows) {
-        await tx.score.upsert({
-          where: {
-            examNumber_sessionId: {
-              examNumber: row.examNumber,
-              sessionId: row.sessionId!,
-            },
-          },
-          create: {
-            examNumber: row.examNumber,
-            sessionId: row.sessionId!,
-            rawScore: row.rawScore,
-            oxScore: row.oxScore,
-            finalScore: row.finalScore,
-            attendType: row.attendType,
-            sourceType: ScoreSource.MIGRATION,
-            note: row.note,
-          },
-          update: {
-            rawScore: row.rawScore,
-            oxScore: row.oxScore,
-            finalScore: row.finalScore,
-            attendType: row.attendType,
-            sourceType: ScoreSource.MIGRATION,
-            note: row.note,
-          },
-        });
-      }
+      await bulkUpsertMigrationScores(tx, scoreWrites);
 
       await tx.auditLog.create({
         data: {
@@ -828,13 +877,9 @@ export async function executeLegacyWorkbookScores(input: {
             fileName: input.fileName,
             periodId: input.periodId,
             examType: input.examType,
-            importedCount: validRows.length,
-            createdCount: validRows.filter(
-              (row) => !existingScoreSet.has(`${row.sessionId}:${row.examNumber}`),
-            ).length,
-            updatedCount: validRows.filter((row) =>
-              existingScoreSet.has(`${row.sessionId}:${row.examNumber}`),
-            ).length,
+            importedCount: scoreWrites.length,
+            createdCount,
+            updatedCount,
             invalidCount: preview.summary.invalidRows,
             absentCount: preview.summary.absentRows,
             excusedCount: preview.summary.excusedRows,
@@ -849,19 +894,14 @@ export async function executeLegacyWorkbookScores(input: {
 
   await ensurePeriodEnrollments(
     input.periodId,
-    validRows.map((row) => row.examNumber),
+    Array.from(new Set(scoreWrites.map((row) => row.examNumber))),
   );
 
   await recalculateStatusCache(input.periodId, input.examType);
 
-  const createdCount = validRows.filter(
-    (row) => !existingScoreSet.has(`${row.sessionId}:${row.examNumber}`),
-  ).length;
-  const updatedCount = validRows.length - createdCount;
-
   return {
     preview,
-    importedCount: validRows.length,
+    importedCount: scoreWrites.length,
     createdCount,
     updatedCount,
     invalidCount: preview.summary.invalidRows,
