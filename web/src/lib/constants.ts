@@ -202,14 +202,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/results/weekly",
-    label: "주간 출결 현황",
+    label: "주간 성적 현황",
     description: "주차별 전체 및 신규생 출감 집계",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",
   },
   {
     href: "/admin/results/monthly",
-    label: "월간 출결 현황",
+    label: "월간 성적 현황",
     description: "월별 평균, 참여율, 결석 집계",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",

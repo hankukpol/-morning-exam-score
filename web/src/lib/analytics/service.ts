@@ -1726,7 +1726,7 @@ export async function getWeeklyResults(
     return {
       period: dataset.period,
       week: buildTuesdayWeekSummary(weekKey, dataset.sessions),
-      sessions: dataset.sessions,
+      sessions: dataset.sessions.filter((s) => !s.isCancelled),
       rows: [] as RankingRow[],
       sheetRows: buildWeeklyResultsSheetRowsLightweight(
         dataset,
@@ -1739,7 +1739,7 @@ export async function getWeeklyResults(
 
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
-  const sessions = dataset.sessions.filter((session) => getTuesdayWeekKey(session.examDate) === weekKey);
+  const sessions = dataset.sessions.filter((session) => getTuesdayWeekKey(session.examDate) === weekKey && !session.isCancelled);
 
   return {
     period: dataset.period,
@@ -1772,7 +1772,7 @@ export async function getMonthlyResults(
 
     return {
       period: dataset.period,
-      sessions: dataset.sessions,
+      sessions: dataset.sessions.filter((s) => !s.isCancelled),
       rows: [] as RankingRow[],
       sheetRows: buildSummaryResultsSheetRowsLightweight(dataset, view, true),
     };
@@ -1782,7 +1782,7 @@ export async function getMonthlyResults(
   const aggregates = buildAggregates(dataset);
   const sessions = dataset.sessions.filter((session) => {
     const wk = getTuesdayWeekKey(session.examDate);
-    return wk >= fromWeekKey && wk <= toWeekKey;
+    return wk >= fromWeekKey && wk <= toWeekKey && !session.isCancelled;
   });
 
   return {
