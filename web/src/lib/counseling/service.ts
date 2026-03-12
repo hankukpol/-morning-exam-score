@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { AppointmentStatus, ExamType, StudentStatus, Subject } from "@prisma/client";
+import { AppointmentStatus, ExamType, Subject } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import {
   getMonthlyStudentAnalysis,
@@ -89,33 +89,15 @@ export async function getCounselingDashboard() {
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(now.getDate() - 30);
-
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const warningStatusWhere = {
-    isActive: true,
-    currentStatus: {
-      in: [StudentStatus.WARNING_1, StudentStatus.WARNING_2, StudentStatus.DROPOUT],
-    },
+  const registeredStudentsWhere = {
+    AND: [NON_PLACEHOLDER_STUDENT_FILTER, { isActive: true }],
   } satisfies Prisma.StudentWhereInput;
 
-  const warningNoRecentWhere = {
-    AND: [
-      NON_PLACEHOLDER_STUDENT_FILTER,
-      warningStatusWhere,
-      { counselingRecords: { none: { counseledAt: { gte: thirtyDaysAgo } } } },
-    ],
-  } satisfies Prisma.StudentWhereInput;
-
-  const bulkWarningWhere = {
-    AND: [NON_PLACEHOLDER_STUDENT_FILTER, warningStatusWhere],
-  } satisfies Prisma.StudentWhereInput;
-
-  const [todayScheduled, thisWeekScheduled, thisWeekDoneCount, thisMonthCount, warningNoRecentCount, warningStudents, bulkWarningStudents] =
+  const [todayScheduled, thisWeekScheduled, thisWeekDoneCount, thisMonthCount, registeredStudentCount, bulkStudents] =
     await Promise.all([
       getPrisma().counselingAppointment.findMany({
         where: { status: AppointmentStatus.SCHEDULED, scheduledAt: { gte: todayStart, lte: todayEnd } },
@@ -146,16 +128,11 @@ export async function getCounselingDashboard() {
       getPrisma().counselingRecord.count({
         where: { counseledAt: { gte: monthStart } },
       }),
-      getPrisma().student.count({ where: warningNoRecentWhere }),
+      getPrisma().student.count({ where: registeredStudentsWhere }),
       getPrisma().student.findMany({
-        where: warningNoRecentWhere,
+        where: registeredStudentsWhere,
         select: { examNumber: true, name: true, currentStatus: true, examType: true },
-        orderBy: { examNumber: "asc" },
-      }),
-      getPrisma().student.findMany({
-        where: bulkWarningWhere,
-        select: { examNumber: true, name: true, currentStatus: true, examType: true },
-        orderBy: { examNumber: "asc" },
+        orderBy: [{ examType: "asc" }, { examNumber: "asc" }],
       }),
     ]);
 
@@ -164,9 +141,8 @@ export async function getCounselingDashboard() {
     thisWeekScheduled,
     thisWeekDoneCount,
     thisMonthCount,
-    warningNoRecentCount,
-    warningStudents,
-    bulkWarningStudents,
+    registeredStudentCount,
+    bulkStudents,
   };
 }
 
@@ -661,7 +637,7 @@ export type BulkCreateCounselingResult = {
  * 여러 학생에게 동일한 면담 내용을 한 번에 등록한다.
  *
  * 운영 시나리오:
- * - 경고·탈락 학생 5명을 선택해 같은 날 같은 내용으로 면담 기록
+ * - 등록된 학생 여러 명을 선택해 같은 날 같은 내용으로 면담 기록
  * - AppointmentManager 없이 빠르게 기록이 필요한 집단 면담 처리
  *
  * 동작 원칙:
@@ -682,16 +658,39 @@ export async function bulkCreateCounselingRecords(input: {
   ipAddress?: string | null;
 }): Promise<BulkCreateCounselingResult> {
   const { counselorName, content, recommendation, counseledAt, nextSchedule } = input.payload;
+  const normalizedExamNumbers = Array.from(
+    new Set(
+      input.payload.examNumbers
+        .map((examNumber) => examNumber.trim())
+        .filter(Boolean),
+    ),
+  );
 
   // 필수 입력값 사전 검증 (DB 호출 전)
   if (!counselorName.trim()) throw new Error("담당 강사명을 입력하세요.");
   if (!content.trim()) throw new Error("면담 내용을 입력하세요.");
   if (Number.isNaN(counseledAt.getTime())) throw new Error("면담 일자를 확인하세요.");
-  if (input.payload.examNumbers.length === 0) throw new Error("학생을 1명 이상 선택하세요.");
+  if (normalizedExamNumbers.length === 0) throw new Error("학생을 1명 이상 선택하세요.");
+
+  // Only allow bulk counseling for active students that exist in the registered roster.
+  const registeredStudents = await getPrisma().student.findMany({
+    where: {
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        {
+          isActive: true,
+          examNumber: { in: normalizedExamNumbers },
+        },
+      ],
+    },
+    select: { examNumber: true },
+  });
+  const registeredExamNumbers = new Set(registeredStudents.map((student) => student.examNumber));
+  const validExamNumbers = normalizedExamNumbers.filter((examNumber) => registeredExamNumbers.has(examNumber));
 
   // 각 학생을 병렬로 처리, 실패해도 다른 학생에게 영향 없음
   const results = await Promise.allSettled(
-    input.payload.examNumbers.map((examNumber) =>
+    validExamNumbers.map((examNumber) =>
       getPrisma().$transaction(async (tx) => {
         const record = await tx.counselingRecord.create({
           data: {
@@ -724,14 +723,19 @@ export async function bulkCreateCounselingRecords(input: {
 
   // 결과 집계: 성공/실패 분류
   let succeeded = 0;
-  const errors: { examNumber: string; message: string }[] = [];
+  const errors: { examNumber: string; message: string }[] = normalizedExamNumbers
+    .filter((examNumber) => !registeredExamNumbers.has(examNumber))
+    .map((examNumber) => ({
+      examNumber,
+      message: "등록된 활성 학생 명단에 없습니다.",
+    }));
 
   results.forEach((result, index) => {
     if (result.status === "fulfilled") {
       succeeded++;
     } else {
       errors.push({
-        examNumber: input.payload.examNumbers[index],
+        examNumber: validExamNumbers[index],
         message: result.reason instanceof Error ? result.reason.message : "등록 실패",
       });
     }

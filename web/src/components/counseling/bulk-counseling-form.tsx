@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { ExamType, StudentStatus } from "@prisma/client";
 import { createPortal } from "react-dom";
@@ -7,7 +7,7 @@ import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { EXAM_TYPE_LABEL } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/format";
 
-type WarningStudent = {
+type CounselingStudent = {
   examNumber: string;
   name: string;
   currentStatus: StudentStatus;
@@ -16,10 +16,9 @@ type WarningStudent = {
 
 type Props = {
   defaultCounselorName: string;
-  warningStudents: WarningStudent[];
+  students: CounselingStudent[];
 };
 
-type StatusFilter = "ALL" | "WARNING" | "DROPOUT";
 type ExamTypeFilter = "ALL" | ExamType;
 
 function Spinner() {
@@ -40,13 +39,8 @@ function Spinner() {
   );
 }
 
-function isWarningStatus(status: StudentStatus) {
-  return status === StudentStatus.WARNING_1 || status === StudentStatus.WARNING_2;
-}
-
-export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Props) {
+export function BulkCounselingForm({ defaultCounselorName, students }: Props) {
   const [selectedExamNumbers, setSelectedExamNumbers] = useState<Set<string>>(new Set());
-  const [manualInput, setManualInput] = useState("");
   const [counselorName, setCounselorName] = useState(defaultCounselorName);
   const [counseledAt, setCounseledAt] = useState(toDateInputValue(new Date()));
   const [nextSchedule, setNextSchedule] = useState("");
@@ -58,7 +52,6 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [examTypeFilter, setExamTypeFilter] = useState<ExamTypeFilter>("ALL");
 
   useEffect(() => {
@@ -85,21 +78,21 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
     };
   }, [isPickerOpen]);
 
-  const studentMap = new Map(warningStudents.map((student) => [student.examNumber, student]));
+  useEffect(() => {
+    setSelectedExamNumbers((prev) => {
+      const availableExamNumbers = new Set(students.map((student) => student.examNumber));
+      const next = new Set(Array.from(prev).filter((examNumber) => availableExamNumbers.has(examNumber)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [students]);
+
+  const studentMap = new Map(students.map((student) => [student.examNumber, student]));
   const trimmedKeyword = searchKeyword.trim().toLowerCase();
 
-  let warningCount = 0;
-  let dropoutCount = 0;
   let gongchaeCount = 0;
   let gyeongchaeCount = 0;
 
-  for (const student of warningStudents) {
-    if (isWarningStatus(student.currentStatus)) {
-      warningCount += 1;
-    }
-    if (student.currentStatus === StudentStatus.DROPOUT) {
-      dropoutCount += 1;
-    }
+  for (const student of students) {
     if (student.examType === ExamType.GONGCHAE) {
       gongchaeCount += 1;
     }
@@ -108,20 +101,15 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
     }
   }
 
-  const filteredStudents = warningStudents.filter((student) => {
+  const filteredStudents = students.filter((student) => {
     const matchesKeyword =
       trimmedKeyword.length === 0 ||
       student.name.toLowerCase().includes(trimmedKeyword) ||
       student.examNumber.toLowerCase().includes(trimmedKeyword);
 
-    const matchesStatus =
-      statusFilter === "ALL" ||
-      (statusFilter === "WARNING" && isWarningStatus(student.currentStatus)) ||
-      (statusFilter === "DROPOUT" && student.currentStatus === StudentStatus.DROPOUT);
-
     const matchesExamType = examTypeFilter === "ALL" || student.examType === examTypeFilter;
 
-    return matchesKeyword && matchesStatus && matchesExamType;
+    return matchesKeyword && matchesExamType;
   });
 
   let filteredSelectedCount = 0;
@@ -135,17 +123,16 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
     filteredStudents.length > 0 && filteredSelectedCount === filteredStudents.length;
   const someFilteredSelected = filteredSelectedCount > 0;
 
-  const selectedStudents = Array.from(selectedExamNumbers).map((examNumber) => ({
-    examNumber,
-    student: studentMap.get(examNumber),
-  }));
+  const selectedStudents = Array.from(selectedExamNumbers)
+    .map((examNumber) => studentMap.get(examNumber))
+    .filter((student): student is CounselingStudent => Boolean(student));
 
   const selectedSummary =
     selectedStudents.length === 0
       ? "학생 선택 버튼을 눌러 대상 학생을 고르세요."
       : `${selectedStudents
           .slice(0, 3)
-          .map(({ examNumber, student }) => (student ? `${student.name}(${examNumber})` : examNumber))
+          .map((student) => `${student.name}(${student.examNumber})`)
           .join(", ")}${selectedStudents.length > 3 ? ` 외 ${selectedStudents.length - 3}명` : ""}`;
 
   function toggleStudent(examNumber: string) {
@@ -178,25 +165,6 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
 
   function clearSelection() {
     setSelectedExamNumbers(new Set());
-    setManualInput("");
-  }
-
-  function addManualStudents() {
-    const numbers = manualInput
-      .split(/[\s,;]+/)
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    if (numbers.length === 0) {
-      return;
-    }
-
-    setSelectedExamNumbers((prev) => {
-      const next = new Set(prev);
-      numbers.forEach((number) => next.add(number));
-      return next;
-    });
-    setManualInput("");
   }
 
   function removeSelected(examNumber: string) {
@@ -258,7 +226,6 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
           setContent("");
           setRecommendation("");
           setNextSchedule("");
-          setManualInput("");
           return;
         }
 
@@ -314,17 +281,17 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
         {selectedStudents.length > 0 ? (
           <div className="mt-4 max-h-32 overflow-y-auto">
             <div className="flex flex-wrap gap-2">
-              {selectedStudents.map(({ examNumber, student }) => (
+              {selectedStudents.map((student) => (
                 <span
-                  key={examNumber}
+                  key={student.examNumber}
                   className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-white px-3 py-1.5 text-xs font-semibold text-forest"
                 >
-                  <span>{student ? `${student.name} · ${examNumber}` : `${examNumber} · 직접 추가`}</span>
+                  <span>{`${student.name} · ${student.examNumber}`}</span>
                   <button
                     type="button"
-                    onClick={() => removeSelected(examNumber)}
+                    onClick={() => removeSelected(student.examNumber)}
                     className="rounded-full text-forest/60 transition hover:text-red-600"
-                    aria-label={`${examNumber} 선택 해제`}
+                    aria-label={`${student.examNumber} 선택 해제`}
                   >
                     ×
                   </button>
@@ -334,7 +301,7 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
           </div>
         ) : (
           <p className="mt-4 text-sm text-slate">
-            학생 선택 패널에서 이름이나 학번으로 검색한 뒤 체크박스로 대상을 고를 수 있습니다.
+            등록된 학생 명단에서 이름이나 학번으로 검색한 뒤 체크박스로 대상을 고를 수 있습니다.
           </p>
         )}
       </div>
@@ -362,9 +329,9 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">학생 선택</p>
-                      <h3 className="mt-2 text-xl font-semibold text-ink">검색과 필터로 대상 고르기</h3>
+                      <h3 className="mt-2 text-xl font-semibold text-ink">등록 학생 명단에서 대상 고르기</h3>
                       <p className="mt-1 text-sm text-slate">
-                        이름이나 학번으로 찾고, 상태와 과정으로 좁힌 뒤 체크박스로 선택하세요.
+                        이름이나 학번으로 찾고, 과정 필터로 좁힌 뒤 체크박스로 선택하세요.
                       </p>
                     </div>
                     <button
@@ -389,53 +356,27 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
                       />
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-semibold text-slate">상태 필터</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {[
-                            { key: "ALL", label: `전체 ${warningStudents.length}명` },
-                            { key: "WARNING", label: `경고 ${warningCount}명` },
-                            { key: "DROPOUT", label: `탈락 ${dropoutCount}명` },
-                          ].map((option) => (
-                            <button
-                              key={option.key}
-                              type="button"
-                              onClick={() => setStatusFilter(option.key as StatusFilter)}
-                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                                statusFilter === option.key
-                                  ? "bg-ink text-white"
-                                  : "border border-ink/10 bg-white text-slate hover:border-ink/20 hover:text-ink"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold text-slate">과정 필터</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {[
-                            { key: "ALL", label: `전체 과정 ${warningStudents.length}명` },
-                            { key: ExamType.GONGCHAE, label: `공채 ${gongchaeCount}명` },
-                            { key: ExamType.GYEONGCHAE, label: `경채 ${gyeongchaeCount}명` },
-                          ].map((option) => (
-                            <button
-                              key={option.key}
-                              type="button"
-                              onClick={() => setExamTypeFilter(option.key as ExamTypeFilter)}
-                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                                examTypeFilter === option.key
-                                  ? "bg-ink text-white"
-                                  : "border border-ink/10 bg-white text-slate hover:border-ink/20 hover:text-ink"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate">과정 필터</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {[
+                          { key: "ALL", label: `전체 과정 ${students.length}명` },
+                          { key: ExamType.GONGCHAE, label: `공채 ${gongchaeCount}명` },
+                          { key: ExamType.GYEONGCHAE, label: `경채 ${gyeongchaeCount}명` },
+                        ].map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => setExamTypeFilter(option.key as ExamTypeFilter)}
+                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                              examTypeFilter === option.key
+                                ? "bg-ink text-white"
+                                : "border border-ink/10 bg-white text-slate hover:border-ink/20 hover:text-ink"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -443,9 +384,9 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 px-6 py-4">
                   <div>
-                    <p className="text-sm font-semibold text-ink">현재 조건에 맞는 학생 {filteredStudents.length}명</p>
+                    <p className="text-sm font-semibold text-ink">현재 조건에 맞는 등록 학생 {filteredStudents.length}명</p>
                     <p className="mt-1 text-xs text-slate">
-                      선택된 학생 {filteredSelectedCount}명 · 원하는 학생만 골라 일괄 기록 대상으로 추가하세요.
+                      선택된 학생 {filteredSelectedCount}명 · 명단에서 필요한 학생만 골라 일괄 기록 대상으로 추가하세요.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -453,7 +394,7 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
                       type="button"
                       onClick={selectFilteredStudents}
                       disabled={filteredStudents.length === 0 || allFilteredSelected}
-                      className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-full border border-forest/20 bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest transition hover:bg-forest/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       현재 결과 전체 선택
                     </button>
@@ -501,11 +442,13 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
                                   <span className="rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-xs font-semibold text-slate">
                                     {EXAM_TYPE_LABEL[student.examType]}
                                   </span>
-                                  <span
-                                    className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[student.currentStatus]}`}
-                                  >
-                                    {STATUS_LABEL[student.currentStatus]}
-                                  </span>
+                                  {student.currentStatus !== StudentStatus.NORMAL ? (
+                                    <span
+                                      className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE_CLASS[student.currentStatus]}`}
+                                    >
+                                      {STATUS_LABEL[student.currentStatus]}
+                                    </span>
+                                  ) : null}
                                 </div>
                                 <p className="mt-2 text-xs text-slate">
                                   {isSelected
@@ -519,35 +462,6 @@ export function BulkCounselingForm({ defaultCounselorName, warningStudents }: Pr
                       })}
                     </div>
                   )}
-
-                  <div className="mt-4 rounded-[20px] border border-dashed border-ink/10 bg-mist/60 p-4">
-                    <p className="text-sm font-semibold text-ink">학번 직접 추가</p>
-                    <p className="mt-1 text-xs text-slate">
-                      목록에 없는 학생은 학번으로 바로 추가할 수 있습니다. 공백, 쉼표, 세미콜론으로 여러 개를 입력할 수 있습니다.
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        type="text"
-                        value={manualInput}
-                        onChange={(event) => setManualInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            addManualStudents();
-                          }
-                        }}
-                        placeholder="예: 22569 22583, 25316"
-                        className="flex-1 rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={addManualStudents}
-                        className="rounded-full border border-ink/10 bg-white px-4 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-                      >
-                        추가
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="border-t border-ink/10 px-6 py-4">

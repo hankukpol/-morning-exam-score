@@ -7,7 +7,6 @@ import {
 import { AppointmentManager } from "@/components/counseling/appointment-manager";
 import { BulkCounselingForm } from "@/components/counseling/bulk-counseling-form";
 import { CounselingPanel } from "@/components/counseling/counseling-panel";
-import { WarningStudentsDrawer } from "@/components/counseling/warning-students-drawer";
 import {
   buildHref,
   getAnalyticsContext,
@@ -75,10 +74,14 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
             <p className="mt-2 text-xs text-slate">이번 주에 기록된 상담 건수</p>
           </article>
 
-          <WarningStudentsDrawer
-            warningNoRecentCount={dashboard.warningNoRecentCount}
-            warningStudents={dashboard.warningStudents}
-          />
+          <article className="rounded-[28px] border border-forest/20 bg-forest/10 p-6">
+            <p className="text-sm text-slate">등록 학생</p>
+            <p className="mt-3 text-3xl font-semibold text-forest">
+              {dashboard.registeredStudentCount}
+              <span className="ml-1 text-base font-normal text-slate">명</span>
+            </p>
+            <p className="mt-2 text-xs text-slate">면담 기록을 등록할 수 있는 활성 학생 명단</p>
+          </article>
 
           <article className="rounded-[28px] border border-ink/10 bg-white p-6">
             <p className="text-sm text-slate">이번 달 면담 완료</p>
@@ -190,7 +193,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         </div>
         <BulkCounselingForm
           defaultCounselorName={context.adminUser.name}
-          warningStudents={dashboard.bulkWarningStudents.map((s) => ({
+          students={dashboard.bulkStudents.map((s) => ({
             examNumber: s.examNumber,
             name: s.name,
             currentStatus: s.currentStatus,
