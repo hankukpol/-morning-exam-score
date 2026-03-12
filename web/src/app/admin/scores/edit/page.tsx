@@ -8,8 +8,10 @@ import { listPeriods } from "@/lib/periods/service";
 export const dynamic = "force-dynamic";
 
 export default async function AdminScoreEditPage() {
-  await requireAdminContext(AdminRole.TEACHER);
-  const periods = await listPeriods();
+  const [, periods] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
+    listPeriods(),
+  ]);
 
   return (
     <div className="p-8 sm:p-10">

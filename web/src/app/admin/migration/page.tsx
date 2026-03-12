@@ -7,9 +7,8 @@ import { getPrisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminMigrationPage() {
-  await requireAdminContext(AdminRole.SUPER_ADMIN);
-
-  const [recentRuns, rollbackRuns, periods] = await Promise.all([
+  const [, recentRuns, rollbackRuns, periods] = await Promise.all([
+    requireAdminContext(AdminRole.SUPER_ADMIN),
     getPrisma().auditLog.findMany({
       where: {
         action: "MIGRATION_STUDENTS_EXECUTE",

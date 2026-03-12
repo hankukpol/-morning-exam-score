@@ -1,4 +1,4 @@
-import {
+﻿import {
   AbsenceCategory,
   AbsenceStatus,
   AdminRole,
@@ -16,6 +16,7 @@ type RequestBody = {
   sessionId?: number;
   reason?: string;
   absenceCategory?: AbsenceCategory;
+  attendCountsAsAttendance?: boolean;
   attendGrantsPerfectAttendance?: boolean;
   adminNote?: string | null;
 };
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
         sessionId: Number(body.sessionId ?? 0),
         reason: String(body.reason ?? ""),
         absenceCategory: body.absenceCategory ?? AbsenceCategory.OTHER,
+        attendCountsAsAttendance: Boolean(body.attendCountsAsAttendance),
         attendGrantsPerfectAttendance: Boolean(body.attendGrantsPerfectAttendance),
         adminNote: body.adminNote ?? null,
       },

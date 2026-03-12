@@ -26,7 +26,10 @@ const MIGRATION_TRANSACTION_OPTIONS = {
   maxWait: 10_000,
   timeout: 600_000,
 } as const;
-const MIGRATION_WRITE_BATCH_SIZE = 250;
+const MIGRATION_WRITE_BATCH_SIZE = 10;
+const MIGRATION_STATEMENT_TIMEOUT_MS = 300_000;
+const MIGRATION_TIMEOUT_RETRY_COUNT = 3;
+const MIGRATION_TIMEOUT_RETRY_DELAY_MS = 1_500;
 
 function chunkItems<T>(items: readonly T[], chunkSize: number) {
   const chunks: T[][] = [];
@@ -38,47 +41,122 @@ function chunkItems<T>(items: readonly T[], chunkSize: number) {
   return chunks;
 }
 
+function isStatementTimeoutError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("57014") || message.includes("statement timeout");
+}
+
+function hasSameScoreWrite(
+  existing:
+    | Pick<
+        ScoreWriteRecord,
+        "rawScore" | "oxScore" | "finalScore" | "attendType" | "sourceType" | "note"
+      >
+    | null
+    | undefined,
+  incoming: Pick<
+    ScoreWriteRecord,
+    "rawScore" | "oxScore" | "finalScore" | "attendType" | "sourceType" | "note"
+  >,
+) {
+  return Boolean(
+    existing &&
+      existing.rawScore === incoming.rawScore &&
+      existing.oxScore === incoming.oxScore &&
+      existing.finalScore === incoming.finalScore &&
+      existing.attendType === incoming.attendType &&
+      existing.sourceType === incoming.sourceType &&
+      existing.note === incoming.note,
+  );
+}
+
+function sortScoreWriteRecords(rows: readonly ScoreWriteRecord[]) {
+  return [...rows].sort(
+    (left, right) =>
+      left.sessionId - right.sessionId || left.examNumber.localeCompare(right.examNumber),
+  );
+}
+
+async function executeMigrationScoreWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly ScoreWriteRecord[],
+) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SET LOCAL statement_timeout = '${MIGRATION_STATEMENT_TIMEOUT_MS}'`,
+      );
+
+      const values = batch.map((row) => Prisma.sql`
+        (
+          ${row.examNumber},
+          ${row.sessionId},
+          ${row.rawScore},
+          ${row.oxScore},
+          ${row.finalScore},
+          CAST(${row.attendType} AS "AttendType"),
+          CAST(${row.sourceType} AS "ScoreSource"),
+          ${row.note},
+          NOW()
+        )
+      `);
+
+      await tx.$executeRaw`
+        INSERT INTO "scores" (
+          "examNumber",
+          "sessionId",
+          "rawScore",
+          "oxScore",
+          "finalScore",
+          "attendType",
+          "sourceType",
+          "note",
+          "updatedAt"
+        )
+        VALUES ${Prisma.join(values)}
+        ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
+          "rawScore" = EXCLUDED."rawScore",
+          "oxScore" = EXCLUDED."oxScore",
+          "finalScore" = EXCLUDED."finalScore",
+          "attendType" = EXCLUDED."attendType",
+          "sourceType" = EXCLUDED."sourceType",
+          "note" = EXCLUDED."note",
+          "updatedAt" = NOW()
+      `;
+    },
+    MIGRATION_TRANSACTION_OPTIONS,
+  );
+}
+
+async function upsertMigrationScoreWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly ScoreWriteRecord[],
+): Promise<void> {
+  try {
+    await executeMigrationScoreWriteBatch(prisma, batch);
+  } catch (error) {
+    if (!isStatementTimeoutError(error) || batch.length <= 1) {
+      throw error;
+    }
+
+    const middleIndex = Math.ceil(batch.length / 2);
+    await upsertMigrationScoreWriteBatch(prisma, batch.slice(0, middleIndex));
+    await upsertMigrationScoreWriteBatch(prisma, batch.slice(middleIndex));
+  }
+}
+
 async function bulkUpsertMigrationScores(
-  tx: Prisma.TransactionClient,
+  prisma: ReturnType<typeof getPrisma>,
   rows: readonly ScoreWriteRecord[],
 ) {
-  for (const batch of chunkItems(dedupeScoreWriteRecords(rows), MIGRATION_WRITE_BATCH_SIZE)) {
-    const values = batch.map((row) => Prisma.sql`
-      (
-        ${row.examNumber},
-        ${row.sessionId},
-        ${row.rawScore},
-        ${row.oxScore},
-        ${row.finalScore},
-        CAST(${row.attendType} AS "AttendType"),
-        CAST(${row.sourceType} AS "ScoreSource"),
-        ${row.note},
-        NOW()
-      )
-    `);
+  const dedupedRows = sortScoreWriteRecords(dedupeScoreWriteRecords(rows));
 
-    await tx.$executeRaw`
-      INSERT INTO "scores" (
-        "examNumber",
-        "sessionId",
-        "rawScore",
-        "oxScore",
-        "finalScore",
-        "attendType",
-        "sourceType",
-        "note",
-        "updatedAt"
-      )
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
-        "rawScore" = EXCLUDED."rawScore",
-        "oxScore" = EXCLUDED."oxScore",
-        "finalScore" = EXCLUDED."finalScore",
-        "attendType" = EXCLUDED."attendType",
-        "sourceType" = EXCLUDED."sourceType",
-        "note" = EXCLUDED."note",
-        "updatedAt" = NOW()
-    `;
+  for (const batch of chunkItems(dedupedRows, MIGRATION_WRITE_BATCH_SIZE)) {
+    await upsertMigrationScoreWriteBatch(prisma, batch);
   }
 }
 
@@ -842,62 +920,79 @@ export async function executeLegacyWorkbookScores(input: {
     select: {
       sessionId: true,
       examNumber: true,
+      rawScore: true,
+      oxScore: true,
+      finalScore: true,
+      attendType: true,
+      sourceType: true,
+      note: true,
     },
   });
-  const existingScoreSet = new Set(existingScores.map((score) => `${score.sessionId}:${score.examNumber}`));
+  const existingScoreMap = new Map(
+    existingScores.map((score) => [`${score.sessionId}:${score.examNumber}`, score]),
+  );
   const scoreWrites = dedupeScoreWriteRecords(
-    validRows.map((row) => ({
-      examNumber: row.examNumber,
-      sessionId: row.sessionId!,
-      rawScore: row.rawScore,
-      oxScore: row.oxScore,
-      finalScore: row.finalScore,
-      attendType: row.attendType,
-      sourceType: ScoreSource.MIGRATION,
-      note: row.note,
-    } satisfies ScoreWriteRecord)),
+    validRows.flatMap((row) => {
+      const nextWrite = {
+        examNumber: row.examNumber,
+        sessionId: row.sessionId!,
+        rawScore: row.rawScore,
+        oxScore: row.oxScore,
+        finalScore: row.finalScore,
+        attendType: row.attendType,
+        sourceType: ScoreSource.MIGRATION,
+        note: row.note,
+      } satisfies ScoreWriteRecord;
+      const existingScore = existingScoreMap.get(`${row.sessionId!}:${row.examNumber}`);
+
+      if (hasSameScoreWrite(existingScore, nextWrite)) {
+        return [];
+      }
+
+      return [nextWrite];
+    }),
   );
   const createdCount = scoreWrites.filter(
-    (row) => !existingScoreSet.has(`${row.sessionId}:${row.examNumber}`),
+    (row) => !existingScoreMap.has(`${row.sessionId}:${row.examNumber}`),
   ).length;
   const updatedCount = scoreWrites.length - createdCount;
+  const affectedExamNumbers = Array.from(new Set(scoreWrites.map((row) => row.examNumber)));
 
-  await prisma.$transaction(
-    async (tx) => {
-      await bulkUpsertMigrationScores(tx, scoreWrites);
+  await bulkUpsertMigrationScores(prisma, scoreWrites);
 
-      await tx.auditLog.create({
-        data: {
-          adminId: input.adminId,
-          action: "MIGRATION_LEGACY_WORKBOOK_SCORES_EXECUTE",
-          targetType: "LegacyWorkbookScoreMigration",
-          targetId: `${input.periodId}:${input.examType}:${input.fileName}`,
-          before: toAuditJson(null),
-          after: toAuditJson({
-            fileName: input.fileName,
-            periodId: input.periodId,
-            examType: input.examType,
-            importedCount: scoreWrites.length,
-            createdCount,
-            updatedCount,
-            invalidCount: preview.summary.invalidRows,
-            absentCount: preview.summary.absentRows,
-            excusedCount: preview.summary.excusedRows,
-            affectedSessions: preview.summary.affectedSessions,
-          }),
-          ipAddress: input.ipAddress ?? null,
-        },
-      });
+  await prisma.auditLog.create({
+    data: {
+      adminId: input.adminId,
+      action: "MIGRATION_LEGACY_WORKBOOK_SCORES_EXECUTE",
+      targetType: "LegacyWorkbookScoreMigration",
+      targetId: `${input.periodId}:${input.examType}:${input.fileName}`,
+      before: toAuditJson(null),
+      after: toAuditJson({
+        fileName: input.fileName,
+        periodId: input.periodId,
+        examType: input.examType,
+        importedCount: scoreWrites.length,
+        createdCount,
+        updatedCount,
+        invalidCount: preview.summary.invalidRows,
+        absentCount: preview.summary.absentRows,
+        excusedCount: preview.summary.excusedRows,
+        affectedSessions: preview.summary.affectedSessions,
+      }),
+      ipAddress: input.ipAddress ?? null,
     },
-    MIGRATION_TRANSACTION_OPTIONS,
-  );
+  });
 
-  await ensurePeriodEnrollments(
-    input.periodId,
-    Array.from(new Set(scoreWrites.map((row) => row.examNumber))),
-  );
+  if (affectedExamNumbers.length > 0) {
+    await ensurePeriodEnrollments(
+      input.periodId,
+      affectedExamNumbers,
+    );
 
-  await recalculateStatusCache(input.periodId, input.examType);
+    await recalculateStatusCache(input.periodId, input.examType, {
+      examNumbers: affectedExamNumbers,
+    });
+  }
 
   return {
     preview,

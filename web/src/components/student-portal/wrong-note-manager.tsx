@@ -1,6 +1,8 @@
 "use client";
 
 import { Subject } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { useMemo, useState, useTransition } from "react";
@@ -36,6 +38,7 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
     Object.fromEntries(initialNotes.map((note) => [note.id, note.memo ?? ""])),
   );
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
@@ -113,48 +116,70 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
   }
 
   function deleteNote(noteId: number) {
-    setMessage(null, null);
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "?? ?? ??",
+      description: "??? ?? ??? ?????????",
+      details: ["??? ??? ?? ??? ? ????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
 
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/student/wrong-notes/${noteId}`, {
-          method: "DELETE",
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/student/wrong-notes/${noteId}`, {
+              method: "DELETE",
+            });
+
+            setNotes((current) => current.filter((note) => note.id !== noteId));
+            setNotice("?? ??? ??????.");
+            setErrorMessage(null);
+          } catch (error) {
+            setNotice(null);
+            setErrorMessage(
+              error instanceof Error ? error.message : "?? ?? ??? ??????.",
+            );
+          }
         });
-
-        setNotes((current) => current.filter((note) => note.id !== noteId));
-        setNotice("오답 노트를 삭제했습니다.");
-        setErrorMessage(null);
-      } catch (error) {
-        setNotice(null);
-        setErrorMessage(
-          error instanceof Error ? error.message : "오답 노트 삭제에 실패했습니다.",
-        );
-      }
+      },
     });
   }
 
   function clearAll() {
-    if (!window.confirm("저장된 오답 노트를 모두 삭제할까요?")) {
-      return;
-    }
+    confirmModal.openModal({
+      badgeLabel: "?? ?? ??",
+      badgeTone: "warning",
+      title: "?? ?? ?? ??",
+      description: "??? ?? ??? ?? ?????????",
+      details: ["?? ?? ??? ??? ???? ??? ? ????."],
+      cancelLabel: "??",
+      confirmLabel: "?? ??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
 
-    setMessage(null, null);
+        startTransition(async () => {
+          try {
+            await requestJson("/api/student/wrong-notes", {
+              method: "DELETE",
+            });
 
-    startTransition(async () => {
-      try {
-        await requestJson("/api/student/wrong-notes", {
-          method: "DELETE",
+            setNotes([]);
+            setNotice("?? ??? ?? ??????.");
+            setErrorMessage(null);
+          } catch (error) {
+            setNotice(null);
+            setErrorMessage(
+              error instanceof Error ? error.message : "?? ?? ?? ??? ??????.",
+            );
+          }
         });
-
-        setNotes([]);
-        setNotice("오답 노트를 모두 삭제했습니다.");
-        setErrorMessage(null);
-      } catch (error) {
-        setNotice(null);
-        setErrorMessage(
-          error instanceof Error ? error.message : "오답 노트 전체 삭제에 실패했습니다.",
-        );
-      }
+      },
     });
   }
 
@@ -305,6 +330,20 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
           ))}
         </div>
       </section>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

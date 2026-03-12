@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 
 function Spinner() {
   return (
@@ -39,6 +41,7 @@ type AppointmentManagerProps = {
   defaultCounselorName: string;
   defaultExamNumber?: string;
   defaultStudentName?: string;
+  defaultOpenCreateForm?: boolean;
 };
 
 type Tab = "SCHEDULED" | "COMPLETED" | "CANCELLED";
@@ -83,10 +86,11 @@ export function AppointmentManager({
   defaultCounselorName,
   defaultExamNumber = "",
   defaultStudentName = "",
+  defaultOpenCreateForm = false,
 }: AppointmentManagerProps) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [tab, setTab] = useState<Tab>("SCHEDULED");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(defaultOpenCreateForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -94,6 +98,7 @@ export function AppointmentManager({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [completedExamNumber, setCompletedExamNumber] = useState<string | null>(null);
+  const confirmModal = useActionModalState();
 
   // 새 예약 폼 — 학생 검색
   const [studentSearch, setStudentSearch] = useState("");
@@ -299,15 +304,27 @@ export function AppointmentManager({
   }
 
   function deleteAppointment(id: number) {
-    if (!confirm("이 예약을 삭제하시겠습니까?")) return;
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/counseling/appointments/${id}`, { method: "DELETE" });
-        setAppointments((prev) => prev.filter((a) => a.id !== id));
-        setMessage("예약이 삭제되었습니다.", null);
-      } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "삭제에 실패했습니다.");
-      }
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "?? ??",
+      description: "? ??? ?????????",
+      details: ["?? ?? ??? ??? ??? ? ????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/counseling/appointments/${id}`, { method: "DELETE" });
+            setAppointments((prev) => prev.filter((a) => a.id !== id));
+            setMessage("??? ???????.", null);
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : "??? ??????.");
+          }
+        });
+      },
     });
   }
 
@@ -377,9 +394,32 @@ export function AppointmentManager({
           className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
         >
           <span className="text-base leading-none">{showCreateForm ? "×" : "+"}</span>
-          {showCreateForm ? "닫기" : "새 예약 잡기"}
+          {showCreateForm ? "닫기" : selectedStudent ? "선택 학생 예약" : "새 예약 잡기"}
         </button>
       </div>
+
+      {selectedStudent && !showCreateForm ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-sky-200 bg-sky-50/60 px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+              선택 학생
+            </p>
+            <p className="mt-1 text-sm font-semibold text-ink">
+              {selectedStudent.examNumber} · {selectedStudent.name}
+            </p>
+            <p className="mt-1 text-xs text-slate">
+              예약을 잡으려면 우측 버튼으로 폼을 열고, 예약 없이 진행하려면 아래 면담 패널을 사용하세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="inline-flex items-center rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100"
+          >
+            예약 폼 열기
+          </button>
+        </div>
+      ) : null}
 
       {/* 새 예약 폼 */}
       {showCreateForm && (
@@ -685,6 +725,20 @@ export function AppointmentManager({
           ))}
         </div>
       )}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

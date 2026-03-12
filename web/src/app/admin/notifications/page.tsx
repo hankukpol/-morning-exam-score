@@ -17,13 +17,13 @@ function readParam(searchParams: PageProps["searchParams"], key: string) {
 }
 
 export default async function AdminNotificationsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
   const examType =
     readParam(searchParams, "examType") === ExamType.GYEONGCHAE
       ? ExamType.GYEONGCHAE
       : ExamType.GONGCHAE;
   const search = readParam(searchParams, "search") ?? "";
-  const [data, periods] = await Promise.all([
+  const [, data, periods] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
     listNotificationCenterData({ examType, search }),
     listPeriods(),
   ]);

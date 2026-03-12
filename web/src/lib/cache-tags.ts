@@ -7,14 +7,31 @@ export const CACHE_TAGS = {
   periodWithSessions: "period-with-sessions",
 } as const;
 
+function safeRevalidateTag(tag: string) {
+  try {
+    revalidateTag(tag);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+
+    if (
+      message.includes("static generation store missing") ||
+      message.includes("incrementalCache missing")
+    ) {
+      return;
+    }
+
+    throw error;
+  }
+}
+
 export function revalidateAnalyticsCaches() {
-  revalidateTag(CACHE_TAGS.analyticsDataset);
-  revalidateTag(CACHE_TAGS.analyticsResultsSheet);
+  safeRevalidateTag(CACHE_TAGS.analyticsDataset);
+  safeRevalidateTag(CACHE_TAGS.analyticsResultsSheet);
 }
 
 export function revalidatePeriodCaches() {
-  revalidateTag(CACHE_TAGS.periodsBasic);
-  revalidateTag(CACHE_TAGS.periodWithSessions);
+  safeRevalidateTag(CACHE_TAGS.periodsBasic);
+  safeRevalidateTag(CACHE_TAGS.periodWithSessions);
 }
 
 export function revalidateAdminReadCaches(options?: {

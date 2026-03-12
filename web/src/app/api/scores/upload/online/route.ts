@@ -7,6 +7,9 @@ import {
   type ScoreResolutionInput,
 } from "@/lib/scores/service";
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 type Mode = "preview" | "execute";
 
 function parseResolutions(raw: FormDataEntryValue | null) {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   AbsenceStatus,
   AttendType,
   DropoutReason,
@@ -35,6 +35,7 @@ import {
 } from "@/lib/analytics/week";
 import {
   countsAsAttendance,
+  countsAsConfiguredAttendance,
   getCombinedScore,
   getMockScore,
   getPoliceOxScore,
@@ -55,6 +56,8 @@ type StudentEntry = {
   displayScore: number | null;
   normalizedScore: number | null;
   isOccurred: boolean;
+  isPendingInput: boolean;
+  countsAsAttendance: boolean;
   grantsPerfectAttendance: boolean;
 };
 
@@ -114,6 +117,7 @@ export type WeeklyResultsSheetCell = {
   attendType: AttendType | null;
   mockScore: number | null;
   policeOxScore: number | null;
+  isPendingInput: boolean;
 };
 
 export type WeeklyResultsSheetRow = {
@@ -123,6 +127,7 @@ export type WeeklyResultsSheetRow = {
   isActive: boolean;
   weekStatus: StudentStatus;
   attendanceRate: number;
+  perfectAttendance: boolean;
   mockAverage: number;
   mockRank: number | null;
   policeOxAverage: number | null;
@@ -246,6 +251,7 @@ export type AttendanceCalendarDay = {
   absentCount: number;
   warningCount: number;
   dropoutCount: number;
+  isPendingInput: boolean;
 };
 
 type ResultsLoadOptions = {
@@ -292,6 +298,55 @@ function getOccurredSessions(sessions: DatasetSession[]) {
   return sessions.filter((session) => !session.isCancelled && session.examDate <= today);
 }
 
+function buildSessionScoreCountMap(scores: Array<{ sessionId: number }>) {
+  const counts = new Map<number, number>();
+
+  for (const score of scores) {
+    counts.set(score.sessionId, (counts.get(score.sessionId) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function buildPendingInputSessionIds(
+  sessions: DatasetSession[],
+  sessionScoreCounts: Map<number, number>,
+  today = endOfToday(),
+) {
+  return new Set(
+    sessions
+      .filter(
+        (session) =>
+          !session.isCancelled &&
+          session.examDate <= today &&
+          (sessionScoreCounts.get(session.id) ?? 0) === 0,
+      )
+      .map((session) => session.id),
+  );
+}
+
+function getCountedOccurredSessions(
+  sessions: DatasetSession[],
+  pendingInputSessionIds: Set<number>,
+) {
+  return getOccurredSessions(sessions).filter(
+    (session) => !pendingInputSessionIds.has(session.id),
+  );
+}
+
+function buildPendingInputSessionIdsFromAggregates(aggregates: StudentAggregate[]) {
+  const pendingInputSessionIds = new Set<number>();
+
+  for (const aggregate of aggregates) {
+    for (const entry of aggregate.entries) {
+      if (entry.isPendingInput) {
+        pendingInputSessionIds.add(entry.session.id);
+      }
+    }
+  }
+
+  return pendingInputSessionIds;
+}
 
 function assignRank(rows: Array<{ examNumber: string; average: number | null }>) {
   const ranked = rows
@@ -334,9 +389,16 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
   const scoreMap = new Map<string, DatasetScore>();
   const absenceMap = new Map<string, DatasetAbsence>();
   const today = endOfToday();
-  const occurredSessions = getOccurredSessions(dataset.sessions);
-  const countedOccurredSessions = getMockRankingSessions(occurredSessions);
-  const latestOccurredSession = countedOccurredSessions.at(-1) ?? occurredSessions.at(-1) ?? null;
+  const sessionScoreCounts = buildSessionScoreCountMap(dataset.scores);
+  const pendingInputSessionIds = buildPendingInputSessionIds(
+    dataset.sessions,
+    sessionScoreCounts,
+    today,
+  );
+  const countedOccurredSessions = getMockRankingSessions(
+    getCountedOccurredSessions(dataset.sessions, pendingInputSessionIds),
+  );
+  const latestOccurredSession = countedOccurredSessions.at(-1) ?? null;
   const currentWeekKey = latestOccurredSession
     ? getTuesdayWeekKey(latestOccurredSession.examDate)
     : null;
@@ -365,7 +427,8 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
       const absence = absenceMap.get(key) ?? null;
       const approvedAbsence = absence?.status === AbsenceStatus.APPROVED;
       const isOccurred = !session.isCancelled && session.examDate <= today;
-      const inferredAbsent = isOccurred && !score && !approvedAbsence;
+      const isPendingInput = isOccurred && pendingInputSessionIds.has(session.id);
+      const inferredAbsent = isOccurred && !isPendingInput && !score && !approvedAbsence;
       const attendType =
         score?.attendType ??
         (approvedAbsence ? AttendType.EXCUSED : inferredAbsent ? AttendType.ABSENT : null);
@@ -387,6 +450,10 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
               })
             : null,
         isOccurred,
+        isPendingInput,
+        countsAsAttendance: approvedAbsence
+          ? Boolean(absence?.attendCountsAsAttendance)
+          : countsAsAttendance(attendType),
         grantsPerfectAttendance: approvedAbsence
           ? Boolean(absence?.attendGrantsPerfectAttendance)
           : false,
@@ -400,6 +467,7 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
     for (const entry of entries) {
       if (
         !entry.isOccurred ||
+        entry.isPendingInput ||
         entry.session.isCancelled ||
         isPoliceOxOnlySession(entry.session, dataset.sessions)
       ) {
@@ -434,6 +502,7 @@ function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
     const occurredEntries = entries.filter(
       (entry) =>
         entry.isOccurred &&
+        !entry.isPendingInput &&
         !entry.session.isCancelled &&
         !isPoliceOxOnlySession(entry.session, dataset.sessions),
     );
@@ -550,8 +619,31 @@ function buildResultsScoreLookup(scores: DatasetScore[]) {
   return new Map(scores.map((score) => [`${score.examNumber}:${score.sessionId}`, score]));
 }
 
+type ApprovedAbsenceAttendanceOptions = {
+  attendCountsAsAttendance: boolean;
+  attendGrantsPerfectAttendance: boolean;
+};
+
 function buildApprovedAbsenceLookup(absences: ResultsSheetApprovedAbsence[]) {
-  return new Set(absences.map((absence) => `${absence.examNumber}:${absence.sessionId}`));
+  return new Map<string, ApprovedAbsenceAttendanceOptions>(
+    absences.map((absence) => [
+      `${absence.examNumber}:${absence.sessionId}`,
+      {
+        attendCountsAsAttendance: Boolean(absence.attendCountsAsAttendance),
+        attendGrantsPerfectAttendance: Boolean(absence.attendGrantsPerfectAttendance),
+      },
+    ]),
+  );
+}
+
+function countsAsPerfectAttendance(
+  attendType: AttendType | null,
+  grantsPerfectAttendance = false,
+) {
+  return (
+    countsAsAttendance(attendType) ||
+    (attendType === AttendType.EXCUSED && grantsPerfectAttendance)
+  );
 }
 
 function resolveResultsAttendType(
@@ -559,6 +651,7 @@ function resolveResultsAttendType(
   session: DatasetSession,
   hasApprovedAbsence: boolean,
   today: Date,
+  isPendingInput = false,
 ) {
   if (score) {
     return score.attendType;
@@ -566,6 +659,10 @@ function resolveResultsAttendType(
 
   if (hasApprovedAbsence) {
     return AttendType.EXCUSED;
+  }
+
+  if (isPendingInput) {
+    return null;
   }
 
   if (!session.isCancelled && session.examDate <= today) {
@@ -583,11 +680,22 @@ function buildWeeklyResultsSheetRowsLightweight(
 ) {
   const today = endOfToday();
   const occurredSessions = getOccurredSessions(dataset.sessions);
-  const mockSessions = getMockRankingSessions(occurredSessions);
+  const sessionScoreCounts = buildSessionScoreCountMap(dataset.scores);
+  const pendingInputSessionIds = buildPendingInputSessionIds(
+    dataset.sessions,
+    sessionScoreCounts,
+    today,
+  );
+  const countedOccurredSessions = getCountedOccurredSessions(
+    dataset.sessions,
+    pendingInputSessionIds,
+  );
+  const mockSessions = getMockRankingSessions(countedOccurredSessions);
   const mockSessionIds = new Set(mockSessions.map((session) => session.id));
-  const policeSessions = getPoliceOxSessions(occurredSessions);
+  const policeSessions = getPoliceOxSessions(countedOccurredSessions);
   const scoreLookup = buildResultsScoreLookup(dataset.scores);
   const approvedAbsenceLookup = buildApprovedAbsenceLookup(dataset.approvedAbsences);
+  void weekKey;
 
   const rows: WeeklyResultsSheetRow[] = dataset.students.map((student) => {
     let attendanceCount = 0;
@@ -596,14 +704,21 @@ function buildWeeklyResultsSheetRowsLightweight(
     const cells = occurredSessions.map((session) => {
       const key = `${student.examNumber}:${session.id}`;
       const score = scoreLookup.get(key) ?? null;
+      const isPendingInput = pendingInputSessionIds.has(session.id);
       const attendType = resolveResultsAttendType(
         score,
         session,
         approvedAbsenceLookup.has(key),
         today,
+        isPendingInput,
       );
+      const absenceOptions = approvedAbsenceLookup.get(key) ?? null;
 
-      if (mockSessionIds.has(session.id) && countsAsAttendance(attendType)) {
+      if (
+        mockSessionIds.has(session.id) &&
+        !isPendingInput &&
+        countsAsConfiguredAttendance(attendType, absenceOptions?.attendCountsAsAttendance ?? false)
+      ) {
         attendanceCount += 1;
       }
 
@@ -625,8 +740,28 @@ function buildWeeklyResultsSheetRowsLightweight(
         attendType,
         mockScore,
         policeOxScore,
+        isPendingInput,
       } satisfies WeeklyResultsSheetCell;
     });
+
+    const perfectAttendance =
+      mockSessions.length > 0 &&
+      mockSessions.every((session) => {
+        const key = `${student.examNumber}:${session.id}`;
+        const score = scoreLookup.get(key) ?? null;
+        const attendType = resolveResultsAttendType(
+          score,
+          session,
+          approvedAbsenceLookup.has(key),
+          today,
+          pendingInputSessionIds.has(session.id),
+        );
+        const absenceOptions = approvedAbsenceLookup.get(key) ?? null;
+        return countsAsPerfectAttendance(
+          attendType,
+          absenceOptions?.attendGrantsPerfectAttendance ?? false,
+        );
+      });
 
     return {
       examNumber: student.examNumber,
@@ -635,10 +770,13 @@ function buildWeeklyResultsSheetRowsLightweight(
       isActive: student.isActive,
       weekStatus: weekStatusByExamNumber.get(student.examNumber) ?? StudentStatus.NORMAL,
       attendanceRate: percentage(attendanceCount, mockSessions.length),
+      perfectAttendance,
       mockAverage:
         mockSessions.length === 0 ? 0 : Math.round((mockTotal / mockSessions.length) * 100) / 100,
       policeOxAverage:
-        policeSessions.length === 0 ? null : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
+        policeSessions.length === 0
+          ? null
+          : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
       mockRank: null,
       policeOxRank: null,
       cells,
@@ -676,9 +814,21 @@ function buildSummaryResultsSheetRowsLightweight(
 ) {
   const today = endOfToday();
   const occurredSessions = getOccurredSessions(dataset.sessions);
-  const mockSessions = getMockRankingSessions(occurredSessions);
+  const sessionScoreCounts = buildSessionScoreCountMap(dataset.scores);
+  const pendingInputSessionIds = buildPendingInputSessionIds(
+    dataset.sessions,
+    sessionScoreCounts,
+    today,
+  );
+  const countedOccurredSessions = getCountedOccurredSessions(
+    dataset.sessions,
+    pendingInputSessionIds,
+  );
+  const mockSessions = getMockRankingSessions(countedOccurredSessions);
+  const displayMockSessions = getMockRankingSessions(occurredSessions);
   const mockSessionIds = new Set(mockSessions.map((session) => session.id));
-  const policeSessions = getPoliceOxSessions(occurredSessions);
+  const hasPendingMockSessions = displayMockSessions.some((session) => pendingInputSessionIds.has(session.id));
+  const policeSessions = getPoliceOxSessions(countedOccurredSessions);
   const scoreLookup = buildResultsScoreLookup(dataset.scores);
   const approvedAbsenceLookup = buildApprovedAbsenceLookup(dataset.approvedAbsences);
 
@@ -692,18 +842,32 @@ function buildSummaryResultsSheetRowsLightweight(
     for (const session of occurredSessions) {
       const key = `${student.examNumber}:${session.id}`;
       const score = scoreLookup.get(key) ?? null;
+      const isPendingInput = pendingInputSessionIds.has(session.id);
       const attendType = resolveResultsAttendType(
         score,
         session,
         approvedAbsenceLookup.has(key),
         today,
+        isPendingInput,
       );
+      const absenceOptions = approvedAbsenceLookup.get(key) ?? null;
 
-      if (mockSessionIds.has(session.id) && countsAsAttendance(attendType)) {
+      if (
+        mockSessionIds.has(session.id) &&
+        !isPendingInput &&
+        countsAsConfiguredAttendance(attendType, absenceOptions?.attendCountsAsAttendance ?? false)
+      ) {
         attendanceCount += 1;
       }
 
-      if (mockSessionIds.has(session.id) && (attendType === AttendType.ABSENT || attendType === null)) {
+      if (
+        mockSessionIds.has(session.id) &&
+        !isPendingInput &&
+        !countsAsPerfectAttendance(
+          attendType,
+          absenceOptions?.attendGrantsPerfectAttendance ?? false,
+        )
+      ) {
         hasPerfectAttendance = false;
       }
 
@@ -730,13 +894,16 @@ function buildSummaryResultsSheetRowsLightweight(
         mockSessions.length === 0 ? 0 : Math.round((mockTotal / mockSessions.length) * 100) / 100,
       mockRank: null,
       policeOxAverage:
-        policeSessions.length === 0 ? null : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
+        policeSessions.length === 0
+          ? null
+          : Math.round((policeOxTotal / policeSessions.length) * 100) / 100,
       policeOxRank: null,
       combinedAverage:
         mockSessions.length === 0 ? 0 : Math.round((combinedTotal / mockSessions.length) * 100) / 100,
       combinedRank: null,
       participationRate: percentage(attendanceCount, mockSessions.length),
-      note: includePerfectAttendanceNote && hasPerfectAttendance ? "개근" : null,
+      note:
+        includePerfectAttendanceNote && !hasPendingMockSessions && hasPerfectAttendance ? "개근" : null,
     } satisfies MonthlyResultsSheetRow;
   });
 
@@ -777,9 +944,8 @@ function buildRankingRows(
     includeProfiles?: boolean;
   },
 ) {
-  const occurredSessions = sessions.filter(
-    (session) => !session.isCancelled && session.examDate <= endOfToday(),
-  );
+  const pendingInputSessionIds = buildPendingInputSessionIdsFromAggregates(aggregates);
+  const occurredSessions = getCountedOccurredSessions(sessions, pendingInputSessionIds);
   const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
   const includeProfiles = options?.includeProfiles ?? true;
 
@@ -788,18 +954,12 @@ function buildRankingRows(
     const normalScores = scopedEntries
       .filter((entry) => entry.attendType === AttendType.NORMAL && entry.normalizedScore !== null)
       .map((entry) => entry.normalizedScore as number);
-    const absentCount = scopedEntries.filter((entry) => entry.attendType === AttendType.ABSENT).length;
-    const activeEntryCount = scopedEntries.filter(
-      (entry) => countsAsAttendance(entry.attendType),
-    ).length;
+    const activeEntryCount = scopedEntries.filter((entry) => entry.countsAsAttendance).length;
     const scopedMonthKeys = Array.from(
       new Set(scopedEntries.map((entry) => monthKey(entry.session.examDate))),
     );
     const rankingAverage = average(normalScores);
-    const participationRate = percentage(
-      occurredSessions.length - absentCount,
-      occurredSessions.length,
-    );
+    const participationRate = percentage(activeEntryCount, occurredSessions.length);
     const perfectAttendance =
       scopedMonthKeys.length > 0 &&
       scopedMonthKeys.every((key) => aggregate.monthPerfectAttendance.get(key) ?? false) &&
@@ -898,10 +1058,12 @@ function buildWeeklyResultsSheetRows(
   weekKey: string,
   view: "overall" | "new",
 ) {
+  const pendingInputSessionIds = buildPendingInputSessionIdsFromAggregates(aggregates);
   const occurredSessions = getOccurredSessions(sessions);
   const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const mockSessions = getMockRankingSessions(occurredSessions);
-  const policeSessions = getPoliceOxSessions(occurredSessions);
+  const countedOccurredSessions = getCountedOccurredSessions(sessions, pendingInputSessionIds);
+  const mockSessions = getMockRankingSessions(countedOccurredSessions);
+  const policeSessions = getPoliceOxSessions(countedOccurredSessions);
 
   const rows: WeeklyResultsSheetRow[] = aggregates.map((aggregate) => {
     const scopedEntries = aggregate.entries
@@ -916,8 +1078,17 @@ function buildWeeklyResultsSheetRows(
       aggregate.weeklySnapshots.find((snapshot) => snapshot.weekKey === weekKey) ?? null;
     const attendanceCount = mockSessions.filter((session) => {
       const entry = entryMap.get(session.id) ?? null;
-      return countsAsAttendance(entry?.attendType ?? null);
+      return entry?.countsAsAttendance ?? false;
     }).length;
+    const perfectAttendance =
+      mockSessions.length > 0 &&
+      mockSessions.every((session) => {
+        const entry = entryMap.get(session.id) ?? null;
+        return countsAsPerfectAttendance(
+          entry?.attendType ?? null,
+          entry?.grantsPerfectAttendance ?? false,
+        );
+      });
 
     const mockScores = mockSessions.map((session) => {
       const entry = entryMap.get(session.id) ?? null;
@@ -944,6 +1115,7 @@ function buildWeeklyResultsSheetRows(
       isActive: aggregate.student.isActive,
       weekStatus: weekSnapshot?.status ?? StudentStatus.NORMAL,
       attendanceRate: percentage(attendanceCount, mockSessions.length),
+      perfectAttendance,
       mockAverage: mockSessions.length === 0 ? 0 : Math.round((mockScores.reduce((sum, value) => sum + value, 0) / mockSessions.length) * 100) / 100,
       policeOxAverage:
         policeSessions.length === 0
@@ -959,6 +1131,7 @@ function buildWeeklyResultsSheetRows(
           attendType: entry?.attendType ?? null,
           mockScore: entry ? getMockScore(entry) : null,
           policeOxScore: session.subject === Subject.POLICE_SCIENCE && entry ? getPoliceOxScore(entry) : null,
+          isPendingInput: entry?.isPendingInput ?? false,
         } satisfies WeeklyResultsSheetCell;
       }),
     } satisfies WeeklyResultsSheetRow;
@@ -993,18 +1166,31 @@ function buildMonthlyResultsSheetRows(
   sessions: DatasetSession[],
   view: "overall" | "new",
 ) {
+  const pendingInputSessionIds = buildPendingInputSessionIdsFromAggregates(aggregates);
   const occurredSessions = getOccurredSessions(sessions);
-  const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const mockSessions = getMockRankingSessions(occurredSessions);
-  const policeSessions = getPoliceOxSessions(occurredSessions);
+  const countedOccurredSessions = getCountedOccurredSessions(sessions, pendingInputSessionIds);
+  const countedOccurredSessionIds = new Set(countedOccurredSessions.map((session) => session.id));
+  const mockSessions = getMockRankingSessions(countedOccurredSessions);
+  const displayMockSessions = getMockRankingSessions(occurredSessions);
+  const hasPendingMockSessions = displayMockSessions.some((session) => pendingInputSessionIds.has(session.id));
+  const policeSessions = getPoliceOxSessions(countedOccurredSessions);
 
   const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
-    const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
+    const scopedEntries = aggregate.entries.filter((entry) => countedOccurredSessionIds.has(entry.session.id));
     const entryMap = new Map(scopedEntries.map((entry) => [entry.session.id, entry]));
     const attendanceCount = mockSessions.filter((session) => {
       const entry = entryMap.get(session.id) ?? null;
-      return countsAsAttendance(entry?.attendType ?? null);
+      return entry?.countsAsAttendance ?? false;
     }).length;
+    const hasPerfectAttendance =
+      mockSessions.length > 0 &&
+      mockSessions.every((session) => {
+        const entry = entryMap.get(session.id) ?? null;
+        return countsAsPerfectAttendance(
+          entry?.attendType ?? null,
+          entry?.grantsPerfectAttendance ?? false,
+        );
+      });
     const mockScores = mockSessions.map((session) => {
       const entry = entryMap.get(session.id) ?? null;
       if (!entry || entry.attendType !== AttendType.NORMAL) {
@@ -1057,11 +1243,9 @@ function buildMonthlyResultsSheetRows(
       participationRate: percentage(attendanceCount, mockSessions.length),
       note:
         mockSessions.length > 0 &&
-        mockSessions.every((session) => {
-          const entry = entryMap.get(session.id);
-          return entry !== undefined && entry.attendType !== AttendType.ABSENT;
-        })
-          ? "개근"
+        !hasPendingMockSessions &&
+        hasPerfectAttendance
+          ? "\uAC1C\uADFC"
           : null,
     } satisfies MonthlyResultsSheetRow;
   });
@@ -1099,17 +1283,18 @@ function buildIntegratedResultsSheetRows(
   sessions: DatasetSession[],
   view: "overall" | "new",
 ) {
-  const occurredSessions = getOccurredSessions(sessions);
-  const occurredSessionIds = new Set(occurredSessions.map((session) => session.id));
-  const mockSessions = getMockRankingSessions(occurredSessions);
-  const policeSessions = getPoliceOxSessions(occurredSessions);
+  const pendingInputSessionIds = buildPendingInputSessionIdsFromAggregates(aggregates);
+  const countedOccurredSessions = getCountedOccurredSessions(sessions, pendingInputSessionIds);
+  const countedOccurredSessionIds = new Set(countedOccurredSessions.map((session) => session.id));
+  const mockSessions = getMockRankingSessions(countedOccurredSessions);
+  const policeSessions = getPoliceOxSessions(countedOccurredSessions);
 
   const rows: MonthlyResultsSheetRow[] = aggregates.map((aggregate) => {
-    const scopedEntries = aggregate.entries.filter((entry) => occurredSessionIds.has(entry.session.id));
+    const scopedEntries = aggregate.entries.filter((entry) => countedOccurredSessionIds.has(entry.session.id));
     const entryMap = new Map(scopedEntries.map((entry) => [entry.session.id, entry]));
     const attendanceCount = mockSessions.filter((session) => {
       const entry = entryMap.get(session.id) ?? null;
-      return countsAsAttendance(entry?.attendType ?? null);
+      return entry?.countsAsAttendance ?? false;
     }).length;
     const mockScores = mockSessions.map((session) => {
       const entry = entryMap.get(session.id) ?? null;
@@ -1496,8 +1681,8 @@ export async function recalculateStatusCache(
           failReason: canQueue
             ? null
             : aggregate.student.notificationConsent
-              ? "전화번호가 없어 자동 발송에 실패했습니다"
-              : "학생의 동의 없이 자동 발송 대상에서 제외됩니다",
+              ? "????? ?? ?? ???? ??????."
+              : "?? ??? ?? ?? ???? ??????.",
         },
       ];
     });
@@ -1591,97 +1776,38 @@ export async function getWeeklyStatusHistory(periodId: number, examType: ExamTyp
 }
 
 export async function getDropoutMonitor(periodId: number, examType: ExamType) {
-  const latestWeekKey = await ensureLatestWeeklySnapshots(periodId, examType);
+  const dataset = await loadDataset(periodId, examType);
+  const aggregates = buildAggregates(dataset);
+  const statusRank: Record<StudentStatus, number> = {
+    [StudentStatus.DROPOUT]: 0,
+    [StudentStatus.WARNING_2]: 1,
+    [StudentStatus.WARNING_1]: 2,
+    [StudentStatus.NORMAL]: 3,
+  };
 
-  if (!latestWeekKey) {
-    const dataset = await loadDataset(periodId, examType);
-    const aggregates = buildAggregates(dataset);
-
-    return {
-      period: dataset.period,
-      rows: aggregates.map((aggregate) => ({
-        examNumber: aggregate.student.examNumber,
-        name: aggregate.student.name,
-        phone: aggregate.student.phone,
-        studentType: aggregate.student.studentType,
-        isActive: aggregate.student.isActive,
-        status: aggregate.overallStatus,
-        recoveryDate: aggregate.recoveryDate,
-        currentWeekAbsenceCount: aggregate.currentWeekAbsenceCount,
-        currentMonthAbsenceCount: aggregate.currentMonthAbsenceCount,
-        weekAbsences: Object.fromEntries(aggregate.weekAbsences),
-        monthAbsences: Object.fromEntries(aggregate.monthAbsences),
-      })) satisfies DropoutMonitorRow[],
-    };
-  }
-
-  const prisma = getPrisma();
-  const period = await prisma.examPeriod.findUniqueOrThrow({
-    where: {
-      id: periodId,
-    },
-  });
-  const snapshots = await prisma.weeklyStatusSnapshot.findMany({
-    where: {
-      periodId,
-      examType,
-    },
-    include: {
-      student: {
-        select: {
-          examNumber: true,
-          name: true,
-          phone: true,
-          studentType: true,
-          isActive: true,
-        },
-      },
-    },
-    orderBy: [{ weekStartDate: "asc" }, { weekKey: "asc" }],
-  });
-  const grouped = new Map<string, typeof snapshots>();
-
-  for (const snapshot of snapshots) {
-    const current = grouped.get(snapshot.examNumber) ?? [];
-    current.push(snapshot);
-    grouped.set(snapshot.examNumber, current);
-  }
+  const rows = aggregates
+    .map((aggregate) => ({
+      examNumber: aggregate.student.examNumber,
+      name: aggregate.student.name,
+      phone: aggregate.student.phone,
+      studentType: aggregate.student.studentType,
+      isActive: aggregate.student.isActive,
+      status: aggregate.overallStatus,
+      recoveryDate: aggregate.recoveryDate,
+      currentWeekAbsenceCount: aggregate.currentWeekAbsenceCount,
+      currentMonthAbsenceCount: aggregate.currentMonthAbsenceCount,
+      weekAbsences: Object.fromEntries(aggregate.weekAbsences),
+      monthAbsences: Object.fromEntries(aggregate.monthAbsences),
+    }))
+    .sort(
+      (left, right) =>
+        statusRank[left.status] - statusRank[right.status] ||
+        left.examNumber.localeCompare(right.examNumber),
+    );
 
   return {
-    period,
-    rows: Array.from(grouped.values()).map((studentSnapshots) => {
-      const latest = studentSnapshots[studentSnapshots.length - 1];
-      const weekAbsences = Object.fromEntries(
-        studentSnapshots
-          .filter((snapshot) => snapshot.weekAbsenceCount > 0)
-          .map((snapshot) => [snapshot.weekKey, snapshot.weekAbsenceCount]),
-      );
-      const monthAbsenceMap = new Map<string, number>();
-
-      for (const snapshot of studentSnapshots) {
-        const key = monthKey(snapshot.weekStartDate);
-        monthAbsenceMap.set(
-          key,
-          Math.max(monthAbsenceMap.get(key) ?? 0, snapshot.monthAbsenceCount),
-        );
-      }
-
-      return {
-        examNumber: latest.student.examNumber,
-        name: latest.student.name,
-        phone: latest.student.phone,
-        studentType: latest.student.studentType,
-        isActive: latest.student.isActive,
-        status: latest.status,
-        recoveryDate: latest.recoveryDate,
-        currentWeekAbsenceCount: latest.weekAbsenceCount,
-        currentMonthAbsenceCount: latest.monthAbsenceCount,
-        weekAbsences,
-        monthAbsences: Object.fromEntries(
-          Array.from(monthAbsenceMap.entries()).filter(([, value]) => value > 0),
-        ),
-      } satisfies DropoutMonitorRow;
-    }),
+    period: dataset.period,
+    rows: rows satisfies DropoutMonitorRow[],
   };
 }
 
@@ -1697,6 +1823,29 @@ export async function getWeeklyResults(
   if (!includeRankingRows) {
     const weekStart = parseTuesdayWeekKey(weekKey) ?? undefined;
     const weekEnd = weekStart ? buildTuesdayWeekSummary(weekKey, []).endDate : undefined;
+    const today = endOfToday();
+    const isCurrentWeek = Boolean(
+      weekStart && weekEnd && today.getTime() >= weekStart.getTime() && today.getTime() <= weekEnd.getTime(),
+    );
+
+    if (isCurrentWeek) {
+      const dataset = await loadDataset(periodId, examType, undefined, {
+        includePointLogs: false,
+      });
+      const aggregates = buildAggregates(dataset);
+      const sessions = dataset.sessions.filter(
+        (session) => getTuesdayWeekKey(session.examDate) === weekKey && !session.isCancelled,
+      );
+
+      return {
+        period: dataset.period,
+        week: buildTuesdayWeekSummary(weekKey, sessions),
+        sessions,
+        rows: [] as RankingRow[],
+        sheetRows: buildWeeklyResultsSheetRows(aggregates, sessions, weekKey, view),
+      };
+    }
+
     const datasetPromise = loadResultsSheetDataset(periodId, examType, {
       examDate: {
         gte: weekStart,
@@ -1837,7 +1986,10 @@ export async function getPointManagementData(
 
   const candidates: PointCandidate[] = aggregates.map((aggregate) => {
     const monthEntries = aggregate.entries.filter(
-      (entry) => monthKey(entry.session.examDate) === targetMonthKey && entry.isOccurred,
+      (entry) =>
+        monthKey(entry.session.examDate) === targetMonthKey &&
+        entry.isOccurred &&
+        !entry.isPendingInput,
     );
 
     return {
@@ -1867,110 +2019,186 @@ export async function getPointManagementData(
   };
 }
 
+function buildAttendanceCalendarStatusCounts(
+  dataset: Awaited<ReturnType<typeof loadDataset>>,
+  monthStart: Date,
+  monthEnd: Date,
+  pendingInputSessionIds: Set<number>,
+) {
+  const monthSessionIds = new Set(
+    dataset.sessions
+      .filter((session) => session.examDate >= monthStart && session.examDate < monthEnd)
+      .map((session) => session.id),
+  );
+  const sessionStatusCounts = new Map<number, { warningCount: number; dropoutCount: number }>();
+  const warningExamNumbers = new Set<string>();
+  const dropoutExamNumbers = new Set<string>();
+  const scoresByKey = new Map(dataset.scores.map((score) => [`${score.examNumber}:${score.sessionId}`, score]));
+  const absencesByKey = new Map(
+    dataset.absenceNotes.map((absence) => [`${absence.examNumber}:${absence.sessionId}`, absence]),
+  );
+  const today = endOfToday();
+
+  for (const sessionId of monthSessionIds) {
+    sessionStatusCounts.set(sessionId, { warningCount: 0, dropoutCount: 0 });
+  }
+
+  for (const student of dataset.students) {
+    const weekAbsences = new Map<string, number>();
+    const monthAbsences = new Map<string, number>();
+    let activeDropoutUntil: Date | null = null;
+
+    for (const session of dataset.sessions) {
+      const isCountedSession =
+        !session.isCancelled &&
+        session.examDate <= today &&
+        !pendingInputSessionIds.has(session.id) &&
+        !isPoliceOxOnlySession(session, dataset.sessions);
+
+      if (!isCountedSession) {
+        continue;
+      }
+
+      if (activeDropoutUntil && session.examDate.getTime() >= activeDropoutUntil.getTime()) {
+        activeDropoutUntil = null;
+      }
+
+      const entryKey = `${student.examNumber}:${session.id}`;
+      const score = scoresByKey.get(entryKey) ?? null;
+      const absence = absencesByKey.get(entryKey) ?? null;
+      const approvedAbsence = absence?.status === AbsenceStatus.APPROVED;
+      const inferredAbsent = !score && !approvedAbsence;
+      const attendType =
+        score?.attendType ??
+        (approvedAbsence ? AttendType.EXCUSED : inferredAbsent ? AttendType.ABSENT : null);
+      const weekKey = getTuesdayWeekKey(session.examDate);
+      const monthKeyValue = monthKey(session.examDate);
+      let weekAbsenceCount = weekAbsences.get(weekKey) ?? 0;
+      let monthAbsenceCount = monthAbsences.get(monthKeyValue) ?? 0;
+
+      if (attendType === AttendType.ABSENT) {
+        weekAbsenceCount += 1;
+        monthAbsenceCount += 1;
+        weekAbsences.set(weekKey, weekAbsenceCount);
+        monthAbsences.set(monthKeyValue, monthAbsenceCount);
+      }
+
+      let status: StudentStatus = StudentStatus.NORMAL;
+
+      if (activeDropoutUntil) {
+        status = StudentStatus.DROPOUT;
+      } else if (
+        weekAbsenceCount >= ATTENDANCE_STATUS_RULES.weeklyDropoutAbsences ||
+        monthAbsenceCount >= ATTENDANCE_STATUS_RULES.monthlyDropoutAbsences
+      ) {
+        status = StudentStatus.DROPOUT;
+        activeDropoutUntil = nextMonthFirstDay(session.examDate);
+      } else if (weekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning2Absences) {
+        status = StudentStatus.WARNING_2;
+      } else if (weekAbsenceCount === ATTENDANCE_STATUS_RULES.weeklyWarning1Absences) {
+        status = StudentStatus.WARNING_1;
+      }
+
+      if (!monthSessionIds.has(session.id)) {
+        continue;
+      }
+
+      const counts = sessionStatusCounts.get(session.id);
+      if (!counts) {
+        continue;
+      }
+
+      if (status === StudentStatus.WARNING_1 || status === StudentStatus.WARNING_2) {
+        counts.warningCount += 1;
+        warningExamNumbers.add(student.examNumber);
+      } else if (status === StudentStatus.DROPOUT) {
+        counts.dropoutCount += 1;
+        dropoutExamNumbers.add(student.examNumber);
+      }
+    }
+  }
+
+  return {
+    sessionStatusCounts,
+    warningStudentCount: warningExamNumbers.size,
+    dropoutStudentCount: dropoutExamNumbers.size,
+  };
+}
+
 export async function getAttendanceCalendar(
   periodId: number,
   examType: ExamType,
   year: number,
   month: number,
 ) {
-  await ensureLatestWeeklySnapshots(periodId, examType);
-  const prisma = getPrisma();
-  const period = await prisma.examPeriod.findUniqueOrThrow({
-    where: {
-      id: periodId,
-    },
-  });
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month, 1);
-  const sessions = await prisma.examSession.findMany({
-    where: {
-      periodId,
-      examType,
-      examDate: {
-        gte: monthStart,
-        lt: monthEnd,
-      },
-    },
-    orderBy: [{ examDate: "asc" }, { week: "asc" }],
-  });
+  const dataset = await loadDataset(periodId, examType, undefined, { includePointLogs: false });
+  const sessions = dataset.sessions.filter(
+    (session) => session.examDate >= monthStart && session.examDate < monthEnd,
+  );
 
   if (sessions.length === 0) {
     return {
-      period,
+      period: dataset.period,
       days: [],
+      summary: {
+        totalAbsent: 0,
+        warningStudentCount: 0,
+        dropoutStudentCount: 0,
+      },
     };
   }
 
-  const sessionIds = sessions.map((session) => session.id);
-  const weekKeys = Array.from(new Set(sessions.map((session) => getTuesdayWeekKey(session.examDate))));
-  const totalStudents = await prisma.student.count({
-    where: buildPeriodScopedStudentWhere(periodId, examType),
-  });
-  const [scoreCounts, approvedAbsences, statusCounts] = await Promise.all([
-    prisma.score.groupBy({
-      by: ["sessionId", "attendType"],
-      where: {
-        sessionId: {
-          in: sessionIds,
-        },
-      },
-      _count: {
-        _all: true,
-      },
-    }),
-    prisma.absenceNote.groupBy({
-      by: ["sessionId"],
-      where: {
-        sessionId: {
-          in: sessionIds,
-        },
-        status: AbsenceStatus.APPROVED,
-      },
-      _count: {
-        _all: true,
-      },
-    }),
-    prisma.weeklyStatusSnapshot.groupBy({
-      by: ["weekKey", "status"],
-      where: {
-        periodId,
-        examType,
-        weekKey: {
-          in: weekKeys,
-        },
-      },
-      _count: {
-        _all: true,
-      },
-    }),
-  ]);
-
+  const monthSessionIds = new Set(sessions.map((session) => session.id));
+  const totalStudents = dataset.students.length;
   const scoreCountMap = new Map<string, number>();
-  const approvedAbsenceMap = new Map(
-    approvedAbsences.map((item) => [item.sessionId, item._count._all]),
-  );
-  const statusCountMap = new Map<string, number>();
+  const approvedAbsenceMap = new Map<number, number>();
+  const sessionScoreCounts = buildSessionScoreCountMap(dataset.scores);
+  const pendingInputSessionIds = buildPendingInputSessionIds(dataset.sessions, sessionScoreCounts);
+  const today = endOfToday();
 
-  for (const item of scoreCounts) {
-    scoreCountMap.set(`${item.sessionId}:${item.attendType}`, item._count._all);
+  for (const score of dataset.scores) {
+    if (!monthSessionIds.has(score.sessionId)) {
+      continue;
+    }
+
     scoreCountMap.set(
-      `${item.sessionId}:__ALL__`,
-      (scoreCountMap.get(`${item.sessionId}:__ALL__`) ?? 0) + item._count._all,
+      `${score.sessionId}:${score.attendType}`,
+      (scoreCountMap.get(`${score.sessionId}:${score.attendType}`) ?? 0) + 1,
+    );
+    scoreCountMap.set(
+      `${score.sessionId}:__ALL__`,
+      (scoreCountMap.get(`${score.sessionId}:__ALL__`) ?? 0) + 1,
     );
   }
 
-  for (const item of statusCounts) {
-    statusCountMap.set(`${item.weekKey}:${item.status}`, item._count._all);
+  for (const absence of dataset.absenceNotes) {
+    if (absence.status !== AbsenceStatus.APPROVED || !monthSessionIds.has(absence.sessionId)) {
+      continue;
+    }
+
+    approvedAbsenceMap.set(
+      absence.sessionId,
+      (approvedAbsenceMap.get(absence.sessionId) ?? 0) + 1,
+    );
   }
 
+  const { sessionStatusCounts, warningStudentCount, dropoutStudentCount } =
+    buildAttendanceCalendarStatusCounts(dataset, monthStart, monthEnd, pendingInputSessionIds);
   const days: AttendanceCalendarDay[] = sessions.map((session) => {
     const weekKey = getTuesdayWeekKey(session.examDate);
     const totalScores = scoreCountMap.get(`${session.id}:__ALL__`) ?? 0;
     const approvedAbsenceCount = approvedAbsenceMap.get(session.id) ?? 0;
     const explicitAbsentCount = scoreCountMap.get(`${session.id}:${AttendType.ABSENT}`) ?? 0;
-    const isOxOnlySession = isPoliceOxOnlySession(session, sessions);
+    const statusCounts = sessionStatusCounts.get(session.id) ?? {
+      warningCount: 0,
+      dropoutCount: 0,
+    };
+    const isOxOnlySession = isPoliceOxOnlySession(session, dataset.sessions);
+    const isPendingInput = pendingInputSessionIds.has(session.id);
     const inferredAbsentCount =
-      !isOxOnlySession && !session.isCancelled && session.examDate <= endOfToday()
+      !isPendingInput && !isOxOnlySession && !session.isCancelled && session.examDate <= today
         ? Math.max(totalStudents - totalScores - approvedAbsenceCount, 0)
         : 0;
 
@@ -1983,17 +2211,22 @@ export async function getAttendanceCalendar(
       weekLabel: formatTuesdayWeekLabel(weekKey),
       normalCount: scoreCountMap.get(`${session.id}:${AttendType.NORMAL}`) ?? 0,
       liveCount: scoreCountMap.get(`${session.id}:${AttendType.LIVE}`) ?? 0,
-      absentCount: isOxOnlySession ? 0 : explicitAbsentCount + inferredAbsentCount,
-      warningCount:
-        (statusCountMap.get(`${weekKey}:${StudentStatus.WARNING_1}`) ?? 0) +
-        (statusCountMap.get(`${weekKey}:${StudentStatus.WARNING_2}`) ?? 0),
-      dropoutCount: statusCountMap.get(`${weekKey}:${StudentStatus.DROPOUT}`) ?? 0,
+      absentCount: isPendingInput || isOxOnlySession ? 0 : explicitAbsentCount + inferredAbsentCount,
+      warningCount: isPendingInput ? 0 : statusCounts.warningCount,
+      dropoutCount: isPendingInput ? 0 : statusCounts.dropoutCount,
+      isPendingInput,
     };
   });
+  const totalAbsent = days.reduce((sum, day) => sum + day.absentCount, 0);
 
   return {
-    period,
+    period: dataset.period,
     days,
+    summary: {
+      totalAbsent,
+      warningStudentCount,
+      dropoutStudentCount,
+    },
   };
 }
 
@@ -2131,6 +2364,10 @@ export const getDashboardSummary = unstable_cache(
   ["admin-dashboard-summary"],
   { revalidate: 60, tags: ["dashboard-summary"] },
 );
+
+
+
+
 
 
 

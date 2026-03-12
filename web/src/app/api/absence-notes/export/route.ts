@@ -1,4 +1,4 @@
-import { AbsenceCategory, AbsenceStatus, AdminRole, ExamType } from "@prisma/client";
+﻿import { AbsenceCategory, AbsenceStatus, AdminRole, ExamType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { listAbsenceNotes } from "@/lib/absence-notes/service";
@@ -31,6 +31,7 @@ const columns: ExportColumn<NoteRow>[] = [
     value: (r) =>
       r.absenceCategory ? (ABSENCE_CATEGORY_LABEL[r.absenceCategory] ?? r.absenceCategory) : "",
   },
+  { header: "출석포함", value: (r) => (r.attendCountsAsAttendance ? "O" : "") },
   { header: "개근인정", value: (r) => (r.attendGrantsPerfectAttendance ? "O" : "") },
   { header: "기간", value: (r) => r.session.period.name },
   {

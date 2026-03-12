@@ -7,6 +7,10 @@ import {
   Subject,
 } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
+import {
+  preserveAbsenceNoteSystemNote,
+  withAbsenceNoteDisplay,
+} from "@/lib/absence-notes/system-note";
 import { getPrisma } from "@/lib/prisma";
 import {
   parseOfflineAnalysisQuestions,
@@ -107,10 +111,20 @@ type ExistingScoreSnapshot = {
   rawScore: number | null;
   oxScore: number | null;
   finalScore: number | null;
+  attendType: AttendType;
+  sourceType: ScoreSource;
+  note: string | null;
 };
 
-const SCORE_IMPORT_WRITE_CONCURRENCY = 4;
-const SCORE_IMPORT_WRITE_BATCH_SIZE = 250;
+const SCORE_IMPORT_WRITE_CONCURRENCY = 2;
+const SCORE_IMPORT_WRITE_BATCH_SIZE = 100;
+const SCORE_IMPORT_STATEMENT_TIMEOUT_MS = 300_000;
+const SCORE_IMPORT_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 600_000,
+} as const;
+const SCORE_IMPORT_TIMEOUT_RETRY_COUNT = 3;
+const SCORE_IMPORT_TIMEOUT_RETRY_DELAY_MS = 1_500;
 
 const OX_LINK_UNAVAILABLE_MESSAGE =
   "선택한 회차에는 경찰학 OX를 연동할 수 없습니다. 목요일 누적 모의고사와 OX 시작 전 회차는 제외됩니다.";
@@ -169,79 +183,232 @@ function chunkItems<T>(items: readonly T[], chunkSize: number) {
   return chunks;
 }
 
+async function delay(milliseconds: number) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isStatementTimeoutError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("57014") || message.includes("statement timeout");
+}
+
+function hasSameScoreWrite(
+  existing:
+    | Pick<
+        ScoreWriteRecord,
+        "rawScore" | "oxScore" | "finalScore" | "attendType" | "sourceType" | "note"
+      >
+    | null
+    | undefined,
+  incoming: Pick<
+    ScoreWriteRecord,
+    "rawScore" | "oxScore" | "finalScore" | "attendType" | "sourceType" | "note"
+  >,
+) {
+  return Boolean(
+    existing &&
+      existing.rawScore === incoming.rawScore &&
+      existing.oxScore === incoming.oxScore &&
+      existing.finalScore === incoming.finalScore &&
+      existing.attendType === incoming.attendType &&
+      existing.sourceType === incoming.sourceType &&
+      existing.note === incoming.note,
+  );
+}
+
+function sortScoreWriteRecords(rows: readonly ScoreWriteRecord[]) {
+  return [...rows].sort(
+    (left, right) =>
+      left.sessionId - right.sessionId || left.examNumber.localeCompare(right.examNumber),
+  );
+}
+
+function sortStudentAnswerWriteRecords(rows: readonly StudentAnswerWriteRecord[]) {
+  return [...rows].sort(
+    (left, right) =>
+      left.questionId - right.questionId || left.examNumber.localeCompare(right.examNumber),
+  );
+}
+
+async function executeScoreWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly ScoreWriteRecord[],
+) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SET LOCAL statement_timeout = '${SCORE_IMPORT_STATEMENT_TIMEOUT_MS}'`,
+      );
+
+      const values = batch.map((row) => Prisma.sql`
+        (
+          ${row.examNumber},
+          ${row.sessionId},
+          ${row.rawScore},
+          ${row.oxScore},
+          ${row.finalScore},
+          CAST(${row.attendType} AS "AttendType"),
+          CAST(${row.sourceType} AS "ScoreSource"),
+          ${row.note},
+          NOW()
+        )
+      `);
+
+      await tx.$executeRaw`
+        INSERT INTO "scores" (
+          "examNumber",
+          "sessionId",
+          "rawScore",
+          "oxScore",
+          "finalScore",
+          "attendType",
+          "sourceType",
+          "note",
+          "updatedAt"
+        )
+        VALUES ${Prisma.join(values)}
+        ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
+          "rawScore" = EXCLUDED."rawScore",
+          "oxScore" = EXCLUDED."oxScore",
+          "finalScore" = EXCLUDED."finalScore",
+          "attendType" = EXCLUDED."attendType",
+          "sourceType" = EXCLUDED."sourceType",
+          "note" = EXCLUDED."note",
+          "updatedAt" = NOW()
+      `;
+    },
+    SCORE_IMPORT_TRANSACTION_OPTIONS,
+  );
+}
+
+async function upsertScoreWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly ScoreWriteRecord[],
+  retryCount = SCORE_IMPORT_TIMEOUT_RETRY_COUNT,
+): Promise<void> {
+  try {
+    await executeScoreWriteBatch(prisma, batch);
+  } catch (error) {
+    if (!isStatementTimeoutError(error)) {
+      throw error;
+    }
+
+    if (batch.length > 1) {
+      const middleIndex = Math.ceil(batch.length / 2);
+      await upsertScoreWriteBatch(prisma, batch.slice(0, middleIndex));
+      await upsertScoreWriteBatch(prisma, batch.slice(middleIndex));
+      return;
+    }
+
+    if (retryCount > 0) {
+      const attempt = SCORE_IMPORT_TIMEOUT_RETRY_COUNT - retryCount + 1;
+      await delay(SCORE_IMPORT_TIMEOUT_RETRY_DELAY_MS * attempt);
+      await upsertScoreWriteBatch(prisma, batch, retryCount - 1);
+      return;
+    }
+
+    throw new Error(
+      "DB가 같은 성적 데이터를 다른 작업으로 점유 중입니다. 잠시 후 다시 시도해 주세요.",
+    );
+  }
+}
 
 async function bulkUpsertScores(
   prisma: ReturnType<typeof getPrisma>,
   rows: readonly ScoreWriteRecord[],
 ) {
-  for (const batch of chunkItems(dedupeScoreWriteRecords(rows), SCORE_IMPORT_WRITE_BATCH_SIZE)) {
-    const values = batch.map((row) => Prisma.sql`
-      (
-        ${row.examNumber},
-        ${row.sessionId},
-        ${row.rawScore},
-        ${row.oxScore},
-        ${row.finalScore},
-        CAST(${row.attendType} AS "AttendType"),
-        CAST(${row.sourceType} AS "ScoreSource"),
-        ${row.note},
-        NOW()
-      )
-    `);
+  const dedupedRows = sortScoreWriteRecords(dedupeScoreWriteRecords(rows));
+  const batches = chunkItems(dedupedRows, SCORE_IMPORT_WRITE_BATCH_SIZE);
 
-    await prisma.$executeRaw`
-      INSERT INTO "scores" (
-        "examNumber",
-        "sessionId",
-        "rawScore",
-        "oxScore",
-        "finalScore",
-        "attendType",
-        "sourceType",
-        "note",
-        "updatedAt"
-      )
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("examNumber", "sessionId") DO UPDATE SET
-        "rawScore" = EXCLUDED."rawScore",
-        "oxScore" = EXCLUDED."oxScore",
-        "finalScore" = EXCLUDED."finalScore",
-        "attendType" = EXCLUDED."attendType",
-        "sourceType" = EXCLUDED."sourceType",
-        "note" = EXCLUDED."note",
-        "updatedAt" = NOW()
-    `;
-  }
+  await runWithConcurrency(batches, SCORE_IMPORT_WRITE_CONCURRENCY, (batch) =>
+    upsertScoreWriteBatch(prisma, batch),
+  );
 }
 
+async function executeStudentAnswerWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly StudentAnswerWriteRecord[],
+) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SET LOCAL statement_timeout = '${SCORE_IMPORT_STATEMENT_TIMEOUT_MS}'`,
+      );
+
+      const values = batch.map((row) => Prisma.sql`
+        (
+          ${row.examNumber},
+          ${row.questionId},
+          ${row.answer},
+          ${row.isCorrect}
+        )
+      `);
+
+      await tx.$executeRaw`
+        INSERT INTO "student_answers" (
+          "examNumber",
+          "questionId",
+          "answer",
+          "isCorrect"
+        )
+        VALUES ${Prisma.join(values)}
+        ON CONFLICT ("examNumber", "questionId") DO UPDATE SET
+          "answer" = EXCLUDED."answer",
+          "isCorrect" = EXCLUDED."isCorrect"
+      `;
+    },
+    SCORE_IMPORT_TRANSACTION_OPTIONS,
+  );
+}
+
+async function upsertStudentAnswerWriteBatch(
+  prisma: ReturnType<typeof getPrisma>,
+  batch: readonly StudentAnswerWriteRecord[],
+  retryCount = SCORE_IMPORT_TIMEOUT_RETRY_COUNT,
+): Promise<void> {
+  try {
+    await executeStudentAnswerWriteBatch(prisma, batch);
+  } catch (error) {
+    if (!isStatementTimeoutError(error)) {
+      throw error;
+    }
+
+    if (batch.length > 1) {
+      const middleIndex = Math.ceil(batch.length / 2);
+      await upsertStudentAnswerWriteBatch(prisma, batch.slice(0, middleIndex));
+      await upsertStudentAnswerWriteBatch(prisma, batch.slice(middleIndex));
+      return;
+    }
+
+    if (retryCount > 0) {
+      const attempt = SCORE_IMPORT_TIMEOUT_RETRY_COUNT - retryCount + 1;
+      await delay(SCORE_IMPORT_TIMEOUT_RETRY_DELAY_MS * attempt);
+      await upsertStudentAnswerWriteBatch(prisma, batch, retryCount - 1);
+      return;
+    }
+
+    throw new Error(
+      "DB가 같은 답안 데이터를 다른 작업으로 점유 중입니다. 잠시 후 다시 시도해 주세요.",
+    );
+  }
+}
 
 async function bulkUpsertStudentAnswers(
   prisma: ReturnType<typeof getPrisma>,
   rows: readonly StudentAnswerWriteRecord[],
 ) {
-  for (const batch of chunkItems(dedupeStudentAnswerWriteRecords(rows), SCORE_IMPORT_WRITE_BATCH_SIZE)) {
-    const values = batch.map((row) => Prisma.sql`
-      (
-        ${row.examNumber},
-        ${row.questionId},
-        ${row.answer},
-        ${row.isCorrect}
-      )
-    `);
+  const dedupedRows = sortStudentAnswerWriteRecords(
+    dedupeStudentAnswerWriteRecords(rows),
+  );
 
-    await prisma.$executeRaw`
-      INSERT INTO "student_answers" (
-        "examNumber",
-        "questionId",
-        "answer",
-        "isCorrect"
-      )
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("examNumber", "questionId") DO UPDATE SET
-        "answer" = EXCLUDED."answer",
-        "isCorrect" = EXCLUDED."isCorrect"
-    `;
-  }
+  const batches = chunkItems(dedupedRows, SCORE_IMPORT_WRITE_BATCH_SIZE);
+  await runWithConcurrency(batches, SCORE_IMPORT_WRITE_CONCURRENCY, (batch) =>
+    upsertStudentAnswerWriteBatch(prisma, batch),
+  );
 }
 
 async function recalculateScoreStatusCache(
@@ -504,11 +671,14 @@ async function buildPreview(
     where: {
       sessionId,
     },
-    select: {
+        select: {
       examNumber: true,
       rawScore: true,
       oxScore: true,
       finalScore: true,
+      attendType: true,
+      sourceType: true,
+      note: true,
     },
   });
   const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
@@ -832,6 +1002,9 @@ async function applyParsedImport(input: {
       rawScore: true,
       oxScore: true,
       finalScore: true,
+      attendType: true,
+      sourceType: true,
+      note: true,
     },
   });
   const existingScoreMap = new Map(existingScores.map((score) => [score.examNumber, score]));
@@ -843,23 +1016,24 @@ async function applyParsedImport(input: {
       return [];
     }
 
-    const mergedScore = mergeImportedScore(
-      existingScoreMap.get(matchedStudent.examNumber),
-      row,
-    );
+    const existingScore = existingScoreMap.get(matchedStudent.examNumber);
+    const mergedScore = mergeImportedScore(existingScore, row);
+    const nextWrite = {
+      examNumber: matchedStudent.examNumber,
+      sessionId: input.sessionId,
+      rawScore: mergedScore.rawScore,
+      oxScore: mergedScore.oxScore,
+      finalScore: mergedScore.finalScore,
+      attendType: row.attendType,
+      sourceType: row.sourceType,
+      note: row.note ?? null,
+    } satisfies ScoreWriteRecord;
 
-    return [
-      {
-        examNumber: matchedStudent.examNumber,
-        sessionId: input.sessionId,
-        rawScore: mergedScore.rawScore,
-        oxScore: mergedScore.oxScore,
-        finalScore: mergedScore.finalScore,
-        attendType: row.attendType,
-        sourceType: row.sourceType,
-        note: row.note ?? null,
-      } satisfies ScoreWriteRecord,
-    ];
+    if (hasSameScoreWrite(existingScore, nextWrite)) {
+      return [];
+    }
+
+    return [nextWrite];
   }));
 
   await bulkUpsertScores(prisma, scoreWrites);
@@ -868,6 +1042,7 @@ async function applyParsedImport(input: {
     (row) => !existingScoreMap.has(row.examNumber),
   ).length;
   const updatedCount = scoreWrites.length - createdCount;
+  const affectedExamNumbers = Array.from(new Set(scoreWrites.map((row) => row.examNumber)));
 
   // 온라인 ID 바인딩 병렬 처리
   const bindRows = resolvedRows.filter(
@@ -888,40 +1063,40 @@ async function applyParsedImport(input: {
 
   // 문항 통계 처리
   const questionStats = buildQuestionStats(input.parsed, resolvedRows);
-  for (const question of questionStats) {
-    const questionRecord = await prisma.examQuestion.upsert({
-      where: {
-        sessionId_questionNo: {
+  await runWithConcurrency(questionStats, 3, async (question) => {
+      const questionRecord = await prisma.examQuestion.upsert({
+        where: {
+          sessionId_questionNo: {
+            sessionId: input.sessionId,
+            questionNo: question.questionNo,
+          },
+        },
+        create: {
           sessionId: input.sessionId,
           questionNo: question.questionNo,
+          correctAnswer: question.correctAnswer,
+          correctRate: question.correctRate,
+          difficulty: question.difficulty,
+          answerDistribution: question.answerDistribution,
         },
-      },
-      create: {
-        sessionId: input.sessionId,
-        questionNo: question.questionNo,
-        correctAnswer: question.correctAnswer,
-        correctRate: question.correctRate,
-        difficulty: question.difficulty,
-        answerDistribution: question.answerDistribution,
-      },
-      update: {
-        correctAnswer: question.correctAnswer,
-        correctRate: question.correctRate,
-        difficulty: question.difficulty,
-        answerDistribution: question.answerDistribution,
-      },
-    });
+        update: {
+          correctAnswer: question.correctAnswer,
+          correctRate: question.correctRate,
+          difficulty: question.difficulty,
+          answerDistribution: question.answerDistribution,
+        },
+      });
 
-    await bulkUpsertStudentAnswers(
-      prisma,
-      question.answers.map((answer) => ({
-        examNumber: answer.examNumber,
-        questionId: questionRecord.id,
-        answer: answer.answer,
-        isCorrect: answer.isCorrect,
-      })),
-    );
-  }
+      await bulkUpsertStudentAnswers(
+        prisma,
+        question.answers.map((answer) => ({
+          examNumber: answer.examNumber,
+          questionId: questionRecord.id,
+          answer: answer.answer,
+          isCorrect: answer.isCorrect,
+        })),
+      );
+  });
 
   const auditBefore = scoreWrites
     .map((row) => existingScoreMap.get(row.examNumber) ?? null)
@@ -961,7 +1136,12 @@ async function applyParsedImport(input: {
     importedCount: resolvedRows.length,
   };
 
-  await recalculateScoreStatusCache(preview.session.periodId, preview.session.examType);
+  if (affectedExamNumbers.length > 0) {
+    // 성적 저장 완료 후 백그라운드에서 상태 캐시 재계산 (응답 지연 방지)
+    recalculateScoreStatusCache(preview.session.periodId, preview.session.examType, {
+      examNumbers: affectedExamNumbers,
+    }).catch(console.error);
+  }
 
   return result;
 }
@@ -1094,28 +1274,28 @@ export async function executeOfflineScoreUpload(input: {
     throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
   }
 
-  const mainResult = await applyParsedImport({
-    adminId: input.adminId,
-    sessionId: input.sessionId,
-    parsed: offlineMainImport(parsed, analysisQuestions, {
-      mainFileName: input.mainFileName,
-      analysisFileName: input.analysisFileName ?? null,
-    }),
-    ipAddress: input.ipAddress,
-  });
-
-  let oxResult = null;
-  if (resolvedOxSessionId && parsed.oxRecords.length > 0) {
-    oxResult = await applyParsedImport({
+  const [mainResult, oxResult] = await Promise.all([
+    applyParsedImport({
       adminId: input.adminId,
-      sessionId: resolvedOxSessionId,
-      parsed: offlineOxImport(parsed, {
+      sessionId: input.sessionId,
+      parsed: offlineMainImport(parsed, analysisQuestions, {
         mainFileName: input.mainFileName,
         analysisFileName: input.analysisFileName ?? null,
       }),
       ipAddress: input.ipAddress,
-    });
-  }
+    }),
+    resolvedOxSessionId && parsed.oxRecords.length > 0
+      ? applyParsedImport({
+          adminId: input.adminId,
+          sessionId: resolvedOxSessionId,
+          parsed: offlineOxImport(parsed, {
+            mainFileName: input.mainFileName,
+            analysisFileName: input.analysisFileName ?? null,
+          }),
+          ipAddress: input.ipAddress,
+        })
+      : Promise.resolve(null),
+  ]);
 
   return { main: mainResult, ox: oxResult };
 }
@@ -1183,30 +1363,30 @@ export async function executeOnlineScoreUpload(input: {
     throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
   }
 
-  const mainResult = await applyParsedImport({
-    adminId: input.adminId,
-    sessionId: input.sessionId,
-    parsed,
-    resolutions: input.resolutions,
-    ipAddress: input.ipAddress,
-  });
-
-  let oxResult = null;
-  if (resolvedOxSessionId && input.oxMainBuffer && input.oxMainFileName) {
-    oxResult = await applyParsedImport({
+  const [mainResult, oxResult] = await Promise.all([
+    applyParsedImport({
       adminId: input.adminId,
-      sessionId: resolvedOxSessionId,
-      parsed: parseOnlineOxScoreImport({
-        mainFileName: input.oxMainFileName,
-        mainBuffer: input.oxMainBuffer,
-        detailFileName: input.oxDetailFileName,
-        detailBuffer: input.oxDetailBuffer,
-        attendType: input.attendType,
-      }),
+      sessionId: input.sessionId,
+      parsed,
       resolutions: input.resolutions,
       ipAddress: input.ipAddress,
-    });
-  }
+    }),
+    resolvedOxSessionId && input.oxMainBuffer && input.oxMainFileName
+      ? applyParsedImport({
+          adminId: input.adminId,
+          sessionId: resolvedOxSessionId,
+          parsed: parseOnlineOxScoreImport({
+            mainFileName: input.oxMainFileName,
+            mainBuffer: input.oxMainBuffer,
+            detailFileName: input.oxDetailFileName,
+            detailBuffer: input.oxDetailBuffer,
+            attendType: input.attendType,
+          }),
+          resolutions: input.resolutions,
+          ipAddress: input.ipAddress,
+        })
+      : Promise.resolve(null),
+  ]);
 
   return { main: mainResult, ox: oxResult };
 }
@@ -1247,7 +1427,7 @@ export async function executePastedScores(input: {
 export async function listScores(filters: ScoreFilters) {
   const search = (filters.query ?? filters.examNumber)?.trim();
 
-  return getPrisma().score.findMany({
+  const scores = await getPrisma().score.findMany({
     where: {
       sessionId: filters.sessionId,
       ...(search
@@ -1284,6 +1464,8 @@ export async function listScores(filters: ScoreFilters) {
     },
     orderBy: [{ session: { examDate: "desc" } }, { examNumber: "asc" }],
   });
+
+  return scores.map((score) => withAbsenceNoteDisplay(score));
 }
 
 export function parseScoreUpdate(raw: Record<string, unknown>) {
@@ -1338,11 +1520,16 @@ export async function updateScoreEntry(input: {
       },
     });
 
+    const payload = {
+      ...input.payload,
+      note: preserveAbsenceNoteSystemNote(before.note, input.payload.note),
+    };
+
     const score = await tx.score.update({
       where: {
         id: input.scoreId,
       },
-      data: input.payload,
+      data: payload,
     });
 
     await tx.auditLog.create({
@@ -1368,7 +1555,7 @@ export async function updateScoreEntry(input: {
     examNumbers: [score.examNumber],
   });
 
-  return score.score;
+  return withAbsenceNoteDisplay(score.score);
 }
 
 export async function deleteSessionScores(input: {
@@ -1467,9 +1654,10 @@ export async function deleteSessionScores(input: {
   });
 
   if (examNumbers.length > 0) {
-    await recalculateScoreStatusCache(session.periodId, session.examType, {
+    // 백그라운드에서 상태 캐시 재계산 (응답 지연 방지)
+    recalculateScoreStatusCache(session.periodId, session.examType, {
       examNumbers,
-    });
+    }).catch(console.error);
   }
 
   return {

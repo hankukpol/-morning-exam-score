@@ -1,6 +1,8 @@
 "use client";
 
 import { NoticeTargetType } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { formatDateTime } from "@/lib/format";
 import { useState, useTransition } from "react";
 
@@ -89,6 +91,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -230,30 +233,39 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
   }
 
   function removeNotice(id: number) {
-    if (!window.confirm("이 공지사항을 삭제하시겠습니까?")) {
-      return;
-    }
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "???? ??",
+      description: "? ????? ?????????",
+      details: ["?? ??? ?? ?? ???? ?? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
 
-    setMessage(null, null);
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/notices/${id}`, {
+              method: "DELETE",
+            });
 
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/notices/${id}`, {
-          method: "DELETE",
+            setNotices((current) => current.filter((notice) => notice.id !== id));
+
+            if (editingId === id) {
+              resetForm();
+            }
+
+            setNoticeMessage("????? ??????.");
+            setErrorMessage(null);
+          } catch (error) {
+            setNoticeMessage(null);
+            setErrorMessage(error instanceof Error ? error.message : "???? ??? ??????.");
+          }
         });
-
-        setNotices((current) => current.filter((notice) => notice.id !== id));
-
-        if (editingId === id) {
-          resetForm();
-        }
-
-        setNoticeMessage("공지사항이 삭제되었습니다.");
-        setErrorMessage(null);
-      } catch (error) {
-        setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "공지사항 삭제에 실패했습니다.");
-      }
+      },
     });
   }
 
@@ -439,6 +451,20 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
           ))}
         </div>
       </section>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

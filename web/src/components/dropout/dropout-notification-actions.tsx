@@ -1,6 +1,8 @@
 "use client";
 
 import { ExamType, StudentStatus } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { useState, useTransition } from "react";
 
 type Props = {
@@ -19,6 +21,8 @@ export function DropoutNotificationActions({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
+  const completionModal = useActionModalState();
 
   const hasSendableStatus = statuses.some(
     (status) =>
@@ -34,47 +38,62 @@ export function DropoutNotificationActions({
       return;
     }
 
-    if (!window.confirm(`${recipientCount}명에게 현재 경고/탈락 안내 문자를 발송하시겠습니까?`)) {
-      return;
-    }
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "??/?? ?? ?? ??",
+      description: `${recipientCount}??? ?? ??/?? ?? ??? ?????????`,
+      details: ["?? ?? ?? ??? ???? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setNotice(null);
+        setErrorMessage(null);
 
-    setNotice(null);
-    setErrorMessage(null);
+        startTransition(async () => {
+          try {
+            const response = await fetch("/api/notifications/send", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                periodId,
+                examType,
+                statuses,
+              }),
+            });
+            const payload = (await response.json()) as {
+              error?: string;
+              createdCount?: number;
+              duplicateCount?: number;
+              sentCount?: number;
+              failedCount?: number;
+              skippedCount?: number;
+            };
 
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/notifications/send", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            periodId,
-            examType,
-            statuses,
-          }),
+            if (!response.ok) {
+              throw new Error(payload.error ?? "?? ??? ??????.");
+            }
+
+            const summary = `?? ${recipientCount}? / ?? ${payload.createdCount ?? 0}? / ???? ${payload.duplicateCount ?? 0}? / ?? ${payload.sentCount ?? 0}? / ?? ${payload.failedCount ?? 0}? / ?? ${payload.skippedCount ?? 0}?`;
+            setNotice(summary);
+            completionModal.openModal({
+              badgeLabel: "?? ??",
+              badgeTone: "success",
+              title: "?? ?? ??? ???????.",
+              description: "??/?? ?? ?? ?? ??? ?????.",
+              details: [summary],
+              confirmLabel: "??",
+            });
+          } catch (error) {
+            setErrorMessage(
+              error instanceof Error ? error.message : "?? ??? ??????.",
+            );
+          }
         });
-        const payload = (await response.json()) as {
-          error?: string;
-          createdCount?: number;
-          duplicateCount?: number;
-          sentCount?: number;
-          failedCount?: number;
-          skippedCount?: number;
-        };
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? "문자 발송에 실패했습니다.");
-        }
-
-        setNotice(
-          `대상 ${recipientCount}명 / 신규 ${payload.createdCount ?? 0}건 / 오늘중복 ${payload.duplicateCount ?? 0}건 / 발송 ${payload.sentCount ?? 0}건 / 실패 ${payload.failedCount ?? 0}건 / 제외 ${payload.skippedCount ?? 0}건`,
-        );
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "문자 발송에 실패했습니다.",
-        );
-      }
+      },
     });
   }
 
@@ -95,6 +114,31 @@ export function DropoutNotificationActions({
       </div>
       {notice ? <p className="mt-2 text-xs text-forest">{notice}</p> : null}
       {errorMessage ? <p className="mt-2 text-xs text-red-700">{errorMessage}</p> : null}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal.modal)}
+        badgeLabel={completionModal.modal?.badgeLabel ?? ""}
+        badgeTone={completionModal.modal?.badgeTone}
+        title={completionModal.modal?.title ?? ""}
+        description={completionModal.modal?.description ?? ""}
+        details={completionModal.modal?.details ?? []}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        onClose={completionModal.closeModal}
+        onConfirm={completionModal.modal?.onConfirm}
+      />
     </div>
   );
 }

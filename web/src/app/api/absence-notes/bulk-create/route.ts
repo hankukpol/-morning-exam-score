@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/absence-notes/bulk-create
  *
  * 한 학생의 여러 회차에 사유서를 한 번에 등록하는 API.
@@ -7,8 +7,9 @@
  * - examNumber: 학생 수험번호 (필수)
  * - sessionIds: 등록할 회차 ID 배열 (필수, 1개 이상)
  * - reason: 사유 내용 (필수)
- * - absenceCategory: 사유 카테고리 (PERSONAL·MEDICAL·MILITARY·OTHER)
- * - attendGrantsPerfectAttendance: 개근 인정 여부 (선택, MILITARY는 강제 true)
+ * - absenceCategory: 사유 카테고리 (MEDICAL·FAMILY·MILITARY·OTHER)
+ * - attendCountsAsAttendance: 출석률 포함 여부 (선택)
+ * - attendGrantsPerfectAttendance: 개근 인정 여부 (선택)
  * - adminNote: 관리자 메모 (선택)
  *
  * 응답: BulkCreateAbsenceNotesResult { succeeded, skipped, autoApproved, errors }
@@ -25,6 +26,7 @@ type RequestBody = {
   sessionIds?: number[];
   reason?: string;
   absenceCategory?: AbsenceCategory;
+  attendCountsAsAttendance?: boolean;
   attendGrantsPerfectAttendance?: boolean;
   adminNote?: string | null;
 };
@@ -39,7 +41,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
 
-    // 회차 미선택 상태로 호출하는 경우 조기 반환
     if (!Array.isArray(body.sessionIds) || body.sessionIds.length === 0) {
       return NextResponse.json({ error: "회차를 선택하세요." }, { status: 400 });
     }
@@ -51,13 +52,13 @@ export async function POST(request: Request) {
         sessionIds: body.sessionIds.map(Number),
         reason: String(body.reason ?? ""),
         absenceCategory: body.absenceCategory ?? AbsenceCategory.OTHER,
+        attendCountsAsAttendance: Boolean(body.attendCountsAsAttendance),
         attendGrantsPerfectAttendance: Boolean(body.attendGrantsPerfectAttendance),
         adminNote: body.adminNote ?? null,
       },
       ipAddress: request.headers.get("x-forwarded-for"),
     });
 
-    // 일부 실패가 있어도 200 반환, 클라이언트가 errors 배열을 확인해 처리
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

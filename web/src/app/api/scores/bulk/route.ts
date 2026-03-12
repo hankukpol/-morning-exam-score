@@ -1,7 +1,10 @@
-﻿import { AdminRole, AttendType } from "@prisma/client";
+import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { deleteSessionScores, executePastedScores, previewPastedScores } from "@/lib/scores/service";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 type Mode = "preview" | "execute" | "deleteSession";
 

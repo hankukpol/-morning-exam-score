@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { fetchJson } from "@/lib/client/fetch-json";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
@@ -249,15 +250,11 @@ export function MigrationWorkbench({ recentRuns, periods }: MigrationWorkbenchPr
   }
 
   async function requestJson<T>(url: string, init?: RequestInit) {
-    const response = await fetch(url, init);
-    const text = await response.text();
-    const payload = text.trim() ? (JSON.parse(text) as T & { error?: string }) : ({} as T & { error?: string });
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "요청 처리에 실패했습니다.");
-    }
-
-    return payload as T;
+    return fetchJson<T>(url, init, {
+      defaultError: "요청 처리에 실패했습니다.",
+      timeoutError:
+        "서버 처리 시간이 너무 오래 걸렸습니다. 저장 범위를 줄이거나 잠시 후 다시 시도해 주세요.",
+    });
   }
 
   function fetchStudentPreview() {

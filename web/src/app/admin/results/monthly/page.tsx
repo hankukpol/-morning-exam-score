@@ -18,8 +18,10 @@ type PageProps = {
 };
 
 export default async function AdminMonthlyResultsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const weekOptions = getWeekOptions(selectedPeriod, examType);
 
   const requestedFromWeekKey = readStringParam(searchParams, "fromWeekKey");

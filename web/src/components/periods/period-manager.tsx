@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { EXAM_TYPE_LABEL, EXAM_TYPE_SUBJECTS, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, toDateInputValue, todayDateInputValue } from "@/lib/format";
 
@@ -133,6 +135,8 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
+  const completionModal = useActionModalState();
 
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId) ?? null;
 
@@ -203,6 +207,18 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
 
   function refreshPage() {
     window.location.reload();
+  }
+
+  function openCompletionModal(title: string, description: string, details: string[] = []) {
+    completionModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "success",
+      title,
+      description,
+      details,
+      confirmLabel: "??",
+      onClose: refreshPage,
+    });
   }
 
   function resetMessages() {
@@ -278,6 +294,36 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
     }
     return Array.from(map.entries()).sort(([left], [right]) => left - right).map(([week, sessions]) => ({ week, sessions: [...sessions].sort((left, right) => left.examDate.localeCompare(right.examDate)) }));
   }, [filteredSessions]);
+
+  const actionModals = (
+    <>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal.modal)}
+        badgeLabel={completionModal.modal?.badgeLabel ?? ""}
+        badgeTone={completionModal.modal?.badgeTone}
+        title={completionModal.modal?.title ?? ""}
+        description={completionModal.modal?.description ?? ""}
+        details={completionModal.modal?.details ?? []}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        onClose={completionModal.closeModal}
+        onConfirm={completionModal.modal?.onConfirm}
+      />
+    </>
+  );
   if (view === "list") {
     const years = [...new Set(periods.map((period) => period.startDate.slice(0, 4)))].sort((left, right) => right.localeCompare(left));
     const visiblePeriods = selectedYear ? periods.filter((period) => period.startDate.slice(0, 4) === selectedYear) : periods;
@@ -371,13 +417,18 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
           <div className="mt-6 flex gap-3">
             <button type="button" onClick={() => run(async () => {
               await requestJson("/api/periods", { method: "POST", body: JSON.stringify({ ...createForm, totalWeeks: Number(createForm.totalWeeks) }) });
-              setNotice("시험 기간을 생성했습니다.");
+              setNotice(null);
               setCreateForm(createDefaultFormState());
-              refreshPage();
+              openCompletionModal(
+                "?? ?? ?? ??",
+                "? ?? ??? ??????.",
+                [createForm.name],
+              );
             })} disabled={isPending || !createForm.name.trim() || !createForm.startDate || !createForm.endDate || (!createForm.isGongchaeEnabled && !createForm.isGyeongchaeEnabled)} className="inline-flex items-center rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">기간 생성</button>
             <button type="button" onClick={() => setView("list")} className="inline-flex items-center rounded-full border border-ink/10 px-6 py-3 text-sm font-semibold transition hover:border-ink/30">취소</button>
           </div>
         </div>
+      {actionModals}
       </div>
     );
   }
@@ -424,13 +475,21 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => run(async () => {
               await requestJson(`/api/periods/${selectedPeriod.id}/activate`, { method: "PUT" });
-              setNotice("활성 기간을 변경했습니다.");
-              refreshPage();
+              setNotice(null);
+              openCompletionModal(
+                "?? ?? ?? ??",
+                "?? ?? ?? ??? ??????.",
+                [selectedPeriod.name],
+              );
             })} disabled={isPending || selectedPeriod.isActive} className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest disabled:cursor-not-allowed disabled:opacity-50">활성화</button>
             <button type="button" onClick={() => run(async () => {
               await requestJson(`/api/periods/${selectedPeriod.id}`, { method: "PUT", body: JSON.stringify({ action: "generateSessions" }) });
-              setNotice("누락된 자동 회차를 생성했습니다.");
-              refreshPage();
+              setNotice(null);
+              openCompletionModal(
+                "?? ?? ?? ??",
+                "??? ?? ??? ??????.",
+                [selectedPeriod.name],
+              );
             })} disabled={isPending} className="rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10">자동 회차 생성</button>
             <button type="button" onClick={() => setCreateSessionOpen((current) => !current)} className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest">{createSessionOpen ? "회차 추가 닫기" : "개별 회차 추가"}</button>
             <button type="button" onClick={() => setEditingPeriodId((current) => current === selectedPeriod.id ? null : selectedPeriod.id)} className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ink/30">기간 수정</button>
@@ -469,9 +528,13 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => run(async () => {
                 await requestJson(`/api/periods/${selectedPeriod.id}`, { method: "PUT", body: JSON.stringify({ ...draft, totalWeeks: Number(draft.totalWeeks) }) });
-                setNotice("기간 정보를 수정했습니다.");
+                setNotice(null);
                 setEditingPeriodId(null);
-                refreshPage();
+                openCompletionModal(
+                  "?? ?? ?? ??",
+                  "?? ?? ??? ??????.",
+                  [draft.name],
+                );
               })} disabled={isPending || (!draft.isGongchaeEnabled && !draft.isGyeongchaeEnabled)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">저장</button>
               <button type="button" onClick={() => setEditingPeriodId(null)} className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ink/30">취소</button>
             </div>
@@ -509,10 +572,14 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
             <div className="mt-5 flex gap-3">
               <button type="button" onClick={() => run(async () => {
                 await requestJson(`/api/periods/${selectedPeriod.id}/sessions`, { method: "POST", body: JSON.stringify({ examType: createSessionForm.examType, week: Number(createSessionForm.week), subject: createSessionForm.subject, examDate: createSessionForm.examDate }) });
-                setNotice("회차를 추가했습니다.");
+                setNotice(null);
                 setCreateSessionForm(buildCreateSessionForm(selectedPeriod));
                 setCreateSessionOpen(false);
-                refreshPage();
+                openCompletionModal(
+                  "?? ?? ??",
+                  "?? ??? ??????.",
+                  [`${createSessionForm.week}?? ? ${EXAM_TYPE_LABEL[createSessionForm.examType]} ? ${SUBJECT_LABEL[createSessionForm.subject]}`],
+                );
               })} disabled={isPending || !createSessionForm.examDate || !createSessionForm.week} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">회차 추가</button>
               <button type="button" onClick={() => setCreateSessionOpen(false)} className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ink/30">닫기</button>
             </div>
@@ -536,11 +603,23 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
               await reloadEnrollments(selectedPeriod.id);
             })} disabled={isPending || selectedEnrollmentExamNumbers.length === 0} className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">선택 해제</button>
             <button type="button" onClick={() => {
-              if (!window.confirm(`현재 기간의 수강생 ${currentEnrollmentCount}명을 모두 해제할까요?`)) return;
-              run(async () => {
-                await requestJson(`/api/periods/${selectedPeriod.id}/enrollments`, { method: "DELETE", body: JSON.stringify({ removeAll: true }) });
-                setNotice("전체 수강 등록을 해제했습니다.");
-                await reloadEnrollments(selectedPeriod.id);
+              confirmModal.openModal({
+                badgeLabel: "?? ?? ??",
+                badgeTone: "warning",
+                title: "??? ?? ??",
+                description: `?? ??? ??? ${currentEnrollmentCount}?? ?? ??????`,
+                details: ["?? ??? ?? ??? ?? ??? ?? ?????."],
+                cancelLabel: "??",
+                confirmLabel: "?? ??",
+                confirmTone: "danger",
+                onConfirm: () => {
+                  confirmModal.closeModal();
+                  run(async () => {
+                    await requestJson(`/api/periods/${selectedPeriod.id}/enrollments`, { method: "DELETE", body: JSON.stringify({ removeAll: true }) });
+                    setNotice("?? ?? ??? ??????.");
+                    await reloadEnrollments(selectedPeriod.id);
+                  });
+                },
               });
             }} disabled={isPending || currentEnrollmentCount === 0} className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">전체 해제</button>
           </div>
@@ -688,9 +767,13 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
                               <div className="flex flex-wrap gap-2">
                                 <button type="button" onClick={() => run(async () => {
                                   await requestJson(`/api/sessions/${session.id}`, { method: "PUT", body: JSON.stringify({ examDate: draftSession.examDate, subject: draftSession.subject, isCancelled: draftSession.isCancelled, cancelReason: draftSession.cancelReason }) });
-                                  setNotice("회차 정보를 수정했습니다.");
+                                  setNotice(null);
                                   setEditingSessionId(null);
-                                  refreshPage();
+                                  openCompletionModal(
+                                    "?? ?? ??",
+                                    "?? ??? ??????.",
+                                    [`${draftSession.examDate} ? ${SUBJECT_LABEL[draftSession.subject]}`],
+                                  );
                                 })} disabled={isPending} className="rounded-full border border-ink/10 px-4 py-1.5 text-xs font-semibold transition hover:border-forest/30 hover:text-forest">저장</button>
                                 <button type="button" onClick={() => setEditingSessionId(null)} className="rounded-full border border-ink/10 px-4 py-1.5 text-xs font-semibold transition hover:border-ink/30">취소</button>
                               </div>
@@ -706,6 +789,7 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
           </div>
         )}
       </section>
+      {actionModals}
     </div>
   );
 }

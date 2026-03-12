@@ -28,6 +28,7 @@ function formatCellValue(
   attendType: AttendType | null,
   value: number | null,
   mode: "mock" | "ox",
+  isPendingInput: boolean,
 ) {
   if (attendType === AttendType.NORMAL) {
     return value === null ? "" : formatScore(value);
@@ -35,30 +36,48 @@ function formatCellValue(
 
   if (attendType === AttendType.LIVE) {
     if (value !== null && mode === "mock") {
-      return `${formatScore(value)}(라이브)`;
+      return `${formatScore(value)}(LIVE)`;
     }
 
-    return "라이브";
+    return "LIVE";
   }
 
   if (attendType === AttendType.EXCUSED) {
-    return "사유";
+    return "공결";
+  }
+
+  if (isPendingInput) {
+    return "미입력";
   }
 
   return "";
 }
 
-function noteClass(status: StudentStatus) {
-  if (status === StudentStatus.DROPOUT) {
+function weekNoteLabel(row: WeeklyResultsSheetRow) {
+  const hasPendingInput = row.cells.some((cell) => cell.isPendingInput);
+
+  if (row.weekStatus === StudentStatus.NORMAL) {
+    return !hasPendingInput && row.perfectAttendance ? "개근" : "";
+  }
+
+  return STATUS_LABEL[row.weekStatus];
+}
+
+function noteClass(row: WeeklyResultsSheetRow) {
+  if (row.weekStatus === StudentStatus.DROPOUT) {
     return "bg-red-600 text-white";
   }
 
-  if (status === StudentStatus.WARNING_2) {
+  if (row.weekStatus === StudentStatus.WARNING_2) {
     return "bg-amber-200 text-amber-900";
   }
 
-  if (status === StudentStatus.WARNING_1) {
+  if (row.weekStatus === StudentStatus.WARNING_1) {
     return "bg-rose-100 text-rose-700";
+  }
+
+  if (!row.cells.some((cell) => cell.isPendingInput) && row.perfectAttendance) {
+    return "bg-emerald-50 text-emerald-700";
   }
 
   return "";
@@ -113,7 +132,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
         <table className="min-w-full border-collapse text-center text-sm">
           <thead>
             <tr>
-              <th rowSpan={2} className={headCellClass}>번호</th>
+              <th rowSpan={2} className={headCellClass}>순번</th>
               <th rowSpan={2} className={headNameCellClass}>이름</th>
               {displayColumns.map((column) => (
                 <th
@@ -127,11 +146,11 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                   </div>
                 </th>
               ))}
-              <th rowSpan={2} className={headCellClass}>모의고사 성적</th>
+              <th rowSpan={2} className={headCellClass}>모의고사 평균</th>
               <th rowSpan={2} className={headCellClass}>모의고사 석차</th>
-              <th rowSpan={2} className={headCellClass}>경찰학 OX 성적</th>
+              <th rowSpan={2} className={headCellClass}>경찰학 OX 평균</th>
               <th rowSpan={2} className={headCellClass}>경찰학 OX 석차</th>
-              <th rowSpan={2} className={headCellClass}>참석률</th>
+              <th rowSpan={2} className={headCellClass}>출석률</th>
               <th rowSpan={2} className={headCellClass}>비고</th>
             </tr>
             <tr>
@@ -147,7 +166,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
               )}
             </tr>
             <tr className="bg-slate-50">
-              <th colSpan={2} className="border border-slate-200 px-3 py-3 font-semibold">응시자 평균</th>
+              <th colSpan={2} className="border border-slate-200 px-3 py-3 font-semibold">전체 평균</th>
               {averages.map((average, index) =>
                 displayColumns[index]?.oxSession ? (
                   <Fragment key={`avg-${displayColumns[index].key}`}>
@@ -202,6 +221,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                     mainCell?.attendType ?? null,
                     mainCell?.mockScore ?? null,
                     "mock",
+                    mainCell?.isPendingInput ?? false,
                   );
 
                   if (column.oxSession) {
@@ -209,6 +229,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                       oxCell?.attendType ?? mainCell?.attendType ?? null,
                       oxCell?.policeOxScore ?? null,
                       "ox",
+                      oxCell?.isPendingInput ?? mainCell?.isPendingInput ?? false,
                     );
                     return (
                       <Fragment key={`${row.examNumber}-${column.key}`}>
@@ -234,8 +255,8 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                 </td>
                 <td className="border border-ink/10 px-3 py-3 font-semibold text-red-500">{formatRank(row.policeOxRank)}</td>
                 <td className="border border-ink/10 px-3 py-3 font-semibold">{Math.round(row.attendanceRate)}%</td>
-                <td className={`border border-ink/10 px-3 py-3 font-semibold ${noteClass(row.weekStatus)}`}>
-                  {row.weekStatus === StudentStatus.NORMAL ? "" : STATUS_LABEL[row.weekStatus]}
+                <td className={`border border-ink/10 px-3 py-3 font-semibold ${noteClass(row)}`}>
+                  {weekNoteLabel(row)}
                 </td>
               </tr>
             ))}

@@ -14,6 +14,8 @@ import {
   ABSENCE_CATEGORY_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { formatDate, formatDateTime, todayDateInputValue } from "@/lib/format";
 import { useEffect, useRef, useMemo, useState, useTransition } from "react";
 
@@ -39,6 +41,7 @@ type AbsenceNoteRecord = {
   submittedAt: string | null;
   approvedAt: string | null;
   status: AbsenceStatus;
+  attendCountsAsAttendance: boolean;
   attendGrantsPerfectAttendance: boolean;
   adminNote: string | null;
   student: {
@@ -55,12 +58,27 @@ type AbsenceNoteRecord = {
   };
 };
 
-type SortColumn = "examNumber" | "status" | "absenceCategory" | "examDate" | "submittedAt" | "attendGrantsPerfectAttendance";
+type SortColumn = "examNumber" | "status" | "absenceCategory" | "examDate" | "submittedAt" | "attendCountsAsAttendance" | "attendGrantsPerfectAttendance";
+
+type AbsencePolicyOption = {
+  id: number;
+  name: string;
+  absenceCategory: AbsenceCategory;
+  attendCountsAsAttendance: boolean;
+  attendGrantsPerfectAttendance: boolean;
+  isActive: boolean;
+  sortOrder: number;
+};
 
 type AbsenceNoteManagerProps = {
   students: StudentOption[];
   sessions: SessionOption[];
+  policies: AbsencePolicyOption[];
   notes: AbsenceNoteRecord[];
+  settingsHref?: string;
+  showCreateSection?: boolean;
+  showReviewSection?: boolean;
+  showGuidanceSection?: boolean;
 };
 
 const NOTE_STATUS_LABEL: Record<AbsenceStatus, string> = {
@@ -104,16 +122,26 @@ function SortIcon({ column, sortBy, sortOrder }: { column: SortColumn; sortBy: S
 export function AbsenceNoteManager({
   students,
   sessions,
+  policies,
   notes,
+  settingsHref,
+  showCreateSection = true,
+  showReviewSection = true,
+  showGuidanceSection = true,
 }: AbsenceNoteManagerProps) {
   const todayKey = todayDateInputValue();
+  const shouldShowCreateSection = showCreateSection;
+  const shouldShowReviewSection = showReviewSection;
+  const shouldShowGuidanceSection = showGuidanceSection;
   // ── 공통 등록 폼 상태 ──────────────────────────────────────
   const [createExamNumber, setCreateExamNumber] = useState(students[0]?.examNumber ?? "");
   const [studentSearch, setStudentSearch] = useState("");
   const [createCategory, setCreateCategory] = useState<AbsenceCategory>(AbsenceCategory.OTHER);
   const [createReason, setCreateReason] = useState("");
   const [createAdminNote, setCreateAdminNote] = useState("");
+  const [createCountsAsAttendance, setCreateCountsAsAttendance] = useState(false);
   const [createPerfectAttendance, setCreatePerfectAttendance] = useState(false);
+  const [createPolicyId, setCreatePolicyId] = useState("");
 
   // ── 단건 등록 ────────────────────────────────────────────
   const [createDateFilter, setCreateDateFilter] = useState(todayKey);
@@ -143,6 +171,8 @@ export function AbsenceNoteManager({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
+  const completionModal = useActionModalState();
   const [selectedNoteIds, setSelectedNoteIds] = useState<number[]>([]);
   const [selectedNote, setSelectedNote] = useState<AbsenceNoteRecord | null>(null);
   const drawerFormRef = useRef<HTMLFormElement>(null);
@@ -245,6 +275,9 @@ export function AbsenceNoteManager({
         case "submittedAt":
           cmp = (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "");
           break;
+        case "attendCountsAsAttendance":
+          cmp = Number(b.attendCountsAsAttendance) - Number(a.attendCountsAsAttendance);
+          break;
         case "attendGrantsPerfectAttendance":
           cmp = Number(b.attendGrantsPerfectAttendance) - Number(a.attendGrantsPerfectAttendance);
           break;
@@ -284,9 +317,18 @@ export function AbsenceNoteManager({
     setErrorMessage(nextError);
   }
 
-  function reloadPage(message: string) {
-    setMessage(message, null);
-    window.location.reload();
+  function reloadPage(message: string, title = "??? ?? ??", details: string[] = []) {
+    setNotice(null);
+    setErrorMessage(null);
+    completionModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "success",
+      title,
+      description: message,
+      details,
+      confirmLabel: "??",
+      onClose: () => window.location.reload(),
+    });
   }
 
   // ── 단건 등록 ─────────────────────────────────────────────
@@ -301,6 +343,8 @@ export function AbsenceNoteManager({
             sessionId: Number(createSessionId),
             reason: createReason,
             absenceCategory: createCategory,
+            attendCountsAsAttendance:
+              createCategory === AbsenceCategory.MILITARY ? true : createCountsAsAttendance || createPerfectAttendance,
             attendGrantsPerfectAttendance: createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance,
             adminNote: createAdminNote,
           }),
@@ -336,6 +380,8 @@ export function AbsenceNoteManager({
             sessionIds: effectiveSessionIds,
             reason: createReason,
             absenceCategory: createCategory,
+            attendCountsAsAttendance:
+              createCategory === AbsenceCategory.MILITARY ? true : createCountsAsAttendance || createPerfectAttendance,
             attendGrantsPerfectAttendance: createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance,
             adminNote: createAdminNote,
           }),
@@ -353,33 +399,53 @@ export function AbsenceNoteManager({
   // ── 드로어 회차 변경 ──────────────────────────────────────
   function changeNoteSession(noteId: number) {
     if (!changeSessionTargetId) {
-      setMessage(null, "변경할 회차를 선택하세요.");
+      setMessage(null, "??? ??? ?????.");
       return;
     }
     if (changeSessionTargetId === String(selectedNote?.sessionId)) {
-      setMessage(null, "현재 회차와 동일합니다.");
+      setMessage(null, "?? ??? ?????.");
       return;
     }
     const isApproved = selectedNote?.status === AbsenceStatus.APPROVED;
+
+    const execute = () => {
+      setMessage(null, null);
+      startTransition(async () => {
+        try {
+          await requestJson(`/api/absence-notes/${noteId}`, {
+            method: "PUT",
+            body: JSON.stringify({ action: "changeSession", newSessionId: Number(changeSessionTargetId) }),
+          });
+          reloadPage(
+            isApproved
+              ? "??? ??????. ??? ?????? ??????."
+              : "??? ??? ??????.",
+            "?? ?? ??",
+            isApproved ? ["?? ??? ??? ???????."] : [],
+          );
+        } catch (error) {
+          setMessage(null, error instanceof Error ? error.message : "?? ??? ??????.");
+        }
+      });
+    };
+
     if (isApproved) {
-      if (!window.confirm("승인된 사유서의 회차를 변경하면 승인이 취소되고 대기 상태로 변경됩니다. 계속하시겠습니까?")) return;
+      confirmModal.openModal({
+        badgeLabel: "?? ?? ??",
+        badgeTone: "warning",
+        title: "??? ??? ?? ??",
+        description: "??? ???? ??? ???? ??? ???? ?? ??? ?????. ?????????",
+        cancelLabel: "??",
+        confirmLabel: "?? ??",
+        onConfirm: () => {
+          confirmModal.closeModal();
+          execute();
+        },
+      });
+      return;
     }
-    setMessage(null, null);
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/absence-notes/${noteId}`, {
-          method: "PUT",
-          body: JSON.stringify({ action: "changeSession", newSessionId: Number(changeSessionTargetId) }),
-        });
-        reloadPage(
-          isApproved
-            ? "회차를 변경했습니다. 승인이 취소되었으니 재승인하세요."
-            : "사유서 회차를 변경했습니다.",
-        );
-      } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "회차 변경에 실패했습니다.");
-      }
-    });
+
+    execute();
   }
 
   // ── 기존 함수들 ───────────────────────────────────────────
@@ -387,12 +453,22 @@ export function AbsenceNoteManager({
     setMessage(null, null);
     startTransition(async () => {
       try {
+        const absenceCategory = formData.get("absenceCategory") as AbsenceCategory | null;
+        const attendGrantsPerfectAttendance =
+          absenceCategory === AbsenceCategory.MILITARY
+            ? true
+            : booleanFromFormData(formData, "attendGrantsPerfectAttendance");
         await requestJson(`/api/absence-notes/${noteId}`, {
           method: "PUT",
           body: JSON.stringify({
             action: "update",
             reason: String(formData.get("reason") ?? ""),
-            absenceCategory: formData.get("absenceCategory"),
+            absenceCategory,
+            attendCountsAsAttendance:
+              absenceCategory === AbsenceCategory.MILITARY
+                ? true
+                : attendGrantsPerfectAttendance || booleanFromFormData(formData, "attendCountsAsAttendance"),
+            attendGrantsPerfectAttendance,
             adminNote: String(formData.get("adminNote") ?? ""),
           }),
         });
@@ -408,15 +484,20 @@ export function AbsenceNoteManager({
     startTransition(async () => {
       try {
         const absenceCategory = formData.get("absenceCategory") as AbsenceCategory | null;
+        const attendGrantsPerfectAttendance =
+          absenceCategory === AbsenceCategory.MILITARY
+            ? true
+            : booleanFromFormData(formData, "attendGrantsPerfectAttendance");
         await requestJson(`/api/absence-notes/${noteId}`, {
           method: "PUT",
           body: JSON.stringify({
             action,
             adminNote: String(formData.get("adminNote") ?? ""),
-            attendGrantsPerfectAttendance:
+            attendCountsAsAttendance:
               absenceCategory === AbsenceCategory.MILITARY
                 ? true
-                : booleanFromFormData(formData, "attendGrantsPerfectAttendance"),
+                : attendGrantsPerfectAttendance || booleanFromFormData(formData, "attendCountsAsAttendance"),
+            attendGrantsPerfectAttendance,
           }),
         });
         reloadPage(action === "approve" ? "사유서를 승인했습니다." : "사유서를 반려했습니다.");
@@ -427,49 +508,83 @@ export function AbsenceNoteManager({
   }
 
   function revertNote(noteId: number) {
-    if (!window.confirm("승인을 취소하고 대기 상태로 되돌리시겠습니까? EXCUSED 처리도 함께 취소됩니다.")) return;
-    setMessage(null, null);
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/absence-notes/${noteId}`, {
-          method: "PUT",
-          body: JSON.stringify({ action: "revert" }),
+    confirmModal.openModal({
+      badgeLabel: "?? ?? ??",
+      badgeTone: "warning",
+      title: "??? ?? ??",
+      description: "??? ???? ?? ??? ????????? EXCUSED ??? ?? ?????.",
+      cancelLabel: "??",
+      confirmLabel: "?? ??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/absence-notes/${noteId}`, {
+              method: "PUT",
+              body: JSON.stringify({ action: "revert" }),
+            });
+            reloadPage("??? ??? ??????.", "?? ?? ??");
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : "?? ??? ??????.");
+          }
         });
-        reloadPage("사유서 승인을 취소했습니다.");
-      } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "승인 취소에 실패했습니다.");
-      }
+      },
     });
   }
 
   function bulkReview(action: "approve" | "reject") {
-    const label = action === "approve" ? "승인" : "반려";
-    if (!window.confirm(`선택한 ${selectedNoteIds.length}건을 일괄 ${label}하시겠습니까?`)) return;
-    setMessage(null, null);
-    startTransition(async () => {
-      try {
-        const result = await requestJson("/api/absence-notes/bulk", {
-          method: "POST",
-          body: JSON.stringify({ action, ids: selectedNoteIds }),
+    const label = action === "approve" ? "??" : "??";
+    confirmModal.openModal({
+      badgeLabel: `${label} ??`,
+      badgeTone: "warning",
+      title: `??? ?? ${label}`,
+      description: `??? ${selectedNoteIds.length}?? ?? ${label}???????`,
+      cancelLabel: "??",
+      confirmLabel: label,
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
+        startTransition(async () => {
+          try {
+            const result = await requestJson("/api/absence-notes/bulk", {
+              method: "POST",
+              body: JSON.stringify({ action, ids: selectedNoteIds }),
+            });
+            reloadPage(
+              `${result.succeeded}? ${label} ??${result.failed > 0 ? `, ${result.failed}? ??` : ""}`,
+              `??? ?? ${label} ??`,
+            );
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : `${label} ??? ??????.`);
+          }
         });
-        setSelectedNoteIds([]);
-        reloadPage(`${result.succeeded}건 ${label} 완료${result.failed > 0 ? `, ${result.failed}건 실패` : ""}`);
-      } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "일괄 처리에 실패했습니다.");
-      }
+      },
     });
   }
 
   function removeNote(noteId: number) {
-    if (!window.confirm("사유서를 삭제하시겠습니까? 승인된 사유서는 EXCUSED 처리도 함께 되돌립니다.")) return;
-    setMessage(null, null);
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/absence-notes/${noteId}`, { method: "DELETE" });
-        reloadPage("사유서를 삭제했습니다.");
-      } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "사유서 삭제에 실패했습니다.");
-      }
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "??? ??",
+      description: "???? ????????? ??? ???? EXCUSED ??? ?? ?????.",
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/absence-notes/${noteId}`, { method: "DELETE" });
+            reloadPage("???? ??????.", "??? ?? ??");
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : "??? ??? ??????.");
+          }
+        });
+      },
     });
   }
 
@@ -485,43 +600,115 @@ export function AbsenceNoteManager({
   const pendingCount = notes.filter((n) => n.status === AbsenceStatus.PENDING).length;
   const rejectedCount = notes.filter((n) => n.status === AbsenceStatus.REJECTED).length;
   const selectedStudent = students.find((s) => s.examNumber === createExamNumber);
+  const activePolicies = useMemo(
+    () =>
+      policies
+        .filter((policy) => policy.isActive)
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id),
+    [policies],
+  );
 
-  // ── 공통 등록 폼 하단 (학생, 사유 유형, 개근, 사유 내용, 관리자 메모) ──
+  function applyCreatePolicy(policyId: string) {
+    setCreatePolicyId(policyId);
+
+    const selectedPolicy = activePolicies.find((policy) => String(policy.id) === policyId);
+    if (!selectedPolicy) {
+      return;
+    }
+
+    const nextPerfectAttendance = selectedPolicy.attendGrantsPerfectAttendance;
+    setCreateCategory(selectedPolicy.absenceCategory);
+    setCreateCountsAsAttendance(selectedPolicy.attendCountsAsAttendance || nextPerfectAttendance);
+    setCreatePerfectAttendance(nextPerfectAttendance);
+  }
+
+  // ── 공통 등록 폼 하단 (학생, 사유 유형, 출석/개근, 사유 내용, 관리자 메모) ──
   function renderCommonFormFields() {
+    const isMilitary = createCategory === AbsenceCategory.MILITARY;
+    const effectiveCreateCountsAsAttendance = isMilitary
+      ? true
+      : createCountsAsAttendance || createPerfectAttendance;
+    const effectiveCreatePerfectAttendance = isMilitary ? true : createPerfectAttendance;
+
     return (
       <>
-        {/* 사유 유형 + 개근 인정 */}
+        {/* 사유 정책 + 사유 유형 */}
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium">사유 정책</label>
+            <select
+              value={createPolicyId}
+              onChange={(e) => applyCreatePolicy(e.target.value)}
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+            >
+              <option value="">직접 선택</option>
+              {activePolicies.map((policy) => (
+                <option key={policy.id} value={policy.id}>
+                  {policy.name} · {ABSENCE_CATEGORY_LABEL[policy.absenceCategory]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-slate">
+              자주 쓰는 사유 정책을 고르면 출석 포함과 개근 인정 값이 자동으로 채워집니다.
+            </p>
+          </div>
           <div>
             <label className="mb-2 block text-sm font-medium">사유 유형</label>
             <select
               value={createCategory}
-              onChange={(e) => setCreateCategory(e.target.value as AbsenceCategory)}
+              onChange={(e) => {
+                const nextCategory = e.target.value as AbsenceCategory;
+                setCreatePolicyId("");
+                setCreateCategory(nextCategory);
+                if (nextCategory === AbsenceCategory.MILITARY) {
+                  setCreateCountsAsAttendance(true);
+                  setCreatePerfectAttendance(true);
+                }
+              }}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
             >
               {Object.values(AbsenceCategory).map((category) => (
                 <option key={category} value={category}>{ABSENCE_CATEGORY_LABEL[category]}</option>
               ))}
             </select>
-            {createCategory === AbsenceCategory.MILITARY && (
+            {isMilitary && (
               <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                예비군은 등록 즉시 자동승인되고 개근이 인정됩니다.
+                예비군은 등록 즉시 자동승인되고 출석 포함과 개근 인정이 함께 적용됩니다.
               </p>
             )}
           </div>
-          <div className="flex items-end">
-            <label className={`inline-flex w-full items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${createCategory === AbsenceCategory.MILITARY ? "border-amber-200 bg-amber-50 text-amber-700" : "border-ink/10"}`}>
-              <input
-                type="checkbox"
-                checked={createCategory === AbsenceCategory.MILITARY ? true : createPerfectAttendance}
-                disabled={createCategory === AbsenceCategory.MILITARY}
-                onChange={(e) => setCreatePerfectAttendance(e.target.checked)}
-                className="h-4 w-4"
-              />
-              개근 인정
-              {createCategory === AbsenceCategory.MILITARY && <span className="text-xs">(자동)</span>}
-            </label>
-          </div>
+        </div>
+
+        {/* 출석 포함 + 개근 인정 */}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${isMilitary ? "border-amber-200 bg-amber-50 text-amber-700" : "border-ink/10"}`}>
+            <input
+              type="checkbox"
+              checked={effectiveCreateCountsAsAttendance}
+              disabled={isMilitary || effectiveCreatePerfectAttendance}
+              onChange={(e) => setCreateCountsAsAttendance(e.target.checked)}
+              className="h-4 w-4"
+            />
+            출석 포함
+            {isMilitary ? <span className="text-xs">(자동)</span> : null}
+          </label>
+          <label className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${isMilitary ? "border-amber-200 bg-amber-50 text-amber-700" : "border-ink/10"}`}>
+            <input
+              type="checkbox"
+              checked={effectiveCreatePerfectAttendance}
+              disabled={isMilitary}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setCreatePerfectAttendance(checked);
+                if (checked) {
+                  setCreateCountsAsAttendance(true);
+                }
+              }}
+              className="h-4 w-4"
+            />
+            개근 인정
+            {isMilitary ? <span className="text-xs">(자동)</span> : null}
+          </label>
         </div>
 
         <div className="mt-4">
@@ -550,18 +737,6 @@ export function AbsenceNoteManager({
 
   return (
     <div className="space-y-8">
-      {/* 운영 규정 */}
-      <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
-        <h2 className="text-xl font-semibold">운영 규정</h2>
-        <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
-          <li>과거·미래 모든 회차에 사유서를 등록할 수 있습니다.</li>
-          <li><span className="font-semibold text-ink">예비군</span>은 사유서 등록 시 자동으로 즉시 승인되며 개근 인정이 적용됩니다.</li>
-          <li>병원, 경조사, 기타는 승인 시 개근 인정 여부를 직접 선택합니다.</li>
-          <li>승인되면 ABSENT는 EXCUSED로 변경되고 상태 판정이 다시 계산됩니다.</li>
-          <li>반려된 사유서는 재검토하여 다시 승인할 수 있습니다.</li>
-        </ul>
-      </section>
-
       {notice ? (
         <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div>
       ) : null}
@@ -569,31 +744,41 @@ export function AbsenceNoteManager({
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
       ) : null}
 
-      {/* 사유서 등록 */}
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+      {shouldShowCreateSection ? (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">사유서 등록</h2>
             <p className="mt-1 text-sm text-slate">해당 기간의 모든 회차(과거·미래 포함)에서 사유서를 등록할 수 있습니다.</p>
           </div>
-          {/* 단건 / 일괄 탭 */}
-          <div className="flex rounded-full border border-ink/10 p-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setCreateMode("single")}
-              className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "single" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
-            >
-              단건 등록
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreateMode("bulk")}
-              className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "bulk" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
-            >
-              일괄 등록
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {settingsHref ? (
+              <a
+                href={settingsHref}
+                className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                사유 정책 설정
+              </a>
+            ) : null}
+            <div className="flex rounded-full border border-ink/10 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setCreateMode("single")}
+                className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "single" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
+              >
+                단건 등록
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateMode("bulk")}
+                className={`rounded-full px-4 py-1.5 font-semibold transition ${createMode === "bulk" ? "bg-ink text-white" : "text-slate hover:text-ink"}`}
+              >
+                일괄 등록
+              </button>
+            </div>
           </div>
         </div>
+
 
         {/* 수강생 선택 (공통) */}
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -824,9 +1009,10 @@ export function AbsenceNoteManager({
           </button>
         )}
       </section>
+      ) : null}
 
-      {/* 사유서 검토 — 테이블 */}
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+      {shouldShowReviewSection ? (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-xl font-semibold">사유서 검토</h2>
@@ -901,6 +1087,9 @@ export function AbsenceNoteManager({
                     <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("absenceCategory")}>
                       사유 유형 <SortIcon column="absenceCategory" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("attendCountsAsAttendance")}>
+                      출석포함 <SortIcon column="attendCountsAsAttendance" sortBy={sortBy} sortOrder={sortOrder} />
+                    </th>
                     <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("attendGrantsPerfectAttendance")}>
                       개근인정 <SortIcon column="attendGrantsPerfectAttendance" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
@@ -957,6 +1146,13 @@ export function AbsenceNoteManager({
                           {note.absenceCategory ? ABSENCE_CATEGORY_LABEL[note.absenceCategory] : "-"}
                         </td>
                         <td className="px-4 py-3 text-center">
+                          {note.attendCountsAsAttendance ? (
+                            <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700">포함</span>
+                          ) : (
+                            <span className="text-slate">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
                           {note.attendGrantsPerfectAttendance ? (
                             <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-2 py-0.5 text-xs font-semibold text-forest">인정</span>
                           ) : (
@@ -1003,9 +1199,35 @@ export function AbsenceNoteManager({
           </>
         )}
       </section>
+      ) : null}
+
+      {shouldShowGuidanceSection ? (
+        <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">운영 안내</h2>
+              <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
+                <li>과거·미래 모든 회차에 사유서를 등록할 수 있습니다.</li>
+                <li><span className="font-semibold text-ink">예비군</span>은 사유서 등록 시 자동으로 즉시 승인되며 출석 포함과 개근 인정이 함께 적용됩니다.</li>
+                <li>사유 정책을 선택하면 출석 포함과 개근 인정 기본값이 자동으로 채워지며, 필요하면 등록 화면에서 바로 조정할 수 있습니다.</li>
+                <li>승인되면 ABSENT는 EXCUSED로 변경되고 상태 판정이 다시 계산되며, 출석률 반영 여부는 사유서 설정값을 따릅니다.</li>
+                <li>반려된 사유서는 재검토하여 다시 승인할 수 있습니다.</li>
+              </ul>
+            </div>
+            {settingsHref ? (
+              <a
+                href={settingsHref}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                사유 정책 설정으로 이동
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {/* 사이드 드로어 */}
-      {selectedNote ? (
+      {shouldShowReviewSection && selectedNote ? (
         <>
           <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]" onClick={() => setSelectedNote(null)} />
           <div key={selectedNote.id} className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col overflow-hidden bg-white shadow-2xl">
@@ -1073,7 +1295,7 @@ export function AbsenceNoteManager({
                         ))}
                       </select>
                       {selectedNote.absenceCategory === AbsenceCategory.MILITARY && selectedNote.status !== AbsenceStatus.APPROVED && (
-                        <p className="mt-1.5 text-xs text-amber-600">예비군: 승인 시 자동으로 개근 인정</p>
+                        <p className="mt-1.5 text-xs text-amber-600">예비군: 승인 시 자동으로 출석 포함 + 개근 인정</p>
                       )}
                     </div>
                     <div>
@@ -1086,19 +1308,34 @@ export function AbsenceNoteManager({
                       />
                     </div>
                   </div>
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate">
-                    <input
-                      type="checkbox"
-                      name="attendGrantsPerfectAttendance"
-                      defaultChecked={selectedNote.absenceCategory === AbsenceCategory.MILITARY ? true : selectedNote.attendGrantsPerfectAttendance}
-                      disabled={selectedNote.absenceCategory === AbsenceCategory.MILITARY}
-                      className="h-4 w-4"
-                    />
-                    개근 인정
-                    {selectedNote.absenceCategory === AbsenceCategory.MILITARY && (
-                      <span className="text-xs text-amber-600">(예비군 자동)</span>
-                    )}
-                  </label>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate">
+                      <input
+                        type="checkbox"
+                        name="attendCountsAsAttendance"
+                        defaultChecked={selectedNote.absenceCategory === AbsenceCategory.MILITARY ? true : selectedNote.attendCountsAsAttendance}
+                        disabled={selectedNote.absenceCategory === AbsenceCategory.MILITARY}
+                        className="h-4 w-4"
+                      />
+                      출석 포함
+                      {selectedNote.absenceCategory === AbsenceCategory.MILITARY && (
+                        <span className="text-xs text-amber-600">(예비군 자동)</span>
+                      )}
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate">
+                      <input
+                        type="checkbox"
+                        name="attendGrantsPerfectAttendance"
+                        defaultChecked={selectedNote.absenceCategory === AbsenceCategory.MILITARY ? true : selectedNote.attendGrantsPerfectAttendance}
+                        disabled={selectedNote.absenceCategory === AbsenceCategory.MILITARY}
+                        className="h-4 w-4"
+                      />
+                      개근 인정
+                      {selectedNote.absenceCategory === AbsenceCategory.MILITARY && (
+                        <span className="text-xs text-amber-600">(예비군 자동)</span>
+                      )}
+                    </label>
+                  </div>
                 </form>
 
                 {/* 회차 변경 섹션 */}
@@ -1211,6 +1448,31 @@ export function AbsenceNoteManager({
           </div>
         </>
       ) : null}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal.modal)}
+        badgeLabel={completionModal.modal?.badgeLabel ?? ""}
+        badgeTone={completionModal.modal?.badgeTone}
+        title={completionModal.modal?.title ?? ""}
+        description={completionModal.modal?.description ?? ""}
+        details={completionModal.modal?.details ?? []}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        onClose={completionModal.closeModal}
+        onConfirm={completionModal.modal?.onConfirm}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 ﻿import { AbsenceStatus, AttendType, ExamType, Prisma } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { revalidateAdminReadCaches } from "@/lib/cache-tags";
-import { rebuildWeeklyStatusSnapshots } from "@/lib/analytics/service";
+import { recalculateStatusCache } from "@/lib/analytics/service";
 import { getPrisma } from "@/lib/prisma";
 
 type MergeCountMap = {
@@ -718,7 +718,13 @@ export async function mergeStudentData(input: {
     };
   });
 
-  await Promise.all(result.impactedPairs.map((pair) => rebuildWeeklyStatusSnapshots(pair.periodId, pair.examType)));
+  await Promise.all(
+    result.impactedPairs.map((pair) =>
+      recalculateStatusCache(pair.periodId, pair.examType, {
+        examNumbers: [result.sourceExamNumber, result.targetExamNumber],
+      }),
+    ),
+  );
   revalidateAdminReadCaches({ analytics: true, periods: false });
 
   return {

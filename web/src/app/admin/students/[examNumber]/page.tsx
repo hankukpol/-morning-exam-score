@@ -35,13 +35,15 @@ function readParam(searchParams: PageProps["searchParams"], key: string) {
 }
 
 export default async function StudentHubPage({ params, searchParams }: PageProps) {
-  const context = await requireAdminContext(AdminRole.VIEWER);
   const rawTab = readParam(searchParams, "tab");
   const tab: Tab = TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "history";
-  const canEdit = roleAtLeast(context.adminUser.role, AdminRole.TEACHER);
 
-  const student = await getStudentHistory(params.examNumber);
+  const [context, student] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getStudentHistory(params.examNumber),
+  ]);
   if (!student) notFound();
+  const canEdit = roleAtLeast(context.adminUser.role, AdminRole.TEACHER);
 
   let cumulativeData = null;
   let analysisData = null;

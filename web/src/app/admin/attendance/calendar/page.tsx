@@ -19,8 +19,10 @@ type PageProps = {
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 export default async function AdminAttendanceCalendarPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const monthOptions = getMonthOptions(selectedPeriod, examType);
   const requestedMonthKey = readStringParam(searchParams, "monthKey");
   const selectedMonth =
@@ -55,9 +57,9 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
     }
   }
 
-  const totalAbsent = data?.days.reduce((sum, day) => sum + day.absentCount, 0) ?? 0;
-  const totalWarnings = data?.days.reduce((sum, day) => sum + day.warningCount, 0) ?? 0;
-  const totalDropouts = data?.days.reduce((sum, day) => sum + day.dropoutCount, 0) ?? 0;
+  const totalAbsent = data?.summary.totalAbsent ?? 0;
+  const warningStudentCount = data?.summary.warningStudentCount ?? 0;
+  const dropoutStudentCount = data?.summary.dropoutStudentCount ?? 0;
 
   return (
     <div className="p-8 sm:p-10">
@@ -66,7 +68,7 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
       </div>
       <h1 className="mt-5 text-3xl font-semibold">출결 캘린더</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        날짜별 결시, LIVE, 경고, 탈락 발생 수를 한 달 단위로 확인합니다.
+        날짜별 결시, LIVE, 경고·탈락 표시 학생 수를 한 달 단위로 확인합니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
@@ -131,14 +133,16 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
               <p className="mt-3 text-2xl font-semibold">{totalAbsent}명</p>
             </article>
             <article className="rounded-[24px] border border-ink/10 bg-white p-6">
-              <p className="text-sm text-slate">경고 누적 표시</p>
-              <p className="mt-3 text-2xl font-semibold">{totalWarnings}건</p>
+              <p className="text-sm text-slate">월중 경고 표시 학생</p>
+              <p className="mt-3 text-2xl font-semibold">{warningStudentCount}명</p>
             </article>
             <article className="rounded-[24px] border border-ink/10 bg-white p-6">
-              <p className="text-sm text-slate">탈락 누적 표시</p>
-              <p className="mt-3 text-2xl font-semibold">{totalDropouts}건</p>
+              <p className="text-sm text-slate">월중 탈락 표시 학생</p>
+              <p className="mt-3 text-2xl font-semibold">{dropoutStudentCount}명</p>
             </article>
           </div>
+
+          <p className="mt-3 text-xs text-slate">경고·탈락은 각 시험일 종료 기준 표시 인원이며, 상단 카드는 월중 한 번이라도 표시된 학생 수입니다.</p>
 
           <div className="mt-8 overflow-x-auto rounded-[28px] border border-ink/10 bg-white p-4">
             <div className="grid min-w-[980px] grid-cols-7 gap-3">
@@ -157,11 +161,14 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
                 const entries = dayBuckets.get(dayNumber) ?? [];
                 const hasDropout = entries.some((entry) => entry.dropoutCount > 0);
                 const hasWarning = entries.some((entry) => entry.warningCount > 0);
+                const hasPendingInput = entries.some((entry) => entry.isPendingInput);
                 const cellClass = hasDropout
                   ? "border-red-200 bg-red-50"
                   : hasWarning
                     ? "border-amber-200 bg-amber-50"
-                    : "border-ink/10 bg-white";
+                    : hasPendingInput
+                      ? "border-sky-200 bg-sky-50"
+                      : "border-ink/10 bg-white";
 
                 return (
                   <div key={dayNumber} className={`min-h-[160px] rounded-2xl border p-4 ${cellClass}`}>
@@ -174,9 +181,18 @@ export default async function AdminAttendanceCalendarPage({ searchParams }: Page
                           <div key={entry.sessionId} className="rounded-2xl bg-white/80 p-3">
                             <p className="font-semibold text-ink">{SUBJECT_LABEL[entry.subject]}</p>
                             <p>{entry.weekLabel}</p>
-                            <p>현장 {entry.normalCount} / LIVE {entry.liveCount}</p>
-                            <p>결시 {entry.absentCount} / 경고 {entry.warningCount}</p>
-                            <p>탈락 {entry.dropoutCount}</p>
+                            {entry.isPendingInput ? (
+                              <>
+                                <p className="font-semibold text-sky-700">{"\uC131\uC801 \uBBF8\uC785\uB825"}</p>
+                                <p>{"\uC810\uC218 \uC5C5\uB85C\uB4DC \uD6C4 \uACBD\uACE0/\uD0C8\uB77D\uC774 \uB2E4\uC2DC \uACC4\uC0B0\uB429\uB2C8\uB2E4."}</p>
+                              </>
+                            ) : (
+                              <>
+                                <p>현장 {entry.normalCount} / LIVE {entry.liveCount}</p>
+                                <p>결시 {entry.absentCount} / 경고 {entry.warningCount}</p>
+                                <p>탈락 {entry.dropoutCount}</p>
+                              </>
+                            )}
                           </div>
                         ))
                       )}

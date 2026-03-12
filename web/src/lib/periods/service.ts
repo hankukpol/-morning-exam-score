@@ -6,7 +6,7 @@ import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
 import { getEnabledExamTypes, isExamTypeEnabled } from "@/lib/periods/exam-types";
 import { CACHE_TAGS, revalidateAdminReadCaches } from "@/lib/cache-tags";
-import { rebuildWeeklyStatusSnapshots } from "@/lib/analytics/service";
+import { recalculateStatusCache } from "@/lib/analytics/service";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_VALUES, SUBJECT_VALUES } from "@/lib/constants";
 
 export type PeriodFormInput = {
@@ -37,6 +37,30 @@ function normalizePeriod<T extends { startDate: Date | string; endDate: Date | s
     startDate: reviveDate(period.startDate),
     endDate: reviveDate(period.endDate),
   };
+}
+
+async function recalculateStatusesForActivatedPeriod(periodId: number) {
+  const students = await getPrisma().student.findMany({
+    select: {
+      examNumber: true,
+      examType: true,
+    },
+  });
+  const examNumbersByType = new Map<ExamType, string[]>(
+    EXAM_TYPE_VALUES.map((examType) => [examType, []]),
+  );
+
+  for (const student of students) {
+    examNumbersByType.get(student.examType)?.push(student.examNumber);
+  }
+
+  await Promise.all(
+    EXAM_TYPE_VALUES.map((examType) =>
+      recalculateStatusCache(periodId, examType, {
+        examNumbers: examNumbersByType.get(examType),
+      }),
+    ),
+  );
 }
 
 function normalizeSession<T extends { examDate: Date | string }>(
@@ -285,6 +309,7 @@ export async function activatePeriod(input: {
     return period;
   });
 
+  await recalculateStatusesForActivatedPeriod(period.id);
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return period;
 }
@@ -438,6 +463,7 @@ export async function createSession(input: {
     return session;
   });
 
+  await recalculateStatusCache(session.periodId, session.examType);
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return session;
 }
@@ -508,7 +534,7 @@ export async function updateSession(input: {
     return session;
   });
 
-  await rebuildWeeklyStatusSnapshots(session.periodId, session.examType);
+  await recalculateStatusCache(session.periodId, session.examType);
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return session;
 }

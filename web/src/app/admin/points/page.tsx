@@ -18,8 +18,10 @@ type PageProps = {
 };
 
 export default async function AdminPointsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
+    getAnalyticsContext(searchParams),
+  ]);
   const monthOptions = getMonthOptions(selectedPeriod, examType);
   const requestedMonthKey = readStringParam(searchParams, "monthKey");
   const selectedMonth =

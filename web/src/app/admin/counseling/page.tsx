@@ -30,10 +30,14 @@ type PageProps = {
 };
 
 export default async function AdminCounselingPage({ searchParams }: PageProps) {
-  const context = await requireAdminContext(AdminRole.TEACHER);
-  const { examType } = await getAnalyticsContext(searchParams);
   const search = readStringParam(searchParams, "search") ?? "";
   const examNumber = readStringParam(searchParams, "examNumber") ?? "";
+  const action = readStringParam(searchParams, "action") ?? "";
+
+  const [context, { examType }] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
+    getAnalyticsContext(searchParams),
+  ]);
 
   const [students, profile, dashboard, allAppointments] = await Promise.all([
     search
@@ -186,115 +190,256 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         </section>
       ) : null}
 
-      <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-        <div className="mb-5 flex items-baseline justify-between">
-          <h2 className="text-xl font-semibold">일괄 면담 기록 등록</h2>
-          <p className="text-sm text-slate">여러 학생에게 동일 내용의 면담 기록을 한 번에 등록합니다</p>
-        </div>
-        <BulkCounselingForm
-          defaultCounselorName={context.adminUser.name}
-          students={dashboard.bulkStudents.map((s) => ({
-            examNumber: s.examNumber,
-            name: s.name,
-            currentStatus: s.currentStatus,
-            examType: s.examType,
-          }))}
-        />
-      </section>
+      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]">
+        <div className="space-y-6">
+          <section className="rounded-[28px] border border-sky-200 bg-[linear-gradient(135deg,rgba(240,249,255,1),rgba(255,255,255,0.98),rgba(236,253,245,0.95))] p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-2xl">
+                <span className="inline-flex rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                  우선순위 1 · 예약 중심
+                </span>
+                <h2 className="mt-4 text-2xl font-semibold text-ink">
+                  학생 검색 후 바로 예약하거나 즉시 면담하세요
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate">
+                  예약 면담 관리가 가장 많이 쓰이는 흐름이고, 예약 없이 바로 면담하는 경우도 학생 검색이 먼저입니다.
+                  그래서 검색과 예약 진입을 같은 영역으로 묶고, 일괄 등록은 보조 카드로 분리했습니다.
+                </p>
+              </div>
 
-      <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-        <h2 className="mb-5 text-xl font-semibold">예약 면담 관리</h2>
-        <AppointmentManager
-          appointments={allAppointments.map((a) => ({
-            id: a.id,
-            examNumber: a.examNumber,
-            scheduledAt: a.scheduledAt.toISOString(),
-            counselorName: a.counselorName,
-            agenda: a.agenda,
-            status: a.status as "SCHEDULED" | "COMPLETED" | "CANCELLED",
-            cancelReason: a.cancelReason,
-            student: a.student,
-          }))}
-          defaultCounselorName={context.adminUser.name}
-          defaultExamNumber={examNumber}
-          defaultStudentName={profile?.student.name ?? ""}
-        />
-      </section>
-
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[180px_minmax(0,1fr)_140px]">
-        <div>
-          <label className="mb-2 block text-sm font-medium">직렬</label>
-          <select
-            name="examType"
-            defaultValue={examType}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
-            <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">수험번호 / 이름</label>
-          <input
-            type="text"
-            name="search"
-            defaultValue={search}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            placeholder="수험번호 또는 이름을 입력하세요"
-          />
-        </div>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-          >
-            검색
-          </button>
-        </div>
-      </form>
-
-      {search && students ? (
-        <section className="mt-3 rounded-[28px] border border-ink/10 bg-white p-5">
-          <p className="text-sm font-medium text-slate">
-            {students.totalCount === 0
-              ? "검색된 학생이 없습니다."
-              : `${students.totalCount}명 검색됨${students.totalCount > 10 ? " · 상위 10명만 표시" : ""}`}
-          </p>
-          {students.rows.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {students.rows.map((student) => (
-                <Link
-                  prefetch={false}
-                  key={student.examNumber}
-                  href={buildHref("/admin/counseling", {
-                    examType,
-                    search,
-                    examNumber: student.examNumber,
-                  })}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                    student.examNumber === examNumber
-                      ? "border-ink bg-ink text-white"
-                      : "border-ink/10 hover:border-ember/30 hover:text-ember"
-                  }`}
-                >
-                  <span>
-                    {student.examNumber} · {student.name}
-                  </span>
-                  {student.currentStatus !== "NORMAL" ? (
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-xs ${
-                        STATUS_BADGE_CLASS[student.currentStatus]
-                      }`}
+              {profile ? (
+                <div className="min-w-[280px] rounded-[24px] border border-sky-200 bg-white/90 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                    현재 선택 학생
+                  </p>
+                  <p className="mt-3 text-lg font-semibold text-ink">{profile.student.name}</p>
+                  <p className="mt-1 text-sm text-slate">
+                    {profile.student.examNumber} · {EXAM_TYPE_LABEL[profile.student.examType]}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      prefetch={false}
+                      href={buildHref("/admin/counseling", {
+                        examType,
+                        search: search || profile.student.examNumber,
+                        examNumber: profile.student.examNumber,
+                      })}
+                      className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ember/30 hover:text-ember"
                     >
-                      {STATUS_LABEL[student.currentStatus]}
-                    </span>
-                  ) : null}
-                </Link>
-              ))}
+                      바로 면담 보기
+                    </Link>
+                    <Link
+                      prefetch={false}
+                      href={buildHref("/admin/counseling", {
+                        examType,
+                        search: search || profile.student.examNumber,
+                        examNumber: profile.student.examNumber,
+                        action: "appointment",
+                      })}
+                      className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
+                    >
+                      예약 잡기
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="min-w-[280px] rounded-[24px] border border-dashed border-sky-200 bg-white/75 p-4 text-sm text-slate">
+                  학생을 먼저 찾으면 아래에서 바로 예약을 잡거나, 예약 없이 면담 기록 입력으로 이어질 수 있습니다.
+                </div>
+              )}
             </div>
-          ) : null}
+
+            <form className="mt-6 grid gap-4 rounded-[24px] border border-white/80 bg-white/80 p-5 md:grid-cols-[180px_minmax(0,1fr)_140px]">
+              <div>
+                <label className="mb-2 block text-sm font-medium">직렬</label>
+                <select
+                  name="examType"
+                  defaultValue={examType}
+                  className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                >
+                  <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+                  <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">학생 검색</label>
+                <input
+                  type="text"
+                  name="search"
+                  defaultValue={search}
+                  className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  placeholder="수험번호 또는 이름을 입력하세요"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+                >
+                  검색
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate">
+              <span className="rounded-full border border-sky-200 bg-white px-3 py-1 text-sky-700">
+                1순위 예약 면담 관리
+              </span>
+              <span className="rounded-full border border-white/90 bg-white/75 px-3 py-1">
+                2순위 학생 검색 · 즉시 면담
+              </span>
+              <span className="rounded-full border border-white/90 bg-white/75 px-3 py-1">
+                3순위 일괄 면담 기록 등록
+              </span>
+            </div>
+
+            {search && students ? (
+              <section className="mt-6 rounded-[24px] border border-white/80 bg-white/85 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink">
+                    {students.totalCount === 0
+                      ? "검색된 학생이 없습니다."
+                      : `${students.totalCount}명 검색됨${students.totalCount > 10 ? " · 상위 10명만 표시" : ""}`}
+                  </p>
+                  <p className="text-xs text-slate">
+                    학생을 선택한 뒤 바로 면담하거나, 예약 잡기로 예약 폼을 즉시 열 수 있습니다.
+                  </p>
+                </div>
+
+                {students.rows.length > 0 ? (
+                  <div className="mt-4 grid gap-3">
+                    {students.rows.map((student) => (
+                      <div
+                        key={student.examNumber}
+                        className={`rounded-[22px] border p-4 transition ${
+                          student.examNumber === examNumber
+                            ? "border-sky-300 bg-sky-50/70"
+                            : "border-ink/10 bg-white"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-semibold text-ink">
+                                {student.examNumber} · {student.name}
+                              </p>
+                              {student.currentStatus !== "NORMAL" ? (
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-xs ${
+                                    STATUS_BADGE_CLASS[student.currentStatus]
+                                  }`}
+                                >
+                                  {STATUS_LABEL[student.currentStatus]}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-xs text-slate">
+                              {EXAM_TYPE_LABEL[student.examType]}
+                              {student.examNumber === examNumber
+                                ? " · 현재 선택된 학생"
+                                : " · 선택 후 바로 예약 또는 면담 가능"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Link
+                              prefetch={false}
+                              href={buildHref("/admin/counseling", {
+                                examType,
+                                search,
+                                examNumber: student.examNumber,
+                              })}
+                              className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ember/30 hover:text-ember"
+                            >
+                              바로 면담
+                            </Link>
+                            <Link
+                              prefetch={false}
+                              href={buildHref("/admin/counseling", {
+                                examType,
+                                search,
+                                examNumber: student.examNumber,
+                                action: "appointment",
+                              })}
+                              className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
+                            >
+                              예약 잡기
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[22px] border border-dashed border-ink/10 px-4 py-6 text-center text-sm text-slate">
+                    다른 수험번호나 이름으로 다시 검색해 주세요.
+                  </div>
+                )}
+              </section>
+            ) : (
+              <div className="mt-6 rounded-[24px] border border-dashed border-sky-200/70 bg-white/70 px-5 py-4 text-sm text-slate">
+                수험번호나 이름으로 검색하면 여기서 바로 예약 동선과 즉시 면담 동선이 시작됩니다.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">예약 면담 관리</h2>
+                <p className="mt-1 text-sm text-slate">
+                  선택 학생 예약, 일정 변경, 완료 처리까지 가장 자주 쓰는 기능을 먼저 배치했습니다.
+                </p>
+              </div>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                1순위
+              </span>
+            </div>
+            <AppointmentManager
+              key={`${examNumber || "none"}:${action || "default"}`}
+              appointments={allAppointments.map((a) => ({
+                id: a.id,
+                examNumber: a.examNumber,
+                scheduledAt: a.scheduledAt.toISOString(),
+                counselorName: a.counselorName,
+                agenda: a.agenda,
+                status: a.status as "SCHEDULED" | "COMPLETED" | "CANCELLED",
+                cancelReason: a.cancelReason,
+                student: a.student,
+              }))}
+              defaultCounselorName={context.adminUser.name}
+              defaultExamNumber={examNumber}
+              defaultStudentName={profile?.student.name ?? ""}
+              defaultOpenCreateForm={action === "appointment"}
+            />
+          </section>
+        </div>
+
+        <section className="self-start rounded-[28px] border border-ink/10 bg-white p-6 xl:sticky xl:top-6">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-sm">
+              <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+                후순위 업무
+              </span>
+              <h2 className="mt-3 text-xl font-semibold">일괄 면담 기록 등록</h2>
+              <p className="mt-2 text-sm text-slate">
+                동일한 내용을 여러 학생에게 한 번에 남겨야 할 때만 쓰는 보조 기능으로 위치를 뒤로 내렸습니다.
+              </p>
+            </div>
+            <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+              3순위
+            </span>
+          </div>
+          <BulkCounselingForm
+            defaultCounselorName={context.adminUser.name}
+            students={dashboard.bulkStudents.map((s) => ({
+              examNumber: s.examNumber,
+              name: s.name,
+              currentStatus: s.currentStatus,
+              examType: s.examType,
+            }))}
+          />
         </section>
-      ) : null}
+      </section>
 
       {!profile ? (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-10 text-center text-sm text-slate">

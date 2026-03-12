@@ -56,9 +56,15 @@ export function getCombinedAverage(
 export function countsAsAttendance(attendType: AttendType | null) {
   return (
     attendType === AttendType.NORMAL ||
-    attendType === AttendType.LIVE ||
-    attendType === AttendType.EXCUSED
+    attendType === AttendType.LIVE
   );
+}
+
+export function countsAsConfiguredAttendance(
+  attendType: AttendType | null,
+  includeExcused = false,
+) {
+  return countsAsAttendance(attendType) || (attendType === AttendType.EXCUSED && includeExcused);
 }
 
 export function countsAsScored(attendType: AttendType | null) {

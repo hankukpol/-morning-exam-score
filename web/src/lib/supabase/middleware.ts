@@ -32,6 +32,36 @@ function rebuildResponse(response: NextResponse, requestHeaders: Headers) {
   return nextResponse;
 }
 
+// JWT 페이로드를 네트워크 없이 로컬 파싱 (Base64 디코딩만)
+function parseJwtPayload(token: string): { sub?: string; email?: string; exp?: number } | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
+// 토큰 만료까지 5분 미만이면 Supabase 갱신 필요
+const REFRESH_THRESHOLD_SEC = 5 * 60;
+
+function getAccessToken(request: NextRequest): string | null {
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")) {
+      try {
+        const parsed = JSON.parse(cookie.value);
+        if (parsed?.access_token) return parsed.access_token;
+      } catch {
+        // 단일 토큰 형식
+        return cookie.value;
+      }
+    }
+  }
+  return null;
+}
+
 export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -51,6 +81,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // JWT 로컬 파싱으로 빠르게 검증 — 만료 여유가 충분하면 Supabase 네트워크 호출 생략
+  const accessToken = getAccessToken(request);
+  const payload = accessToken ? parseJwtPayload(accessToken) : null;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const needsRefresh = !payload?.exp || payload.exp - nowSec < REFRESH_THRESHOLD_SEC;
+
+  if (!needsRefresh && payload?.sub) {
+    // 토큰이 유효하고 만료까지 여유 있음 → Supabase 호출 없이 통과
+    requestHeaders.set(AUTH_USER_ID_HEADER, payload.sub);
+    requestHeaders.set(AUTH_USER_EMAIL_HEADER, payload.email ?? "");
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
+  // 토큰 만료 임박 또는 파싱 실패 → Supabase에 실제 검증/갱신 요청
   let response = NextResponse.next({
     request: {
       headers: requestHeaders,

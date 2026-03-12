@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AttendType, StudentStatus, Subject } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
@@ -87,6 +89,7 @@ export function StudentScoreHistoryManager({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
 
   function getDraft(score: ScoreHistoryRow) {
     return (
@@ -172,27 +175,32 @@ export function StudentScoreHistoryManager({
   }
 
   function deleteScore(scoreId: number) {
-    if (
-      !window.confirm(
-        "이 성적 기록을 삭제하면 출결 상태와 경고 판정이 다시 계산됩니다. 계속하시겠습니까?",
-      )
-    ) {
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/scores/${scoreId}`, { method: "DELETE" });
-        await refreshStudent();
-        setEditingId((current) => (current === scoreId ? null : current));
-        setNotice("성적 기록을 삭제했고, 경고·탈락 상태를 다시 계산했습니다.");
-        setErrorMessage(null);
-      } catch (error) {
-        setNotice(null);
-        setErrorMessage(
-          error instanceof Error ? error.message : "성적 삭제에 실패했습니다.",
-        );
-      }
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "?? ?? ??",
+      description: "? ?? ??? ???? ?? ??? ?? ??? ?? ?????.",
+      details: ["?? ??? ?? ??? ??? ??? ?? ?? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/scores/${scoreId}`, { method: "DELETE" });
+            await refreshStudent();
+            setEditingId((current) => (current === scoreId ? null : current));
+            setNotice("?? ??? ????, ????? ??? ?? ??????.");
+            setErrorMessage(null);
+          } catch (error) {
+            setNotice(null);
+            setErrorMessage(
+              error instanceof Error ? error.message : "?? ??? ??????.",
+            );
+          }
+        });
+      },
     });
   }
 
@@ -404,6 +412,20 @@ export function StudentScoreHistoryManager({
           정정 저장 후 학생의 현재 상태와 주차별 경고/탈락 이력이 자동으로 다시 계산됩니다.
         </p>
       ) : null}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

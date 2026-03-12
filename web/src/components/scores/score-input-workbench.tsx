@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
+import { fetchJson } from "@/lib/client/fetch-json";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
@@ -516,13 +517,12 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     }
   }, [offlineOxSessionId, onlineOxSessionId, oxSessionOptions]);
 
-  async function requestJson(url: string, init?: RequestInit) {
-    const response = await fetch(url, init);
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error ?? "요청에 실패했습니다.");
-    }
-    return payload;
+  async function requestJson<T>(url: string, init?: RequestInit) {
+    return fetchJson<T>(url, init, {
+      defaultError: "요청에 실패했습니다.",
+      timeoutError:
+        "서버 처리 시간이 너무 오래 걸렸습니다. 저장 범위를 줄이거나 잠시 후 다시 시도해 주세요.",
+    });
   }
 
   function run(action: () => Promise<void>) {

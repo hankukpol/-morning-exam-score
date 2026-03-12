@@ -1,7 +1,9 @@
 ﻿"use client";
 
 import { AttendType, ExamType, Subject } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
@@ -112,6 +114,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, Array<SessionOption & { periodName: string }>>();
@@ -296,50 +299,63 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   }
 
   function deleteScore(scoreId: number) {
-    if (!window.confirm("선택한 성적을 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) {
-      return;
-    }
-
-    run(async () => {
-      await requestJson(`/api/scores/${scoreId}`, { method: "DELETE" });
-      setScores((current) => current?.filter((score) => score.id !== scoreId) ?? null);
-      if (editingId === scoreId) {
-        setEditingId(null);
-      }
-      setNotice("성적을 삭제했습니다.");
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "?? ??",
+      description: "??? ??? ?????? ? ??? ??? ? ????.",
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        run(async () => {
+          await requestJson(`/api/scores/${scoreId}`, { method: "DELETE" });
+          setScores((current) => current?.filter((score) => score.id !== scoreId) ?? null);
+          if (editingId === scoreId) {
+            setEditingId(null);
+          }
+          setNotice("??? ??????.");
+        });
+      },
     });
   }
 
   function deleteSelectedSession() {
     if (!selectedSession) {
-      setErrorMessage("삭제할 회차를 선택해 주세요.");
+      setErrorMessage("??? ??? ??? ???.");
       return;
     }
 
-    if (
-      !window.confirm(
-        `${formatKoreanDate(selectedSession.examDate.slice(0, 10))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} 회차의 성적, 문항 통계, 답안, 오답노트 북마크를 모두 삭제할까요?`,
-      )
-    ) {
-      return;
-    }
-
-    run(async () => {
-      const payload = await requestJson<{
-        deletedScoreCount: number;
-        deletedQuestionCount: number;
-        deletedAnswerCount: number;
-        deletedBookmarkCount: number;
-      }>("/api/scores/bulk", {
-        method: "POST",
-        body: JSON.stringify({ mode: "deleteSession", sessionId: Number(selectedSessionId) }),
-      });
-      setScores([]);
-      setEditingId(null);
-      setDrafts({});
-      setNotice(
-        `회차 데이터를 삭제했습니다. 성적 ${payload.deletedScoreCount}건, 문항 ${payload.deletedQuestionCount}건, 답안 ${payload.deletedAnswerCount}건, 북마크 ${payload.deletedBookmarkCount}건`,
-      );
+    confirmModal.openModal({
+      badgeLabel: "?? ?? ??",
+      badgeTone: "warning",
+      title: "?? ??? ?? ??",
+      description: `${formatKoreanDate(selectedSession.examDate.slice(0, 10))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} ??? ??, ?? ??, ??, ???? ???? ?? ??????`,
+      details: ["?? ?? ??? ?? ??? ?? ???? ??? ? ????."],
+      cancelLabel: "??",
+      confirmLabel: "?? ??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        run(async () => {
+          const payload = await requestJson<{
+            deletedScoreCount: number;
+            deletedQuestionCount: number;
+            deletedAnswerCount: number;
+            deletedBookmarkCount: number;
+          }>("/api/scores/bulk", {
+            method: "POST",
+            body: JSON.stringify({ mode: "deleteSession", sessionId: Number(selectedSessionId) }),
+          });
+          setScores([]);
+          setEditingId(null);
+          setDrafts({});
+          setNotice(
+            `?? ???? ??????. ?? ${payload.deletedScoreCount}?, ?? ${payload.deletedQuestionCount}?, ?? ${payload.deletedAnswerCount}?, ??? ${payload.deletedBookmarkCount}?`,
+          );
+        });
+      },
     });
   }
 
@@ -634,6 +650,20 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
           </div>
         </section>
       ) : null}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

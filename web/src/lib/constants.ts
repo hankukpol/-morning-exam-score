@@ -1,5 +1,8 @@
 ﻿import {
   AdminRole,
+  AdminMemoColor,
+  AdminMemoScope,
+  AdminMemoStatus,
   AbsenceCategory,
   AttendType,
   ExamType,
@@ -105,6 +108,25 @@ export const NOTICE_TARGET_LABEL: Record<NoticeTargetType, string> = {
   ALL: "전체",
   GONGCHAE: "공채",
   GYEONGCHAE: "경채",
+};
+
+export const ADMIN_MEMO_STATUS_LABEL: Record<AdminMemoStatus, string> = {
+  OPEN: "해야 할 일",
+  IN_PROGRESS: "진행 중",
+  DONE: "완료",
+};
+
+export const ADMIN_MEMO_SCOPE_LABEL: Record<AdminMemoScope, string> = {
+  PRIVATE: "개인 메모",
+  TEAM: "공용 메모",
+};
+
+export const ADMIN_MEMO_COLOR_LABEL: Record<AdminMemoColor, string> = {
+  SAND: "샌드",
+  MINT: "민트",
+  SKY: "스카이",
+  ROSE: "로즈",
+  SLATE: "슬레이트",
 };
 
 export type NavItem = {
@@ -237,8 +259,15 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/notices",
-    label: "공지사항",
+    label: "학생 공지",
     description: "학생 대상 공지 작성 및 발행",
+    minRole: AdminRole.TEACHER,
+    group: "알림·공지",
+  },
+  {
+    href: "/admin/memos",
+    label: "운영 메모",
+    description: "관리자·직원 협업 메모와 할 일 보드",
     minRole: AdminRole.TEACHER,
     group: "알림·공지",
   },
@@ -285,6 +314,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "설정",
   },
   {
+    href: "/admin/settings/absence-policies",
+    label: "사유 정책",
+    description: "사유별 출석 포함 및 개근 인정 기본값 관리",
+    minRole: AdminRole.TEACHER,
+    group: "설정",
+  },
+  {
     href: "/admin/settings/notifications",
     label: "SMS 알림 설정",
     description: "Solapi 키와 발신 번호 설정",
@@ -324,3 +360,6 @@ export const DUPLICATE_STRATEGY_LABEL = {
   SKIP: "건너뛰기",
   OVERWRITE: "덮어쓰기",
 } as const;
+
+
+

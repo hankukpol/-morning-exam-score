@@ -3,6 +3,7 @@ import {
   ExamType,
   Subject,
 } from "@prisma/client";
+import { sanitizeAbsenceNoteDisplay } from "@/lib/absence-notes/system-note";
 import { getPrisma } from "@/lib/prisma";
 import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 import { getScoredMockScore } from "@/lib/scores/calculation";
@@ -230,7 +231,7 @@ export async function getStudentHistoryRows(filters: QueryFilters) {
       rawScore: score.rawScore,
       finalScore: score.finalScore,
       sourceType: score.sourceType,
-      note: score.note,
+      note: sanitizeAbsenceNoteDisplay(score.note),
     })),
   }));
 }

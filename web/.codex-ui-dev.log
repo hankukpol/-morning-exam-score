@@ -1,0 +1,404 @@
+
+> web@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.5s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 5.6s (587 modules)
+ GET /_next/static/webpack/c0ba595a73e47e9f.webpack.hot-update.json 404 in 6038ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 2.2s (688 modules)
+ GET /admin 200 in 2239ms
+ GET /_next/static/webpack/c0ba595a73e47e9f.webpack.hot-update.json 404 in 233ms
+ GET /admin 200 in 353ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 1705ms (456 modules)
+ GET /favicon.ico 200 in 1818ms
+ ○ Compiling /admin/absence-notes ...
+ ✓ Compiled /admin/absence-notes in 656ms (812 modules)
+ GET /admin/absence-notes 200 in 974ms
+ GET /favicon.ico 200 in 27ms
+ ✓ Compiled /admin/memos in 305ms (825 modules)
+ GET /admin/memos?_rsc=wmil4 200 in 146ms
+ GET /admin?_rsc=1r3we 200 in 227ms
+ ✓ Compiled /admin/scores/input in 463ms (832 modules)
+ GET /admin/scores/input?_rsc=1smrd 200 in 151ms
+ ○ Compiling /admin/analytics ...
+ ✓ Compiled /admin/analytics in 4.2s (1866 modules)
+ GET /admin/analytics?_rsc=f3zqo 200 in 827ms
+ GET /admin/absence-notes 200 in 263ms
+ ○ Compiling /admin/students/analyze ...
+ ✓ Compiled /admin/students/analyze in 996ms (1843 modules)
+ GET /admin/students/analyze?_rsc=yguy9 200 in 84ms
+ ✓ Compiled /admin/periods in 436ms (1850 modules)
+ GET /admin/periods?_rsc=1iddp 200 in 132ms
+ ○ Compiling /admin/students ...
+ ✓ Compiled /admin/students in 908ms (1861 modules)
+ ○ Compiling /admin/students/merge ...
+ ✓ Compiled /admin/students/merge in 964ms (1875 modules)
+ GET /admin/absence-notes?_rsc=1245g 200 in 190ms
+ ○ Compiling /admin/counseling ...
+ ✓ Compiled /admin/counseling in 859ms (1882 modules)
+ GET /admin/counseling?_rsc=6mjvi 200 in 213ms
+ ✓ Compiled /admin/scores/input in 280ms (1045 modules)
+ GET /admin/scores/input?_rsc=dnss6 200 in 492ms
+ ✓ Compiled /admin/attendance/calendar in 484ms (1883 modules)
+ GET /admin/attendance/calendar?_rsc=1eg2a 200 in 173ms
+ ○ Compiling /admin/results/weekly ...
+ ✓ Compiled /admin/results/weekly in 512ms (1864 modules)
+ GET /admin/results/weekly?_rsc=1prsc 200 in 191ms
+ ○ Compiling /admin/results/monthly ...
+ ✓ Compiled /admin/results/monthly in 556ms (1857 modules)
+ GET /admin/results/monthly?_rsc=1y1bq 200 in 251ms
+ ○ Compiling /admin/dropout ...
+ ✓ Compiled /admin/dropout in 632ms (1868 modules)
+ GET /admin/dropout?_rsc=64xr9 200 in 120ms
+ ✓ Compiled /admin/results/integrated in 393ms (1870 modules)
+ GET /admin/results/integrated?_rsc=vmm9m 200 in 247ms
+ ✓ Compiled /admin/points in 471ms (1877 modules)
+ GET /admin/points?_rsc=1k8ro 200 in 188ms
+ ✓ Compiled /admin/memos in 280ms (1040 modules)
+ GET /admin/memos?_rsc=wmil4 200 in 473ms
+ ○ Compiling /admin/notifications ...
+ ✓ Compiled /admin/notifications in 5.5s (2762 modules)
+ GET /admin/results/weekly?_rsc=astqg 200 in 2895ms
+ GET /admin/absence-notes 200 in 263ms
+ ○ Compiling /api/absence-policies ...
+ ✓ Compiled /api/absence-policies in 1160ms (1422 modules)
+ POST /api/absence-policies 200 in 1631ms
+ GET /admin/absence-notes 200 in 266ms
+ ✓ Compiled /favicon.ico in 430ms (1451 modules)
+ GET /favicon.ico 200 in 548ms
+ ✓ Compiled /admin in 375ms (1454 modules)
+ GET /admin?_rsc=1r3we 200 in 693ms
+ ○ Compiling /admin/analytics ...
+ ✓ Compiled /admin/analytics in 722ms (1962 modules)
+ GET /admin/analytics?_rsc=f3zqo 200 in 1154ms
+ ○ Compiling /admin/students/analyze ...
+ ✓ Compiled /admin/students/analyze in 866ms (1969 modules)
+ GET /admin/students/analyze?_rsc=1ij0e 200 in 1109ms
+ ✓ Compiled /admin/periods in 488ms (1974 modules)
+ GET /admin/periods?_rsc=1iddp 200 in 699ms
+ ○ Compiling /admin/counseling ...
+ ✓ Compiled /admin/counseling in 529ms (1976 modules)
+ GET /admin/counseling?_rsc=6mjvi 200 in 811ms
+ GET /admin/absence-notes?_rsc=1245g 200 in 216ms
+ POST /api/absence-policies 200 in 344ms
+ GET /admin/absence-notes 200 in 219ms
+ GET /favicon.ico 200 in 37ms
+ ✓ Compiled in 1247ms (1876 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1507ms (1975 modules)
+ GET /admin/absence-notes?_rsc=u5bzj 200 in 1975ms
+ GET /admin?_rsc=7aqc2 200 in 213ms
+ ✓ Compiled /admin/analytics in 205ms (1074 modules)
+ GET /admin/analytics?_rsc=f3zqo 200 in 240ms
+ GET /admin/analytics?tab=daily&periodId=2&examType=GONGCHAE&date=2026-03-13&monthKey=2026-3&subject=CONSTITUTIONAL_LAW&examNumber= 200 in 378ms
+ GET /admin/analytics?tab=daily&periodId=2&examType=GONGCHAE&date=2026-03-10&monthKey=2026-3&subject=CONSTITUTIONAL_LAW&examNumber= 200 in 357ms
+ ○ Compiling /admin/students/analyze ...
+ ✓ Compiled /admin/students/analyze in 881ms (1084 modules)
+ GET /admin/periods?_rsc=1iddp 200 in 125ms
+ ○ Compiling /admin/students ...
+ ✓ Compiled /admin/students in 607ms (1090 modules)
+ GET /admin/students?_rsc=tfygl 200 in 168ms
+ ✓ Compiled /admin/students/transfer in 305ms (1095 modules)
+ GET /admin/students/transfer?_rsc=5ah4v 200 in 89ms
+ ✓ Compiled /admin/students/merge in 325ms (1100 modules)
+ GET /admin/students/merge?_rsc=vbq55 200 in 102ms
+ GET /admin/counseling?_rsc=6mjvi 200 in 165ms
+ GET /admin/absence-notes?_rsc=1245g 200 in 176ms
+ ○ Compiling /admin/dropout ...
+ ✓ Compiled /admin/dropout in 871ms (1110 modules)
+ GET /admin/dropout?_rsc=64xr9 200 in 115ms
+ ✓ Compiled /admin/results/weekly in 393ms (1113 modules)
+ GET /admin/results/weekly?_rsc=1hsyv 200 in 156ms
+ ✓ Compiled in 929ms (2026 modules)
+ GET /admin/results/weekly?_rsc=1hsyv 200 in 210ms
+ ✓ Compiled in 770ms (2022 modules)
+ GET /admin/results/weekly?_rsc=1hsyv 200 in 223ms
+ GET /admin/results/weekly?periodId=2&examType=GONGCHAE&weekKey=2026-03-10&view=new&_rsc=4vjhu 200 in 158ms
+ ○ Compiling /api/export/results-print ...
+ ✓ Compiled /api/export/results-print in 3.8s (1627 modules)
+ GET /api/export/results-print?mode=weekly&periodId=2&examType=GONGCHAE&weekKey=2026-03-10&view=new 200 in 4518ms
+ ○ Compiling /admin/results/monthly ...
+ ✓ Compiled /admin/results/monthly in 1116ms (1095 modules)
+ ○ Compiling /admin/results/integrated ...
+ ✓ Compiled /admin/results/integrated in 2.6s (2010 modules)
+ ○ Compiling /_error ...
+ GET /admin/results/integrated?_rsc=nnsso 200 in 872ms
+ ✓ Compiled /_not-found in 2.8s (2225 modules)
+ GET /_next/static/css/app/layout.css?v=1773328864921 404 in 2384ms
+ GET /_next/static/chunks/app/admin/results/integrated/page.js 404 in 2428ms
+ GET /admin/results/integrated?_rsc=nnsso 200 in 1737ms
+ GET /admin/results/integrated?_rsc=nnsso 200 in 200ms
+ GET /login?redirectTo=%2Fadmin%2Fabsence-notes 200 in 171ms
+ GET /_next/static/css/app/layout.css?v=1773328867796 404 in 64ms
+ GET /_next/static/css/app/layout.css?v=1773328867821 404 in 120ms
+ GET /_next/static/chunks/main-app.js?v=1773328867821 404 in 124ms
+ GET /_next/static/chunks/app/login/page.js 404 in 125ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 130ms
+ GET /_next/static/chunks/app/global-error.js 404 in 95ms
+ ✓ Compiled in 1529ms (2346 modules)
+ GET /admin/results/integrated 404 in 977ms
+ ✓ Compiled /favicon.ico in 376ms (1151 modules)
+ GET /favicon.ico 200 in 762ms
+ GET /admin/results/integrated 404 in 727ms
+ GET /admin/results/integrated 404 in 41ms
+ GET /admin/results/integrated 404 in 33ms
+ GET /admin/results/integrated 404 in 34ms
+ GET /admin/results/integrated 404 in 31ms
+ GET /admin/results/integrated 404 in 33ms
+ GET /admin/results/integrated 404 in 38ms
+ GET /admin/results/integrated 404 in 38ms
+ GET /admin/results/integrated 404 in 49ms
+ GET /admin/results/integrated 500 in 1142ms
+ GET /admin/results/integrated 500 in 86ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 43ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 41ms
+ ✓ Compiled in 449ms (1101 modules)
+ GET /admin/results/integrated 500 in 48ms
+ GET /admin/results/integrated 500 in 44ms
+ GET /admin/results/integrated 500 in 53ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 59ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 50ms
+ GET /admin/results/integrated 500 in 43ms
+ GET /admin/results/integrated 500 in 78ms
+ GET /admin/results/integrated 500 in 46ms
+ GET /admin/results/integrated 500 in 43ms
+ GET /admin/results/integrated 500 in 37ms
+ GET /admin/results/integrated 500 in 36ms
+ GET /admin/results/integrated 500 in 39ms
+ GET /admin/results/integrated 500 in 38ms
+ GET /admin/results/integrated 500 in 37ms
+ GET /admin/results/integrated 500 in 47ms
+ GET /admin/results/integrated 500 in 37ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 36ms
+ GET /admin/results/integrated 500 in 39ms
+ GET /admin/results/integrated 500 in 64ms
+ GET /admin/results/integrated 500 in 54ms
+ GET /admin/results/integrated 500 in 35ms
+ GET /admin/results/integrated 500 in 49ms
+ GET /admin/results/integrated 500 in 39ms
+ GET /admin/results/integrated 500 in 43ms
+ GET /admin/results/integrated 500 in 38ms
+ GET /admin/results/integrated 500 in 39ms
+ ✓ Compiled in 362ms (1099 modules)
+ GET /admin/results/integrated 500 in 63ms
+ GET /admin/results/integrated 500 in 44ms
+ GET /admin/results/integrated 500 in 38ms
+ GET /admin/results/integrated 500 in 41ms
+ GET /admin/results/integrated 500 in 44ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 518ms (1674 modules)
+ GET /admin/results/integrated 404 in 583ms
+ GET /admin/results/integrated 404 in 47ms
+ GET /admin/results/integrated 404 in 54ms
+ GET /admin/results/integrated 404 in 40ms
+ GET /admin/results/integrated 500 in 266ms
+ GET /admin/results/integrated 500 in 147ms
+ GET /admin/results/integrated 500 in 106ms
+ GET /admin/results/integrated 500 in 103ms
+ GET /admin/results/integrated 500 in 126ms
+ GET /admin/results/integrated 500 in 62ms
+ GET /admin/results/integrated 500 in 94ms
+ GET /admin/results/integrated 500 in 76ms
+ GET /admin/results/integrated 500 in 112ms
+ GET /admin/results/integrated 500 in 112ms
+ GET /admin/results/integrated 500 in 79ms
+ GET /admin/results/integrated 500 in 90ms
+ GET /admin/results/integrated 500 in 90ms
+ GET /admin/results/integrated 500 in 147ms
+ GET /admin/results/integrated 500 in 78ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 79ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 76ms
+ GET /admin/results/integrated 500 in 68ms
+ GET /admin/results/integrated 500 in 74ms
+ GET /admin/results/integrated 500 in 93ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 95ms
+ GET /admin/results/integrated 500 in 90ms
+ GET /admin/results/integrated 500 in 95ms
+ GET /admin/results/integrated 500 in 93ms
+ GET /admin/results/integrated 500 in 50ms
+ GET /admin/results/integrated 500 in 79ms
+ GET /admin/results/integrated 500 in 78ms
+ ✓ Compiled in 412ms (1099 modules)
+ GET /admin/results/integrated 500 in 99ms
+ GET /admin/results/integrated 500 in 86ms
+ GET /admin/results/integrated 500 in 87ms
+ GET /admin/results/integrated 500 in 91ms
+ GET /admin/results/integrated 500 in 70ms
+ GET /admin/results/integrated 500 in 88ms
+ GET /admin/results/integrated 500 in 88ms
+ GET /admin/results/integrated 500 in 84ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 89ms
+ ✓ Compiled /_not-found in 481ms (1674 modules)
+ GET /admin/results/integrated 404 in 556ms
+ GET /admin/results/integrated 404 in 67ms
+ GET /admin/results/integrated 404 in 38ms
+ GET /admin/results/integrated 404 in 35ms
+ GET /admin/results/integrated 500 in 58ms
+ GET /admin/results/integrated 500 in 70ms
+ GET /admin/results/integrated 500 in 110ms
+ GET /admin/results/integrated 500 in 118ms
+ GET /admin/results/integrated 500 in 84ms
+ GET /admin/results/integrated 500 in 90ms
+ GET /admin/results/integrated 500 in 84ms
+ GET /admin/results/integrated 500 in 88ms
+ GET /admin/results/integrated 500 in 77ms
+ GET /admin/results/integrated 500 in 105ms
+ GET /admin/results/integrated 500 in 73ms
+ GET /admin/results/integrated 500 in 95ms
+ GET /admin/results/integrated 500 in 74ms
+ GET /admin/results/integrated 500 in 89ms
+ GET /admin/results/integrated 500 in 81ms
+ GET /admin/results/integrated 500 in 102ms
+ GET /admin/results/integrated 500 in 90ms
+ GET /admin/results/integrated 500 in 84ms
+ GET /admin/results/integrated 500 in 62ms
+ GET /admin/results/integrated 500 in 51ms
+ GET /admin/results/integrated 500 in 84ms
+ GET /admin/results/integrated 500 in 88ms
+ GET /admin/results/integrated 500 in 91ms
+ GET /admin/results/integrated 500 in 63ms
+ GET /admin/results/integrated 500 in 101ms
+ GET /admin/results/integrated 500 in 76ms
+ GET /admin/results/integrated 500 in 81ms
+ GET /admin/results/integrated 500 in 85ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 70ms
+ GET /admin/results/integrated 500 in 43ms
+ GET /admin/results/integrated 500 in 100ms
+ GET /admin/results/integrated 500 in 66ms
+ GET /admin/results/integrated 500 in 75ms
+ GET /admin/results/integrated 500 in 64ms
+ ✓ Compiled in 747ms (1099 modules)
+ GET /admin/results/integrated 500 in 81ms
+ GET /admin/results/integrated 500 in 58ms
+ GET /admin/results/integrated 500 in 74ms
+ GET /admin/results/integrated 500 in 66ms
+ GET /admin/results/integrated 500 in 82ms
+ GET /admin/results/integrated 500 in 93ms
+ GET /admin/results/integrated 500 in 81ms
+ GET /admin/results/integrated 500 in 102ms
+ GET /admin/results/integrated 500 in 56ms
+ ✓ Compiled /_not-found in 411ms (1674 modules)
+ GET /_next/static/chunks/main.js 500 in 545ms
+ GET /_next/static/chunks/react-refresh.js 500 in 541ms
+ GET /_next/static/chunks/pages/_app.js 500 in 539ms
+ GET /_next/static/chunks/pages/_error.js 500 in 524ms
+ ✓ Compiled /favicon.ico in 197ms (619 modules)
+ GET /favicon.ico 500 in 260ms
+ ✓ Compiled in 370ms (1101 modules)
+ ✓ Compiled in 609ms (1101 modules)
+ GET /admin/results/integrated 500 in 53ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 42ms
+ GET /_next/static/chunks/fallback/main.js 500 in 40ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 36ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 42ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 38ms
+ GET /favicon.ico 500 in 31ms
+ GET /admin/results/integrated 500 in 76ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 77ms
+ GET /_next/static/chunks/fallback/main.js 500 in 76ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 63ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 62ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 60ms
+ GET /favicon.ico 500 in 32ms
+ GET /admin/results/integrated 500 in 42ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 45ms
+ GET /_next/static/chunks/fallback/main.js 500 in 50ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 49ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 48ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 47ms
+ GET /favicon.ico 500 in 28ms
+ ✓ Compiled in 536ms (1101 modules)
+ ✓ Compiled in 493ms (1101 modules)
+ ✓ Compiled in 392ms (1101 modules)
+ ✓ Compiled in 348ms (1098 modules)
+ ✓ Compiled in 1035ms (1683 modules)
+ ✓ Compiled in 384ms (1098 modules)
+ ✓ Compiled in 400ms (1098 modules)
+ ✓ Compiled /_error in 322ms (1671 modules)
+ GET /login?redirectTo=%2Fadmin%2Fabsence-notes 500 in 391ms
+ ✓ Compiled /_not-found in 381ms (1674 modules)
+ GET /_next/static/chunks/fallback/webpack.js 500 in 455ms
+ GET /_next/static/chunks/fallback/main.js 500 in 453ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 453ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 449ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 447ms
+ GET /_next/static/css/app/layout.css?v=1773329407314 500 in 67ms
+ GET /_next/static/chunks/app/global-error.js 500 in 52ms
+ GET /_next/static/chunks/main-app.js?v=1773329407314 500 in 51ms
+ GET /_next/static/chunks/app-pages-internals.js 500 in 50ms
+ GET /admin/results/integrated 200 in 588ms
+ GET /_next/static/chunks/app/admin/results/integrated/page.js 500 in 42ms
+ GET /_next/static/chunks/app/admin/error.js 500 in 39ms
+ ✓ Compiled /favicon.ico in 179ms (619 modules)
+ GET /favicon.ico 500 in 244ms
+ ✓ Compiled / in 465ms (1708 modules)
+ GET / 307 in 669ms
+ GET /login 500 in 39ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 42ms
+ GET /_next/static/chunks/fallback/main.js 500 in 54ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 53ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 53ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 52ms
+ GET /favicon.ico 500 in 25ms
+ GET /login?redirectTo=%2Fadmin%2Fabsence-notes 500 in 68ms
+ ✓ Compiled in 453ms (1102 modules)
+ GET /login?redirectTo=%2Fadmin%2Fabsence-notes 500 in 38ms
+ GET /login 500 in 39ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 43ms
+ GET /_next/static/chunks/fallback/main.js 500 in 39ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 51ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 59ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 58ms
+ GET /favicon.ico 500 in 33ms
+ ✓ Compiled in 496ms (1102 modules)
+ ✓ Compiled in 508ms (1102 modules)
+ ✓ Compiled in 408ms (1102 modules)
+ ✓ Compiled in 993ms (1686 modules)
+ ✓ Compiled /_error in 396ms (1674 modules)
+ GET /login 500 in 466ms
+ ✓ Compiled /_not-found in 352ms (1677 modules)
+ GET /_next/static/chunks/fallback/webpack.js 500 in 423ms
+ GET /_next/static/chunks/fallback/main.js 500 in 418ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 408ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 406ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 401ms
+ ✓ Compiled /favicon.ico in 178ms (621 modules)
+ GET /favicon.ico 500 in 224ms
+ GET /login 500 in 56ms
+ GET /_next/static/chunks/fallback/webpack.js 500 in 57ms
+ GET /_next/static/chunks/fallback/main.js 500 in 54ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 52ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 47ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 46ms
+ GET /favicon.ico 500 in 30ms
+ ✓ Compiled in 723ms (1099 modules)
+ ✓ Compiled in 708ms (1099 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 594ms (1674 modules)
+ GET /login 500 in 677ms
+ ✓ Compiled /_not-found in 382ms (1677 modules)
+ GET /_next/static/chunks/fallback/webpack.js 500 in 461ms
+ GET /_next/static/chunks/fallback/main.js 500 in 440ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 437ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 429ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 426ms
+ ✓ Compiled /favicon.ico in 192ms (621 modules)
+ GET /favicon.ico 500 in 239ms

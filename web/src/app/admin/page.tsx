@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AdminRole, ExamType } from "@prisma/client";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
@@ -9,15 +9,18 @@ import {
   getServerErrorLogMessage,
 } from "@/lib/error-display";
 import { formatDate } from "@/lib/format";
+import { AdminMemoDashboardPanel } from "@/components/memos/admin-memo-dashboard-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  await requireAdminContext(AdminRole.VIEWER);
-  let summary;
-  try {
-    summary = await getDashboardSummary();
-  } catch (err) {
+  const context = await requireAdminContext(AdminRole.VIEWER);
+  const summaryResult = await getDashboardSummary()
+    .then((data) => ({ ok: true as const, data }))
+    .catch((err: unknown) => ({ ok: false as const, err }));
+
+  if (!summaryResult.ok) {
+    const err = summaryResult.err;
     const details = getDisplayErrorDetails(err);
     console.error("[AdminDashboard] error:", getServerErrorLogMessage(err));
     return (
@@ -35,6 +38,7 @@ export default async function AdminDashboardPage() {
     );
   }
 
+  const summary = summaryResult.data;
   if (!summary) {
     return (
       <div className="p-8 sm:p-10">
@@ -104,6 +108,7 @@ export default async function AdminDashboardPage() {
   ];
 
   const quickLinks = [
+    { href: "/admin/memos", title: "운영 메모", description: "내부 메모와 담당 업무 보드" },
     { href: "/admin/scores/input", title: "성적 입력", description: "오프라인·온라인 업로드" },
     { href: "/admin/scores/edit", title: "성적 수정", description: "특정 성적 조회·수정·삭제" },
     { href: "/admin/dropout", title: "탈락·경고 관리", description: "경고·탈락자 필터 및 알림 발송" },
@@ -153,6 +158,8 @@ export default async function AdminDashboardPage() {
         <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
           F-12 Dashboard
         </div>
+
+
         <h1 className="mt-4 text-3xl font-semibold text-ink">관리자 대시보드</h1>
         <p className="mt-2 text-sm text-slate">
           {summary.activePeriod.name} ·{" "}
@@ -161,6 +168,12 @@ export default async function AdminDashboardPage() {
           {summary.currentWeekLabel}
         </p>
       </div>
+
+      <AdminMemoDashboardPanel
+        currentAdminId={context.adminUser.id}
+        currentAdminRole={context.adminUser.role}
+      />
+
 
       {/* KPI 카드 */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -289,3 +302,5 @@ export default async function AdminDashboardPage() {
     </div>
   );
 }
+
+

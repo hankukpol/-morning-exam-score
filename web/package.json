@@ -3,19 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && node scripts/fix-prisma-default-entry.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate && node scripts/fix-prisma-default-entry.cjs",
     "db:push": "prisma db push",
     "db:deploy": "prisma migrate deploy",
     "import:legacy:students": "tsx scripts/import-legacy-students.ts",
     "inspect:legacy": "tsx scripts/inspect-legacy-workbook.ts",
     "recalculate:status": "tsx scripts/recalculate-status-cache.ts",
     "verify:analytics": "tsx scripts/verify-analytics-fixes.ts",
+    "verify:attendance-status": "tsx scripts/verify-attendance-status.ts",
     "verify:score-import": "node --experimental-strip-types scripts/verify-score-import-safety.ts"
   },
   "dependencies": {

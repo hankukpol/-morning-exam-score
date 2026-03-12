@@ -7,11 +7,11 @@ import { getPrisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAccountsPage() {
-  await requireAdminContext(AdminRole.SUPER_ADMIN);
+  const [, admins] = await Promise.all([
+    requireAdminContext(AdminRole.SUPER_ADMIN),
+    getPrisma().adminUser.findMany({ orderBy: [{ role: "desc" }, { createdAt: "asc" }] }),
+  ]);
   const setup = getSetupState();
-  const admins = await getPrisma().adminUser.findMany({
-    orderBy: [{ role: "desc" }, { createdAt: "asc" }],
-  });
 
   return (
     <div className="p-8 sm:p-10">

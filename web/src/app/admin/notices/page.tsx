@@ -1,4 +1,4 @@
-import { AdminRole, NoticeTargetType } from "@prisma/client";
+﻿import { AdminRole, NoticeTargetType } from "@prisma/client";
 import { NoticeManager } from "@/components/notices/notice-manager";
 import { requireAdminContext } from "@/lib/auth";
 import { listNotices } from "@/lib/notices/service";
@@ -45,42 +45,40 @@ function parsePublished(value?: string) {
 }
 
 export default async function AdminNoticesPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
-
   const targetType = parseTargetType(readStringParam(searchParams, "targetType"));
   const published = parsePublished(readStringParam(searchParams, "published"));
-  const notices = await listNotices({
-    targetType,
-    published,
-  });
+  const [, notices] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
+    listNotices({ targetType, published }),
+  ]);
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-19 Notices
+        F-19 Student Notices
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">Student notices</h1>
+      <h1 className="mt-5 text-3xl font-semibold">학생 공지</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        Draft, publish, and unpublish student-facing notices. Publishing can also
-        trigger a notice notification through the existing Solapi workflow.
+        학생 포털에 노출되는 공지를 작성하고 발행합니다. 내부 협업 메모는 별도 운영 메모
+        보드에서 관리하고, 여기서는 학생 대상 전달 내용만 분리해 다룹니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[220px_220px_140px]">
         <div>
-          <label className="mb-2 block text-sm font-medium">Target</label>
+          <label className="mb-2 block text-sm font-medium">대상</label>
           <select
             name="targetType"
             defaultValue={targetType ?? ""}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
           >
-            <option value="">All targets</option>
-            <option value={NoticeTargetType.ALL}>All students</option>
-            <option value={NoticeTargetType.GONGCHAE}>Gongchae</option>
-            <option value={NoticeTargetType.GYEONGCHAE}>Gyeongchae</option>
+            <option value="">전체 대상</option>
+            <option value={NoticeTargetType.ALL}>전체 학생</option>
+            <option value={NoticeTargetType.GONGCHAE}>공채</option>
+            <option value={NoticeTargetType.GYEONGCHAE}>경채</option>
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">Status</label>
+          <label className="mb-2 block text-sm font-medium">상태</label>
           <select
             name="published"
             defaultValue={
@@ -88,9 +86,9 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
             }
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
           >
-            <option value="">All statuses</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
+            <option value="">전체 상태</option>
+            <option value="published">게시됨</option>
+            <option value="draft">초안</option>
           </select>
         </div>
         <div className="flex items-end">
@@ -98,7 +96,7 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
-            Apply filter
+            필터 적용
           </button>
         </div>
       </form>
@@ -121,3 +119,5 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
     </div>
   );
 }
+
+

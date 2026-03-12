@@ -1,6 +1,8 @@
 "use client";
 
 import { Subject } from "@prisma/client";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/format";
 import { useState, useTransition } from "react";
@@ -66,6 +68,7 @@ function RecordCard({
   // 학생 변경 섹션 표시 여부 (기본 숨김, 필요할 때만 노출)
   const [showChangeStudent, setShowChangeStudent] = useState(false);
   const [newExamNumber, setNewExamNumber] = useState("");
+  const confirmModal = useActionModalState();
 
   return (
     <form className="rounded-[24px] border border-ink/10 bg-mist p-4">
@@ -165,10 +168,21 @@ function RecordCard({
               type="button"
               disabled={isPending || !newExamNumber.trim()}
               onClick={() => {
-                if (!confirm(`이 면담 기록의 학생을 "${newExamNumber}"으로 변경하시겠습니까?`)) return;
-                onChangeStudent(record.id, newExamNumber);
-                setNewExamNumber("");
-                setShowChangeStudent(false);
+                confirmModal.openModal({
+                  badgeLabel: "?? ?? ??",
+                  badgeTone: "warning",
+                  title: "?? ?? ?? ??",
+                  description: `? ?? ??? ??? "${newExamNumber}"?? ?????????`,
+                  details: ["?? ? ?? ??? ?? ????? ? ??? ?????."],
+                  cancelLabel: "??",
+                  confirmLabel: "?? ??",
+                  onConfirm: () => {
+                    confirmModal.closeModal();
+                    onChangeStudent(record.id, newExamNumber);
+                    setNewExamNumber("");
+                    setShowChangeStudent(false);
+                  },
+                });
               }}
               className="inline-flex items-center rounded-full bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -178,6 +192,20 @@ function RecordCard({
           </div>
         ) : null}
       </div>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </form>
   );
 }
@@ -203,6 +231,7 @@ export function CounselingPanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -281,21 +310,32 @@ export function CounselingPanel({
   }
 
   function deleteRecord(recordId: number) {
-    if (!confirm("이 면담 기록을 삭제하시겠습니까?")) return;
+    confirmModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "warning",
+      title: "?? ?? ??",
+      description: "? ?? ??? ?????????",
+      details: ["?? ??? ?? ???? ?? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
 
-    setMessage(null, null);
-
-    startTransition(async () => {
-      try {
-        await requestJson(`/api/counseling/${recordId}`, { method: "DELETE" });
-        setRecords((prev) => prev.filter((r) => r.id !== recordId));
-        setNotice("면담 기록을 삭제했습니다.");
-      } catch (error) {
-        setMessage(
-          null,
-          error instanceof Error ? error.message : "면담 기록 삭제에 실패했습니다.",
-        );
-      }
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/counseling/${recordId}`, { method: "DELETE" });
+            setRecords((prev) => prev.filter((r) => r.id !== recordId));
+            setNotice("?? ??? ??????.");
+          } catch (error) {
+            setMessage(
+              null,
+              error instanceof Error ? error.message : "?? ?? ??? ??????.",
+            );
+          }
+        });
+      },
     });
   }
 
@@ -507,6 +547,20 @@ export function CounselingPanel({
           ))}
         </div>
       </section>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
     </div>
   );
 }

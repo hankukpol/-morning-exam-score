@@ -5,7 +5,7 @@ import {
   applyDuplicateResolvedStudentIssues,
   dedupeScoreWriteRecords,
   dedupeStudentAnswerWriteRecords,
-} from "../src/lib/scores/import-safety.ts";
+} from "../src/lib/scores/import-safety";
 
 type PreviewRow = {
   status: "ready" | "overwrite" | "resolve" | "invalid";

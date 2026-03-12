@@ -7,6 +7,11 @@ import {
 } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { recalculateStatusCache } from "@/lib/analytics/service";
+import {
+  buildAbsenceNoteSystemNote,
+  getAbsenceNoteSystemNoteId,
+  stripAbsenceNoteSystemNote,
+} from "@/lib/absence-notes/system-note";
 import { getPrisma } from "@/lib/prisma";
 
 export type AbsenceNoteFilters = {
@@ -24,50 +29,56 @@ export type AbsenceNoteFormInput = {
   sessionId: number;
   reason: string;
   absenceCategory: AbsenceCategory;
+  attendCountsAsAttendance?: boolean;
   attendGrantsPerfectAttendance?: boolean;
   adminNote?: string | null;
 };
 
-const ABSENCE_NOTE_PREFIX = "[absence-note:";
+type AbsenceAttendanceOptions = Pick<
+  AbsenceNoteFormInput,
+  "attendCountsAsAttendance" | "attendGrantsPerfectAttendance"
+>;
+
+function resolveAbsenceAttendanceOptions(
+  absenceCategory: AbsenceCategory,
+  input: AbsenceAttendanceOptions,
+) {
+  if (absenceCategory === AbsenceCategory.MILITARY) {
+    return {
+      attendCountsAsAttendance: true,
+      attendGrantsPerfectAttendance: true,
+    };
+  }
+
+  const attendGrantsPerfectAttendance = Boolean(input.attendGrantsPerfectAttendance);
+  const attendCountsAsAttendance = Boolean(
+    input.attendCountsAsAttendance || attendGrantsPerfectAttendance,
+  );
+
+  return {
+    attendCountsAsAttendance,
+    attendGrantsPerfectAttendance,
+  };
+}
 
 function startOfToday() {
   return new Date(new Date().setHours(0, 0, 0, 0));
 }
-
-function buildSystemNote(noteId: number, reason: string) {
-  return `${ABSENCE_NOTE_PREFIX}${noteId}] ${reason}`.trim();
-}
-
-function stripSystemNote(value: string | null, noteId: number) {
-  if (!value) {
-    return null;
-  }
-
-  const prefix = `${ABSENCE_NOTE_PREFIX}${noteId}]`;
-
-  if (!value.startsWith(prefix)) {
-    return value;
-  }
-
-  const next = value.slice(prefix.length).trim();
-  return next || null;
-}
-
 
 function validateAbsenceNoteInput(input: AbsenceNoteFormInput) {
   const examNumber = input.examNumber.trim();
   const reason = input.reason.trim();
 
   if (!examNumber) {
-    throw new Error("수험번호를 입력하세요.");
+    throw new Error("????? ??? ???.");
   }
 
   if (!Number.isInteger(input.sessionId) || input.sessionId <= 0) {
-    throw new Error("시험 회차를 선택하세요.");
+    throw new Error("?? ??? ??? ???.");
   }
 
   if (!reason) {
-    throw new Error("사유 내용을 입력하세요.");
+    throw new Error("?? ??? ??? ???.");
   }
 
   return {
@@ -100,10 +111,10 @@ async function applyApprovedAbsenceNote(
     score &&
     (score.attendType === AttendType.NORMAL || score.attendType === AttendType.LIVE)
   ) {
-    throw new Error("정상 응시 기록이 있는 회차는 사유 결시로 승인할 수 없습니다.");
+    throw new Error("?? ?? ??? ?? ???? ?? ??? ??? ? ????.");
   }
 
-  const systemNote = buildSystemNote(note.id, note.reason);
+  const systemNote = buildAbsenceNoteSystemNote(note.id, note.reason);
 
   if (!score) {
     await tx.score.create({
@@ -153,8 +164,7 @@ async function revertApprovedAbsenceNote(
     return;
   }
 
-  const noteMarker = `${ABSENCE_NOTE_PREFIX}${note.id}]`;
-  const generatedByAbsenceNote = score.note?.startsWith(noteMarker) ?? false;
+  const generatedByAbsenceNote = getAbsenceNoteSystemNoteId(score.note) === note.id;
 
   if (!generatedByAbsenceNote && score.attendType !== AttendType.EXCUSED) {
     return;
@@ -181,7 +191,7 @@ async function revertApprovedAbsenceNote(
     },
     data: {
       attendType: AttendType.ABSENT,
-      note: stripSystemNote(score.note, note.id),
+      note: stripAbsenceNoteSystemNote(score.note, note.id),
     },
   });
 }
@@ -198,7 +208,7 @@ export async function revertAbsenceNote(input: {
     });
 
     if (note.status !== "APPROVED") {
-      throw new Error("승인된 사유서만 취소할 수 있습니다.");
+      throw new Error("??? ???? ??? ? ????.");
     }
 
     await revertApprovedAbsenceNote(tx, note);
@@ -322,6 +332,7 @@ export async function createAbsenceNote(input: {
     });
 
     const autoApprove = payload.absenceCategory === AbsenceCategory.MILITARY;
+    const attendanceOptions = resolveAbsenceAttendanceOptions(payload.absenceCategory, payload);
     const note = await tx.absenceNote.create({
       data: {
         examNumber: payload.examNumber,
@@ -331,10 +342,7 @@ export async function createAbsenceNote(input: {
         status: autoApprove ? AbsenceStatus.APPROVED : AbsenceStatus.PENDING,
         submittedAt: new Date(),
         approvedAt: autoApprove ? new Date() : null,
-        attendGrantsPerfectAttendance:
-          payload.absenceCategory === AbsenceCategory.MILITARY
-            ? true
-            : Boolean(payload.attendGrantsPerfectAttendance),
+        ...attendanceOptions,
         adminNote: payload.adminNote,
       },
     });
@@ -374,13 +382,13 @@ export async function createAbsenceNote(input: {
 export async function updateAbsenceNote(input: {
   adminId: string;
   noteId: number;
-  payload: Pick<AbsenceNoteFormInput, "reason" | "absenceCategory" | "adminNote">;
+  payload: Pick<AbsenceNoteFormInput, "reason" | "absenceCategory" | "attendCountsAsAttendance" | "attendGrantsPerfectAttendance" | "adminNote">;
   ipAddress?: string | null;
 }) {
   const reason = input.payload.reason.trim();
 
   if (!reason) {
-    throw new Error("사유 내용을 입력하세요.");
+    throw new Error("?? ??? ??? ???.");
   }
 
   const result = await getPrisma().$transaction(async (tx) => {
@@ -394,10 +402,14 @@ export async function updateAbsenceNote(input: {
     });
 
     if (before.status === AbsenceStatus.APPROVED) {
-      throw new Error("승인된 사유서는 수정 대신 삭제 후 다시 등록하세요.");
+      throw new Error("??? ???? ??? ? ????. ?? ??? ???.");
     }
 
     const autoApprove = input.payload.absenceCategory === AbsenceCategory.MILITARY;
+    const attendanceOptions = resolveAbsenceAttendanceOptions(
+      input.payload.absenceCategory,
+      input.payload,
+    );
     const note = await tx.absenceNote.update({
       where: {
         id: input.noteId,
@@ -408,10 +420,7 @@ export async function updateAbsenceNote(input: {
         adminNote: input.payload.adminNote?.trim() || null,
         status: autoApprove ? AbsenceStatus.APPROVED : before.status,
         approvedAt: autoApprove ? new Date() : before.approvedAt,
-        attendGrantsPerfectAttendance:
-          input.payload.absenceCategory === AbsenceCategory.MILITARY
-            ? true
-            : before.attendGrantsPerfectAttendance,
+        ...attendanceOptions,
       },
     });
 
@@ -451,6 +460,7 @@ export async function reviewAbsenceNote(input: {
   adminId: string;
   noteId: number;
   action: "approve" | "reject";
+  attendCountsAsAttendance?: boolean;
   attendGrantsPerfectAttendance?: boolean;
   adminNote?: string | null;
   ipAddress?: string | null;
@@ -466,6 +476,14 @@ export async function reviewAbsenceNote(input: {
     });
 
     if (input.action === "approve") {
+      const attendanceOptions = resolveAbsenceAttendanceOptions(
+        before.absenceCategory ?? AbsenceCategory.OTHER,
+        {
+          attendCountsAsAttendance: input.attendCountsAsAttendance ?? before.attendCountsAsAttendance,
+          attendGrantsPerfectAttendance:
+            input.attendGrantsPerfectAttendance ?? before.attendGrantsPerfectAttendance,
+        },
+      );
       const note = await tx.absenceNote.update({
         where: {
           id: input.noteId,
@@ -473,10 +491,7 @@ export async function reviewAbsenceNote(input: {
         data: {
           status: AbsenceStatus.APPROVED,
           approvedAt: new Date(),
-          attendGrantsPerfectAttendance:
-            before.absenceCategory === AbsenceCategory.MILITARY
-              ? true
-              : Boolean(input.attendGrantsPerfectAttendance),
+          ...attendanceOptions,
           adminNote: input.adminNote?.trim() || null,
         },
       });
@@ -509,7 +524,6 @@ export async function reviewAbsenceNote(input: {
       data: {
         status: AbsenceStatus.REJECTED,
         approvedAt: null,
-        attendGrantsPerfectAttendance: false,
         adminNote: input.adminNote?.trim() || null,
       },
     });
@@ -543,20 +557,19 @@ export async function reviewAbsenceNote(input: {
 }
 
 /**
- * 사유서의 회차(날짜)를 다른 회차로 변경한다.
+ * Move an absence note to a different session.
  *
- * 운영 시나리오:
- * - 학생이 화요일 사유서를 제출했는데 실제 결시는 목요일인 경우
- * - 관리자가 사유서를 잘못된 회차로 등록한 경우
+ * Typical cases:
+ * - A student submitted the note for the wrong exam date.
+ * - An admin needs to move the note to the correct session.
  *
- * 동작 원칙:
- * 1. 중복 검사: 목표 회차에 같은 학생 사유서가 이미 있으면 실패
- *    (AbsenceNote 테이블의 @@unique([examNumber, sessionId]) 제약 조건)
- * 2. 승인된 사유서 처리:
- *    - APPROVED 상태이면 기존 회차의 점수를 EXCUSED → ABSENT로 되돌림 (revertApprovedAbsenceNote)
- *    - 회차 변경 후 상태를 PENDING으로 리셋 (새 회차에서 다시 승인 필요)
- * 3. 경고/탈락 상태 재계산: APPROVED였던 경우 출결 캐시 재계산 필요
+ * Rules:
+ * 1. Reject duplicates for the same student and session.
+ * 2. Revert EXCUSED first when the note was already approved.
+ * 3. Reset the moved note back to PENDING for re-review.
+ * 4. Recalculate warning/dropout cache when approval was active.
  */
+
 export async function changeAbsenceNoteSession(input: {
   adminId: string;
   noteId: number;
@@ -564,20 +577,20 @@ export async function changeAbsenceNoteSession(input: {
   ipAddress?: string | null;
 }) {
   const result = await getPrisma().$transaction(async (tx) => {
-    // 변경 전 상태 저장 (session 포함: periodId, examType 참조용)
+    // Load the current note with session metadata for cache recalculation.
     const before = await tx.absenceNote.findUniqueOrThrow({
       where: { id: input.noteId },
       include: { session: true },
     });
 
     if (before.sessionId === input.newSessionId) {
-      throw new Error("현재 회차와 동일합니다.");
+      throw new Error("?? ??? ?????.");
     }
 
-    // 목표 회차가 실제 존재하는지 확인
+    // Make sure the target session exists.
     await tx.examSession.findUniqueOrThrow({ where: { id: input.newSessionId } });
 
-    // 목표 회차에 같은 학생 사유서가 이미 있으면 충돌 오류
+    // Reject duplicates for the same student and session.
     const conflict = await tx.absenceNote.findUnique({
       where: {
         examNumber_sessionId: {
@@ -587,16 +600,16 @@ export async function changeAbsenceNoteSession(input: {
       },
     });
     if (conflict) {
-      throw new Error("해당 회차에 이미 같은 학생의 사유서가 있습니다.");
+      throw new Error("?? ???? ?? ?? ??? ???? ????.");
     }
 
-    // 승인 상태이면 기존 회차의 EXCUSED 점수를 먼저 되돌림
+    // Revert the old EXCUSED entry before moving an approved note.
     const wasApproved = before.status === AbsenceStatus.APPROVED;
     if (wasApproved) {
       await revertApprovedAbsenceNote(tx, before);
     }
 
-    // 회차 변경 + 승인됐던 경우 상태를 PENDING으로 리셋
+    // Reset approval when an approved note moves to a new session.
     const updated = await tx.absenceNote.update({
       where: { id: input.noteId },
       data: {
@@ -621,7 +634,7 @@ export async function changeAbsenceNoteSession(input: {
     return { updated, oldSession: before.session, wasApproved };
   });
 
-  // 트랜잭션 외부에서 경고/탈락 상태 캐시 재계산 (승인 상태였던 경우만)
+  // Recalculate warning/dropout cache for the original session when needed.
   if (result.wasApproved) {
     await recalculateStatusCache(result.oldSession.periodId, result.oldSession.examType, {
       examNumbers: [result.updated.examNumber],
@@ -632,12 +645,9 @@ export async function changeAbsenceNoteSession(input: {
 }
 
 /**
- * 사유서 일괄 등록 결과 타입
- * - succeeded: 새로 생성된 사유서 수
- * - skipped: 이미 존재해 건너뛴 회차 수 (중복 방지)
- * - autoApproved: MILITARY 카테고리로 자동 승인된 수
- * - errors: 처리 실패한 회차 목록
+ * Summary of a bulk absence note creation request.
  */
+
 export type BulkCreateAbsenceNotesResult = {
   succeeded: number;
   skipped: number;
@@ -646,19 +656,17 @@ export type BulkCreateAbsenceNotesResult = {
 };
 
 /**
- * 한 학생의 여러 회차에 사유서를 한 번에 등록한다.
+ * Create absence notes for multiple sessions at once.
  *
- * 운영 시나리오:
- * - 매주 금요일 결석하는 학생이 4주치 사유서를 한 번에 제출
- * - 학원 행사로 특정 요일들에 모두 결석 처리가 필요한 경우
- * - UI에서 날짜 범위 + 요일 필터로 회차를 자동 선택 후 호출
+ * Typical cases:
+ * - Register the same reason across several future or past sessions.
+ * - Backfill a scheduled absence across a date range.
  *
- * 동작 원칙:
- * 1. 이미 사유서가 있는 회차는 조용히 건너뜀 (skipped 카운트)
- *    → 중복 제출에 안전, 재시도 가능
- * 2. MILITARY 카테고리: 생성 즉시 자동 승인 + 점수에 EXCUSED 적용
- * 3. Promise.allSettled 사용: 한 회차 실패가 다른 회차를 막지 않음
- * 4. 자동 승인된 건이 있으면 트랜잭션 종료 후 경고/탈락 상태 재계산
+ * Rules:
+ * 1. Skip existing notes quietly and count them as skipped.
+ * 2. Auto-approve military absences and apply EXCUSED immediately.
+ * 3. Keep per-session failures isolated with Promise.allSettled.
+ * 4. Recalculate warning/dropout cache after auto-approved changes.
  */
 export async function bulkCreateAbsenceNotes(input: {
   adminId: string;
@@ -667,6 +675,7 @@ export async function bulkCreateAbsenceNotes(input: {
     sessionIds: number[];
     reason: string;
     absenceCategory: AbsenceCategory;
+    attendCountsAsAttendance?: boolean;
     attendGrantsPerfectAttendance?: boolean;
     adminNote?: string | null;
   };
@@ -676,31 +685,32 @@ export async function bulkCreateAbsenceNotes(input: {
   const examNumber = payload.examNumber.trim();
   const reason = payload.reason.trim();
 
-  // 필수 입력값 사전 검증
-  if (!examNumber) throw new Error("수험번호를 입력하세요.");
-  if (!reason) throw new Error("사유 내용을 입력하세요.");
-  if (!payload.sessionIds.length) throw new Error("회차를 선택하세요.");
+  // Required input validation.
+  if (!examNumber) throw new Error("????? ??? ???.");
+  if (!reason) throw new Error("?? ??? ??? ???.");
+  if (!payload.sessionIds.length) throw new Error("?? ??? ??? ???.");
 
-  // MILITARY(군 입소) 카테고리는 생성 즉시 자동 승인
+  // Military absences are auto-approved on creation.
   const autoApprove = payload.absenceCategory === AbsenceCategory.MILITARY;
 
   type SingleResult =
     | { type: "created"; periodId: number; examType: ExamType; autoApprove: boolean }
     | { type: "skipped" };
 
-  // 각 회차를 병렬 처리, 실패해도 다른 회차에 영향 없음
+  // Process each session independently so one failure does not block the rest.
   const results = await Promise.allSettled<SingleResult>(
     payload.sessionIds.map(async (sessionId) => {
       return getPrisma().$transaction(async (tx) => {
-        // 이미 존재하는 회차는 건너뜀 (@@unique 제약 조건 사전 회피)
+        // Skip duplicates before hitting the unique constraint.
         const existing = await tx.absenceNote.findUnique({
           where: { examNumber_sessionId: { examNumber, sessionId } },
         });
         if (existing) return { type: "skipped" as const };
 
-        // periodId, examType 참조를 위해 session 조회
+        // Load session metadata for follow-up cache recalculation.
         const session = await tx.examSession.findUniqueOrThrow({ where: { id: sessionId } });
 
+        const attendanceOptions = resolveAbsenceAttendanceOptions(payload.absenceCategory, payload);
         const note = await tx.absenceNote.create({
           data: {
             examNumber,
@@ -710,13 +720,12 @@ export async function bulkCreateAbsenceNotes(input: {
             status: autoApprove ? AbsenceStatus.APPROVED : AbsenceStatus.PENDING,
             submittedAt: new Date(),
             approvedAt: autoApprove ? new Date() : null,
-            // MILITARY 자동 승인 시 개근 인정 강제 true
-            attendGrantsPerfectAttendance: autoApprove ? true : Boolean(payload.attendGrantsPerfectAttendance),
+            ...attendanceOptions,
             adminNote: payload.adminNote?.trim() || null,
           },
         });
 
-        // 자동 승인이면 해당 회차 점수를 EXCUSED로 즉시 적용
+        // Apply EXCUSED immediately for auto-approved notes.
         if (autoApprove) {
           await applyApprovedAbsenceNote(tx, note);
         }
@@ -746,7 +755,6 @@ export async function bulkCreateAbsenceNotes(input: {
     .map((r) => r.value);
 
   const autoApprovedResults = createdResults.filter((r) => r.autoApprove);
-  // 자동 승인된 건이 있으면 학생의 경고/탈락 상태 캐시 재계산
   if (autoApprovedResults.length > 0) {
     const { periodId, examType } = autoApprovedResults[0];
     await recalculateStatusCache(periodId, examType, { examNumbers: [examNumber] });
@@ -761,7 +769,7 @@ export async function bulkCreateAbsenceNotes(input: {
       .filter(({ r }) => r.status === "rejected")
       .map(({ r, sessionId }) => ({
         sessionId,
-        message: (r as PromiseRejectedResult).reason?.message ?? "알 수 없는 오류",
+        message: (r as PromiseRejectedResult).reason?.message ?? "? ? ?? ??",
       })),
   };
 }
@@ -819,3 +827,4 @@ export async function deleteAbsenceNote(input: {
     success: true,
   };
 }
+

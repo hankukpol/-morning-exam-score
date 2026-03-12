@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 
-type ActionModalProps = {
+export type ActionModalProps = {
   open: boolean;
   badgeLabel: string;
   badgeTone?: "default" | "success" | "warning";

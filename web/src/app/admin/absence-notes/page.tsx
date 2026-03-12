@@ -1,4 +1,4 @@
-import {
+﻿import {
   AbsenceCategory,
   AbsenceStatus,
   AdminRole,
@@ -9,6 +9,7 @@ import {
   readStringParam,
 } from "@/lib/analytics/ui";
 import { requireAdminContext } from "@/lib/auth";
+import { listAbsencePolicies } from "@/lib/absence-policies/service";
 import {
   ABSENCE_CATEGORY_LABEL,
   EXAM_TYPE_LABEL,
@@ -34,23 +35,32 @@ const STATUS_OPTIONS = [
   { value: AbsenceStatus.REJECTED, label: "반려" },
 ] as const;
 
+const ABSENCE_POLICY_SETTINGS_HREF = "/admin/settings/absence-policies";
+
 export default async function AdminAbsenceNotesPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.TEACHER),
+    getAnalyticsContext(searchParams),
+  ]);
+
   const defaultSubmittedDate = todayDateInputValue();
   const selectedStatus = readStringParam(searchParams, "status") ?? "ALL";
   const selectedCategory = readStringParam(searchParams, "absenceCategory") ?? "ALL";
   const search = readStringParam(searchParams, "search") ?? "";
-  const submittedFrom = readStringParam(searchParams, "submittedFrom") ?? defaultSubmittedDate;
-  const submittedTo = readStringParam(searchParams, "submittedTo") ?? defaultSubmittedDate;
+  const submittedFrom =
+    readStringParam(searchParams, "submittedFrom") ?? defaultSubmittedDate;
+  const submittedTo =
+    readStringParam(searchParams, "submittedTo") ?? defaultSubmittedDate;
 
-  const [notes, students, dashboard] = await Promise.all([
+  const [notes, students, dashboard, policies] = await Promise.all([
     selectedPeriod
       ? listAbsenceNotes({
           periodId: selectedPeriod.id,
           examType,
           status:
-            selectedStatus === "ALL" ? undefined : (selectedStatus as AbsenceStatus),
+            selectedStatus === "ALL"
+              ? undefined
+              : (selectedStatus as AbsenceStatus),
           absenceCategory:
             selectedCategory === "ALL"
               ? undefined
@@ -70,6 +80,7 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
     selectedPeriod
       ? getAbsenceNoteDashboard(selectedPeriod.id, examType)
       : Promise.resolve(null),
+    listAbsencePolicies(),
   ]);
 
   const sessionOptions =
@@ -82,229 +93,351 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
         week: session.week,
       })) ?? [];
 
-  // export URL (현재 필터 그대로 내보내기)
+  const policyOptions = policies.map((policy) => ({
+    id: policy.id,
+    name: policy.name,
+    absenceCategory: policy.absenceCategory,
+    attendCountsAsAttendance: policy.attendCountsAsAttendance,
+    attendGrantsPerfectAttendance: policy.attendGrantsPerfectAttendance,
+    isActive: policy.isActive,
+    sortOrder: policy.sortOrder,
+  }));
+
+  const activePolicyCount = policyOptions.filter((policy) => policy.isActive).length;
+
   const exportParams = new URLSearchParams();
   if (selectedPeriod) exportParams.set("periodId", String(selectedPeriod.id));
   exportParams.set("examType", examType);
   if (selectedStatus !== "ALL") exportParams.set("status", selectedStatus);
-  if (selectedCategory !== "ALL") exportParams.set("absenceCategory", selectedCategory);
+  if (selectedCategory !== "ALL") {
+    exportParams.set("absenceCategory", selectedCategory);
+  }
   if (search) exportParams.set("search", search);
   if (submittedFrom) exportParams.set("submittedFrom", submittedFrom);
   if (submittedTo) exportParams.set("submittedTo", submittedTo);
   const exportUrl = `/api/absence-notes/export?${exportParams.toString()}`;
 
+  const mappedNotes = notes.map((note) => ({
+    ...note,
+    submittedAt: note.submittedAt ? note.submittedAt.toISOString() : null,
+    approvedAt: note.approvedAt ? note.approvedAt.toISOString() : null,
+    session: {
+      ...note.session,
+      examDate: note.session.examDate.toISOString(),
+    },
+  }));
+
+  const summaryCards = [
+    {
+      key: "pending",
+      label: "검토 대기",
+      value: dashboard?.pending ?? 0,
+      help: "승인 또는 반려 처리가 필요한 사유서",
+      className: "border-amber-200 bg-amber-50/80",
+      valueClassName: "text-amber-700",
+      unitClassName: "text-amber-600",
+    },
+    {
+      key: "approved",
+      label: "오늘 승인",
+      value: dashboard?.approvedToday ?? 0,
+      help: "오늘 처리된 승인 건수",
+      className: "border-ink/10 bg-mist/70",
+      valueClassName: "text-ink",
+      unitClassName: "text-slate",
+    },
+    {
+      key: "rejected",
+      label: "반려",
+      value: dashboard?.rejected ?? 0,
+      help: "재검토가 필요한 사유서",
+      className: "border-red-100 bg-red-50/70",
+      valueClassName: "text-red-700",
+      unitClassName: "text-red-500",
+    },
+    {
+      key: "total",
+      label: "기간 합계",
+      value: dashboard?.total ?? 0,
+      help:
+        dashboard && Object.keys(dashboard.categoryBreakdown).length > 0
+          ? Object.entries(dashboard.categoryBreakdown)
+              .map(([category, count]) => {
+                const label =
+                  ABSENCE_CATEGORY_LABEL[category as AbsenceCategory] ?? category;
+                return `${label} ${count}`;
+              })
+              .join(" · ")
+          : "등록된 사유서 집계가 없습니다.",
+      className: "border-ink/10 bg-white",
+      valueClassName: "text-ink",
+      unitClassName: "text-slate",
+    },
+  ] as const;
+
+  const selectedStatusLabel =
+    STATUS_OPTIONS.find((option) => option.value === selectedStatus)?.label ?? "전체";
+  const selectedCategoryLabel =
+    selectedCategory === "ALL"
+      ? "전체"
+      : ABSENCE_CATEGORY_LABEL[selectedCategory as AbsenceCategory];
+
   return (
     <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-10 Absence Notes
+      <div className="max-w-4xl">
+        <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+          사유서 관리
+        </div>
+        <h1 className="mt-5 text-3xl font-semibold text-ink">
+          사유서 등록 중심으로 흐름을 다시 정리했습니다.
+        </h1>
+        <p className="mt-4 text-sm leading-8 text-slate sm:text-base">
+          상단에는 처리 현황을 두고, 바로 아래에서 사유서를 먼저 등록할 수 있게 배치했습니다.
+          조회와 검토는 아래 별도 구역으로 내려서 등록 흐름을 막지 않도록 정리했습니다.
+        </p>
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">사유서 관리</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        사유 결시 등록, 승인/반려, 개근 인정 여부를 관리합니다. 승인 시 EXCUSED 반영과
-        경고/탈락 상태 재계산이 함께 실행됩니다.
-      </p>
 
-      {/* KPI 대시보드 */}
-      {dashboard && (
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
           <article
-            className={`rounded-[28px] border p-6 ${
-              dashboard.pending > 0
-                ? "border-amber-200 bg-amber-50"
-                : "border-ink/10 bg-white"
-            }`}
+            key={card.key}
+            className={`rounded-[24px] border p-5 ${card.className}`}
           >
-            <p className="text-sm text-slate">검토 대기</p>
-            <p
-              className={`mt-3 text-3xl font-semibold ${
-                dashboard.pending > 0 ? "text-amber-700" : ""
-              }`}
-            >
-              {dashboard.pending}
-              <span
-                className={`ml-1 text-base font-normal ${
-                  dashboard.pending > 0 ? "text-amber-600" : "text-slate"
-                }`}
-              >
+            <p className="text-sm text-slate">{card.label}</p>
+            <p className={`mt-3 text-3xl font-semibold ${card.valueClassName}`}>
+              {card.value}
+              <span className={`ml-1 text-base font-normal ${card.unitClassName}`}>
                 건
               </span>
             </p>
-            <p className="mt-2 text-xs text-slate">승인/반려 처리가 필요한 사유서</p>
+            <p className="mt-2 text-xs leading-6 text-slate">{card.help}</p>
           </article>
+        ))}
+      </section>
 
-          <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-            <p className="text-sm text-slate">오늘 승인</p>
-            <p className="mt-3 text-3xl font-semibold">
-              {dashboard.approvedToday}
-              <span className="ml-1 text-base font-normal text-slate">건</span>
-            </p>
-            <p className="mt-2 text-xs text-slate">오늘 처리된 승인 건수</p>
-          </article>
-
-          <article
-            className={`rounded-[28px] border p-6 ${
-              dashboard.rejected > 0
-                ? "border-red-100 bg-red-50/60"
-                : "border-ink/10 bg-white"
-            }`}
-          >
-            <p className="text-sm text-slate">반려</p>
-            <p
-              className={`mt-3 text-3xl font-semibold ${
-                dashboard.rejected > 0 ? "text-red-700" : ""
-              }`}
-            >
-              {dashboard.rejected}
-              <span
-                className={`ml-1 text-base font-normal ${
-                  dashboard.rejected > 0 ? "text-red-500" : "text-slate"
-                }`}
-              >
-                건
-              </span>
-            </p>
-            <p className="mt-2 text-xs text-slate">반려된 사유서 (재검토 필요)</p>
-          </article>
-
-          <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-            <p className="text-sm text-slate">기간 합계</p>
-            <p className="mt-3 text-3xl font-semibold">
-              {dashboard.total}
-              <span className="ml-1 text-base font-normal text-slate">건</span>
-            </p>
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate">
-              {Object.entries(dashboard.categoryBreakdown).map(([cat, count]) => (
-                <span key={cat}>
-                  {ABSENCE_CATEGORY_LABEL[cat as AbsenceCategory] ?? cat} {count}
-                </span>
-              ))}
+      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
+        <section className="rounded-[32px] border border-ink/10 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-ink">사유서 등록</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
+                신규 사유서를 바로 입력하는 구역입니다. 등록 후 검토가 필요하면 아래 조회 및 검토
+                구역으로 바로 이동할 수 있습니다.
+              </p>
             </div>
-          </article>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="#absence-review"
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                사유서 조회 및 검토로 이동
+              </a>
+              <div className="rounded-[24px] border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-slate">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                  현재 작업 범위
+                </p>
+                <p className="mt-2 font-semibold text-ink">
+                  {selectedPeriod?.name ?? "기간을 먼저 선택하세요"}
+                </p>
+                <p className="mt-1">{EXAM_TYPE_LABEL[examType]}</p>
+                <p className="mt-1">활성 사유 정책 {activePolicyCount}개</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <AbsenceNoteManager
+              students={students}
+              sessions={sessionOptions}
+              policies={policyOptions}
+              notes={[]}
+              showReviewSection={false}
+              showGuidanceSection={false}
+            />
+          </div>
         </section>
-      )}
 
-      {/* 필터 */}
-      <form className="mt-8 rounded-[28px] border border-ink/10 bg-mist p-6">
-        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-          <div>
-            <label className="mb-2 block text-sm font-medium">시험 기간</label>
-            <select
-              name="periodId"
-              defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            >
-              {periods.map((period) => (
-                <option key={period.id} value={period.id}>
-                  {period.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">직렬</label>
-            <select
-              name="examType"
-              defaultValue={examType}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            >
-              <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
-              <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">상태</label>
-            <select
-              name="status"
-              defaultValue={selectedStatus}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">사유 유형</label>
-            <select
-              name="absenceCategory"
-              defaultValue={selectedCategory}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            >
-              <option value="ALL">전체</option>
-              {Object.values(AbsenceCategory).map((category) => (
-                <option key={category} value={category}>
-                  {ABSENCE_CATEGORY_LABEL[category]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">수험번호 / 이름</label>
-            <input
-              type="text"
-              name="search"
-              defaultValue={search}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-              placeholder="검색"
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">제출일 시작</label>
-            <input
-              type="date"
-              name="submittedFrom"
-              defaultValue={submittedFrom}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">제출일 종료</label>
-            <input
-              type="date"
-              name="submittedTo"
-              defaultValue={submittedTo}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate">
-            {notes.length > 0 ? `${notes.length}건 조회됨` : ""}
+        <aside className="space-y-4 self-start xl:sticky xl:top-6">
+          <section className="rounded-[28px] border border-ink/10 bg-mist p-5">
+            <h2 className="text-xl font-semibold text-ink">빠른 작업</h2>
+            <p className="mt-2 text-sm leading-6 text-slate">
+              등록 직후 자주 이동하는 설정과 내보내기 기능을 모았습니다.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={ABSENCE_POLICY_SETTINGS_HREF}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                사유 정책 설정
+              </a>
+              <a
+                href={exportUrl}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                Excel 내보내기
+              </a>
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-ink/10 bg-white p-5">
+            <h2 className="text-xl font-semibold text-ink">운영 기준</h2>
+            <ul className="mt-4 space-y-2 text-sm leading-7 text-slate">
+              <li>승인된 사유서는 경고와 탈락 계산에 포함되지 않습니다.</li>
+              <li>출석 포함 여부와 개근 인정 여부는 사유 정책 또는 건별 설정을 따릅니다.</li>
+              <li>예비군처럼 기본 정책이 정해진 사유는 등록 시 자동으로 값이 채워집니다.</li>
+              <li>등록 후 검토가 필요하면 아래 검토 구역에서 바로 승인 또는 반려를 처리하세요.</li>
+            </ul>
+          </section>
+        </aside>
+      </section>
+
+      <section id="absence-review" className="mt-8 rounded-[32px] border border-ink/10 bg-white p-6 scroll-mt-24">
+        <div>
+          <h2 className="text-2xl font-semibold text-ink">사유서 조회 및 검토</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
+            왼쪽에서는 조회 조건만 조정하고, 오른쪽에서는 조회된 사유서를 검토합니다.
+            필터 변경과 승인·반려 작업이 서로 섞이지 않도록 역할을 분리했습니다.
           </p>
-          <div className="flex gap-3">
-            <a
-              href={exportUrl}
-              className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-            >
-              Excel 내보내기
-            </a>
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-            >
-              조회
-            </button>
+        </div>
+
+        <div className="mt-6 grid items-stretch gap-6 xl:grid-cols-2">
+          <section className="flex h-full flex-col rounded-[28px] border border-ink/10 bg-mist p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-semibold text-ink">사유서 조회</h3>
+                <p className="mt-1 text-sm text-slate">
+                  기간과 상태를 먼저 좁혀서 검토 대상을 찾습니다.
+                </p>
+              </div>
+              <span className="inline-flex rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-slate">
+                {notes.length > 0 ? `${notes.length}건` : "조회 대기"}
+              </span>
+            </div>
+
+            <form className="mt-5 flex flex-1 flex-col">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">시험 기간</label>
+                  <select
+                    name="periodId"
+                    defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  >
+                    {periods.map((period) => (
+                      <option key={period.id} value={period.id}>
+                        {period.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">직렬</label>
+                  <select
+                    name="examType"
+                    defaultValue={examType}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  >
+                    <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+                    <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">상태</label>
+                  <select
+                    name="status"
+                    defaultValue={selectedStatus}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">사유 유형</label>
+                  <select
+                    name="absenceCategory"
+                    defaultValue={selectedCategory}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  >
+                    <option value="ALL">전체</option>
+                    {Object.values(AbsenceCategory).map((category) => (
+                      <option key={category} value={category}>
+                        {ABSENCE_CATEGORY_LABEL[category]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">제출일 시작</label>
+                  <input
+                    type="date"
+                    name="submittedFrom"
+                    defaultValue={submittedFrom}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">제출일 종료</label>
+                  <input
+                    type="date"
+                    name="submittedTo"
+                    defaultValue={submittedTo}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">수험번호 / 이름</label>
+                  <input
+                    type="text"
+                    name="search"
+                    defaultValue={search}
+                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                    placeholder="검색"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="rounded-[20px] border border-ink/10 bg-white px-4 py-3 text-sm text-slate">
+                  <p className="font-semibold text-ink">현재 조회 조건</p>
+                  <p className="mt-2">{selectedPeriod?.name ?? "기간을 먼저 선택하세요"}</p>
+                  <p className="mt-1">{EXAM_TYPE_LABEL[examType]}</p>
+                  <p className="mt-1">상태 {selectedStatusLabel}</p>
+                  <p className="mt-1">사유 {selectedCategoryLabel}</p>
+                </div>
+                <div className="grid gap-2 self-end">
+                  <a
+                    href={exportUrl}
+                    className="inline-flex items-center justify-center rounded-full border border-ink/10 bg-white px-4 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                  >
+                    Excel 내보내기
+                  </a>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-full bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+                  >
+                    조회
+                  </button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <div className="h-full [&>div]:flex [&>div]:h-full [&>div]:flex-col [&>div>section]:h-full">
+            <AbsenceNoteManager
+              students={students}
+              sessions={sessionOptions}
+              policies={[]}
+              notes={mappedNotes}
+              showCreateSection={false}
+              showGuidanceSection={false}
+            />
           </div>
         </div>
-      </form>
-
-      <div className="mt-8">
-        <AbsenceNoteManager
-          students={students}
-          sessions={sessionOptions}
-          notes={notes.map((note) => ({
-            ...note,
-            submittedAt: note.submittedAt ? note.submittedAt.toISOString() : null,
-            approvedAt: note.approvedAt ? note.approvedAt.toISOString() : null,
-            session: {
-              ...note.session,
-              examDate: note.session.examDate.toISOString(),
-            },
-          }))}
-        />
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { ExamType } from "@prisma/client";
+import { sanitizeAbsenceNoteDisplay } from "@/lib/absence-notes/system-note";
 import { ATTEND_TYPE_LABEL, EXAM_TYPE_LABEL, SCORE_SOURCE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, formatFileDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
@@ -124,7 +125,7 @@ export async function getScoreExportRows(filters: ScoreExportFilters) {
       rawScore: score.rawScore ?? "",
       oxScore: score.oxScore ?? "",
       finalScore: score.finalScore ?? "",
-      note: score.note ?? "",
+      note: sanitizeAbsenceNoteDisplay(score.note) ?? "",
     })),
   };
 }

@@ -1,14 +1,13 @@
-/**
+﻿/**
  * PUT  /api/absence-notes/[id]  - 사유서 처리
  * DELETE /api/absence-notes/[id] - 사유서 삭제
  *
  * PUT action 분기:
- * - "update" (기본): 사유 내용·카테고리·메모 수정
+ * - "update" (기본): 사유 내용·카테고리·메모·출석 포함·개근 인정 수정
  * - "approve": 사유서 승인 (점수 EXCUSED 처리)
  * - "reject": 사유서 반려
  * - "revert": 승인 취소 (APPROVED → PENDING, 점수 복원)
  * - "changeSession": 사유서가 속한 회차(날짜) 변경
- *   → 잘못된 날짜로 제출된 사유서를 올바른 날짜로 이전
  */
 import { AbsenceCategory, AdminRole } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -26,8 +25,9 @@ type RequestBody = {
   reason?: string;
   absenceCategory?: AbsenceCategory;
   adminNote?: string | null;
+  attendCountsAsAttendance?: boolean;
   attendGrantsPerfectAttendance?: boolean;
-  newSessionId?: number;  // action === "changeSession" 일 때 필수
+  newSessionId?: number;
 };
 
 type RouteContext = {
@@ -57,13 +57,15 @@ export async function PUT(request: Request, context: RouteContext) {
     const body = (await request.json()) as RequestBody;
     const action = body.action ?? "update";
 
-    // 승인 / 반려: 점수 EXCUSED 적용 또는 취소
     if (action === "approve" || action === "reject") {
       const note = await reviewAbsenceNote({
         adminId: auth.context.adminUser.id,
         noteId,
         action,
-        attendGrantsPerfectAttendance: Boolean(body.attendGrantsPerfectAttendance),
+        attendCountsAsAttendance:
+          typeof body.attendCountsAsAttendance === "boolean" ? body.attendCountsAsAttendance : undefined,
+        attendGrantsPerfectAttendance:
+          typeof body.attendGrantsPerfectAttendance === "boolean" ? body.attendGrantsPerfectAttendance : undefined,
         adminNote: body.adminNote ?? null,
         ipAddress: request.headers.get("x-forwarded-for"),
       });
@@ -71,7 +73,6 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json(note);
     }
 
-    // 회차 변경: 기존 회차의 EXCUSED 점수를 되돌리고 새 회차로 이전
     if (action === "changeSession") {
       if (!body.newSessionId || !Number.isInteger(Number(body.newSessionId))) {
         return NextResponse.json({ error: "변경할 회차를 선택하세요." }, { status: 400 });
@@ -85,7 +86,6 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json(note);
     }
 
-    // 승인 취소: APPROVED → PENDING, 점수를 ABSENT로 복원
     if (action === "revert") {
       const note = await revertAbsenceNote({
         adminId: auth.context.adminUser.id,
@@ -96,13 +96,16 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json(note);
     }
 
-    // 기본: 사유 내용·카테고리·메모 수정
     const note = await updateAbsenceNote({
       adminId: auth.context.adminUser.id,
       noteId,
       payload: {
         reason: String(body.reason ?? ""),
         absenceCategory: body.absenceCategory ?? AbsenceCategory.OTHER,
+        attendCountsAsAttendance:
+          typeof body.attendCountsAsAttendance === "boolean" ? body.attendCountsAsAttendance : undefined,
+        attendGrantsPerfectAttendance:
+          typeof body.attendGrantsPerfectAttendance === "boolean" ? body.attendGrantsPerfectAttendance : undefined,
         adminNote: body.adminNote ?? null,
       },
       ipAddress: request.headers.get("x-forwarded-for"),

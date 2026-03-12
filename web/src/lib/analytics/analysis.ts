@@ -9,7 +9,7 @@ import {
 import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
 import {
-  countsAsAttendance,
+  countsAsConfiguredAttendance,
   getCombinedAverage,
   getScoredMockScore,
 } from "@/lib/scores/calculation";
@@ -62,6 +62,28 @@ function scoreValues(scores: ScoreLike[]) {
   return scores
     .map(scoredMockScoreValue)
     .filter((value): value is number => value !== null);
+}
+
+function buildAttendanceIncludedExcuseLookup(
+  absences: Array<{ examNumber: string; sessionId: number; attendCountsAsAttendance: boolean }>,
+) {
+  return new Set(
+    absences
+      .filter((absence) => absence.attendCountsAsAttendance)
+      .map((absence) => `${absence.examNumber}:${absence.sessionId}`),
+  );
+}
+
+function countsAsAnalysisAttendance(
+  attendType: AttendType,
+  examNumber: string,
+  sessionId: number,
+  attendanceIncludedExcuseLookup: Set<string>,
+) {
+  return countsAsConfiguredAttendance(
+    attendType,
+    attendanceIncludedExcuseLookup.has(`${examNumber}:${sessionId}`),
+  );
 }
 
 function buildHistogram(values: number[]) {
@@ -437,24 +459,41 @@ export async function getMonthlyStudentAnalysis(input: {
     },
   });
   const sessionIds = sessions.map((session) => session.id);
-  const monthScores =
+  const [monthScores, approvedAbsences] =
     sessionIds.length > 0
-      ? await prisma.score.findMany({
-          where: {
-            sessionId: {
-              in: sessionIds,
+      ? await Promise.all([
+          prisma.score.findMany({
+            where: {
+              sessionId: {
+                in: sessionIds,
+              },
             },
-          },
-          select: {
-            examNumber: true,
-            rawScore: true,
-            oxScore: true,
-            finalScore: true,
-            attendType: true,
-            sessionId: true,
-          },
-        })
-      : [];
+            select: {
+              examNumber: true,
+              rawScore: true,
+              oxScore: true,
+              finalScore: true,
+              attendType: true,
+              sessionId: true,
+            },
+          }),
+          prisma.absenceNote.findMany({
+            where: {
+              examNumber: student.examNumber,
+              status: "APPROVED",
+              sessionId: {
+                in: sessionIds,
+              },
+            },
+            select: {
+              examNumber: true,
+              sessionId: true,
+              attendCountsAsAttendance: true,
+            },
+          }),
+        ])
+      : [[], []];
+  const attendanceIncludedExcuseLookup = buildAttendanceIncludedExcuseLookup(approvedAbsences);
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
   const scoresBySubject = new Map<Subject, typeof monthScores>();
 
@@ -509,14 +548,19 @@ export async function getMonthlyStudentAnalysis(input: {
       targetScore,
       achievementRate,
       status:
-        delta === null ? "-" : delta >= 5 ? "우수" : delta <= -5 ? "미흡" : "보통",
+        delta === null ? "-" : delta >= 5 ? "??" : delta <= -5 ? "??" : "??",
     };
   });
 
   const attendedCount = monthScores.filter(
     (score) =>
       score.examNumber === student.examNumber &&
-      countsAsAttendance(score.attendType),
+      countsAsAnalysisAttendance(
+        score.attendType,
+        score.examNumber,
+        score.sessionId,
+        attendanceIncludedExcuseLookup,
+      ),
   ).length;
   const studentMonthScores = monthScores.filter((score) => score.examNumber === student.examNumber);
   const monthlyMockAverage = average(
@@ -701,19 +745,20 @@ export async function getSubjectStudentRanking(input: {
       lt: startOfTomorrow(),
     },
   } satisfies Prisma.ExamSessionWhereInput;
-  const [totalSessions, scores] = await Promise.all([
+  const [totalSessions, scores, approvedAbsences] = await Promise.all([
     prisma.examSession.count({
       where: sessionWhere,
     }),
     prisma.score.findMany({
       where: {
         attendType: {
-          in: [AttendType.NORMAL, AttendType.LIVE],
+          in: [AttendType.NORMAL, AttendType.LIVE, AttendType.EXCUSED],
         },
         session: sessionWhere,
       },
       select: {
         examNumber: true,
+        sessionId: true,
         rawScore: true,
         oxScore: true,
         finalScore: true,
@@ -727,7 +772,20 @@ export async function getSubjectStudentRanking(input: {
         },
       },
     }),
+    prisma.absenceNote.findMany({
+      where: {
+        status: "APPROVED",
+        session: sessionWhere,
+      },
+      select: {
+        examNumber: true,
+        sessionId: true,
+        attendCountsAsAttendance: true,
+      },
+    }),
   ]);
+
+  const attendanceIncludedExcuseLookup = buildAttendanceIncludedExcuseLookup(approvedAbsences);
 
   const studentMap = new Map<string, {
     examNumber: string;
@@ -739,12 +797,6 @@ export async function getSubjectStudentRanking(input: {
   }>();
 
   for (const score of scores) {
-    const value = scoredMockScoreValue(score);
-
-    if (value === null) {
-      continue;
-    }
-
     const existing = studentMap.get(score.examNumber) ?? {
       examNumber: score.examNumber,
       name: score.student.name,
@@ -753,9 +805,25 @@ export async function getSubjectStudentRanking(input: {
       scores: [],
       sessionCount: 0,
     };
-    existing.scores.push(value);
-    existing.sessionCount++;
-    studentMap.set(score.examNumber, existing);
+    const attendanceIncluded = countsAsAnalysisAttendance(
+      score.attendType,
+      score.examNumber,
+      score.sessionId,
+      attendanceIncludedExcuseLookup,
+    );
+
+    if (attendanceIncluded) {
+      existing.sessionCount++;
+    }
+
+    const value = scoredMockScoreValue(score);
+    if (value !== null) {
+      existing.scores.push(value);
+    }
+
+    if (attendanceIncluded || value !== null) {
+      studentMap.set(score.examNumber, existing);
+    }
   }
 
   const sorted = Array.from(studentMap.values())
@@ -914,25 +982,42 @@ export async function getStudentCumulativeAnalysis(
       })
     : [];
   const sessionIds = sessions.map((session) => session.id);
-  const scores =
+  const [scores, approvedAbsences] =
     sessionIds.length > 0
-      ? await prisma.score.findMany({
-          where: {
-            examNumber,
-            sessionId: {
-              in: sessionIds,
+      ? await Promise.all([
+          prisma.score.findMany({
+            where: {
+              examNumber,
+              sessionId: {
+                in: sessionIds,
+              },
             },
-          },
-          select: {
-            sessionId: true,
-            rawScore: true,
-            oxScore: true,
-            finalScore: true,
-            attendType: true,
-          },
-        })
-      : [];
+            select: {
+              sessionId: true,
+              rawScore: true,
+              oxScore: true,
+              finalScore: true,
+              attendType: true,
+            },
+          }),
+          prisma.absenceNote.findMany({
+            where: {
+              examNumber,
+              status: "APPROVED",
+              sessionId: {
+                in: sessionIds,
+              },
+            },
+            select: {
+              examNumber: true,
+              sessionId: true,
+              attendCountsAsAttendance: true,
+            },
+          }),
+        ])
+      : [[], []];
   const scoreBySessionId = new Map(scores.map((score) => [score.sessionId, score]));
+  const attendanceIncludedExcuseLookup = buildAttendanceIncludedExcuseLookup(approvedAbsences);
 
   type SnapRow = { weekKey: string; weekStartDate: Date; status: StudentStatus };
   let rawSnapshots: SnapRow[] = [];
@@ -1015,7 +1100,14 @@ export async function getStudentCumulativeAnalysis(
           }
           existing.attendedCount++;
         }
-      } else if (countsAsAttendance(score.attendType)) {
+      } else if (
+        countsAsAnalysisAttendance(
+          score.attendType,
+          examNumber,
+          session.id,
+          attendanceIncludedExcuseLookup,
+        )
+      ) {
         existing.attendedCount++;
       }
     }
@@ -1096,7 +1188,15 @@ export async function getStudentCumulativeAnalysis(
 
   const attendedCount = sessions.filter((session) => {
     const score = scoreBySessionId.get(session.id);
-    return score && countsAsAttendance(score.attendType);
+    return (
+      score &&
+      countsAsAnalysisAttendance(
+        score.attendType,
+        examNumber,
+        session.id,
+        attendanceIncludedExcuseLookup,
+      )
+    );
   }).length;
 
   const bestPeriod = periods.reduce<{ id: number; name: string; avg: number | null } | null>(
@@ -1335,3 +1435,8 @@ export async function getStudentDetailAnalysis(input: {
     })),
   };
 }
+
+
+
+
+

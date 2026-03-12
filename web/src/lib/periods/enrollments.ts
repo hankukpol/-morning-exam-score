@@ -1,7 +1,43 @@
-﻿import { StudentType } from "@prisma/client";
+﻿import { ExamType, StudentType } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
+import { recalculateStatusCache } from "@/lib/analytics/service";
 import { getPrisma } from "@/lib/prisma";
 import { revalidateAdminReadCaches } from "@/lib/cache-tags";
+
+async function recalculateEnrollmentStatuses(periodId: number, examNumbers: string[]) {
+  const targetExamNumbers = Array.from(new Set(examNumbers.map((examNumber) => examNumber.trim()).filter(Boolean)));
+
+  if (targetExamNumbers.length === 0) {
+    return;
+  }
+
+  const students = await getPrisma().student.findMany({
+    where: {
+      examNumber: {
+        in: targetExamNumbers,
+      },
+    },
+    select: {
+      examNumber: true,
+      examType: true,
+    },
+  });
+  const examNumbersByType = new Map<ExamType, string[]>();
+
+  for (const student of students) {
+    const groupedExamNumbers = examNumbersByType.get(student.examType) ?? [];
+    groupedExamNumbers.push(student.examNumber);
+    examNumbersByType.set(student.examType, groupedExamNumbers);
+  }
+
+  await Promise.all(
+    Array.from(examNumbersByType.entries()).map(([examType, groupedExamNumbers]) =>
+      recalculateStatusCache(periodId, examType, {
+        examNumbers: groupedExamNumbers,
+      }),
+    ),
+  );
+}
 
 export async function listPeriodEnrollments(periodId: number) {
   return getPrisma().periodEnrollment.findMany({
@@ -166,6 +202,7 @@ export async function executeEnrollmentPaste(input: {
     return { enrolledCount: newExamNumbers.length, upgradedCount };
   });
 
+  await recalculateEnrollmentStatuses(input.periodId, input.examNumbers);
   revalidateAdminReadCaches({ analytics: true, periods: false });
   return result;
 }
@@ -266,6 +303,7 @@ export async function removeEnrollment(input: {
     },
   });
 
+  await recalculateEnrollmentStatuses(input.periodId, [input.examNumber]);
   revalidateAdminReadCaches({ analytics: true, periods: false });
 }
 
@@ -342,6 +380,7 @@ export async function bulkRemoveEnrollments(input: {
     };
   });
 
+  await recalculateEnrollmentStatuses(input.periodId, result.examNumbers);
   revalidateAdminReadCaches({ analytics: true, periods: false });
   return result;
 }

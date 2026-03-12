@@ -8,6 +8,8 @@ import {
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
 } from "@/lib/analytics/presentation";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { STUDENT_TYPE_LABEL } from "@/lib/constants";
 import { useState, useTransition } from "react";
 
@@ -61,6 +63,8 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
+  const completionModal = useActionModalState();
 
   function setMessage(nextNotice: string | null, nextError: string | null) {
     setNotice(nextNotice);
@@ -94,6 +98,18 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
 
   function refreshPage() {
     window.location.reload();
+  }
+
+  function openCompletionModal(title: string, description: string, details: string[] = []) {
+    completionModal.openModal({
+      badgeLabel: "?? ??",
+      badgeTone: "success",
+      title,
+      description,
+      details,
+      confirmLabel: "??",
+      onClose: refreshPage,
+    });
   }
 
   function refreshCandidates() {
@@ -137,7 +153,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
 
   function grantAttendancePoints() {
     if (selectedExamNumbers.length === 0) {
-      setMessage(null, "개근 포인트를 지급할 대상을 선택하세요.");
+      setMessage(null, "?? ???? ??? ??? ?????.");
       return;
     }
 
@@ -152,19 +168,23 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
               examNumber,
               type: PointType.PERFECT_ATTENDANCE,
               amount: ATTENDANCE_POINT_AMOUNT,
-              reason: `${formatMonthLabel(filters.year, filters.month)} 개근 장학`,
+              reason: `${formatMonthLabel(filters.year, filters.month)} ?? ??`,
               periodId: filters.periodId,
               year: filters.year,
               month: filters.month,
             })),
           }),
         });
-        setMessage("개근 포인트를 지급했습니다.", null);
-        refreshPage();
+        setNotice(null);
+        openCompletionModal(
+          "?? ??? ?? ??",
+          "??? ???? ?? ???? ??????.",
+          [`?? ?? ${selectedExamNumbers.length}?`, `${formatMonthLabel(filters.year, filters.month)} ?? ??`],
+        );
       } catch (error) {
         setMessage(
           null,
-          error instanceof Error ? error.message : "개근 포인트 지급에 실패했습니다.",
+          error instanceof Error ? error.message : "?? ??? ??? ??????.",
         );
       }
     });
@@ -191,18 +211,52 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
             ],
           }),
         });
-        setMessage("포인트를 지급했습니다.", null);
+        setNotice(null);
         setManualExamNumber("");
         setManualReason("");
         setManualAmount("10000");
         setManualType(PointType.MANUAL);
-        refreshPage();
+        openCompletionModal(
+          "??? ?? ??",
+          "?? ??? ??? ??????.",
+          [`???? ${manualExamNumber}`, `${POINT_TYPE_LABEL[manualType]} ${formatPoint(Number(manualAmount))}`],
+        );
       } catch (error) {
         setMessage(
           null,
-          error instanceof Error ? error.message : "포인트 지급에 실패했습니다.",
+          error instanceof Error ? error.message : "??? ??? ??????.",
         );
       }
+    });
+  }
+
+  function revokePoint(log: PointLogRecord) {
+    confirmModal.openModal({
+      badgeLabel: "?? ?? ??",
+      badgeTone: "warning",
+      title: "??? ?? ??",
+      description: `${log.studentName}? ???(${formatPoint(log.amount)})? ?????????`,
+      details: ["?? ? ??? ??? ?? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "?? ??",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
+        startTransition(async () => {
+          try {
+            await requestJson(`/api/points/${log.id}`, { method: "DELETE" });
+            setNotice(null);
+            openCompletionModal(
+              "??? ?? ??",
+              "??? ?? ??? ??????.",
+              [`${log.studentName} ? ${formatPoint(log.amount)}`],
+            );
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : "??? ??? ??????.");
+          }
+        });
+      },
     });
   }
 
@@ -412,19 +466,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
                     <button
                       type="button"
                       disabled={isPending}
-                      onClick={() => {
-                        if (!confirm(`${log.studentName}의 포인트(${formatPoint(log.amount)})를 취소하시겠습니까?`)) return;
-                        setMessage(null, null);
-                        startTransition(async () => {
-                          try {
-                            await requestJson(`/api/points/${log.id}`, { method: "DELETE" });
-                            setMessage("포인트를 취소했습니다.", null);
-                            refreshPage();
-                          } catch (error) {
-                            setMessage(null, error instanceof Error ? error.message : "포인트 취소에 실패했습니다.");
-                          }
-                        });
-                      }}
+                      onClick={() => revokePoint(log)}
                       className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-40"
                     >
                       취소
@@ -436,6 +478,31 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
           </table>
         </div>
       </section>
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal.modal)}
+        badgeLabel={completionModal.modal?.badgeLabel ?? ""}
+        badgeTone={completionModal.modal?.badgeTone}
+        title={completionModal.modal?.title ?? ""}
+        description={completionModal.modal?.description ?? ""}
+        details={completionModal.modal?.details ?? []}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        onClose={completionModal.closeModal}
+        onConfirm={completionModal.modal?.onConfirm}
+      />
     </div>
   );
 }

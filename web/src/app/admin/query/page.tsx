@@ -32,8 +32,10 @@ const MODE_OPTIONS: Array<{ value: QueryMode; label: string }> = [
 ];
 
 export default async function AdminQueryPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const mode = (readStringParam(searchParams, "mode") as QueryMode | undefined) ?? "date";
   const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
   const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;

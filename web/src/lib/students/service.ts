@@ -8,6 +8,7 @@ import {
 } from "@/lib/constants";
 import { toAuditJson } from "@/lib/audit";
 import { normalizePhone, parseExcelDate, toCellString } from "@/lib/excel/workbook";
+import { withAbsenceNoteDisplay } from "@/lib/absence-notes/system-note";
 import { getPrisma } from "@/lib/prisma";
 import { revalidateAdminReadCaches } from "@/lib/cache-tags";
 import {
@@ -134,7 +135,7 @@ export async function listStudentsPage(filters: StudentFilters) {
 }
 
 export async function getStudentHistory(examNumber: string) {
-  return getPrisma().student.findUnique({
+  const student = await getPrisma().student.findUnique({
     where: {
       examNumber,
     },
@@ -155,6 +156,15 @@ export async function getStudentHistory(examNumber: string) {
       },
     },
   });
+
+  if (!student) {
+    return null;
+  }
+
+  return {
+    ...student,
+    scores: student.scores.map((score) => withAbsenceNoteDisplay(score)),
+  };
 }
 
 function studentData(input: StudentFormInput) {

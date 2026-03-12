@@ -53,10 +53,10 @@ function readSubjectParam(searchParams: PageProps["searchParams"]) {
 }
 
 export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await withPrismaReadRetry(() =>
-    getAnalyticsContext(searchParams),
-  );
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    withPrismaReadRetry(() => getAnalyticsContext(searchParams)),
+  ]);
   const tab = readAnalyticsTab(searchParams);
   const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
   const subject = readSubjectParam(searchParams);

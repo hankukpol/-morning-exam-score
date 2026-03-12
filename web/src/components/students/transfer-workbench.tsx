@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { ActionModal } from "@/components/ui/action-modal";
+import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { EXAM_TYPE_LABEL, STUDENT_TYPE_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 
@@ -66,6 +68,8 @@ export function TransferWorkbench() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const confirmModal = useActionModalState();
+  const completionModal = useActionModalState();
 
   const normalizedFrom = fromExamNumber.trim();
   const normalizedTo = toExamNumber.trim();
@@ -145,36 +149,48 @@ export function TransferWorkbench() {
       return;
     }
 
-    if (
-      !window.confirm(
-        `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) 학생 데이터를 ${normalizedTo}로 이전합니다. 계속하시겠습니까?`,
-      )
-    ) {
-      return;
-    }
+    confirmModal.openModal({
+      badgeLabel: "?? ?? ??",
+      badgeTone: "warning",
+      title: "???? ?? ??",
+      description: `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) ?? ???? ${normalizedTo}? ?????. ?????????`,
+      details: ["?? ??? ??????, ?? ???? ? ????? ?????."],
+      cancelLabel: "??",
+      confirmLabel: "?? ??",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        resetMessages();
 
-    resetMessages();
+        startTransition(async () => {
+          try {
+            const result = await requestJson("/api/students/transfer", {
+              method: "POST",
+              body: JSON.stringify({
+                fromExamNumber: normalizedFrom,
+                toExamNumber: normalizedTo,
+              }),
+            });
 
-    startTransition(async () => {
-      try {
-        const result = await requestJson("/api/students/transfer", {
-          method: "POST",
-          body: JSON.stringify({
-            fromExamNumber: normalizedFrom,
-            toExamNumber: normalizedTo,
-          }),
+            setNotice(null);
+            completionModal.openModal({
+              badgeLabel: "?? ??",
+              badgeTone: "success",
+              title: "???? ??? ???????.",
+              description: "??? ?? ???? ? ????? ??????.",
+              details: [`? ????: ${result.toExamNumber}`],
+              confirmLabel: "??",
+            });
+            setPreview(null);
+            setFromExamNumber("");
+            setToExamNumber("");
+            setConfirmed(false);
+          } catch (error) {
+            setErrorMessage(
+              error instanceof Error ? error.message : "???? ??? ??????.",
+            );
+          }
         });
-
-        setNotice(`수험번호 이전이 완료되었습니다. 새 수험번호: ${result.toExamNumber}`);
-        setPreview(null);
-        setFromExamNumber("");
-        setToExamNumber("");
-        setConfirmed(false);
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "수험번호 이전에 실패했습니다.",
-        );
-      }
+      },
     });
   }
 
@@ -341,6 +357,31 @@ export function TransferWorkbench() {
           </label>
         </section>
       ) : null}
+      <ActionModal
+        open={Boolean(confirmModal.modal)}
+        badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
+        badgeTone={confirmModal.modal?.badgeTone}
+        title={confirmModal.modal?.title ?? ""}
+        description={confirmModal.modal?.description ?? ""}
+        details={confirmModal.modal?.details ?? []}
+        cancelLabel={confirmModal.modal?.cancelLabel}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmTone={confirmModal.modal?.confirmTone}
+        isPending={isPending}
+        onClose={confirmModal.closeModal}
+        onConfirm={confirmModal.modal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal.modal)}
+        badgeLabel={completionModal.modal?.badgeLabel ?? ""}
+        badgeTone={completionModal.modal?.badgeTone}
+        title={completionModal.modal?.title ?? ""}
+        description={completionModal.modal?.description ?? ""}
+        details={completionModal.modal?.details ?? []}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        onClose={completionModal.closeModal}
+        onConfirm={completionModal.modal?.onConfirm}
+      />
     </div>
   );
 }

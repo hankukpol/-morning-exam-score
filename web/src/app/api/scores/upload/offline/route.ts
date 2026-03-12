@@ -6,6 +6,9 @@ import {
   previewOfflineScoreUpload,
 } from "@/lib/scores/service";
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 type Mode = "preview" | "execute";
 
 export async function POST(request: Request) {

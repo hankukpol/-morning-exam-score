@@ -26,17 +26,14 @@ function stringifyAuditValue(value: unknown) {
 }
 
 export default async function AdminAuditLogPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.SUPER_ADMIN);
   const admin = readParam(searchParams, "admin") ?? "";
   const action = readParam(searchParams, "action") ?? "";
   const date = readParam(searchParams, "date") ?? todayDateInputValue();
   const examNumber = readParam(searchParams, "examNumber") ?? "";
-  const rows = await listAuditLogs({
-    admin,
-    action,
-    date,
-    examNumber,
-  });
+  const [, rows] = await Promise.all([
+    requireAdminContext(AdminRole.SUPER_ADMIN),
+    listAuditLogs({ admin, action, date, examNumber }),
+  ]);
 
   return (
     <div className="p-8 sm:p-10">

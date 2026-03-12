@@ -1,10 +1,13 @@
-﻿import { AdminRole, ExamType } from "@prisma/client";
+import { AdminRole, ExamType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
   executeLegacyWorkbookScores,
   previewLegacyWorkbookScores,
 } from "@/lib/migration/scores";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 type Mode = "preview" | "execute";
 

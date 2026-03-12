@@ -49,6 +49,7 @@ type TableRows = Array<Array<string>>;
 
 const OFFLINE_SCORE_SHEET_NAMES = ["score"];
 const OFFLINE_ERRATA_SHEET_NAMES = ["errata"];
+const ONLINE_SCORE_ID_HEADERS = ["온라인id", "수강생id", "수강자id", "아이디", "id"];
 
 function normalizeHeader(value: unknown) {
   return toCellString(value).replace(/\s+/g, "").toLowerCase();
@@ -548,7 +549,7 @@ export function parseOfflineScoreImport(input: {
 
 function parseOnlineScoreRows(rows: TableRows) {
   const headers = rows[0] ?? [];
-  const onlineIdIndex = ensureColumnIndex(headers, ["아이디", "수강자id", "온라인id"], "온라인 ID");
+  const onlineIdIndex = ensureColumnIndex(headers, ONLINE_SCORE_ID_HEADERS, "온라인 ID");
   const nameIndex = ensureColumnIndex(headers, ["이름", "응시자명", "성명"], "이름");
   const scoreIndex = ensureColumnIndex(headers, ["점수", "원점수"], "점수");
 

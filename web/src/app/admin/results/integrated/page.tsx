@@ -13,8 +13,10 @@ type PageProps = {
 };
 
 export default async function AdminIntegratedResultsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
   const data = selectedPeriod
     ? await getIntegratedResults(selectedPeriod.id, examType, view, {

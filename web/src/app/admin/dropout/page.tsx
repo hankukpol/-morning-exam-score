@@ -35,9 +35,10 @@ const VIEW_OPTIONS = [
 ] as const;
 
 export default async function AdminDropoutPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
-
-  const { periods, selectedPeriod, examType } = await getAnalyticsContext(searchParams);
+  const [, { periods, selectedPeriod, examType }] = await Promise.all([
+    requireAdminContext(AdminRole.VIEWER),
+    getAnalyticsContext(searchParams),
+  ]);
   const selectedView = readStringParam(searchParams, "view") ?? "current";
   const selectedStatus = readStringParam(searchParams, "status") ?? "ALL";
   const weekOptions = getWeekOptions(selectedPeriod, examType);
