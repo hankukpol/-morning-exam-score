@@ -174,6 +174,12 @@ export async function createPeriod(input: {
         })),
         skipDuplicates: true,
       });
+
+      // 1주차 누적 모의고사 세션은 시험이 없으므로 자동 취소
+      await tx.examSession.updateMany({
+        where: { periodId: period.id, week: 1, subject: Subject.CUMULATIVE },
+        data: { isCancelled: true },
+      });
     }
 
     await tx.auditLog.create({
