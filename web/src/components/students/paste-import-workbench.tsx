@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ActionModal } from "@/components/ui/action-modal";
 import {
   DUPLICATE_STRATEGY_LABEL,
   EXAM_TYPE_LABEL,
@@ -45,6 +46,20 @@ type ExecuteResponse = {
   skippedCount: number;
 };
 
+type ConfirmModalState = {
+  title: string;
+  description: string;
+  details: string[];
+  confirmLabel: string;
+  onConfirm: () => void;
+};
+
+type CompletionModalState = {
+  title: string;
+  description: string;
+  details: string[];
+};
+
 type PasteImportWorkbenchProps = {
   initialExamType: "GONGCHAE" | "GYEONGCHAE";
 };
@@ -73,6 +88,8 @@ export function PasteImportWorkbench({
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+  const [completionModal, setCompletionModal] = useState<CompletionModalState | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function makeFormData(action: "preview" | "execute") {
@@ -105,6 +122,24 @@ export function PasteImportWorkbench({
     });
   }
 
+  function openConfirmModal(modal: ConfirmModalState) {
+    setConfirmModal(modal);
+  }
+
+  function closeConfirmModal() {
+    if (!isPending) {
+      setConfirmModal(null);
+    }
+  }
+
+  function openCompletionModal(title: string, description: string, details: string[]) {
+    setCompletionModal({ title, description, details });
+  }
+
+  function closeCompletionModal() {
+    setCompletionModal(null);
+  }
+
   async function request(action: "preview" | "execute") {
     const response = await fetch("/api/students/paste-import", {
       method: "POST",
@@ -118,6 +153,61 @@ export function PasteImportWorkbench({
 
     return payload;
   }
+
+  function buildImportSummary(previewValue: PreviewResponse) {
+    const targetCount = previewValue.summary.validRows + previewValue.summary.updateRows;
+    const sourceLabel = mode === "file" ? "파일 업로드" : "텍스트 붙여넣기";
+    return sourceLabel + " 반영 대상 " + targetCount + "건 / 제외 " + previewValue.summary.invalidRows + "건";
+  }
+
+  function buildExecutionDetails(payload: ExecuteResponse) {
+    return [
+      "신규 " + payload.createdCount + "건",
+      "업데이트 " + payload.updatedCount + "건",
+      "건너뛰기 " + payload.skippedCount + "건",
+    ];
+  }
+
+  async function previewImport() {
+    const payload = (await request("preview")) as PreviewResponse;
+    setPreview(payload);
+    setNotice("미리보기를 생성했습니다.");
+  }
+
+  async function executeImport() {
+    const payload = (await request("execute")) as ExecuteResponse;
+    const details = buildExecutionDetails(payload);
+
+    setNotice("반영 완료: " + details.join(" / "));
+    openCompletionModal("학생 명단 등록 완료", "붙여넣기 또는 파일 업로드 데이터를 정상적으로 반영했습니다.", details);
+    setPreview(null);
+    router.refresh();
+  }
+
+  function requestExecuteImport() {
+    if (!preview) {
+      return;
+    }
+
+    openConfirmModal({
+      title: "학생 명단 등록",
+      description: "미리보기 기준으로 학생 명단을 실제 DB에 반영합니다.",
+      details: [
+        buildImportSummary(preview),
+        "중복 처리 " + DUPLICATE_STRATEGY_LABEL[defaults.duplicateStrategy],
+        "직렬 " + EXAM_TYPE_LABEL[defaults.examType] + " / 학생 구분 " + STUDENT_TYPE_LABEL[defaults.studentType],
+      ],
+      confirmLabel: "등록 시작",
+      onConfirm: () => {
+        setConfirmModal(null);
+        run(executeImport);
+      },
+    });
+  }
+
+  useEffect(() => {
+    setPreview(null);
+  }, [defaults, file, mapping, mode, text]);
 
   return (
     <div className="space-y-8">
@@ -268,13 +358,7 @@ export function PasteImportWorkbench({
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() =>
-              run(async () => {
-                const payload = (await request("preview")) as PreviewResponse;
-                setPreview(payload);
-                setNotice("미리보기를 생성했습니다.");
-              })
-            }
+            onClick={() => run(previewImport)}
             disabled={isPending}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
@@ -282,15 +366,7 @@ export function PasteImportWorkbench({
           </button>
           <button
             type="button"
-            onClick={() =>
-              run(async () => {
-                const payload = (await request("execute")) as ExecuteResponse;
-                setNotice(
-                  `반영 완료: 신규 ${payload.createdCount}건, 업데이트 ${payload.updatedCount}건, 건너뛰기 ${payload.skippedCount}건`,
-                );
-                router.refresh();
-              })
-            }
+            onClick={requestExecuteImport}
             disabled={isPending || !preview}
             className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate"
           >
@@ -309,6 +385,30 @@ export function PasteImportWorkbench({
           {errorMessage}
         </div>
       ) : null}
+
+      <ActionModal
+        open={Boolean(confirmModal)}
+        badgeLabel="확인"
+        badgeTone="warning"
+        title={confirmModal?.title ?? ""}
+        description={confirmModal?.description ?? ""}
+        details={confirmModal?.details ?? []}
+        cancelLabel="취소"
+        confirmLabel={confirmModal?.confirmLabel ?? "확인"}
+        isPending={isPending}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal)}
+        badgeLabel="완료"
+        badgeTone="success"
+        title={completionModal?.title ?? ""}
+        description={completionModal?.description ?? ""}
+        details={completionModal?.details ?? []}
+        confirmLabel="확인"
+        onClose={closeCompletionModal}
+      />
 
       {preview ? (
         <>

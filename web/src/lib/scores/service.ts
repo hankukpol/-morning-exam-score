@@ -3,6 +3,7 @@ import {
   ExamType,
   Prisma,
   ScoreSource,
+  StudentType,
   Subject,
 } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
@@ -65,6 +66,7 @@ export type ScorePreviewRow = {
   bindOnlineIdSuggested: boolean;
   bindOnlineId: boolean;
   hasExistingScore: boolean;
+  willCreateStudent: boolean;
 };
 
 export type ScorePreviewResult = {
@@ -144,6 +146,19 @@ function mergeImportedScore(
     oxScore,
     finalScore,
   };
+}
+
+function canAutoCreateStudent(
+  parsed: ParsedScoreImport,
+  record: ParsedScoreImport["records"][number],
+  candidates: StudentMatchRecord[],
+) {
+  return (
+    parsed.matchingKey === "examNumber" &&
+    Boolean(record.examNumber) &&
+    Boolean(record.name) &&
+    candidates.length === 0
+  );
 }
 
 function mergeQuestionRecords(
@@ -380,6 +395,7 @@ async function buildPreview(
     const candidates: StudentMatchRecord[] = [];
     let matchedStudent: StudentMatchRecord | null = null;
     let matchedBy: ScorePreviewRow["matchedBy"] = null;
+    let willCreateStudent = false;
 
     if (parsed.matchingKey === "examNumber") {
       if (!record.examNumber) {
@@ -429,6 +445,17 @@ async function buildPreview(
           matchedStudent = candidates[0];
           matchedBy = "name";
         }
+      }
+
+      if (!matchedStudent && canAutoCreateStudent(parsed, record, candidates)) {
+        matchedStudent = {
+          examNumber: record.examNumber!,
+          name: record.name,
+          onlineId: null,
+          isActive: true,
+        };
+        matchedBy = "examNumber";
+        willCreateStudent = true;
       }
 
       if (!matchedStudent && parsed.matchingKey === "examNumber") {
@@ -484,6 +511,7 @@ async function buildPreview(
       bindOnlineIdSuggested,
       bindOnlineId,
       hasExistingScore,
+      willCreateStudent,
     } satisfies ScorePreviewRow;
   });
 
@@ -589,6 +617,52 @@ function buildQuestionStats(
   });
 }
 
+async function provisionStudentsForRows(
+  prisma: ReturnType<typeof getPrisma>,
+  preview: ScorePreviewResult,
+  rows: ScorePreviewRow[],
+) {
+  const provisionTargets = Array.from(
+    new Map(
+      rows
+        .filter((row) => row.willCreateStudent && row.matchedStudent)
+        .map((row) => [
+          row.matchedStudent!.examNumber,
+          {
+            examNumber: row.matchedStudent!.examNumber,
+            name: row.name || row.matchedStudent!.name,
+            onlineId: row.onlineId ?? null,
+          },
+        ]),
+    ).values(),
+  );
+
+  if (provisionTargets.length === 0) {
+    return 0;
+  }
+
+  await prisma.student.createMany({
+    data: provisionTargets.map((student) => ({
+      examNumber: student.examNumber,
+      name: student.name,
+      examType: preview.session.examType,
+      studentType: StudentType.EXISTING,
+      onlineId: student.onlineId,
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.periodEnrollment.createMany({
+    data: provisionTargets.map((student) => ({
+      periodId: preview.session.periodId,
+      examNumber: student.examNumber,
+    })),
+    skipDuplicates: true,
+  });
+
+  return provisionTargets.length;
+}
+
 async function applyParsedImport(input: {
   adminId: string;
   sessionId: number;
@@ -612,8 +686,9 @@ async function applyParsedImport(input: {
   }
 
   const prisma = getPrisma();
+  const autoCreatedStudentCount = await provisionStudentsForRows(prisma, preview, resolvedRows);
 
-  // 기존 성적 일괄 조회
+  // Load existing scores
   const existingScores = await prisma.score.findMany({
     where: {
       sessionId: input.sessionId,
@@ -769,6 +844,7 @@ async function applyParsedImport(input: {
         unresolvedCount: preview.summary.resolveRows,
         invalidCount: preview.summary.invalidRows,
         boundOnlineIdCount,
+        autoCreatedStudentCount,
         questionCount: preview.summary.questionCount,
         answerCount: preview.summary.answerCount,
         metadata: preview.metadata,
@@ -784,6 +860,7 @@ async function applyParsedImport(input: {
     unresolvedCount: preview.summary.resolveRows,
     invalidCount: preview.summary.invalidRows,
     boundOnlineIdCount,
+    autoCreatedStudentCount,
     importedCount: resolvedRows.length,
   };
 
@@ -837,6 +914,10 @@ function offlineOxImport(
   };
 }
 
+function hasNonZeroOfflineOxScores(parsed: ParsedOfflineScoreImport) {
+  return parsed.oxRecords.some((record) => (record.oxScore ?? 0) !== 0);
+}
+
 export async function previewOfflineScoreUpload(input: {
   sessionId: number;
   oxSessionId?: number;
@@ -859,8 +940,9 @@ export async function previewOfflineScoreUpload(input: {
         })
       : [];
   const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
+  const hasNonZeroOxScores = hasNonZeroOfflineOxScores(parsed);
 
-  if (parsed.oxRecords.length > 0 && !resolvedOxSessionId) {
+  if (hasNonZeroOxScores && !resolvedOxSessionId) {
     throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
   }
 
@@ -909,8 +991,9 @@ export async function executeOfflineScoreUpload(input: {
         })
       : [];
   const resolvedOxSessionId = await resolveOxSessionId(input.sessionId, input.oxSessionId);
+  const hasNonZeroOxScores = hasNonZeroOfflineOxScores(parsed);
 
-  if (parsed.oxRecords.length > 0 && !resolvedOxSessionId) {
+  if (hasNonZeroOxScores && !resolvedOxSessionId) {
     throw new Error(OX_LINK_UNAVAILABLE_MESSAGE);
   }
 

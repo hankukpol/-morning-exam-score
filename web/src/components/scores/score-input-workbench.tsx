@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ActionModal } from "@/components/ui/action-modal";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
@@ -33,6 +34,27 @@ type PeriodOption = {
 
 type ScoreInputWorkbenchProps = {
   periods: PeriodOption[];
+};
+
+type ExecuteImportResult = {
+  createdCount: number;
+  updatedCount: number;
+  boundOnlineIdCount?: number;
+  autoCreatedStudentCount?: number;
+};
+
+type ConfirmModalState = {
+  title: string;
+  description: string;
+  details: string[];
+  confirmLabel: string;
+  onConfirm: () => void;
+};
+
+type CompletionModalState = {
+  title: string;
+  description: string;
+  details: string[];
 };
 
 const tabs = [
@@ -147,6 +169,7 @@ function PreviewTable({
                       <div className="text-xs leading-6">
                         <div>{row.matchedStudent.examNumber}</div>
                         <div className="text-slate">{row.matchedStudent.name}</div>
+                        {row.willCreateStudent ? <div className="text-forest">반영 시 학생 자동 생성</div> : null}
                       </div>
                     ) : row.status === "resolve" && row.candidates.length > 0 ? (
                       <select
@@ -198,7 +221,13 @@ function PreviewTable({
                     </td>
                   ) : null}
                   <td className="px-4 py-3 text-slate">
-                    {row.issues.length > 0 ? row.issues.join(", ") : row.hasExistingScore ? "기존 점수 덮어쓰기" : "정상"}
+                    {row.issues.length > 0
+                      ? row.issues.join(", ")
+                      : row.willCreateStudent
+                        ? "학생 자동 생성 후 반영"
+                        : row.hasExistingScore
+                          ? "기존 점수 덮어쓰기"
+                          : "정상"}
                   </td>
                 </tr>
               ))}
@@ -356,6 +385,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("offline");
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+  const [completionModal, setCompletionModal] = useState<CompletionModalState | null>(null);
   const [offlineAttendType, setOfflineAttendType] = useState<keyof typeof ATTEND_TYPE_LABEL>("NORMAL");
   const [offlineMainFile, setOfflineMainFile] = useState<File | null>(null);
   const [offlineAnalysisFile, setOfflineAnalysisFile] = useState<File | null>(null);
@@ -465,6 +496,51 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     });
   }
 
+  function openConfirmModal(modal: ConfirmModalState) {
+    setConfirmModal(modal);
+  }
+
+  function closeConfirmModal() {
+    if (!isPending) {
+      setConfirmModal(null);
+    }
+  }
+
+  function openCompletionModal(title: string, description: string, details: string[]) {
+    setCompletionModal({ title, description, details });
+  }
+
+  function closeCompletionModal() {
+    setCompletionModal(null);
+  }
+
+  function formatSessionSummary() {
+    if (!selectedSession) {
+      return "회차 미선택";
+    }
+
+    return selectedSession.examDate.slice(0, 10) + " · " + EXAM_TYPE_LABEL[selectedSession.examType] + " · " + SUBJECT_LABEL[selectedSession.subject] + " · " + selectedSession.week + "주차";
+  }
+
+  function buildPreviewDetail(label: string, preview: ScorePreviewResult) {
+    const targetCount = preview.summary.readyRows + preview.summary.overwriteRows;
+    return label + " 반영 대상 " + targetCount + "건 / 확인 필요 " + preview.summary.resolveRows + "건 / 제외 " + preview.summary.invalidRows + "건";
+  }
+
+  function buildExecuteDetail(label: string, result: ExecuteImportResult) {
+    const parts = [label + " 신규 " + result.createdCount + "건", "업데이트 " + result.updatedCount + "건"];
+
+    if (result.boundOnlineIdCount) {
+      parts.push("onlineId 저장 " + result.boundOnlineIdCount + "건");
+    }
+
+    if (result.autoCreatedStudentCount) {
+      parts.push("학생 자동 생성 " + result.autoCreatedStudentCount + "건");
+    }
+
+    return parts.join(" / ");
+  }
+
   function buildOfflineFormData(mode: "preview" | "execute") {
     const formData = new FormData();
     formData.append("mode", mode);
@@ -488,6 +564,158 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     if (onlineOxMainFile) formData.append("oxMainFile", onlineOxMainFile);
     if (onlineOxDetailFile) formData.append("oxDetailFile", onlineOxDetailFile);
     return formData;
+  }
+
+  async function previewOfflineUpload() {
+    const payload = (await requestJson("/api/scores/upload/offline", {
+      method: "POST",
+      body: buildOfflineFormData("preview"),
+    })) as OfflineScorePreview;
+
+    setOfflineMainPreview(payload.main);
+    setOfflineOxPreview(payload.ox);
+    setNotice("오프라인 파일 미리보기를 생성했습니다.");
+  }
+
+  async function executeOfflineUpload() {
+    const payload = (await requestJson("/api/scores/upload/offline", {
+      method: "POST",
+      body: buildOfflineFormData("execute"),
+    })) as { main: ExecuteImportResult; ox: ExecuteImportResult | null };
+
+    const details = [buildExecuteDetail("일반", payload.main)];
+    if (payload.ox) {
+      details.push(buildExecuteDetail("OX", payload.ox));
+    }
+
+    setNotice("반영 완료: " + details.join(" | "));
+    openCompletionModal("오프라인 성적 반영 완료", "오프라인 업로드 데이터를 정상적으로 반영했습니다.", details);
+    setOfflineMainPreview(null);
+    setOfflineOxPreview(null);
+  }
+
+  function requestOfflineExecute() {
+    if (!offlineMainPreview) {
+      return;
+    }
+
+    const details = [formatSessionSummary(), buildPreviewDetail("일반", offlineMainPreview)];
+    if (offlineOxPreview) {
+      details.push(buildPreviewDetail("OX", offlineOxPreview));
+    }
+
+    openConfirmModal({
+      title: "오프라인 성적 반영",
+      description: "미리보기 결과를 기준으로 성적 데이터를 실제 회차에 저장합니다.",
+      details,
+      confirmLabel: "반영 시작",
+      onConfirm: () => {
+        setConfirmModal(null);
+        run(executeOfflineUpload);
+      },
+    });
+  }
+
+  async function previewOnlineUpload() {
+    const payload = (await requestJson("/api/scores/upload/online", {
+      method: "POST",
+      body: buildOnlineFormData("preview"),
+    })) as OnlineScorePreview;
+
+    setOnlineMainPreview(payload.main);
+    setOnlineOxPreview(payload.ox);
+    setNotice("온라인 파일 미리보기를 생성했습니다.");
+  }
+
+  async function executeOnlineUpload() {
+    const payload = (await requestJson("/api/scores/upload/online", {
+      method: "POST",
+      body: buildOnlineFormData("execute"),
+    })) as { main: ExecuteImportResult; ox: ExecuteImportResult | null };
+
+    const details = [buildExecuteDetail("일반", payload.main)];
+    if (payload.ox) {
+      details.push(buildExecuteDetail("OX", payload.ox));
+    }
+
+    setNotice("반영 완료: " + details.join(" | "));
+    openCompletionModal("온라인 성적 반영 완료", "온라인 업로드 데이터를 정상적으로 반영했습니다.", details);
+    setOnlineMainPreview(null);
+    setOnlineOxPreview(null);
+    setOnlineResolutions({});
+  }
+
+  function requestOnlineExecute() {
+    if (!onlineMainPreview) {
+      return;
+    }
+
+    const details = [formatSessionSummary(), buildPreviewDetail("일반", onlineMainPreview)];
+    if (onlineOxPreview) {
+      details.push(buildPreviewDetail("OX", onlineOxPreview));
+    }
+
+    openConfirmModal({
+      title: "온라인 성적 반영",
+      description: "미리보기 결과와 선택한 매칭 기준으로 성적 데이터를 저장합니다.",
+      details,
+      confirmLabel: "반영 시작",
+      onConfirm: () => {
+        setConfirmModal(null);
+        run(executeOnlineUpload);
+      },
+    });
+  }
+
+  async function previewPasteUpload() {
+    const payload = (await requestJson("/api/scores/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "preview",
+        sessionId: selectedSessionId,
+        text: pasteText,
+        attendType: pasteAttendType,
+      }),
+    })) as ScorePreviewResult;
+
+    setPastePreview(payload);
+    setNotice("붙여넣기 미리보기를 생성했습니다.");
+  }
+
+  async function executePasteUpload() {
+    const payload = (await requestJson("/api/scores/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "execute",
+        sessionId: selectedSessionId,
+        text: pasteText,
+        attendType: pasteAttendType,
+      }),
+    })) as ExecuteImportResult;
+
+    const details = [buildExecuteDetail("직접 입력", payload)];
+    setNotice("반영 완료: " + details[0]);
+    openCompletionModal("직접 입력 성적 반영 완료", "붙여넣기 데이터를 정상적으로 반영했습니다.", details);
+    setPastePreview(null);
+  }
+
+  function requestPasteExecute() {
+    if (!pastePreview) {
+      return;
+    }
+
+    openConfirmModal({
+      title: "직접 입력 성적 반영",
+      description: "붙여넣기 미리보기 기준으로 성적 데이터를 저장합니다.",
+      details: [formatSessionSummary(), buildPreviewDetail("직접 입력", pastePreview)],
+      confirmLabel: "반영 시작",
+      onConfirm: () => {
+        setConfirmModal(null);
+        run(executePasteUpload);
+      },
+    });
   }
 
   if (periods.length === 0) {
@@ -584,8 +812,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
               <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !offlineMainFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("preview") })) as OfflineScorePreview; setOfflineMainPreview(payload.main); setOfflineOxPreview(payload.ox); setNotice("오프라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !offlineMainPreview || !selectedSessionId || !offlineMainFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/offline", { method: "POST", body: buildOfflineFormData("execute") }) as { main: { createdCount: number; updatedCount: number }; ox: { createdCount: number; updatedCount: number } | null }; const mainMsg = `일반 신규 ${payload.main.createdCount}건 / 업데이트 ${payload.main.updatedCount}건`; const oxMsg = payload.ox ? ` | OX 신규 ${payload.ox.createdCount}건 / 업데이트 ${payload.ox.updatedCount}건` : ""; setNotice(`반영 완료: ${mainMsg}${oxMsg}`); setOfflineMainPreview(null); setOfflineOxPreview(null); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || !selectedSessionId || !offlineMainFile} onClick={() => run(previewOfflineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || !offlineMainPreview || !selectedSessionId || !offlineMainFile} onClick={requestOfflineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {offlineMainPreview ? (
               <div className="space-y-3">
@@ -653,8 +881,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
               <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("preview") })) as OnlineScorePreview; setOnlineMainPreview(payload.main); setOnlineOxPreview(payload.ox); setNotice("온라인 파일 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !onlineMainPreview || !selectedSessionId || !onlineMainFile} onClick={() => run(async () => { const payload = await requestJson("/api/scores/upload/online", { method: "POST", body: buildOnlineFormData("execute") }) as { main: { createdCount: number; updatedCount: number; boundOnlineIdCount: number }; ox: { createdCount: number; updatedCount: number; boundOnlineIdCount: number } | null }; const mainMsg = `일반 신규 ${payload.main.createdCount}건 / 업데이트 ${payload.main.updatedCount}건 / onlineId 저장 ${payload.main.boundOnlineIdCount}건`; const oxMsg = payload.ox ? ` | OX 신규 ${payload.ox.createdCount}건 / 업데이트 ${payload.ox.updatedCount}건 / onlineId 저장 ${payload.ox.boundOnlineIdCount}건` : ""; setNotice(`반영 완료: ${mainMsg}${oxMsg}`); setOnlineMainPreview(null); setOnlineOxPreview(null); setOnlineResolutions({}); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || !selectedSessionId || !onlineMainFile} onClick={() => run(previewOnlineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || !onlineMainPreview || !selectedSessionId || !onlineMainFile} onClick={requestOnlineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {onlineMainPreview ? (
               <div className="space-y-3">
@@ -680,13 +908,36 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
             </div>
             <textarea value={pasteText} onChange={(event) => { setPasteText(event.target.value); setPastePreview(null); }} className="min-h-[220px] w-full rounded-[24px] border border-ink/10 bg-mist px-4 py-4 text-sm leading-7" placeholder={"35357\t홍길동\t80\n35358\t김지우\t75\tNORMAL"} />
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !pasteText.trim()} onClick={() => run(async () => { const payload = (await requestJson("/api/scores/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "preview", sessionId: selectedSessionId, text: pasteText, attendType: pasteAttendType }) })) as ScorePreviewResult; setPastePreview(payload); setNotice("붙여넣기 미리보기를 생성했습니다."); })} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !pastePreview || !selectedSessionId || !pasteText.trim()} onClick={() => run(async () => { const payload = await requestJson("/api/scores/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "execute", sessionId: selectedSessionId, text: pasteText, attendType: pasteAttendType }) }); setNotice(`반영 완료: 신규 ${payload.createdCount}건 / 업데이트 ${payload.updatedCount}건`); setPastePreview(null); })} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || !selectedSessionId || !pasteText.trim()} onClick={() => run(previewPasteUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || !pastePreview || !selectedSessionId || !pasteText.trim()} onClick={requestPasteExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {pastePreview ? <PreviewTable preview={pastePreview} source="paste" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} /> : null}
           </div>
         ) : null}
       </section>
+      <ActionModal
+        open={Boolean(confirmModal)}
+        badgeLabel="확인"
+        badgeTone="warning"
+        title={confirmModal?.title ?? ""}
+        description={confirmModal?.description ?? ""}
+        details={confirmModal?.details ?? []}
+        cancelLabel="취소"
+        confirmLabel={confirmModal?.confirmLabel ?? "확인"}
+        isPending={isPending}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal?.onConfirm}
+      />
+      <ActionModal
+        open={Boolean(completionModal)}
+        badgeLabel="완료"
+        badgeTone="success"
+        title={completionModal?.title ?? ""}
+        description={completionModal?.description ?? ""}
+        details={completionModal?.details ?? []}
+        confirmLabel="확인"
+        onClose={closeCompletionModal}
+      />
     </div>
   );
 }
