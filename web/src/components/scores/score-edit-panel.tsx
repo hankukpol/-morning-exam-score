@@ -14,6 +14,7 @@ import {
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
+import { formatDate } from "@/lib/format";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 type SessionOption = {
@@ -93,9 +94,13 @@ function formatSessionLabel(session: SessionOption) {
   return `${session.week}주차 · ${EXAM_TYPE_LABEL[session.examType]} · ${SUBJECT_LABEL[session.subject]}`;
 }
 
+function sessionDateKey(session: SessionOption) {
+  return formatDate(session.examDate);
+}
+
 function findTodaySelection(periods: PeriodOption[], todayKey: string) {
   for (const period of periods) {
-    const todaySession = period.sessions.find((session) => session.examDate.slice(0, 10) === todayKey);
+    const todaySession = period.sessions.find((session) => sessionDateKey(session) === todayKey);
     if (todaySession) {
       return {
         dateKey: todayKey,
@@ -136,7 +141,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
 
     for (const period of periodOptions) {
       for (const session of period.sessions) {
-        const key = session.examDate.slice(0, 10);
+        const key = sessionDateKey(session);
         const current = map.get(key) ?? [];
         current.push({ ...session, periodName: period.name });
         map.set(
@@ -210,7 +215,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
         ),
       })),
     );
-    setSelectedDate(updatedSession.examDate.slice(0, 10));
+    setSelectedDate(sessionDateKey(updatedSession));
     setSelectedSessionId(String(updatedSession.id));
   }
 
@@ -438,7 +443,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
       badgeLabel: "전체 삭제 확인",
       badgeTone: "warning",
       title: "선택 회차 전체 삭제",
-      description: `${formatKoreanDate(selectedSession.examDate.slice(0, 10))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} 회차의 성적, 문항, 정답, 북마크 데이터를 모두 삭제합니다.`,
+      description: `${formatKoreanDate(sessionDateKey(selectedSession))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} 회차의 성적, 문항, 정답, 북마크 데이터를 모두 삭제합니다.`,
       details: ["삭제된 데이터는 즉시 반영되며 복구할 수 없습니다."],
       cancelLabel: "취소",
       confirmLabel: "전체 삭제",

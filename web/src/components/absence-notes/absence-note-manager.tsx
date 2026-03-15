@@ -159,7 +159,7 @@ function booleanFromFormData(formData: FormData, key: string) {
 }
 
 function getSessionDateKey(session: SessionOption) {
-  return session.examDate.slice(0, 10);
+  return formatDate(session.examDate);
 }
 
 function findFirstSessionIdByDate(sessions: SessionOption[], dateKey: string) {

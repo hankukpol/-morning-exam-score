@@ -103,12 +103,12 @@ function sessionSubjectLabel(session: PeriodOption["sessions"][number]) {
 }
 
 function formatOxSessionLabel(session: PeriodOption["sessions"][number]) {
-  return `${session.examDate.slice(0, 10)} · ${EXAM_TYPE_LABEL[session.examType]} · ${sessionSubjectLabel(session)} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
+  return `${sessionDateKey(session)} · ${EXAM_TYPE_LABEL[session.examType]} · ${sessionSubjectLabel(session)} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
 }
 
 function buildSessionEditDraft(session: PeriodOption["sessions"][number]): SessionEditDraft {
   return {
-    examDate: session.examDate.slice(0, 10),
+    examDate: sessionDateKey(session),
     subject: session.subject,
     displaySubjectName: session.displaySubjectName ?? "",
     isCancelled: session.isCancelled,
@@ -117,7 +117,7 @@ function buildSessionEditDraft(session: PeriodOption["sessions"][number]): Sessi
 }
 
 function sessionDateKey(session: PeriodOption["sessions"][number]) {
-  return session.examDate.slice(0, 10);
+  return formatDate(session.examDate);
 }
 
 function findTodaySession(
@@ -864,7 +864,7 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
       return "/admin/analytics";
     }
 
-    const dateKey = session.examDate.slice(0, 10);
+    const dateKey = sessionDateKey(session);
     const params = new URLSearchParams({
       tab: "daily",
       periodId: String(periodId),
@@ -918,7 +918,7 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
       return "회차 미선택";
     }
 
-    return selectedSession.examDate.slice(0, 10) + " · " + EXAM_TYPE_LABEL[selectedSession.examType] + " · " + sessionSubjectLabel(selectedSession) + " · " + selectedSession.week + "주차";
+    return sessionDateKey(selectedSession) + " · " + EXAM_TYPE_LABEL[selectedSession.examType] + " · " + sessionSubjectLabel(selectedSession) + " · " + selectedSession.week + "주차";
   }
 
   function buildPreviewDetail(label: string, preview: ScorePreviewResult) {

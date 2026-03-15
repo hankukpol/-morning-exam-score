@@ -46,11 +46,11 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
         return false;
       }
 
-      if (startDate && note.examDate.slice(0, 10) < startDate) {
+      if (startDate && formatDate(note.examDate) < startDate) {
         return false;
       }
 
-      if (endDate && note.examDate.slice(0, 10) > endDate) {
+      if (endDate && formatDate(note.examDate) > endDate) {
         return false;
       }
 
