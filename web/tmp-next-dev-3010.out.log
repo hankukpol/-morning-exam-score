@@ -1,0 +1,32 @@
+
+> web@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3010
+
+  ▲ Next.js 14.2.35
+  - Local:        http://127.0.0.1:3010
+  - Network:      http://127.0.0.1:3010
+  - Environments: .env.local
+
+ ✓ Starting...
+> [PWA] PWA support is disabled
+> [PWA] PWA support is disabled
+ ✓ Ready in 7.1s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 16.4s (611 modules)
+ GET /login 200 in 16828ms
+ GET /login 200 in 55ms
+ ✓ Compiled /favicon.ico in 433ms (342 modules)
+ GET /favicon.ico 200 in 547ms
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 588ms (123 modules)
+ GET /login?redirectTo=%2Fadmin%2Fscores%2Finput 200 in 116ms
+ GET /favicon.ico 200 in 34ms
+ ○ Compiling /student/login ...
+ ✓ Compiled /student/login in 3.4s (1373 modules)
+ GET /student/login 200 in 3619ms
+ GET /student/login?redirectTo=%2Fstudent 200 in 50ms
+ ✓ Compiled in 611ms (1373 modules)
+ GET /student/login 200 in 109ms
+ ✓ Compiled in 772ms (1341 modules)
+ GET /student/login 200 in 105ms
+[?25h
