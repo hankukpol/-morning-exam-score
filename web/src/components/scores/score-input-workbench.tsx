@@ -132,7 +132,7 @@ function getDefaultSessionId(period: PeriodOption | null, todayKey: string) {
     return null;
   }
 
-  return findTodaySession(period.sessions, todayKey)?.id ?? period.sessions[0]?.id ?? null;
+  return findTodaySession(period.sessions, todayKey)?.id ?? null;
 }
 
 function findTodayPeriodSelection(periods: PeriodOption[], todayKey: string) {
@@ -149,7 +149,7 @@ function findTodayPeriodSelection(periods: PeriodOption[], todayKey: string) {
   const fallbackPeriod = periods.find((period) => period.isActive) ?? periods[0] ?? null;
   return {
     periodId: fallbackPeriod?.id ?? null,
-    sessionId: getDefaultSessionId(fallbackPeriod, todayKey),
+    sessionId: null,
   };
 }
 
@@ -161,7 +161,6 @@ function getCalendarTargetSession(
   return (
     sessions.find((session) => session.id === selectedSessionId) ??
     findTodaySession(sessions, todayKey) ??
-    sessions[0] ??
     null
   );
 }
@@ -355,15 +354,19 @@ function SessionCalendar({
   });
   const [activeDateKey, setActiveDateKey] = useState<string | null>(() => {
     const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
-    return target ? sessionDateKey(target) : null;
+    return target ? sessionDateKey(target) : todayKey;
   });
 
   useEffect(() => {
     const target = getCalendarTargetSession(sessions, selectedSessionId, todayKey);
-    setActiveDateKey(target ? sessionDateKey(target) : null);
+    setActiveDateKey(target ? sessionDateKey(target) : todayKey);
     if (target) {
       setViewYear(Number(target.examDate.slice(0, 4)));
       setViewMonth(Number(target.examDate.slice(5, 7)) - 1);
+    } else {
+      const today = new Date();
+      setViewYear(today.getFullYear());
+      setViewMonth(today.getMonth());
     }
   }, [selectedSessionId, sessions, todayKey]);
 
