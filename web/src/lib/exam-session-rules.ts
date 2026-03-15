@@ -3,6 +3,7 @@
 type SessionLike = {
   examType: ExamType;
   subject: Subject;
+  displaySubjectName?: string | null;
   examDate: Date | string;
   periodId?: number;
   id?: number;
@@ -12,6 +13,7 @@ export type SessionDisplayColumn<T extends SessionLike> = {
   key: string;
   examDate: Date;
   subject: Subject;
+  displaySubjectName: string | null;
   mainSession: T | null;
   oxSession: T | null;
   sessions: T[];
@@ -87,6 +89,7 @@ export function buildSessionDisplayColumns<T extends SessionLike>(sessions: T[])
         key,
         examDate: reviveDate(ordered[0]?.examDate ?? new Date()),
         subject: mainSession?.subject ?? ordered[0]?.subject ?? Subject.POLICE_SCIENCE,
+        displaySubjectName: mainSession?.displaySubjectName ?? ordered[0]?.displaySubjectName ?? null,
         mainSession,
         oxSession,
         sessions: ordered,

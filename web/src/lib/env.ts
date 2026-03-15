@@ -9,10 +9,12 @@ const requiredNotificationKeys = [
   "SOLAPI_API_KEY",
   "SOLAPI_API_SECRET",
   "SOLAPI_SENDER",
-  "SOLAPI_PF_ID",
-  "SOLAPI_TEMPLATE_WARNING_1",
-  "SOLAPI_TEMPLATE_WARNING_2",
-  "SOLAPI_TEMPLATE_DROPOUT",
+] as const;
+
+const requiredWebPushKeys = [
+  "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
+  "VAPID_PRIVATE_KEY",
+  "VAPID_SUBJECT",
 ] as const;
 
 export function hasSupabaseConfig() {
@@ -31,6 +33,40 @@ export function hasNotificationConfig() {
   return requiredNotificationKeys.every((key) => Boolean(process.env[key]));
 }
 
+export function hasWebPushConfig() {
+  return requiredWebPushKeys.every((key) => Boolean(process.env[key]));
+}
+
+export function getRequiredSupabaseAdminEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceRoleKey) {
+    throw new Error("Supabase service role 환경 변수가 설정되지 않았습니다.");
+  }
+
+  return {
+    url,
+    serviceRoleKey,
+  };
+}
+
+export function getRequiredWebPushEnv() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT;
+
+  if (!publicKey || !privateKey || !subject) {
+    throw new Error("Web Push 환경 변수가 설정되지 않았습니다.");
+  }
+
+  return {
+    publicKey,
+    privateKey,
+    subject,
+  };
+}
+
 export function getMissingEnvKeys() {
   return [...requiredSupabaseKeys, ...requiredDatabaseKeys].filter(
     (key) => !process.env[key],
@@ -41,13 +77,19 @@ export function getMissingNotificationEnvKeys() {
   return requiredNotificationKeys.filter((key) => !process.env[key]);
 }
 
+export function getMissingWebPushKeys() {
+  return requiredWebPushKeys.filter((key) => !process.env[key]);
+}
+
 export function getSetupState() {
   return {
     supabaseReady: hasSupabaseConfig(),
     databaseReady: hasDatabaseConfig(),
     serviceRoleReady: hasServiceRoleConfig(),
     notificationReady: hasNotificationConfig(),
+    webPushReady: hasWebPushConfig(),
     missingKeys: getMissingEnvKeys(),
     missingNotificationKeys: getMissingNotificationEnvKeys(),
+    missingWebPushKeys: getMissingWebPushKeys(),
   };
 }

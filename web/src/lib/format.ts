@@ -1,8 +1,14 @@
 import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 
 export function formatDate(value: Date | string) {
   const date = typeof value === "string" ? new Date(value) : value;
   return format(date, "yyyy-MM-dd");
+}
+
+export function formatDateWithWeekday(value: Date | string) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return format(date, "yyyy-MM-dd(E)", { locale: ko });
 }
 
 export function formatDateTime(value: Date | string) {

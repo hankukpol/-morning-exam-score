@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export type ActionModalProps = {
   open: boolean;
@@ -9,12 +9,14 @@ export type ActionModalProps = {
   title: string;
   description: string;
   details?: string[];
+  panelClassName?: string;
   cancelLabel?: string;
   confirmLabel: string;
   confirmTone?: "default" | "danger";
   isPending?: boolean;
   onClose: () => void;
   onConfirm?: () => void;
+  children?: ReactNode;
 };
 
 const badgeToneClass = {
@@ -35,26 +37,88 @@ export function ActionModal({
   title,
   description,
   details = [],
+  panelClassName,
   cancelLabel,
   confirmLabel,
   confirmTone = "default",
   isPending = false,
   onClose,
   onConfirm,
+  children,
 }: ActionModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    function handleEscape(event: KeyboardEvent) {
+    const dialog = dialogRef.current;
+    const previousActiveElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const getFocusableElements = () => {
+      if (!dialog) {
+        return [] as HTMLElement[];
+      }
+
+      return Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled") && element.tabIndex >= 0);
+    };
+
+    const focusableElements = getFocusableElements();
+    const initialFocusTarget = focusableElements[0] ?? dialog;
+    initialFocusTarget?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !isPending) {
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const elements = getFocusableElements();
+
+      if (elements.length === 0) {
+        event.preventDefault();
+        dialog?.focus();
+        return;
+      }
+
+      const firstElement = elements[0];
+      const lastElement = elements[elements.length - 1];
+      const activeElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (!activeElement || activeElement === firstElement || !dialog?.contains(activeElement)) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+
+        return;
+      }
+
+      if (!activeElement || activeElement === lastElement || !dialog?.contains(activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
       }
     }
 
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previousActiveElement?.focus();
+    };
   }, [isPending, onClose, open]);
 
   if (!open) {
@@ -66,7 +130,8 @@ export function ActionModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-4 py-8"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="action-modal-title"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       onClick={() => {
         if (!isPending) {
           onClose();
@@ -74,7 +139,9 @@ export function ActionModal({
       }}
     >
       <div
-        className="w-full max-w-md rounded-[28px] border border-ink/10 bg-white p-6 shadow-2xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className={`max-h-[calc(100vh-4rem)] w-full overflow-y-auto rounded-[28px] border border-ink/10 bg-white p-6 shadow-2xl ${panelClassName ?? "max-w-md"}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div
@@ -82,10 +149,12 @@ export function ActionModal({
         >
           {badgeLabel}
         </div>
-        <h3 id="action-modal-title" className="mt-4 text-2xl font-semibold text-ink">
+        <h3 id={titleId} className="mt-4 text-2xl font-semibold text-ink">
           {title}
         </h3>
-        <p className="mt-3 text-sm leading-7 text-slate">{description}</p>
+        <p id={descriptionId} className="mt-3 text-sm leading-7 text-slate">
+          {description}
+        </p>
         {details.length > 0 ? (
           <div className="mt-5 rounded-3xl bg-mist p-4">
             <div className="space-y-2 text-sm text-ink">
@@ -95,6 +164,7 @@ export function ActionModal({
             </div>
           </div>
         ) : null}
+        {children ? <div className="mt-5">{children}</div> : null}
         <div className="mt-6 flex justify-end gap-3">
           {cancelLabel ? (
             <button

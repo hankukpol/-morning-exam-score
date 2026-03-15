@@ -1,3 +1,4 @@
+@import "react-day-picker/dist/style.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -17,7 +18,7 @@
 * {
   box-sizing: border-box;
   border-radius: 0 !important;
-  /* 강제 직각 처리 */
+  /* 전역 사각 처리 */
 }
 
 html {
@@ -66,6 +67,34 @@ a {
   text-decoration: none;
 }
 
+:focus-visible {
+  outline: 2px solid #C55A11;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.focus\:not-sr-only:focus,
+.focus\:not-sr-only:focus-visible {
+  position: fixed;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
 img,
 svg {
   display: block;
@@ -89,7 +118,7 @@ textarea {
   /* primary light */
 }
 
-/* 유틸리티 클래스 (선택 사항 적용) */
+/* 유틸리티 테두리 카드 (선택 사항 적용) */
 .card-border {
   border: 1px solid #D1D5DB;
   background-color: white;
@@ -97,7 +126,7 @@ textarea {
   box-shadow: none;
 }
 
-/* 대시보드 기준 일관된 표(Table) 스타일 강제 적용 */
+/* 대시보드 기본 표 스타일 강제 적용 */
 table {
   width: 100%;
   border-collapse: collapse !important;
@@ -132,7 +161,7 @@ table tbody tr:hover td {
   /* Tailwind gray-50 */
 }
 
-/* 강제 직각 처리 컨테이너 덮어쓰기 (기존의 rounded-[28px] 등의 영향을 받는 div용) */
+/* 전역 사각 처리 컨테이너 덮어쓰기 (기존 rounded 계열 영향 포함) */
 .rounded-\[28px\],
 .rounded-2xl,
 .rounded-xl,
@@ -152,8 +181,182 @@ table tbody tr:hover td {
   box-shadow: none !important;
 }
 
-/* 폼 요소 등에서 쓰이는 bg-mist 강제 연하게 처리 (선택사항) */
+/* 일부 요소 안에서도 bg-mist를 흰색 카드로 강제 처리 (선택 사항) */
 .bg-mist {
   background-color: white !important;
   border: 1px solid #D1D5DB !important;
+}
+
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.btn-ripple:active::after {
+  opacity: 0.18;
+  transition: none;
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 20;
+    opacity: 0;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.check-animated {
+  stroke-dasharray: 20;
+}
+
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.count-animated {
+}
+
+.btn-success {
+  transition: background-color 200ms ease, transform 100ms ease;
+}
+
+.card-lift {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .check-animated {
+    animation: check-draw 300ms ease-out forwards;
+  }
+
+  .count-animated {
+    animation: count-up 400ms ease-out;
+  }
+
+  .btn-success:active {
+    transform: scale(0.97);
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .card-lift:active {
+    transform: translateY(0);
+  }
+}
+
+@media print {
+  aside,
+  nav,
+  .no-print,
+  button:not(.print-show),
+  .pagination-controls,
+  [data-sidebar],
+  header:not(.print-header) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-title::before {
+    content: attr(data-print-title);
+    display: block;
+    margin-bottom: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .print-sheet-heading {
+    display: none !important;
+  }
+}
+
+.date-range-picker .rdp-root {
+  --rdp-accent-color: #c55a11;
+  --rdp-accent-background-color: #f7f4ef;
+  --rdp-range_middle-background-color: rgba(197, 90, 17, 0.12);
+  --rdp-range_middle-color: #111827;
+  --rdp-day_button-border-radius: 9999px;
+  --rdp-day-height: 40px;
+  --rdp-day-width: 40px;
+  --rdp-nav_button-height: 34px;
+  --rdp-nav_button-width: 34px;
+}
+
+.date-range-picker .rdp-chevron {
+  fill: #111827;
+}
+
+.date-range-picker .rdp-caption_label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.date-range-picker .rdp-weekday {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.date-range-picker .rdp-button_previous,
+.date-range-picker .rdp-button_next {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 9999px;
+}
+
+.date-range-picker .rdp-day_button:hover:not([disabled]) {
+  border-color: rgba(197, 90, 17, 0.32);
 }

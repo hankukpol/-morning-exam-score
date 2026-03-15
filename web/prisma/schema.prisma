@@ -34,6 +34,7 @@ model Student {
   enrollments            PeriodEnrollment[]
   notifications          NotificationLog[]
   pointLogs              PointLog[]
+  pushSubscriptions      PushSubscription[]
   scores                 Score[]
   studentAnswers         StudentAnswer[]
   weeklyStatusSnapshots  WeeklyStatusSnapshot[]
@@ -45,7 +46,21 @@ model Student {
   @@index([studentType])
   @@map("students")
 }
+model PushSubscription {
+  id         String   @id @default(cuid())
+  examNumber String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
+  student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@index([examNumber, updatedAt])
+  @@map("push_subscriptions")
+}
 model ExamPeriod {
   id                 Int      @id @default(autoincrement())
   name               String
@@ -87,15 +102,20 @@ model ExamSession {
   examType     ExamType
   week         Int
   subject      Subject
+  displaySubjectName String?
   examDate     DateTime
   isCancelled  Boolean  @default(false)
   cancelReason String?
+  isLocked     Boolean  @default(false)
+  lockedAt     DateTime?
+  lockedBy     String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   absenceNotes AbsenceNote[]
   period       ExamPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
   questions    ExamQuestion[]
+  scoreDeadlineAlerts ScoreDeadlineAlertLog[]
   scores       Score[]
 
   @@unique([periodId, examType, examDate, subject])
@@ -141,6 +161,7 @@ model AbsenceNote {
   createdAt                     DateTime         @default(now())
   updatedAt                     DateTime         @updatedAt
 
+  attachments AbsenceNoteAttachment[]
   session ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student Student     @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
@@ -148,6 +169,25 @@ model AbsenceNote {
   @@index([status, submittedAt])
   @@index([sessionId, status])
   @@map("absence_notes")
+}
+
+model AbsenceNoteAttachment {
+  id                Int      @id @default(autoincrement())
+  noteId            Int
+  bucket            String
+  storagePath       String
+  originalFileName  String
+  contentType       String
+  byteSize          Int
+  uploadedByAdminId String?  @db.Uuid
+  createdAt         DateTime @default(now())
+
+  note            AbsenceNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  uploadedByAdmin AdminUser?  @relation("AbsenceNoteAttachmentUploader", fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([bucket, storagePath])
+  @@index([noteId, createdAt])
+  @@map("absence_note_attachments")
 }
 
 model AbsencePolicy {
@@ -173,14 +213,32 @@ model NotificationLog {
   channel    NotificationChannel
   message    String
   status     String              @default("sent")
-  sentAt     DateTime            @default(now())
-  failReason String?
+  sentAt           DateTime            @default(now())
+  failReason       String?
+  templateVariables Json?
+  dedupeKey        String?             @unique
 
   student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
   @@index([examNumber, type])
   @@index([status, sentAt])
   @@map("notification_logs")
+}
+
+model NotificationTemplate {
+  id               String              @id @default(cuid())
+  type             NotificationType
+  channel          NotificationChannel @default(ALIMTALK)
+  solapiTemplateId String?
+  content          String
+  variables        String[]            @default([])
+  description      String              @default("")
+  updatedAt        DateTime            @updatedAt
+  updatedBy        String              @db.Uuid
+
+  @@unique([type, channel])
+  @@index([type])
+  @@map("notification_templates")
 }
 
 model WeeklyStatusSnapshot {
@@ -302,16 +360,43 @@ model AdminUser {
   id        String    @id @db.Uuid
   email     String    @unique
   name      String
+  phone     String?
   role      AdminRole @default(TEACHER)
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  auditLogs     AuditLog[]
-  assignedMemos AdminMemo[] @relation("AdminMemoAssignee")
-  ownedMemos    AdminMemo[] @relation("AdminMemoOwner")
+  auditLogs                      AuditLog[]
+  assignedMemos                  AdminMemo[]             @relation("AdminMemoAssignee")
+  ownedMemos                     AdminMemo[]             @relation("AdminMemoOwner")
+  scoreDeadlineAlerts            ScoreDeadlineAlertLog[]
+  uploadedAbsenceNoteAttachments AbsenceNoteAttachment[] @relation("AbsenceNoteAttachmentUploader")
 
   @@map("admin_users")
+}
+
+model ScoreDeadlineAlertLog {
+  id                Int                 @id @default(autoincrement())
+  sessionId         Int
+  adminId           String              @db.Uuid
+  type              NotificationType    @default(SCORE_DEADLINE)
+  channel           NotificationChannel @default(SMS)
+  message           String
+  status            String              @default("sent")
+  sentAt            DateTime            @default(now())
+  failReason        String?
+  templateVariables Json?
+  dedupeKey         String?             @unique
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  admin   AdminUser   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  session ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, sentAt])
+  @@index([adminId, sentAt])
+  @@index([status, sentAt])
+  @@map("score_deadline_alert_logs")
 }
 
 model AuditLog {
@@ -443,13 +528,16 @@ enum NotificationType {
   WARNING_1
   WARNING_2
   DROPOUT
+  ABSENCE_NOTE
   POINT
   NOTICE
+  SCORE_DEADLINE
 }
 
 enum NotificationChannel {
   ALIMTALK
   SMS
+  WEB_PUSH
 }
 
 enum PointType {
@@ -515,5 +603,13 @@ enum AdminMemoStatus {
   IN_PROGRESS
   DONE
 }
+
+
+
+
+
+
+
+
 
 

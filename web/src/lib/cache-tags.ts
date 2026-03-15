@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 export const CACHE_TAGS = {
   analyticsDataset: "analytics-dataset",
   analyticsResultsSheet: "analytics-results-sheet",
+  dashboardSummary: "dashboard-summary",
   periodsBasic: "periods-basic",
   periodWithSessions: "period-with-sessions",
 } as const;
@@ -27,6 +28,7 @@ function safeRevalidateTag(tag: string) {
 export function revalidateAnalyticsCaches() {
   safeRevalidateTag(CACHE_TAGS.analyticsDataset);
   safeRevalidateTag(CACHE_TAGS.analyticsResultsSheet);
+  safeRevalidateTag(CACHE_TAGS.dashboardSummary);
 }
 
 export function revalidatePeriodCaches() {

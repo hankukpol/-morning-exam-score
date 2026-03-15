@@ -1,14 +1,42 @@
+import nextPwa from "next-pwa";
+
+const withPWA = nextPwa({
+  dest: "public",
+  customWorkerDir: "worker",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  skipWaiting: true,
+  cacheStartUrl: false,
+  dynamicStartUrl: false,
+  runtimeCaching: [
+    {
+      urlPattern: /\/_next\/static\/.*/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "next-static-assets",
+      },
+    },
+    {
+      urlPattern: /\.(?:png|jpg|jpeg|gif|webp|svg|ico)$/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "local-images",
+      },
+    },
+  ],
+});
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["exceljs"],
+  experimental: {
+    serverComponentsExternalPackages: ["exceljs"],
+  },
   typescript: {
-    // 타입 체크는 로컬에서 수행 - 빌드 시간 단축
     ignoreBuildErrors: true,
   },
   eslint: {
-    // ESLint도 로컬에서 수행 - 빌드 시간 단축
     ignoreDuringBuilds: true,
   },
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);

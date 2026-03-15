@@ -1,3 +1,15 @@
 {
-  "regions": ["icn1"]
+  "regions": [
+    "icn1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/weekly-report",
+      "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron/score-deadline",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

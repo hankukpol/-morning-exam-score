@@ -1,8 +1,9 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+﻿import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_USER_ID_HEADER = "x-morning-auth-user-id";
 const AUTH_USER_EMAIL_HEADER = "x-morning-auth-user-email";
+const STUDENT_SESSION_COOKIE_NAME = "student_session";
 
 function hasSupabaseAuthCookie(request: NextRequest) {
   return request.cookies.getAll().some((cookie) => {
@@ -32,8 +33,15 @@ function rebuildResponse(response: NextResponse, requestHeaders: Headers) {
   return nextResponse;
 }
 
-// JWT 페이로드를 네트워크 없이 로컬 파싱 (Base64 디코딩만)
-function parseJwtPayload(token: string): { sub?: string; email?: string; exp?: number } | null {
+function base64UrlToUint8Array(value: string) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const normalized = padded + "=".repeat((4 - (padded.length % 4 || 4)) % 4);
+  const binary = atob(normalized);
+
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function parseJwtPayload(token: string): { sub?: string; email?: string; exp?: number; examNumber?: string } | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
@@ -42,6 +50,72 @@ function parseJwtPayload(token: string): { sub?: string; email?: string; exp?: n
   } catch {
     return null;
   }
+}
+
+async function hasValidStudentSession(request: NextRequest) {
+  const token = request.cookies.get(STUDENT_SESSION_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return false;
+  }
+
+  const secret = process.env.STUDENT_JWT_SECRET?.trim();
+  const payload = parseJwtPayload(token);
+
+  if (!secret || !payload?.exp || typeof payload.examNumber !== "string") {
+    return false;
+  }
+
+  if (payload.exp * 1000 <= Date.now()) {
+    return false;
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+
+    return crypto.subtle.verify(
+      "HMAC",
+      key,
+      base64UrlToUint8Array(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function handleStudentPortalSession(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith("/student")) {
+    return null;
+  }
+
+  if (request.nextUrl.pathname === "/student/login") {
+    return NextResponse.next();
+  }
+
+  if (await hasValidStudentSession(request)) {
+    return NextResponse.next();
+  }
+
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = "/student/login";
+  loginUrl.searchParams.set(
+    "redirectTo",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+
+  return NextResponse.redirect(loginUrl);
 }
 
 // 토큰 만료까지 5분 미만이면 Supabase 갱신 필요
@@ -63,6 +137,12 @@ function getAccessToken(request: NextRequest): string | null {
 }
 
 export async function updateSession(request: NextRequest) {
+  const studentResponse = await handleStudentPortalSession(request);
+
+  if (studentResponse) {
+    return studentResponse;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

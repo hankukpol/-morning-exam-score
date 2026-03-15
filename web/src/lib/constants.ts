@@ -1,4 +1,4 @@
-﻿import {
+import {
   AdminRole,
   AdminMemoColor,
   AdminMemoScope,
@@ -50,6 +50,10 @@ export const SUBJECT_LABEL: Record<Subject, string> = {
 
 export const SUBJECT_VALUES = Object.values(Subject);
 
+export function getSubjectDisplayLabel(subject: Subject, displaySubjectName?: string | null) {
+  const normalized = displaySubjectName?.trim();
+  return normalized || SUBJECT_LABEL[subject];
+}
 export const EXAM_TYPE_SUBJECTS: Record<ExamType, Subject[]> = {
   GONGCHAE: [
     Subject.CONSTITUTIONAL_LAW,
@@ -100,9 +104,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   WARNING_1: "1차 경고",
   WARNING_2: "2차 경고",
   DROPOUT: "탈락",
+  ABSENCE_NOTE: "사유서",
   POINT: "포인트 지급",
   NOTICE: "일반 공지",
-};
+  SCORE_DEADLINE: "성적 입력 마감",};
 
 export const NOTICE_TARGET_LABEL: Record<NoticeTargetType, string> = {
   ALL: "전체",
@@ -160,6 +165,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "메인",
   },
   {
+    href: "/admin/students/compare",
+    label: "학생 비교 분석",
+    description: "두 학생의 기간별 성적과 출결 지표를 같은 기준으로 비교",
+    minRole: AdminRole.VIEWER,
+    group: "메인",
+  },  {
     href: "/admin/periods",
     label: "시험 등록",
     description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",

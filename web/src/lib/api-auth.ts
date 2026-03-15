@@ -8,7 +8,7 @@ export async function requireApiAdmin(minRole: AdminRole) {
     return {
       ok: false as const,
       status: 401,
-      error: "관리자 인증이 필요합니다.",
+      error: "\uAD00\uB9AC\uC790 \uC778\uC99D\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.",
     };
   }
 
@@ -16,7 +16,7 @@ export async function requireApiAdmin(minRole: AdminRole) {
     return {
       ok: false as const,
       status: 403,
-      error: "이 작업을 수행할 권한이 없습니다.",
+      error: "\uC774 \uC791\uC5C5\uC744 \uC218\uD589\uD560 \uAD8C\uD55C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.",
     };
   }
 
