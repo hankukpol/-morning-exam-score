@@ -135,6 +135,24 @@ function getDefaultSessionId(period: PeriodOption | null, todayKey: string) {
   return findTodaySession(period.sessions, todayKey)?.id ?? period.sessions[0]?.id ?? null;
 }
 
+function findTodayPeriodSelection(periods: PeriodOption[], todayKey: string) {
+  for (const period of periods) {
+    const todaySession = findTodaySession(period.sessions, todayKey);
+    if (todaySession) {
+      return {
+        periodId: period.id,
+        sessionId: todaySession.id,
+      };
+    }
+  }
+
+  const fallbackPeriod = periods.find((period) => period.isActive) ?? periods[0] ?? null;
+  return {
+    periodId: fallbackPeriod?.id ?? null,
+    sessionId: getDefaultSessionId(fallbackPeriod, todayKey),
+  };
+}
+
 function getCalendarTargetSession(
   sessions: PeriodOption["sessions"],
   selectedSessionId: number | null,
@@ -649,14 +667,9 @@ function SessionQuickEditCard({
 }
 export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   const todayKey = todayDateInputValue();
-  const initialPeriodId = periods.find((period) => period.isActive)?.id ?? periods[0]?.id ?? null;
-  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(initialPeriodId);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(() =>
-    getDefaultSessionId(
-      periods.find((period) => period.id === initialPeriodId) ?? null,
-      todayKey,
-    ),
-  );
+  const initialSelection = findTodayPeriodSelection(periods, todayKey);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(initialSelection.periodId);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(initialSelection.sessionId);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("offline");
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
