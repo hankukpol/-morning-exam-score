@@ -263,6 +263,10 @@ function nextMonthFirstDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
 }
 
+function isAttendanceCalendarSubject(session: DatasetSession) {
+  return session.subject !== Subject.POLICE_SCIENCE;
+}
+
 function isBeforeDate(left: Date, right: Date) {
   return left.getTime() < right.getTime();
 }
@@ -2022,7 +2026,12 @@ function buildAttendanceCalendarStatusCounts(
 ) {
   const monthSessionIds = new Set(
     dataset.sessions
-      .filter((session) => session.examDate >= monthStart && session.examDate < monthEnd)
+      .filter(
+        (session) =>
+          session.examDate >= monthStart &&
+          session.examDate < monthEnd &&
+          isAttendanceCalendarSubject(session),
+      )
       .map((session) => session.id),
   );
   const sessionStatusCounts = new Map<number, { warningCount: number; dropoutCount: number }>();
@@ -2045,10 +2054,10 @@ function buildAttendanceCalendarStatusCounts(
 
     for (const session of dataset.sessions) {
       const isCountedSession =
+        isAttendanceCalendarSubject(session) &&
         !session.isCancelled &&
         session.examDate <= today &&
-        !pendingInputSessionIds.has(session.id) &&
-        !isPoliceOxOnlySession(session, dataset.sessions);
+        !pendingInputSessionIds.has(session.id);
 
       if (!isCountedSession) {
         continue;
@@ -2190,10 +2199,10 @@ export async function getAttendanceCalendar(
       warningCount: 0,
       dropoutCount: 0,
     };
-    const isOxOnlySession = isPoliceOxOnlySession(session, dataset.sessions);
     const isPendingInput = pendingInputSessionIds.has(session.id);
+    const countsTowardAttendance = isAttendanceCalendarSubject(session);
     const inferredAbsentCount =
-      !isPendingInput && !isOxOnlySession && !session.isCancelled && session.examDate <= today
+      countsTowardAttendance && !isPendingInput && !session.isCancelled && session.examDate <= today
         ? Math.max(totalStudents - totalScores - approvedAbsenceCount, 0)
         : 0;
 
@@ -2206,9 +2215,9 @@ export async function getAttendanceCalendar(
       weekLabel: formatTuesdayWeekLabel(weekKey),
       normalCount: scoreCountMap.get(`${session.id}:${AttendType.NORMAL}`) ?? 0,
       liveCount: scoreCountMap.get(`${session.id}:${AttendType.LIVE}`) ?? 0,
-      absentCount: isPendingInput || isOxOnlySession ? 0 : explicitAbsentCount + inferredAbsentCount,
-      warningCount: isPendingInput ? 0 : statusCounts.warningCount,
-      dropoutCount: isPendingInput ? 0 : statusCounts.dropoutCount,
+      absentCount: isPendingInput || !countsTowardAttendance ? 0 : explicitAbsentCount + inferredAbsentCount,
+      warningCount: isPendingInput || !countsTowardAttendance ? 0 : statusCounts.warningCount,
+      dropoutCount: isPendingInput || !countsTowardAttendance ? 0 : statusCounts.dropoutCount,
       isPendingInput,
     };
   });

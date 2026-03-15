@@ -1,3 +1,4 @@
+import { Subject } from "@prisma/client";
 import type { AttendanceCalendarDay } from "@/lib/analytics/service";
 import { SUBJECT_LABEL } from "@/lib/constants";
 
@@ -146,6 +147,10 @@ function buildCalendarGrid(year: number, month: number, days: AttendanceCalendar
   const dayBuckets = new Map<number, AttendanceCalendarDay[]>();
 
   for (const day of days) {
+    if (day.subject === Subject.POLICE_SCIENCE) {
+      continue;
+    }
+
     const key = day.date.getDate();
     const current = dayBuckets.get(key) ?? [];
     current.push(day);
