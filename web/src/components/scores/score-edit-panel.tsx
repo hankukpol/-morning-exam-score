@@ -110,7 +110,7 @@ function findTodaySelection(periods: PeriodOption[], todayKey: string) {
   }
 
   return {
-    dateKey: null,
+    dateKey: todayKey,
     sessionId: "",
   };
 }
@@ -242,12 +242,9 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
     setCalendarMonth(today.getMonth());
 
     const todaySessions = sessionsByDate.get(todayKey) ?? [];
-    if (todaySessions.length === 0) {
-      return;
-    }
 
     setSelectedDate(todayKey);
-    setSelectedSessionId(String(todaySessions[0].id));
+    setSelectedSessionId(todaySessions.length > 0 ? String(todaySessions[0].id) : "");
     setScores(null);
     setEditingId(null);
     setDrafts({});
@@ -257,12 +254,9 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
 
   function handleDateClick(dateKey: string) {
     const sessions = sessionsByDate.get(dateKey) ?? [];
-    if (sessions.length === 0) {
-      return;
-    }
 
     setSelectedDate(dateKey);
-    setSelectedSessionId(sessions.length === 1 ? String(sessions[0].id) : "");
+    setSelectedSessionId(sessions.length > 0 ? (sessions.length === 1 ? String(sessions[0].id) : "") : "");
     setScores(null);
     setEditingId(null);
     setDrafts({});
@@ -574,13 +568,12 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                   key={dateKey}
                   type="button"
                   onClick={() => handleDateClick(dateKey)}
-                  disabled={sessions.length === 0}
                   className={[
                     "relative flex h-16 flex-col items-center justify-center border border-slate-200 text-sm transition",
                     isSelected ? "border-ember bg-ember font-semibold text-white" : "bg-white",
                     isToday && !isSelected ? "border-ember/40" : "",
                     sessions.length > 0 && !isSelected ? "hover:border-ember/30 hover:bg-ember/5" : "",
-                    sessions.length === 0 ? "cursor-default text-ink/30" : "",
+                    sessions.length === 0 ? "text-ink/30 hover:border-ember/20 hover:bg-mist/40" : "",
                     !isSelected && isSunday ? "text-red-500" : "",
                     !isSelected && isSaturday ? "text-blue-500" : "",
                   ].filter(Boolean).join(" ")}
@@ -620,6 +613,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-semibold text-ink">{formatKoreanDate(selectedDate)}</span>
               <div className="flex flex-wrap gap-2">
+                {sessionsForSelectedDate.length === 0 ? <span className="rounded-full border border-ink/10 bg-white px-3 py-1.5 text-xs text-slate">? ???? ??? ??? ????.</span> : null}
                 {sessionsForSelectedDate.map((session) => (
                   <button
                     key={session.id}

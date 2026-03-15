@@ -35,13 +35,8 @@ function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-function getInitialCursor(scores: ScoreEntry[]) {
-  const latestDate = scores
-    .filter((score) => score.session.subject !== Subject.POLICE_SCIENCE)
-    .map((score) => new Date(score.session.examDate))
-    .sort((left, right) => right.getTime() - left.getTime())[0];
-
-  return startOfMonth(latestDate ?? new Date());
+function getInitialCursor() {
+  return startOfMonth(new Date());
 }
 
 function toneForAttendType(attendType: AttendType) {
@@ -83,7 +78,7 @@ function primaryAttendType(entries: ScoreEntry[]) {
 }
 
 export function StudentAttendanceCalendar({ scores }: Props) {
-  const [cursor, setCursor] = useState(() => getInitialCursor(scores));
+  const [cursor, setCursor] = useState(() => getInitialCursor());
   const filteredScores = useMemo(
     () => scores.filter((score) => score.session.subject !== Subject.POLICE_SCIENCE),
     [scores],
@@ -97,30 +92,26 @@ export function StudentAttendanceCalendar({ scores }: Props) {
     groupedScores.set(key, current);
   }
 
-  useEffect(() => {
-    setCursor((current) => {
-      const currentHasEntries = filteredScores.some((score) => {
-        const date = new Date(score.session.examDate);
-        return date.getFullYear() === current.getFullYear() && date.getMonth() === current.getMonth();
-      });
-
-      return currentHasEntries ? current : getInitialCursor(scores);
-    });
-  }, [filteredScores, scores]);
 
   const firstDay = startOfMonth(cursor);
   const lastDay = endOfMonth(cursor);
   const leadingEmptyDays = firstDay.getDay();
   const totalDays = lastDay.getDate();
   const monthPrefix = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-  const selectedMonthKeys = Array.from(groupedScores.keys()).filter((key) => key.startsWith(monthPrefix));
-  const [selectedKey, setSelectedKey] = useState<string | null>(selectedMonthKeys[0] ?? null);
+  const todayKey = dateKey(new Date());
+  const [selectedKey, setSelectedKey] = useState<string | null>(() =>
+    monthPrefix === todayKey.slice(0, 7) ? todayKey : `${monthPrefix}-01`,
+  );
 
   useEffect(() => {
-    setSelectedKey((current) =>
-      current && current.startsWith(monthPrefix) ? current : selectedMonthKeys[0] ?? null,
-    );
-  }, [monthPrefix, selectedMonthKeys]);
+    setSelectedKey((current) => {
+      if (current && current.startsWith(monthPrefix)) {
+        return current;
+      }
+
+      return monthPrefix === todayKey.slice(0, 7) ? todayKey : `${monthPrefix}-01`;
+    });
+  }, [monthPrefix, todayKey]);
 
   const cells: Array<Date | null> = Array.from({ length: leadingEmptyDays }, () => null);
   for (let day = 1; day <= totalDays; day += 1) {
