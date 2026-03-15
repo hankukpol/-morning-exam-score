@@ -35,7 +35,8 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
       </div>
       <h1 className="mt-5 text-3xl font-semibold">알림 발송</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        Solapi 기반 알림톡과 SMS 발송을 관리합니다. 발송 전 대상자를 미리 확인하고, 수신 동의와 발송 이력을 함께 점검할 수 있습니다.
+        Solapi 기반 알림톡과 SMS 발송을 관리하고, 공지 Web Push 전달 이력까지 함께 점검합니다.
+        발송 전 대상자를 미리 확인하고, 수신 동의와 발송 이력을 함께 볼 수 있습니다.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[160px_minmax(0,1fr)_140px]">

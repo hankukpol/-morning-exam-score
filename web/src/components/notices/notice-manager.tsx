@@ -1,10 +1,13 @@
 "use client";
 
 import { NoticeTargetType } from "@prisma/client";
+import { useRef, useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextViewer } from "@/components/ui/rich-text-viewer";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
+import { useSubmitShortcut } from "@/hooks/use-submit-shortcut";
 import { formatDateTime } from "@/lib/format";
-import { useState, useTransition } from "react";
 
 type NoticeRecord = {
   id: number;
@@ -25,12 +28,21 @@ type NoticeManagerProps = {
   };
 };
 
-type PublishedFilterLabel = "전체" | "게시됨" | "임시저장";
+type PublishedFilterLabel = "\uC804\uCCB4" | "\uAC8C\uC2DC\uB428" | "\uC784\uC2DC\uC800\uC7A5";
+
+type NoticePublishResponse = {
+  notice: NoticeRecord;
+  notificationError?: string | null;
+  pushSummary?: {
+    status: "completed" | "skipped" | "failed";
+    message: string;
+  } | null;
+};
 
 const TARGET_OPTIONS: Array<{ value: NoticeTargetType; label: string }> = [
-  { value: NoticeTargetType.ALL, label: "전체 수강생" },
-  { value: NoticeTargetType.GONGCHAE, label: "공채" },
-  { value: NoticeTargetType.GYEONGCHAE, label: "경채" },
+  { value: NoticeTargetType.ALL, label: "\uC804\uCCB4 \uD559\uC0DD" },
+  { value: NoticeTargetType.GONGCHAE, label: "\uACF5\uCC44" },
+  { value: NoticeTargetType.GYEONGCHAE, label: "\uACBD\uCC44" },
 ];
 
 function sortNotices(notices: NoticeRecord[]) {
@@ -50,10 +62,7 @@ function targetLabel(targetType: NoticeTargetType) {
   return TARGET_OPTIONS.find((option) => option.value === targetType)?.label ?? targetType;
 }
 
-function matchesFilters(
-  notice: NoticeRecord,
-  filters: NoticeManagerProps["filters"],
-) {
+function matchesFilters(notice: NoticeRecord, filters: NoticeManagerProps["filters"]) {
   if (filters.targetType && notice.targetType !== filters.targetType) {
     return false;
   }
@@ -80,6 +89,26 @@ function upsertNotice(
   return sortNotices(next);
 }
 
+function joinStatusParts(parts: Array<string | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function formatPublishStatusMessage(
+  actionLabel: string,
+  payload: Pick<NoticePublishResponse, "notificationError" | "pushSummary">,
+) {
+  const pushMessage = payload.pushSummary
+    ? payload.pushSummary.status === "failed"
+      ? `\uD478\uC2DC \uC2E4\uD328: ${payload.pushSummary.message}`
+      : `\uD478\uC2DC: ${payload.pushSummary.message}`
+    : null;
+  const manualMessage = payload.notificationError
+    ? `\uBB38\uC790/\uC54C\uB9BC\uD1A1 \uBC1C\uC1A1 \uC2E4\uD328: ${payload.notificationError}`
+    : null;
+
+  return joinStatusParts([actionLabel, pushMessage, manualMessage]);
+}
+
 export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
   const [notices, setNotices] = useState(() => sortNotices(initialNotices));
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -92,8 +121,9 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
+  const composerRef = useRef<HTMLElement | null>(null);
 
-  async function requestJson(url: string, init?: RequestInit) {
+  async function requestJson<T>(url: string, init?: RequestInit) {
     const response = await fetch(url, {
       ...init,
       headers: {
@@ -105,10 +135,10 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "Request failed.");
+      throw new Error(payload.error ?? "\uC694\uCCAD\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
     }
 
-    return payload;
+    return payload as T;
   }
 
   function resetForm() {
@@ -129,16 +159,16 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
     setErrorMessage(null);
   }
 
-  function publishedFilterLabel() {
+  function publishedFilterLabel(): PublishedFilterLabel {
     if (filters.published === true) {
-      return "게시됨";
+      return "\uAC8C\uC2DC\uB428";
     }
 
     if (filters.published === false) {
-      return "임시저장";
+      return "\uC784\uC2DC\uC800\uC7A5";
     }
 
-    return "전체";
+    return "\uC804\uCCB4";
   }
 
   function setMessage(nextNotice: string | null, nextError: string | null) {
@@ -151,7 +181,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
 
     startTransition(async () => {
       try {
-        const payload = await requestJson(
+        const payload = await requestJson<{ notice: NoticeRecord }>(
           editingId ? `/api/notices/${editingId}` : "/api/notices",
           {
             method: editingId ? "PUT" : "POST",
@@ -163,84 +193,101 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
           },
         );
 
-        const savedNotice = payload.notice as NoticeRecord;
-        let nextNotices = upsertNotice(notices, savedNotice, filters);
+        let finalNotice = payload.notice;
+        let finalMessage = editingId
+          ? "\uACF5\uC9C0\uC0AC\uD56D\uC744 \uC218\uC815\uD588\uC2B5\uB2C8\uB2E4."
+          : "\uACF5\uC9C0\uC0AC\uD56D\uC744 \uC791\uC131\uD588\uC2B5\uB2C8\uB2E4.";
 
-        if (publishOnSave && !savedNotice.isPublished) {
-          const published = await requestJson(`/api/notices/${savedNotice.id}/publish`, {
-            method: "PUT",
-            body: JSON.stringify({
-              isPublished: true,
-              sendNotification: notifyOnPublish,
-            }),
-          });
-
-          nextNotices = upsertNotice(nextNotices, published.notice as NoticeRecord, filters);
-          setNoticeMessage(
-            published.notificationError
-              ? `${
-                  editingId
-                    ? "공지사항이 수정 및 게시되었습니다."
-                    : "공지사항이 작성 및 게시되었습니다."
-                } 알림 발송 실패: ${published.notificationError}`
-              : editingId
-                ? "공지사항이 수정 및 게시되었습니다."
-                : "공지사항이 작성 및 게시되었습니다.",
+        if (publishOnSave && !payload.notice.isPublished) {
+          const published = await requestJson<NoticePublishResponse>(
+            `/api/notices/${payload.notice.id}/publish`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                isPublished: true,
+                sendNotification: notifyOnPublish,
+              }),
+            },
           );
-        } else {
-          setNoticeMessage(editingId ? "공지사항이 수정되었습니다." : "공지사항이 작성되었습니다.");
+
+          finalNotice = published.notice;
+          finalMessage = formatPublishStatusMessage(
+            editingId
+              ? "\uACF5\uC9C0\uC0AC\uD56D\uC744 \uC218\uC815\uD558\uACE0 \uAC8C\uC2DC\uD588\uC2B5\uB2C8\uB2E4."
+              : "\uACF5\uC9C0\uC0AC\uD56D\uC744 \uC791\uC131\uD558\uACE0 \uAC8C\uC2DC\uD588\uC2B5\uB2C8\uB2E4.",
+            published,
+          );
         }
 
-        setNotices(nextNotices);
+        setNotices((current) => upsertNotice(current, finalNotice, filters));
+        setNoticeMessage(finalMessage);
         setErrorMessage(null);
         resetForm();
       } catch (error) {
         setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "공지사항 저장에 실패했습니다.");
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "\uACF5\uC9C0\uC0AC\uD56D \uC800\uC7A5\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+        );
       }
     });
   }
+
+  useSubmitShortcut({
+    containerRef: composerRef,
+    enabled: !isPending,
+    onSubmit: saveNotice,
+  });
 
   function togglePublish(notice: NoticeRecord, nextPublished: boolean) {
     setMessage(null, null);
 
     startTransition(async () => {
       try {
-        const payload = await requestJson(`/api/notices/${notice.id}/publish`, {
-          method: "PUT",
-          body: JSON.stringify({
-            isPublished: nextPublished,
-            sendNotification: nextPublished && notifyOnPublish,
-          }),
-        });
-
-        setNotices((current) =>
-          upsertNotice(current, payload.notice as NoticeRecord, filters),
+        const payload = await requestJson<NoticePublishResponse>(
+          `/api/notices/${notice.id}/publish`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              isPublished: nextPublished,
+              sendNotification: nextPublished && notifyOnPublish,
+            }),
+          },
         );
+
+        setNotices((current) => upsertNotice(current, payload.notice, filters));
         setNoticeMessage(
-          payload.notificationError
-            ? `${nextPublished ? "공지사항이 게시되었습니다." : "임시저장으로 변경되었습니다."} 알림 발송 실패: ${payload.notificationError}`
-            : nextPublished
-              ? "공지사항이 게시되었습니다."
-              : "임시저장으로 변경되었습니다.",
+          formatPublishStatusMessage(
+            nextPublished
+              ? "\uACF5\uC9C0\uC0AC\uD56D\uC744 \uAC8C\uC2DC\uD588\uC2B5\uB2C8\uB2E4."
+              : "\uC784\uC2DC\uC800\uC7A5\uC73C\uB85C \uBCC0\uACBD\uD588\uC2B5\uB2C8\uB2E4.",
+            payload,
+          ),
         );
         setErrorMessage(null);
       } catch (error) {
         setNoticeMessage(null);
-        setErrorMessage(error instanceof Error ? error.message : "게시 상태 변경에 실패했습니다.");
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "\uAC8C\uC2DC \uC0C1\uD0DC \uBCC0\uACBD\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+        );
       }
     });
   }
 
   function removeNotice(id: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "\uC0AD\uC81C \uD655\uC778",
       badgeTone: "warning",
-      title: "???? ??",
-      description: "? ????? ?????????",
-      details: ["?? ??? ?? ?? ???? ?? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "\uACF5\uC9C0 \uC0AD\uC81C",
+      description: "\uC774 \uACF5\uC9C0\uC0AC\uD56D\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
+      details: [
+        "\uC0AD\uC81C\uD55C \uACF5\uC9C0 \uB0B4\uC6A9\uC740 \uB2E4\uC2DC \uBCF5\uAD6C\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+      ],
+      cancelLabel: "\uCDE8\uC18C",
+      confirmLabel: "\uC0AD\uC81C",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -248,7 +295,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
 
         startTransition(async () => {
           try {
-            await requestJson(`/api/notices/${id}`, {
+            await requestJson<{ success: true }>(`/api/notices/${id}`, {
               method: "DELETE",
             });
 
@@ -258,31 +305,33 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               resetForm();
             }
 
-            setNoticeMessage("????? ??????.");
+            setNoticeMessage("\uACF5\uC9C0\uC0AC\uD56D\uC744 \uC0AD\uC81C\uD588\uC2B5\uB2C8\uB2E4.");
             setErrorMessage(null);
           } catch (error) {
             setNoticeMessage(null);
-            setErrorMessage(error instanceof Error ? error.message : "???? ??? ??????.");
+            setErrorMessage(
+              error instanceof Error
+                ? error.message
+                : "\uACF5\uC9C0\uC0AC\uD56D \uC0AD\uC81C\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+            );
           }
         });
       },
     });
   }
 
-  const currentPublishedFilter: PublishedFilterLabel = publishedFilterLabel();
+  const currentPublishedFilter = publishedFilterLabel();
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+      <section ref={composerRef} className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">
-              {editingId ? "공지사항 수정" : "공지사항 작성"}
+              {editingId ? "\uACF5\uC9C0\uC0AC\uD56D \uC218\uC815" : "\uACF5\uC9C0\uC0AC\uD56D \uC791\uC131"}
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              현재 필터: 대상 {filters.targetType ? targetLabel(filters.targetType) : "전체"}
-              {" / "}
-              상태 {currentPublishedFilter}
+              {`\uD604\uC7AC \uD544\uD130: \uB300\uC0C1 ${filters.targetType ? targetLabel(filters.targetType) : "\uC804\uCCB4"} / \uC0C1\uD0DC ${currentPublishedFilter}`}
             </p>
           </div>
           <label className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm">
@@ -291,7 +340,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               checked={notifyOnPublish}
               onChange={(event) => setNotifyOnPublish(event.target.checked)}
             />
-            <span>게시 시 알림 발송</span>
+            <span>\uAC8C\uC2DC \uC2DC \uC54C\uB9BC \uBC1C\uC1A1</span>
           </label>
         </div>
 
@@ -308,7 +357,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
 
         <div className="mt-6 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
           <div>
-            <label className="mb-2 block text-sm font-medium">대상</label>
+            <label className="mb-2 block text-sm font-medium">\uB300\uC0C1</label>
             <select
               value={targetType}
               onChange={(event) => setTargetType(event.target.value as NoticeTargetType)}
@@ -322,25 +371,22 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">제목</label>
+            <label className="mb-2 block text-sm font-medium">\uC81C\uBAA9</label>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-              placeholder="공지사항 제목"
+              placeholder="\uACF5\uC9C0\uC0AC\uD56D \uC81C\uBAA9"
             />
           </div>
         </div>
 
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-medium">내용</label>
-          <textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            rows={10}
-            className="w-full rounded-[28px] border border-ink/10 px-4 py-3 text-sm leading-7"
-            placeholder="공지사항 내용 (마크다운 또는 일반 텍스트)"
-          />
+          <label className="mb-2 block text-sm font-medium">\uB0B4\uC6A9</label>
+          <RichTextEditor content={content} onChange={setContent} disabled={isPending} />
+          <p className="mt-2 text-xs text-slate">
+            \uAD75\uAC8C, \uC81C\uBAA9, \uBAA9\uB85D, \uB9C1\uD06C \uC11C\uC2DD\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uC77C\uBC18 \uD14D\uC2A4\uD2B8 \uACF5\uC9C0\uB3C4 \uC790\uB3D9\uC73C\uB85C \uBB38\uB2E8 \uD615\uC2DD\uC73C\uB85C \uC815\uB9AC\uB429\uB2C8\uB2E4.
+          </p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -350,7 +396,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               checked={publishOnSave}
               onChange={(event) => setPublishOnSave(event.target.checked)}
             />
-            <span>저장 후 즉시 게시</span>
+            <span>\uC800\uC7A5 \uD6C4 \uC989\uC2DC \uAC8C\uC2DC</span>
           </label>
           <button
             type="button"
@@ -358,7 +404,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
             disabled={isPending}
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
           >
-            {editingId ? "수정 저장" : "공지사항 작성"}
+            {editingId ? "\uC218\uC815 \uC800\uC7A5" : "\uACF5\uC9C0\uC0AC\uD56D \uC791\uC131"}
           </button>
           {editingId ? (
             <button
@@ -367,7 +413,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
               disabled={isPending}
               className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
             >
-              수정 취소
+              \uC218\uC815 \uCDE8\uC18C
             </button>
           ) : null}
         </div>
@@ -376,9 +422,9 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold">공지사항 목록</h2>
+            <h2 className="text-xl font-semibold">\uACF5\uC9C0\uC0AC\uD56D \uBAA9\uB85D</h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              현재 필터 {notices.length}개
+              {`\uD604\uC7AC \uD544\uD130 \uACB0\uACFC ${notices.length}\uAC1C`}
             </p>
           </div>
         </div>
@@ -386,7 +432,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         <div className="mt-6 space-y-4">
           {notices.length === 0 ? (
             <div className="rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              조건에 맞는 공지사항이 없습니다.
+              \uC870\uAC74\uC5D0 \uB9DE\uB294 \uACF5\uC9C0\uC0AC\uD56D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.
             </div>
           ) : null}
 
@@ -405,15 +451,14 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                           : "border-amber-200 bg-amber-50 text-amber-700"
                       }`}
                     >
-                      {notice.isPublished ? "게시됨" : "임시저장"}
+                      {notice.isPublished ? "\uAC8C\uC2DC\uB428" : "\uC784\uC2DC\uC800\uC7A5"}
                     </span>
                   </div>
                   <h3 className="mt-4 text-xl font-semibold">{notice.title}</h3>
                   <p className="mt-2 text-xs text-slate">
-                    작성 {formatDateTime(notice.createdAt)}
-                    {" / "}
-                    수정 {formatDateTime(notice.updatedAt)}
-                    {notice.publishedAt ? ` / 게시 ${formatDateTime(notice.publishedAt)}` : ""}
+                    {`\uC791\uC131 ${formatDateTime(notice.createdAt)} / \uC218\uC815 ${formatDateTime(notice.updatedAt)}${
+                      notice.publishedAt ? ` / \uAC8C\uC2DC ${formatDateTime(notice.publishedAt)}` : ""
+                    }`}
                   </p>
                 </div>
 
@@ -423,7 +468,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     onClick={() => startEdit(notice)}
                     className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
                   >
-                    수정
+                    \uC218\uC815
                   </button>
                   <button
                     type="button"
@@ -431,7 +476,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     disabled={isPending}
                     className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest"
                   >
-                    {notice.isPublished ? "임시저장으로" : "게시"}
+                    {notice.isPublished ? "\uC784\uC2DC\uC800\uC7A5\uC73C\uB85C" : "\uAC8C\uC2DC"}
                   </button>
                   <button
                     type="button"
@@ -439,13 +484,13 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     disabled={isPending}
                     className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-400"
                   >
-                    삭제
+                    \uC0AD\uC81C
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[20px] bg-mist px-4 py-4 text-sm leading-7 text-ink whitespace-pre-wrap">
-                {notice.content}
+              <div className="mt-4 rounded-[20px] bg-mist px-4 py-4">
+                <RichTextViewer html={notice.content} />
               </div>
             </article>
           ))}
@@ -459,7 +504,7 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "\uD655\uC778"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}

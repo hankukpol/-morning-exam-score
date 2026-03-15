@@ -8,6 +8,8 @@ type MonthlyResultsSheetProps = {
   rows: MonthlyResultsSheetRow[];
   title?: string;
   subtitle?: string;
+  className?: string;
+  printTitle?: string;
 };
 
 function noteClass(note: string | null) {
@@ -24,6 +26,8 @@ export function MonthlyResultsSheet({
   rows,
   title,
   subtitle,
+  className,
+  printTitle,
 }: MonthlyResultsSheetProps) {
   const resolvedSubtitle =
     subtitle ?? (year && month ? formatMonthLabel(year, month) : "");
@@ -33,9 +37,12 @@ export function MonthlyResultsSheet({
   const bodyNameCellClass = "border border-slate-200 px-4 py-3 text-left";
 
   return (
-    <div className="overflow-x-auto rounded-[28px] border border-ink/10 bg-white">
+    <div
+      className={`${className ? `${className} ` : ""}overflow-x-auto rounded-[28px] border border-ink/10 bg-white`}
+      data-print-title={printTitle ?? undefined}
+    >
       <div className="min-w-[960px]">
-        <div className="border-b border-ink/10 px-6 py-5 text-center">
+        <div className="print-sheet-heading border-b border-ink/10 px-6 py-5 text-center">
           <h2 className="text-2xl font-semibold">{title ?? "월간 성적표"}</h2>
           {resolvedSubtitle ? (
             <p className="mt-2 text-sm text-slate">{resolvedSubtitle}</p>

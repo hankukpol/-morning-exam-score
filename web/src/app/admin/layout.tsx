@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SetupPanel } from "@/components/setup-panel";
+import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference";
 import { ADMIN_NAV_ITEMS, type NavItem, ROLE_LABEL } from "@/lib/constants";
 import {
   getDisplayErrorDetails,
@@ -114,6 +115,12 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F4F6] lg:flex-row">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only left-4 top-4 z-[60] rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm"
+      >
+        본문으로 건너뛰기
+      </a>
       <aside className="flex min-h-screen w-full flex-shrink-0 flex-col bg-[#0B1120] text-gray-300 lg:w-[260px]">
         <div className="p-6 pb-2">
           <Link href="/" className="inline-flex items-center space-x-2">
@@ -159,12 +166,28 @@ export default async function AdminLayout({
           ))}
         </nav>
 
-        <div className="border-t border-white/5 bg-[#0B1120] p-4">
+        <div className="border-t border-white/5 bg-[#0B1120] p-4 space-y-3">
+          <AdminShortcutReference
+            items={permittedItems.map((item) => ({
+              href: item.href,
+              label: item.label,
+              description: item.description,
+              group: item.group,
+            }))}
+          />
           <SignOutButton />
         </div>
       </aside>
 
-      <main className="w-full min-w-0 flex-1 bg-gray-50 p-4 sm:p-6 lg:p-8">{children}</main>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="w-full min-w-0 flex-1 bg-gray-50 p-4 sm:p-6 lg:p-8"
+      >
+        {children}
+      </main>
     </div>
   );
 }
+
+

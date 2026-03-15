@@ -1,19 +1,15 @@
-﻿import {
+import {
   AbsenceStatus,
   AttendType,
   DropoutReason,
   ExamType,
-  NotificationChannel,
   PointType,
   StudentStatus,
   StudentType,
   Subject,
 } from "@prisma/client";
 import { ATTENDANCE_STATUS_RULES, EXAM_TYPE_SUBJECTS } from "@/lib/constants";
-import {
-  buildNotificationMessage,
-  notificationTypeFromStatus,
-} from "@/lib/notifications/templates";
+import { triggerStatusChangeNotification } from "@/lib/notifications/auto-trigger";
 import {
   buildPeriodScopedStudentWhere,
   type DatasetAbsence,
@@ -25,7 +21,7 @@ import {
   type ResultsSheetApprovedAbsence,
 } from "@/lib/analytics/data";
 import { getPrisma } from "@/lib/prisma";
-import { revalidateAnalyticsCaches } from "@/lib/cache-tags";
+import { CACHE_TAGS, revalidateAnalyticsCaches } from "@/lib/cache-tags";
 import { unstable_cache } from "next/cache";
 import {
   formatTuesdayWeekLabel,
@@ -385,7 +381,7 @@ function buildTuesdayWeekSummary(weekKey: string, sessions: DatasetSession[]): T
   };
 }
 
-function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
+export function buildAggregates(dataset: Awaited<ReturnType<typeof loadDataset>>) {
   const scoreMap = new Map<string, DatasetScore>();
   const absenceMap = new Map<string, DatasetAbsence>();
   const today = endOfToday();
@@ -1521,7 +1517,9 @@ async function ensureLatestWeeklySnapshots(periodId: number, examType: ExamType)
   });
 
   if (snapshotCount === 0) {
-    await rebuildWeeklyStatusSnapshots(periodId, examType);
+    await rebuildWeeklyStatusSnapshotsInternal(periodId, examType, {
+      revalidate: false,
+    });
   }
 
   return latestWeekKey;
@@ -1583,19 +1581,37 @@ async function syncWeeklyStatusSnapshots(
   return snapshotRows.length;
 }
 
-export async function rebuildWeeklyStatusSnapshots(periodId: number, examType: ExamType) {
-  revalidateAnalyticsCaches();
+async function rebuildWeeklyStatusSnapshotsInternal(
+  periodId: number,
+  examType: ExamType,
+  options?: {
+    revalidate?: boolean;
+  },
+) {
+  const shouldRevalidate = options?.revalidate ?? true;
+
+  if (shouldRevalidate) {
+    revalidateAnalyticsCaches();
+  }
+
   const dataset = await loadDataset(periodId, examType);
   const aggregates = buildAggregates(dataset);
   const calculatedAt = new Date();
 
   await syncWeeklyStatusSnapshots(periodId, examType, aggregates, calculatedAt);
-  revalidateAnalyticsCaches();
+
+  if (shouldRevalidate) {
+    revalidateAnalyticsCaches();
+  }
 
   return {
     period: dataset.period,
     aggregates,
   };
+}
+
+export async function rebuildWeeklyStatusSnapshots(periodId: number, examType: ExamType) {
+  return rebuildWeeklyStatusSnapshotsInternal(periodId, examType);
 }
 
 export async function recalculateStatusCache(
@@ -1646,49 +1662,28 @@ export async function recalculateStatusCache(
     );
   }
 
-  const notificationRows = aggregates
+  const notificationJobs = aggregates
     .filter((aggregate) => {
       const previousStatus = aggregate.student.currentStatus;
       const nextStatus = aggregate.overallStatus;
       return previousStatus !== nextStatus && aggregate.student.isActive;
     })
-    .flatMap((aggregate) => {
-      const notificationType = notificationTypeFromStatus(aggregate.overallStatus);
+    .map((aggregate) => ({
+      examNumber: aggregate.student.examNumber,
+      studentName: aggregate.student.name,
+      phone: aggregate.student.phone,
+      notificationConsent: aggregate.student.notificationConsent,
+      nextStatus: aggregate.overallStatus,
+      recoveryDate: aggregate.recoveryDate,
+      weekAbsenceCount: aggregate.currentWeekAbsenceCount,
+      monthAbsenceCount: aggregate.currentMonthAbsenceCount,
+      sentAt: calculatedAt,
+    }));
 
-      if (!notificationType) {
-        return [];
-      }
-
-      const weekAbsenceCount = aggregate.currentWeekAbsenceCount;
-      const monthAbsenceCount = aggregate.currentMonthAbsenceCount;
-      const canQueue =
-        aggregate.student.notificationConsent && Boolean(aggregate.student.phone?.trim());
-
-      return [
-        {
-          examNumber: aggregate.student.examNumber,
-          type: notificationType,
-          channel: NotificationChannel.ALIMTALK,
-          message: buildNotificationMessage({
-            type: notificationType,
-            studentName: aggregate.student.name,
-            recoveryDate: aggregate.recoveryDate,
-            weekAbsenceCount,
-            monthAbsenceCount,
-          }),
-          status: canQueue ? "pending" : "skipped",
-          sentAt: calculatedAt,
-          failReason: canQueue
-            ? null
-            : aggregate.student.notificationConsent
-              ? "????? ?? ?? ???? ??????."
-              : "?? ??? ?? ?? ???? ??????.",
-        },
-      ];
-    });
-
-  if (notificationRows.length > 0) {
-    await prisma.notificationLog.createMany({ data: notificationRows });
+  if (notificationJobs.length > 0) {
+    await Promise.allSettled(
+      notificationJobs.map((job) => triggerStatusChangeNotification(job)),
+    );
   }
 
   revalidateAnalyticsCaches();
@@ -2230,6 +2225,18 @@ export async function getAttendanceCalendar(
   };
 }
 
+function buildRecentDashboardWeekKeys(sessions: Array<{ examDate: Date }>) {
+  return Array.from(new Set(sessions.map((session) => getTuesdayWeekKey(session.examDate)))).slice(-8);
+}
+
+function averageDashboardScores(values: number[]) {
+  if (values.length === 0) {
+    return null;
+  }
+
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
 async function _getDashboardSummary() {
   const prisma = getPrisma();
   const activePeriod = await prisma.examPeriod.findFirst({
@@ -2241,8 +2248,10 @@ async function _getDashboardSummary() {
   }
 
   const today = new Date();
-  const todayStart = new Date(today.setHours(0, 0, 0, 0));
-  const todayEnd = new Date(new Date().setHours(23, 59, 59, 999));
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
   const gongchaeWhere = {
     ...buildPeriodScopedStudentWhere(activePeriod.id, ExamType.GONGCHAE),
     isActive: true,
@@ -2266,79 +2275,203 @@ async function _getDashboardSummary() {
     pendingNotificationCount,
     todaySessions,
     missingScoredSessionCount,
-  ] =
+    occurredSessions,
+    activeStudents,
+  ] = await Promise.all([
+    prisma.student.count({
+      where: gongchaeWhere,
+    }),
+    prisma.student.count({
+      where: gyeongchaeWhere,
+    }),
+    prisma.student.count({
+      where: {
+        ...activeStudentWhere,
+        currentStatus: StudentStatus.DROPOUT,
+      },
+    }),
+    prisma.student.count({
+      where: {
+        ...activeStudentWhere,
+        currentStatus: StudentStatus.WARNING_2,
+      },
+    }),
+    prisma.student.count({
+      where: {
+        ...activeStudentWhere,
+        currentStatus: StudentStatus.WARNING_1,
+      },
+    }),
+    prisma.absenceNote.count({
+      where: {
+        session: {
+          periodId: activePeriod.id,
+        },
+        status: AbsenceStatus.PENDING,
+      },
+    }),
+    prisma.notificationLog.count({
+      where: {
+        status: {
+          in: ["pending", "failed"],
+        },
+      },
+    }),
+    prisma.examSession.findMany({
+      where: {
+        periodId: activePeriod.id,
+        examDate: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+      include: {
+        _count: {
+          select: {
+            scores: true,
+          },
+        },
+      },
+      orderBy: {
+        examDate: "asc",
+      },
+    }),
+    prisma.examSession.count({
+      where: {
+        periodId: activePeriod.id,
+        isCancelled: false,
+        examDate: {
+          lt: todayStart,
+        },
+        scores: {
+          none: {},
+        },
+      },
+    }),
+    prisma.examSession.findMany({
+      where: {
+        periodId: activePeriod.id,
+        isCancelled: false,
+        examDate: {
+          lte: todayEnd,
+        },
+      },
+      select: {
+        examDate: true,
+      },
+      orderBy: {
+        examDate: "asc",
+      },
+    }),
+    prisma.student.findMany({
+      where: activeStudentWhere,
+      select: {
+        examNumber: true,
+      },
+    }),
+  ]);
+
+  const activeExamNumbers = activeStudents.map((student) => student.examNumber);
+  const recentOccurredWeekKeys = buildRecentDashboardWeekKeys(occurredSessions);
+
+  let weeklyAvgScoreTrend: number[] = [];
+  let weeklyAvgScore: number | null = null;
+  let alertCountTrend: number[] = [];
+
+  if (recentOccurredWeekKeys.length > 0) {
+    const oldestRecentWeek = buildTuesdayWeekSummary(recentOccurredWeekKeys[0], []);
+    const newestRecentWeek = buildTuesdayWeekSummary(
+      recentOccurredWeekKeys[recentOccurredWeekKeys.length - 1],
+      [],
+    );
+
     await Promise.all([
-      prisma.student.count({
-        where: gongchaeWhere,
-      }),
-      prisma.student.count({
-        where: gyeongchaeWhere,
-      }),
-      prisma.student.count({
-        where: {
-          ...activeStudentWhere,
-          currentStatus: StudentStatus.DROPOUT,
-        },
-      }),
-      prisma.student.count({
-        where: {
-          ...activeStudentWhere,
-          currentStatus: StudentStatus.WARNING_2,
-        },
-      }),
-      prisma.student.count({
-        where: {
-          ...activeStudentWhere,
-          currentStatus: StudentStatus.WARNING_1,
-        },
-      }),
-      prisma.absenceNote.count({
+      ensureLatestWeeklySnapshots(activePeriod.id, ExamType.GONGCHAE),
+      ensureLatestWeeklySnapshots(activePeriod.id, ExamType.GYEONGCHAE),
+    ]);
+
+    const [recentScores, recentAlertCounts] = await Promise.all([
+      prisma.score.findMany({
         where: {
           session: {
             periodId: activePeriod.id,
-          },
-          status: AbsenceStatus.PENDING,
-        },
-      }),
-      prisma.notificationLog.count({
-        where: {
-          status: {
-            in: ["pending", "failed"],
-          },
-        },
-      }),
-      prisma.examSession.findMany({
-        where: {
-          periodId: activePeriod.id,
-          examDate: {
-            gte: todayStart,
-            lte: todayEnd,
-          },
-        },
-        include: {
-          _count: {
-            select: {
-              scores: true,
+            isCancelled: false,
+            examDate: {
+              gte: oldestRecentWeek.startDate,
+              lte: newestRecentWeek.endDate,
             },
           },
         },
-        orderBy: {
-          examDate: "asc",
+        select: {
+          rawScore: true,
+          oxScore: true,
+          finalScore: true,
+          attendType: true,
+          session: {
+            select: {
+              examDate: true,
+            },
+          },
         },
       }),
-      prisma.examSession.count({
+      prisma.weeklyStatusSnapshot.groupBy({
+        by: ["weekKey"],
         where: {
           periodId: activePeriod.id,
-          isCancelled: false,
-          examDate: {
-            lt: todayStart,
+          weekKey: {
+            in: recentOccurredWeekKeys,
           },
-          scores: {
-            none: {},
+          examNumber: {
+            in: activeExamNumbers,
           },
+          status: {
+            in: [StudentStatus.WARNING_1, StudentStatus.WARNING_2, StudentStatus.DROPOUT],
+          },
+        },
+        _count: {
+          _all: true,
         },
       }),
     ]);
+
+    const scoreValuesByWeek = new Map<string, number[]>();
+    for (const weekKey of recentOccurredWeekKeys) {
+      scoreValuesByWeek.set(weekKey, []);
+    }
+
+    for (const score of recentScores) {
+      const value = getScoredMockScore(score);
+      if (value === null) {
+        continue;
+      }
+
+      const weekKey = getTuesdayWeekKey(score.session.examDate);
+      const bucket = scoreValuesByWeek.get(weekKey);
+      if (bucket) {
+        bucket.push(value);
+      }
+    }
+
+    const recentScoredWeekKeys = recentOccurredWeekKeys.filter(
+      (weekKey) => (scoreValuesByWeek.get(weekKey)?.length ?? 0) > 0,
+    );
+    weeklyAvgScoreTrend = recentScoredWeekKeys.map(
+      (weekKey) => averageDashboardScores(scoreValuesByWeek.get(weekKey) ?? []) ?? 0,
+    );
+    weeklyAvgScore =
+      recentScoredWeekKeys.length > 0
+        ? averageDashboardScores(
+            scoreValuesByWeek.get(recentScoredWeekKeys[recentScoredWeekKeys.length - 1]!) ?? [],
+          )
+        : null;
+
+    const alertCountByWeek = new Map(
+      recentAlertCounts.map((row) => [row.weekKey, row._count._all]),
+    );
+    alertCountTrend = recentOccurredWeekKeys.map(
+      (weekKey) => alertCountByWeek.get(weekKey) ?? 0,
+    );
+  }
 
   return {
     activePeriod,
@@ -2356,14 +2489,20 @@ async function _getDashboardSummary() {
     pendingAbsenceCount,
     pendingNotificationCount,
     missingScoredSessionCount,
+    weeklyAvgScore,
+    weeklyAvgScoreTrend,
+    alertCountTrend,
   };
 }
 
 export const getDashboardSummary = unstable_cache(
   _getDashboardSummary,
   ["admin-dashboard-summary"],
-  { revalidate: 60, tags: ["dashboard-summary"] },
+  { revalidate: 60, tags: [CACHE_TAGS.dashboardSummary] },
 );
+
+
+
 
 
 

@@ -5,7 +5,9 @@ import {
 } from "@prisma/client";
 import { toAuditJson } from "@/lib/audit";
 import { sendManualNotification } from "@/lib/notifications/service";
+import { sendNoticeWebPush } from "@/lib/notifications/web-push";
 import { getPrisma } from "@/lib/prisma";
+import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/rich-text";
 
 export type NoticeFilters = {
   targetType?: NoticeTargetType;
@@ -37,14 +39,14 @@ function examTypeToNoticeTarget(examType: ExamType) {
 
 function normalizeNoticeInput(input: NoticeInput) {
   const title = input.title.trim();
-  const content = input.content.trim();
+  const content = sanitizeRichTextHtml(input.content);
 
   if (!title) {
-    throw new Error("공지 제목을 입력하세요.");
+    throw new Error("\uACF5\uC9C0 \uC81C\uBAA9\uC744 \uC785\uB825\uD558\uC138\uC694.");
   }
 
   if (!content) {
-    throw new Error("공지 내용을 입력하세요.");
+    throw new Error("\uACF5\uC9C0 \uB0B4\uC6A9\uC744 \uC785\uB825\uD558\uC138\uC694.");
   }
 
   return {
@@ -66,10 +68,9 @@ export async function listNotices(filters: NoticeFilters = {}) {
 }
 
 export async function listStudentNotices(examType?: ExamType) {
-  const targetTypes =
-    examType
-      ? [NoticeTargetType.ALL, examTypeToNoticeTarget(examType)]
-      : [NoticeTargetType.ALL];
+  const targetTypes = examType
+    ? [NoticeTargetType.ALL, examTypeToNoticeTarget(examType)]
+    : [NoticeTargetType.ALL];
 
   return getPrisma().notice.findMany({
     where: {
@@ -220,30 +221,72 @@ export async function publishNotice(input: {
       },
     });
 
-    return notice;
+    return {
+      notice,
+      wasPublishedBefore: before.isPublished,
+    };
   });
 
   let notificationError: string | null = null;
+  let pushSummary:
+    | {
+        status: "completed" | "skipped" | "failed";
+        message: string;
+      }
+    | null = null;
+
+  if (input.isPublished && !result.wasPublishedBefore) {
+    try {
+      const pushResult = await sendNoticeWebPush(result.notice);
+
+      pushSummary =
+        pushResult.status === "completed"
+          ? {
+              status: "completed",
+              message: `\uC804\uB2EC ${pushResult.sentCount}/${pushResult.totalSubscriptions}\uAC74, \uC2E4\uD328 ${pushResult.failedCount}\uAC74${
+                pushResult.removedCount > 0
+                  ? `, \uB9CC\uB8CC \uC815\uB9AC ${pushResult.removedCount}\uAC74`
+                  : ""
+              }`,
+            }
+          : {
+              status: "skipped",
+              message: pushResult.reason,
+            };
+    } catch (error) {
+      console.error("[Notice] web push failed:", error);
+      pushSummary = {
+        status: "failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "\uD478\uC2DC \uBC1C\uC1A1 \uC911 \uC54C \uC218 \uC5C6\uB294 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.",
+      };
+    }
+  }
 
   if (input.isPublished && input.sendNotification) {
     try {
+      const plainTextContent = richTextToPlainText(result.notice.content);
+
       await sendManualNotification({
-      adminId: input.adminId,
-      type: NotificationType.NOTICE,
-      message: `[공지] ${result.title}\n\n${result.content}`,
-      examType: noticeTargetToExamType(result.targetType),
+        adminId: input.adminId,
+        type: NotificationType.NOTICE,
+        message: `[\uACF5\uC9C0] ${result.notice.title}\n\n${plainTextContent}`,
+        examType: noticeTargetToExamType(result.notice.targetType),
         ipAddress: input.ipAddress,
       });
     } catch (error) {
       notificationError =
         error instanceof Error
           ? error.message
-          : "공지 알림 발송에 실패했습니다.";
+          : "\uACF5\uC9C0 \uC54C\uB9BC \uBC1C\uC1A1\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.";
     }
   }
 
   return {
-    notice: result,
+    notice: result.notice,
     notificationError,
+    pushSummary,
   };
 }

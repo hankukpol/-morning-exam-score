@@ -1,7 +1,13 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ExamType, ScoreSource, StudentStatus } from "@prisma/client";
-import { getStudentCumulativeAnalysis } from "../src/lib/analytics/analysis";
+import { ExamType, ScoreSource, StudentStatus, Subject } from "@prisma/client";
+import { getStudentComparisonAnalysis, getStudentCumulativeAnalysis } from "../src/lib/analytics/analysis";
+import { getGenerationCohortAnalysis } from "../src/lib/analytics/cohort-analysis";
+import { getScoreDistributionSummary } from "../src/lib/scores/distribution";
+import { NON_PLACEHOLDER_STUDENT_FILTER } from "../src/lib/students/placeholder";
+import { getSubjectDisplayLabel } from "../src/lib/constants";
+import { buildSessionDisplayColumns } from "../src/lib/exam-session-rules";
 import { getDropoutMonitor, getWeeklyStatusHistory } from "../src/lib/analytics/service";
 import { getPrisma } from "../src/lib/prisma";
 
@@ -45,7 +51,38 @@ function loadLocalEnv() {
   loadEnvFile(path.join(cwd, ".env"));
 }
 
+function testDisplaySubjectNameColumns() {
+  const examDate = new Date("2026-03-13T00:00:00.000Z");
+  const columns = buildSessionDisplayColumns([
+    {
+      id: 10,
+      periodId: 3,
+      examType: ExamType.GONGCHAE,
+      subject: Subject.CRIMINAL_LAW,
+      displaySubjectName: "?? ?? ??",
+      examDate,
+    },
+    {
+      id: 11,
+      periodId: 3,
+      examType: ExamType.GONGCHAE,
+      subject: Subject.POLICE_SCIENCE,
+      displaySubjectName: null,
+      examDate,
+    },
+  ]);
+
+  assert.equal(columns.length, 1);
+  assert.equal(columns[0]?.subject, Subject.CRIMINAL_LAW);
+  assert.equal(columns[0]?.displaySubjectName, "?? ?? ??");
+  assert.equal(
+    getSubjectDisplayLabel(columns[0].subject, columns[0].displaySubjectName),
+    "?? ?? ??",
+  );
+}
+
 async function main() {
+  testDisplaySubjectNameColumns();
   loadLocalEnv();
   const prisma = getPrisma();
 
@@ -114,6 +151,146 @@ async function main() {
     ? await getStudentCumulativeAnalysis(sampleStudent)
     : null;
 
+  const comparisonCandidates = await prisma.student.findMany({
+    where: {
+      scores: {
+        some: {},
+      },
+    },
+    select: {
+      examNumber: true,
+      examType: true,
+    },
+    orderBy: [{ examType: "asc" }, { examNumber: "asc" }],
+    take: 20,
+  });
+  let comparisonPair: { examNumberA: string; examNumberB: string } | null = null;
+
+  for (let index = 0; index < comparisonCandidates.length; index += 1) {
+    const left = comparisonCandidates[index];
+    const right = comparisonCandidates
+      .slice(index + 1)
+      .find((candidate) => candidate.examType === left?.examType);
+
+    if (left && right) {
+      comparisonPair = {
+        examNumberA: left.examNumber,
+        examNumberB: right.examNumber,
+      };
+      break;
+    }
+  }
+
+  const comparison = comparisonPair
+    ? await getStudentComparisonAnalysis({
+        ...comparisonPair,
+        recent: 5,
+      })
+    : null;
+
+  if (comparison) {
+    assert.equal(comparison.kind, "ok");
+  }
+
+  const cohortAnalysis = periodTargets[0]
+    ? await getGenerationCohortAnalysis({
+        periodId: periodTargets[0].periodId,
+        examType: periodTargets[0].examType,
+      })
+    : null;
+
+  if (cohortAnalysis && cohortAnalysis.summaryRows.length > 0) {
+    assert.ok(cohortAnalysis.summaryRows.every((row) => row.studentCount > 0));
+  }
+
+  const sampleDistributionSession = await prisma.score.findFirst({
+    where: {
+      attendType: "NORMAL",
+      finalScore: {
+        not: null,
+      },
+      student: NON_PLACEHOLDER_STUDENT_FILTER,
+      session: {
+        isCancelled: false,
+      },
+    },
+    select: {
+      sessionId: true,
+    },
+    orderBy: [{ sessionId: "desc" }],
+  });
+
+  const scoreDistribution = sampleDistributionSession
+    ? await getScoreDistributionSummary(sampleDistributionSession.sessionId)
+    : null;
+
+  if (scoreDistribution) {
+    assert.ok(scoreDistribution.totalCount >= 1);
+    assert.ok(scoreDistribution.distribution.length >= 1);
+    assert.equal(
+      scoreDistribution.distribution.reduce((sum, bucket) => sum + bucket.count, 0),
+      scoreDistribution.totalCount,
+    );
+
+    const rawDistributionRows = await prisma.score.findMany({
+      where: {
+        sessionId: scoreDistribution.sessionId,
+        attendType: "NORMAL",
+        student: NON_PLACEHOLDER_STUDENT_FILTER,
+      },
+      select: {
+        finalScore: true,
+      },
+    });
+
+    const rawValues = rawDistributionRows
+      .map((row) => row.finalScore)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+
+    const expectedMean = rawValues.reduce((sum, value) => sum + value, 0) / rawValues.length;
+    const expectedStdDev =
+      rawValues.length < 2
+        ? null
+        : Math.round(
+            Math.sqrt(
+              rawValues.reduce((sum, value) => sum + (value - expectedMean) ** 2, 0) /
+                (rawValues.length - 1),
+            ) * 10,
+          ) / 10;
+
+    assert.equal(scoreDistribution.avgScore, Math.round(expectedMean * 10) / 10);
+    assert.equal(scoreDistribution.stdDev, expectedStdDev);
+
+    const expectedBuckets = scoreDistribution.distribution.map((bucket) => ({
+      range: bucket.range,
+      count: 0,
+    }));
+
+    for (const value of rawValues) {
+      const index = Math.min(Math.floor(Math.max(0, value) / 10), expectedBuckets.length - 1);
+      const bucket = expectedBuckets[index];
+      if (bucket) {
+        bucket.count += 1;
+      }
+    }
+
+    assert.deepEqual(scoreDistribution.distribution, expectedBuckets);
+  }
+
+  const cancelledDistributionSession = await prisma.examSession.findFirst({
+    where: {
+      isCancelled: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (cancelledDistributionSession) {
+    await assert.rejects(() => getScoreDistributionSummary(cancelledDistributionSession.id));
+  }
+
+  await assert.rejects(() => getScoreDistributionSummary(-1));
   const migrationOxSummary = await prisma.score.aggregate({
     where: {
       sourceType: ScoreSource.MIGRATION,
@@ -187,6 +364,49 @@ async function main() {
               })),
             }
           : null,
+        sampleComparison:
+          comparison && comparison.kind === "ok"
+            ? {
+                studentA: comparison.data.studentA.student.examNumber,
+                studentB: comparison.data.studentB.student.examNumber,
+                selectedPeriod: comparison.data.selectedPeriod?.name ?? null,
+                recentCount: comparison.data.recentCount,
+                subjectRowCount: comparison.data.subjectRows.length,
+                firstSubjectRows: comparison.data.subjectRows.slice(0, 3).map((row) => ({
+                  subject: row.subject,
+                  studentAAverage: row.studentAAverage,
+                  studentBAverage: row.studentBAverage,
+                  averageDelta: row.averageDelta,
+                })),
+              }
+            : null,
+        sampleCohort:
+          cohortAnalysis
+            ? {
+                periodId: cohortAnalysis.periodId,
+                periodName: cohortAnalysis.periodName,
+                cohortCount: cohortAnalysis.cohortCount,
+                studentCount: cohortAnalysis.studentCount,
+                sessionCount: cohortAnalysis.sessionCount,
+                firstRows: cohortAnalysis.summaryRows.slice(0, 3).map((row) => ({
+                  label: row.label,
+                  studentCount: row.studentCount,
+                  averageScore: row.averageScore,
+                  attendanceRate: row.attendanceRate,
+                  dropoutRate: row.dropoutRate,
+                })),
+              }
+            : null,
+        sampleScoreDistribution:
+          scoreDistribution
+            ? {
+                sessionId: scoreDistribution.sessionId,
+                totalCount: scoreDistribution.totalCount,
+                avgScore: scoreDistribution.avgScore,
+                top10Threshold: scoreDistribution.top10Threshold,
+                firstBins: scoreDistribution.distribution.slice(0, 5),
+              }
+            : null,
         migrationOxSummary: {
           totalRowsWithOx: migrationOxSummary._count._all,
           samples: migrationOxSamples.map((row) => ({

@@ -14,6 +14,7 @@ import {
   ABSENCE_CATEGORY_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
+import { AbsenceNoteAttachmentPanel, type AbsenceNoteAttachmentRecord } from "@/components/absence-notes/absence-note-attachment-panel";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { formatDate, formatDateTime, todayDateInputValue } from "@/lib/format";
@@ -56,6 +57,7 @@ type AbsenceNoteRecord = {
       name: string;
     };
   };
+  attachments: AbsenceNoteAttachmentRecord[];
 };
 
 type SortColumn = "examNumber" | "status" | "absenceCategory" | "examDate" | "submittedAt" | "attendCountsAsAttendance" | "attendGrantsPerfectAttendance";
@@ -101,6 +103,56 @@ const STATUS_SORT_ORDER: Record<AbsenceStatus, number> = {
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const PAGE_SIZE = 20;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ATTACHMENT_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
+
+function getAttachmentFileKey(file: File) {
+  return `${file.name.toLowerCase()}:${file.size}:${file.lastModified}`;
+}
+
+function validateAttachmentFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  const hasSupportedExtension = ATTACHMENT_EXTENSIONS.some((extension) =>
+    lowerName.endsWith(extension),
+  );
+
+  if (!hasSupportedExtension) {
+    return `${file.name}: PDF, JPG, JPEG, PNG 파일만 첨부할 수 있습니다.`;
+  }
+
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    return `${file.name}: 5MB 이하 파일만 첨부할 수 있습니다.`;
+  }
+
+  return null;
+}
+
+function mergeAttachmentFiles(currentFiles: File[], nextFiles: FileList | null) {
+  const merged = [...currentFiles];
+  const keys = new Set(currentFiles.map((file) => getAttachmentFileKey(file)));
+  const errors: string[] = [];
+
+  for (const file of Array.from(nextFiles ?? [])) {
+    const error = validateAttachmentFile(file);
+    if (error) {
+      errors.push(error);
+      continue;
+    }
+
+    const key = getAttachmentFileKey(file);
+    if (keys.has(key)) {
+      continue;
+    }
+
+    keys.add(key);
+    merged.push(file);
+  }
+
+  return {
+    files: merged,
+    errors,
+  };
+}
 
 function booleanFromFormData(formData: FormData, key: string) {
   return formData.get(key) === "on";
@@ -139,6 +191,7 @@ export function AbsenceNoteManager({
   const [createCategory, setCreateCategory] = useState<AbsenceCategory>(AbsenceCategory.OTHER);
   const [createReason, setCreateReason] = useState("");
   const [createAdminNote, setCreateAdminNote] = useState("");
+  const [createAttachments, setCreateAttachments] = useState<File[]>([]);
   const [createCountsAsAttendance, setCreateCountsAsAttendance] = useState(false);
   const [createPerfectAttendance, setCreatePerfectAttendance] = useState(false);
   const [createPolicyId, setCreatePolicyId] = useState("");
@@ -175,6 +228,7 @@ export function AbsenceNoteManager({
   const completionModal = useActionModalState();
   const [selectedNoteIds, setSelectedNoteIds] = useState<number[]>([]);
   const [selectedNote, setSelectedNote] = useState<AbsenceNoteRecord | null>(null);
+  const [drawerAttachments, setDrawerAttachments] = useState<File[]>([]);
   const drawerFormRef = useRef<HTMLFormElement>(null);
 
   // ── 정렬 / 페이지 ─────────────────────────────────────────
@@ -209,6 +263,16 @@ export function AbsenceNoteManager({
       setCreateSessionId(String(filteredSessions[0].id));
     }
   }, [createSessionId, filteredSessions]);
+
+  useEffect(() => {
+    if (createMode === "bulk" && createAttachments.length > 0) {
+      setCreateAttachments([]);
+    }
+  }, [createAttachments.length, createMode]);
+
+  useEffect(() => {
+    setDrawerAttachments([]);
+  }, [selectedNote?.id]);
 
   const isWeekdayBulkReady = Boolean(bulkDateFrom) && Boolean(bulkDateTo) && bulkWeekdays.length > 0;
 
@@ -299,6 +363,13 @@ export function AbsenceNoteManager({
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
+  const paginatedSelectableIds = paginatedNotes
+    .filter((note) => note.status !== AbsenceStatus.APPROVED)
+    .map((note) => note.id);
+
+  useEffect(() => {
+    setSelectedNoteIds([]);
+  }, [currentPage, sortBy, sortOrder]);
 
   function toggleSort(column: SortColumn) {
     if (sortBy === column) {
@@ -325,17 +396,175 @@ export function AbsenceNoteManager({
     setErrorMessage(nextError);
   }
 
-  function reloadPage(message: string, title = "??? ?? ??", details: string[] = []) {
+  function reloadPage(message: string, title = "작업 완료", details: string[] = []) {
     setNotice(null);
     setErrorMessage(null);
     completionModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "완료",
       badgeTone: "success",
       title,
       description: message,
       details,
-      confirmLabel: "??",
+      confirmLabel: "확인",
       onClose: () => window.location.reload(),
+    });
+  }
+
+  function openAttachmentPartialSuccess(details: string[], reloadOnClose = false) {
+    completionModal.openModal({
+      badgeLabel: "일부 완료",
+      badgeTone: "warning",
+      title: "일부 첨부만 처리되었습니다",
+      description: "사유서는 저장했지만 일부 첨부 파일 처리에 실패했습니다.",
+      details,
+      confirmLabel: "확인",
+      onClose: reloadOnClose ? () => window.location.reload() : undefined,
+    });
+  }
+
+  async function requestFormData(url: string, formData: FormData, method = "POST") {
+    const response = await fetch(url, {
+      method,
+      body: formData,
+      cache: "no-store",
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error ?? "첨부 업로드에 실패했습니다.");
+    return payload;
+  }
+
+  function handleAttachmentSelection(
+    files: FileList | null,
+    currentFiles: File[],
+    setFiles: (files: File[]) => void,
+  ) {
+    const next = mergeAttachmentFiles(currentFiles, files);
+    setFiles(next.files);
+
+    if (next.errors.length > 0) {
+      setMessage(null, next.errors.join(" "));
+      return;
+    }
+
+    setMessage(null, null);
+  }
+
+  function handleCreateAttachmentSelection(files: FileList | null) {
+    handleAttachmentSelection(files, createAttachments, setCreateAttachments);
+  }
+
+  function handleDrawerAttachmentSelection(files: FileList | null) {
+    handleAttachmentSelection(files, drawerAttachments, setDrawerAttachments);
+  }
+
+  function removeCreateAttachment(index: number) {
+    setCreateAttachments((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function removeDrawerAttachment(index: number) {
+    setDrawerAttachments((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  async function uploadAttachments(noteId: number, files: File[]) {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+    const payload = await requestFormData(`/api/absence-notes/${noteId}/attachments`, formData);
+    return {
+      attachments: (payload.attachments ?? []) as AbsenceNoteAttachmentRecord[],
+      failed: (payload.failed ?? []) as Array<{ fileName: string; message: string }>,
+    };
+  }
+
+  function downloadAttachment(noteId: number, attachmentId: number) {
+    window.open(
+      `/api/absence-notes/${noteId}/attachments/${attachmentId}/download`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  function uploadDrawerAttachments() {
+    if (!selectedNote || drawerAttachments.length === 0) {
+      return;
+    }
+
+    setMessage(null, null);
+    startTransition(async () => {
+      try {
+        const uploadResult = await uploadAttachments(selectedNote.id, drawerAttachments);
+        setSelectedNote((current) =>
+          current
+            ? {
+                ...current,
+                attachments: [...current.attachments, ...uploadResult.attachments],
+              }
+            : current,
+        );
+
+        if (uploadResult.failed.length > 0) {
+          const failedNames = new Set(uploadResult.failed.map((item) => item.fileName));
+          setDrawerAttachments((current) => current.filter((file) => failedNames.has(file.name)));
+          openAttachmentPartialSuccess(
+            uploadResult.failed.map((item) => `${item.fileName}: ${item.message}`),
+          );
+          return;
+        }
+
+        setDrawerAttachments([]);
+        setNotice("첨부 파일을 업로드했습니다.");
+      } catch (error) {
+        setMessage(null, error instanceof Error ? error.message : "첨부 업로드에 실패했습니다.");
+      }
+    });
+  }
+
+  function removeAttachment(attachment: AbsenceNoteAttachmentRecord) {
+    if (!selectedNote) {
+      return;
+    }
+
+    confirmModal.openModal({
+      badgeLabel: "첨부 삭제",
+      badgeTone: "warning",
+      title: "첨부 파일을 삭제할까요?",
+      description: `${attachment.originalFileName} 파일이 사유서에서 제거됩니다.`,
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
+      confirmTone: "danger",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setMessage(null, null);
+        startTransition(async () => {
+          try {
+            const response = await fetch(
+              `/api/absence-notes/${selectedNote.id}/attachments/${attachment.id}`,
+              {
+                method: "DELETE",
+                cache: "no-store",
+              },
+            );
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload.error ?? "첨부 삭제에 실패했습니다.");
+            }
+            setSelectedNote((current) =>
+              current
+                ? {
+                    ...current,
+                    attachments: current.attachments.filter((item) => item.id !== attachment.id),
+                  }
+                : current,
+            );
+            if (payload.storageCleanupError) {
+              openAttachmentPartialSuccess([payload.storageCleanupError]);
+              return;
+            }
+            setNotice("첨부 파일을 삭제했습니다.");
+          } catch (error) {
+            setMessage(null, error instanceof Error ? error.message : "첨부 삭제에 실패했습니다.");
+          }
+        });
+      },
     });
   }
 
@@ -344,7 +573,7 @@ export function AbsenceNoteManager({
     setMessage(null, null);
     startTransition(async () => {
       try {
-        await requestJson("/api/absence-notes", {
+        const createdNote = await requestJson("/api/absence-notes", {
           method: "POST",
           body: JSON.stringify({
             examNumber: createExamNumber,
@@ -357,10 +586,42 @@ export function AbsenceNoteManager({
             adminNote: createAdminNote,
           }),
         });
+
+        const completionDetails: string[] = [];
+        if (createAttachments.length > 0) {
+          try {
+            const uploadResult = await uploadAttachments(createdNote.id, createAttachments);
+            if (uploadResult.attachments.length > 0) {
+              completionDetails.push(`첨부 ${uploadResult.attachments.length}건 업로드 완료`);
+            }
+            if (uploadResult.failed.length > 0) {
+              setCreateAttachments([]);
+              openAttachmentPartialSuccess(
+                [
+                  ...completionDetails,
+                  ...uploadResult.failed.map((item) => `${item.fileName}: ${item.message}`),
+                ],
+                true,
+              );
+              return;
+            }
+          } catch (attachmentError) {
+            setCreateAttachments([]);
+            openAttachmentPartialSuccess(
+              [attachmentError instanceof Error ? attachmentError.message : "첨부 업로드에 실패했습니다."],
+              true,
+            );
+            return;
+          }
+        }
+
+        setCreateAttachments([]);
         reloadPage(
           createCategory === AbsenceCategory.MILITARY
             ? "사유서를 등록하고 예비군 자동승인을 적용했습니다."
             : "사유서를 등록했습니다.",
+          "등록 완료",
+          completionDetails,
         );
       } catch (error) {
         setMessage(null, error instanceof Error ? error.message : "사유서 등록에 실패했습니다.");
@@ -407,11 +668,11 @@ export function AbsenceNoteManager({
   // ── 드로어 회차 변경 ──────────────────────────────────────
   function changeNoteSession(noteId: number) {
     if (!changeSessionTargetId) {
-      setMessage(null, "??? ??? ?????.");
+      setMessage(null, "변경할 회차를 선택해 주세요.");
       return;
     }
     if (changeSessionTargetId === String(selectedNote?.sessionId)) {
-      setMessage(null, "?? ??? ?????.");
+      setMessage(null, "현재 회차와 같은 회차는 선택할 수 없습니다.");
       return;
     }
     const isApproved = selectedNote?.status === AbsenceStatus.APPROVED;
@@ -426,25 +687,25 @@ export function AbsenceNoteManager({
           });
           reloadPage(
             isApproved
-              ? "??? ??????. ??? ?????? ??????."
-              : "??? ??? ??????.",
-            "?? ?? ??",
-            isApproved ? ["?? ??? ??? ???????."] : [],
+              ? "회차를 변경했습니다. 승인 상태는 대기로 초기화됩니다."
+              : "회차를 변경했습니다.",
+            "회차 변경 완료",
+            isApproved ? ["승인된 사유서는 회차 변경 시 다시 검토해야 합니다."] : [],
           );
         } catch (error) {
-          setMessage(null, error instanceof Error ? error.message : "?? ??? ??????.");
+          setMessage(null, error instanceof Error ? error.message : "회차 변경에 실패했습니다.");
         }
       });
     };
 
     if (isApproved) {
       confirmModal.openModal({
-        badgeLabel: "?? ?? ??",
+        badgeLabel: "승인된 사유서",
         badgeTone: "warning",
-        title: "??? ??? ?? ??",
-        description: "??? ???? ??? ???? ??? ???? ?? ??? ?????. ?????????",
-        cancelLabel: "??",
-        confirmLabel: "?? ??",
+        title: "회차를 변경할까요?",
+        description: "승인된 사유서를 다른 회차로 옮기면 승인 상태가 취소되고 다시 검토 대기로 돌아갑니다.",
+        cancelLabel: "취소",
+        confirmLabel: "회차 변경",
         onConfirm: () => {
           confirmModal.closeModal();
           execute();
@@ -517,12 +778,12 @@ export function AbsenceNoteManager({
 
   function revertNote(noteId: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "승인 취소",
       badgeTone: "warning",
-      title: "??? ?? ??",
-      description: "??? ???? ?? ??? ????????? EXCUSED ??? ?? ?????.",
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "승인을 취소할까요?",
+      description: "승인을 취소하면 해당 회차의 출결 기록이 EXCUSED 상태에서 원래 값으로 되돌아갈 수 있습니다.",
+      cancelLabel: "취소",
+      confirmLabel: "승인 취소",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -533,9 +794,9 @@ export function AbsenceNoteManager({
               method: "PUT",
               body: JSON.stringify({ action: "revert" }),
             });
-            reloadPage("??? ??? ??????.", "?? ?? ??");
+            reloadPage("승인을 취소했습니다.", "승인 취소 완료");
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : "?? ??? ??????.");
+            setMessage(null, error instanceof Error ? error.message : "승인 취소에 실패했습니다.");
           }
         });
       },
@@ -543,13 +804,13 @@ export function AbsenceNoteManager({
   }
 
   function bulkReview(action: "approve" | "reject") {
-    const label = action === "approve" ? "??" : "??";
+    const label = action === "approve" ? "승인" : "반려";
     confirmModal.openModal({
-      badgeLabel: `${label} ??`,
+      badgeLabel: `${label} 일괄`,
       badgeTone: "warning",
-      title: `??? ?? ${label}`,
-      description: `??? ${selectedNoteIds.length}?? ?? ${label}???????`,
-      cancelLabel: "??",
+      title: `선택한 사유서를 ${label}할까요?`,
+      description: `선택한 ${selectedNoteIds.length}건을 ${label} 처리합니다.`,
+      cancelLabel: "취소",
       confirmLabel: label,
       onConfirm: () => {
         confirmModal.closeModal();
@@ -561,11 +822,11 @@ export function AbsenceNoteManager({
               body: JSON.stringify({ action, ids: selectedNoteIds }),
             });
             reloadPage(
-              `${result.succeeded}? ${label} ??${result.failed > 0 ? `, ${result.failed}? ??` : ""}`,
-              `??? ?? ${label} ??`,
+              `${result.succeeded}건 ${label} 완료${result.failed > 0 ? `, ${result.failed}건 실패` : ""}`,
+              `일괄 ${label} 완료`,
             );
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : `${label} ??? ??????.`);
+            setMessage(null, error instanceof Error ? error.message : `${label} 처리에 실패했습니다.`);
           }
         });
       },
@@ -574,12 +835,12 @@ export function AbsenceNoteManager({
 
   function removeNote(noteId: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제",
       badgeTone: "warning",
-      title: "??? ??",
-      description: "???? ????????? ??? ???? EXCUSED ??? ?? ?????.",
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "사유서를 삭제할까요?",
+      description: "삭제하면 첨부와 승인 결과까지 함께 정리되며 되돌릴 수 없습니다.",
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -587,9 +848,9 @@ export function AbsenceNoteManager({
         startTransition(async () => {
           try {
             await requestJson(`/api/absence-notes/${noteId}`, { method: "DELETE" });
-            reloadPage("???? ??????.", "??? ?? ??");
+            reloadPage("사유서를 삭제했습니다.", "삭제 완료");
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : "??? ??? ??????.");
+            setMessage(null, error instanceof Error ? error.message : "사유서 삭제에 실패했습니다.");
           }
         });
       },
@@ -603,8 +864,9 @@ export function AbsenceNoteManager({
     else reviewNote(selectedNote.id, formData, action);
   }
 
-  const allSelectableIds = notes.filter((n) => n.status !== AbsenceStatus.APPROVED).map((n) => n.id);
-  const allSelectableSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedNoteIds.includes(id));
+  const allSelectableSelected =
+    paginatedSelectableIds.length > 0 &&
+    paginatedSelectableIds.every((id) => selectedNoteIds.includes(id));
   const pendingCount = notes.filter((n) => n.status === AbsenceStatus.PENDING).length;
   const rejectedCount = notes.filter((n) => n.status === AbsenceStatus.REJECTED).length;
   const selectedStudent = students.find((s) => s.examNumber === createExamNumber);
@@ -739,17 +1001,35 @@ export function AbsenceNoteManager({
             placeholder="내부 확인 메모"
           />
         </div>
-      </>
-    );
+
+        {createMode === "single" ? (
+          <div className="mt-4">
+            <AbsenceNoteAttachmentPanel
+              title="첨부 파일"
+              description="등록과 함께 사유서 증빙 파일을 첨부할 수 있습니다."
+              emptyMessage="등록 후 첨부된 파일이 여기에 표시됩니다."
+              selectedFiles={createAttachments}
+              existingAttachments={[]}
+              disabled={isPending}
+              onFilesSelected={handleCreateAttachmentSelection}
+              onRemoveSelected={removeCreateAttachment}
+            />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-dashed border-ink/10 px-4 py-4 text-sm text-slate">
+            첨부 파일은 단건 등록에서만 지원됩니다. 먼저 사유서를 등록한 뒤 검토 드로어에서 추가할 수도 있습니다.
+          </div>
+        )}
+      </>    );
   }
 
   return (
     <div className="space-y-8">
       {notice ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div>
+        <div role="status" aria-live="polite" className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div>
       ) : null}
       {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
+        <div role="alert" aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
       ) : null}
 
       {shouldShowCreateSection ? (
@@ -1046,34 +1326,6 @@ export function AbsenceNoteManager({
               </span>
             )}
           </div>
-          {selectedNoteIds.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-slate">{selectedNoteIds.length}건 선택됨</span>
-              <button
-                type="button"
-                onClick={() => bulkReview("approve")}
-                disabled={isPending}
-                className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
-              >
-                선택 승인
-              </button>
-              <button
-                type="button"
-                onClick={() => bulkReview("reject")}
-                disabled={isPending}
-                className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                선택 반려
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedNoteIds([])}
-                className="text-sm text-slate underline"
-              >
-                선택 취소
-              </button>
-            </div>
-          )}
         </div>
 
         {notes.length === 0 ? (
@@ -1084,15 +1336,17 @@ export function AbsenceNoteManager({
           <>
             <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10">
               <table className="w-full text-sm">
+                <caption className="sr-only">Absence note review table with bulk selection and status columns.</caption>
                 <thead>
                   <tr className="border-b border-ink/10 bg-mist/60 text-left text-xs font-semibold text-slate">
                     <th className="w-10 px-4 py-3">
                       <input
                         type="checkbox"
                         className="h-4 w-4 cursor-pointer"
+                        aria-label="Select all pending or rejected absence notes on this page"
                         checked={allSelectableSelected}
-                        disabled={allSelectableIds.length === 0}
-                        onChange={(e) => setSelectedNoteIds(e.target.checked ? allSelectableIds : [])}
+                        disabled={paginatedSelectableIds.length === 0}
+                        onChange={(e) => setSelectedNoteIds(e.target.checked ? paginatedSelectableIds : [])}
                         title="대기·반려 항목 전체 선택"
                       />
                     </th>
@@ -1139,6 +1393,7 @@ export function AbsenceNoteManager({
                             <input
                               type="checkbox"
                               className="h-4 w-4 cursor-pointer"
+                              aria-label={`${note.examNumber} absence note`}
                               checked={selectedNoteIds.includes(note.id)}
                               onChange={(e) =>
                                 setSelectedNoteIds((current) =>
@@ -1220,8 +1475,41 @@ export function AbsenceNoteManager({
       </section>
       ) : null}
 
-      {shouldShowGuidanceSection ? (
-        <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
+      {selectedNoteIds.length > 0 ? <div className="h-24" /> : null}
+      {selectedNoteIds.length > 0 ? (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-white/95 px-4 py-3 shadow-lg backdrop-blur lg:left-[260px] sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">{selectedNoteIds.length}건 선택됨</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => bulkReview("approve")}
+                disabled={isPending}
+                className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+              >
+                선택 승인
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkReview("reject")}
+                disabled={isPending}
+                className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                선택 반려
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedNoteIds([])}
+                className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-slate transition hover:border-ink/30 hover:text-ink"
+              >
+                선택 해제
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {shouldShowGuidanceSection ? (        <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">운영 안내</h2>
@@ -1357,6 +1645,31 @@ export function AbsenceNoteManager({
                   </div>
                 </form>
 
+                <div className="mt-6 space-y-3">
+                  <AbsenceNoteAttachmentPanel
+                    title="첨부 파일"
+                    description="파일을 추가로 올리거나 기존 첨부를 내려받을 수 있습니다."
+                    emptyMessage="등록된 첨부가 없습니다."
+                    selectedFiles={drawerAttachments}
+                    existingAttachments={selectedNote.attachments}
+                    disabled={isPending || selectedNote.status === AbsenceStatus.APPROVED}
+                    canDeleteExisting={selectedNote.status !== AbsenceStatus.APPROVED}
+                    onFilesSelected={handleDrawerAttachmentSelection}
+                    onRemoveSelected={removeDrawerAttachment}
+                    onDeleteExisting={removeAttachment}
+                    onDownloadExisting={(attachment) => downloadAttachment(selectedNote.id, attachment.id)}
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={uploadDrawerAttachments}
+                      disabled={isPending || selectedNote.status === AbsenceStatus.APPROVED || drawerAttachments.length === 0}
+                      className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      첨부 업로드
+                    </button>
+                  </div>
+                </div>
                 {/* 회차 변경 섹션 */}
                 <div className="mt-6 rounded-2xl border border-ink/10 p-4">
                   <h4 className="text-sm font-semibold">회차 변경</h4>
@@ -1475,7 +1788,7 @@ export function AbsenceNoteManager({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -1488,7 +1801,7 @@ export function AbsenceNoteManager({
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Subject, StudentStatus } from "@prisma/client";
 import { SUBJECT_LABEL, ATTEND_TYPE_LABEL } from "@/lib/constants";
-import { TrendLineChart, BarComparisonChart, RadarComparisonChart } from "@/components/analytics/charts";
+import { TrendLineChart, BarComparisonChart, RadarComparisonChart, ScoreTimelineChart } from "@/components/analytics/charts";
+import { formatScore } from "@/lib/analytics/presentation";
 import type { CumulativeAnalysisData } from "@/lib/analytics/analysis";
 
 const STATUS_LABEL: Record<StudentStatus, string> = {
@@ -35,6 +36,74 @@ function TrendIcon({ trend }: { trend: "up" | "down" | "flat" }) {
   return <span className="text-slate-400">—</span>;
 }
 
+function historyAttendLabel(attendType: string | null) {
+  if (!attendType) {
+    return "미응시";
+  }
+
+  return ATTEND_TYPE_LABEL[attendType as keyof typeof ATTEND_TYPE_LABEL] ?? attendType;
+}
+
+function historyToneClass(attendType: string | null, hasScore: boolean) {
+  if (!hasScore && attendType === "ABSENT") {
+    return "border-red-200 bg-red-50/60";
+  }
+
+  if (!hasScore && attendType === "EXCUSED") {
+    return "border-amber-200 bg-amber-50/60";
+  }
+
+  if (!hasScore) {
+    return "border-ink/10 bg-mist/30";
+  }
+
+  return "border-ink/10 bg-white";
+}
+
+const TIMELINE_STATUS_COLOR: Record<StudentStatus, string> = {
+  NORMAL: "#94A3B8",
+  WARNING_1: "#CA8A04",
+  WARNING_2: "#EA580C",
+  DROPOUT: "#DC2626",
+};
+
+const TIMELINE_EVENT_META = [
+  { dataKey: "LIVE", name: "라이브", color: "#0EA5E9", shape: "diamond" as const },
+  { dataKey: "EXCUSED", name: "사유 결시", color: "#F59E0B", shape: "square" as const },
+  { dataKey: "ABSENT", name: "무단 결시", color: "#DC2626", shape: "triangle" as const },
+];
+
+function formatTimelineDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
+
+function formatSignedScoreDelta(delta: number | null) {
+  if (delta === null) {
+    return "비교 없음";
+  }
+
+  return `${delta > 0 ? "+" : ""}${delta.toFixed(1)}점`;
+}
+
+function deltaBadgeClass(delta: number | null) {
+  if (delta === null) {
+    return "border-ink/10 bg-white text-slate";
+  }
+
+  if (delta > 0) {
+    return "border-green-200 bg-green-50 text-green-700";
+  }
+
+  if (delta < 0) {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
 type Props = {
   data: CumulativeAnalysisData;
 };
@@ -50,16 +119,23 @@ export function StudentCumulativeAnalysis({ data }: Props) {
     trendBySubject.set(entry.subject, list);
   }
 
-  // Build all unique labels for the trend chart (date-based)
-  const uniqueLabels = Array.from(new Set(trend.map((t) => t.label)));
+  // Build unique axis keys for the trend chart to avoid merging distinct sessions.
+  const trendGroupKeys = Array.from(new Set(trend.map((entry) => `${entry.date}|${entry.periodId}|${entry.week}`)));
 
-  // Build trend chart data: each row has label + one key per subject
-  const trendChartData = uniqueLabels.map((label) => {
-    const row: Record<string, string | number | null> = { label };
+  // Build trend chart data: each row has a unique axis key plus one key per subject.
+  const trendChartData = trendGroupKeys.map((groupKey) => {
+    const entries = trend.filter((entry) => `${entry.date}|${entry.periodId}|${entry.week}` === groupKey);
+    const firstEntry = entries[0];
+    const row: Record<string, string | number | null> = {
+      axisKey: groupKey,
+      label: firstEntry?.label ?? groupKey,
+    };
+
     for (const subject of Array.from(trendBySubject.keys())) {
-      const entry = trend.find((t) => t.label === label && t.subject === subject);
+      const entry = entries.find((candidate) => candidate.subject === subject);
       row[subject] = entry?.finalScore ?? null;
     }
+
     return row;
   });
 
@@ -69,6 +145,257 @@ export function StudentCumulativeAnalysis({ data }: Props) {
     name: SUBJECT_LABEL[subject],
   }));
 
+  const timelineGroupKeys = trendGroupKeys;
+
+  const timelinePoints = timelineGroupKeys.map((groupKey) => {
+    const entries = trend.filter((entry) => `${entry.date}|${entry.periodId}|${entry.week}` === groupKey);
+    const firstEntry = entries[0];
+    const scoredEntries = entries.filter((entry) => entry.finalScore !== null);
+    const attendSummary = Array.from(new Set(entries.map((entry) => historyAttendLabel(entry.attendType)))).join(" · ");
+    const toneAttendType = entries.some((entry) => entry.attendType === "ABSENT")
+      ? "ABSENT"
+      : entries.some((entry) => entry.attendType === "EXCUSED")
+      ? "EXCUSED"
+      : entries.some((entry) => entry.attendType === "LIVE")
+      ? "LIVE"
+      : firstEntry?.attendType ?? null;
+
+    return {
+      axisKey: firstEntry ? `${firstEntry.date}-${firstEntry.periodId}-${firstEntry.week}` : groupKey,
+      label: firstEntry?.label ?? groupKey,
+      date: firstEntry?.date ?? "",
+      periodName: firstEntry?.periodName ?? "",
+      week: firstEntry?.week ?? 0,
+      metaSubtitle: firstEntry ? formatTimelineDate(firstEntry.date) : undefined,
+      metaCaption: firstEntry ? `${firstEntry.periodName} · ${firstEntry.week}주차` : undefined,
+      subjectSummary: entries.map((entry) => SUBJECT_LABEL[entry.subject]).join(" · "),
+      attendSummary,
+      averageScore:
+        scoredEntries.length > 0
+          ? scoredEntries.reduce((sum, entry) => sum + (entry.finalScore ?? 0), 0) / scoredEntries.length
+          : null,
+      topScore: scoredEntries.length > 0 ? Math.max(...scoredEntries.map((entry) => entry.finalScore ?? 0)) : null,
+      hasScore: scoredEntries.length > 0,
+      toneAttendType,
+      entryCount: entries.length,
+      entries,
+    };
+  });
+
+  const timelineChartData = timelinePoints.map((point) => {
+    const row: Record<string, string | number | boolean | null | undefined> = {
+      axisKey: point.axisKey,
+      displayLabel: point.label,
+      metaSubtitle: point.metaSubtitle,
+      metaCaption: point.metaCaption,
+    };
+
+    for (const subject of Array.from(trendBySubject.keys())) {
+      const entry = point.entries.find((candidate) => candidate.subject === subject);
+      row[subject] = entry?.finalScore ?? null;
+    }
+
+    for (const event of TIMELINE_EVENT_META) {
+      row[event.dataKey] = point.entries.some((entry) => entry.attendType === event.dataKey);
+    }
+
+    return row;
+  });
+
+  const timelineScoreLines = trendLines.map((line) => ({
+    ...line,
+    connectNulls: false,
+  }));
+
+  const timelineAttendanceEvents = TIMELINE_EVENT_META.filter((event) =>
+    trend.some((entry) => entry.attendType === event.dataKey),
+  );
+
+  const timelineAnchors = timelinePoints
+    .filter((point) => point.date)
+    .map((point) => ({
+      axisKey: point.axisKey,
+      time: new Date(point.date).getTime(),
+    }));
+
+  const timelineStatusChanges = statusHistory
+    .filter((snap) => snap.status !== "NORMAL")
+    .map((snap) => {
+      const snapTime = new Date(snap.weekStartDate).getTime();
+      const anchor =
+        timelineAnchors.find((candidate) => candidate.time >= snapTime) ?? timelineAnchors[timelineAnchors.length - 1];
+
+      if (!anchor) {
+        return null;
+      }
+
+      return {
+        xValue: anchor.axisKey,
+        name: STATUS_LABEL[snap.status],
+        color: TIMELINE_STATUS_COLOR[snap.status],
+        lineDash: snap.status === "DROPOUT" ? "3 3" : "6 4",
+      };
+    })
+    .filter(
+      (
+        item,
+        index,
+        collection,
+      ): item is { xValue: string; name: string; color: string; lineDash: string } =>
+        item !== null &&
+        collection.findIndex((candidate) => candidate?.xValue === item.xValue && candidate?.name === item.name) === index,
+    );
+
+  const recentTimelineHighlights = [...timelinePoints]
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
+    .slice(0, 6);
+  const recentStatusAlerts = [...statusHistory].filter((snap) => snap.status !== "NORMAL").slice(-4).reverse();
+  const scoredTimelineCount = trend.filter((entry) => entry.finalScore !== null).length;
+  const timelineEventCount = timelinePoints.filter((point) =>
+    TIMELINE_EVENT_META.some((event) => point.entries.some((entry) => entry.attendType === event.dataKey)),
+  ).length;
+  const statusAlertCount = statusHistory.filter((snap) => snap.status !== "NORMAL").length;
+
+  const subjectSignalRows = subjectStats.flatMap((row) => {
+    if (row.sessionCount === 0) {
+      return [];
+    }
+
+    const entries = [...trend]
+      .filter((entry) => entry.subject === row.subject)
+      .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+    const latestEntry = entries[0];
+
+    if (!latestEntry) {
+      return [];
+    }
+
+    const latestScoreIndex = entries.findIndex((entry) => entry.finalScore !== null);
+    const latestScoreEntry = latestScoreIndex >= 0 ? entries[latestScoreIndex] : null;
+    const previousScoreEntry =
+      latestScoreIndex >= 0
+        ? entries.slice(latestScoreIndex + 1).find((entry) => entry.finalScore !== null) ?? null
+        : null;
+    const delta =
+      latestScoreEntry?.finalScore != null && previousScoreEntry?.finalScore != null
+        ? latestScoreEntry.finalScore - previousScoreEntry.finalScore
+        : null;
+    const targetGap =
+      latestScoreEntry?.finalScore != null && row.target !== null
+        ? latestScoreEntry.finalScore - row.target
+        : null;
+    const signalPriority =
+      latestEntry.attendType === "ABSENT"
+        ? 50
+        : latestEntry.attendType === "EXCUSED"
+        ? 40
+        : latestEntry.attendType === "LIVE"
+        ? 30
+        : row.isWeak
+        ? 20
+        : delta !== null
+        ? Math.abs(delta)
+        : 0;
+
+    return [{
+      subject: row.subject,
+      latestLabel: latestEntry.label,
+      latestDateLabel: formatTimelineDate(latestEntry.date),
+      latestAttendLabel: historyAttendLabel(latestEntry.attendType),
+      latestAttendType: latestEntry.attendType,
+      latestRecordHasScore: latestEntry.finalScore !== null,
+      latestScore: latestScoreEntry?.finalScore ?? null,
+      delta,
+      targetGap,
+      trendText: row.trend === "up" ? "상승 추세" : row.trend === "down" ? "하락 추세" : "유지 추세",
+      signalPriority,
+    }];
+  });
+
+  const focusSubjectRows = [...subjectSignalRows]
+    .sort((left, right) => right.signalPriority - left.signalPriority)
+    .slice(0, 3);
+
+  const latestTimelinePoint = recentTimelineHighlights[0] ?? null;
+  const strongestPositiveSnapshot = [...subjectSignalRows]
+    .filter((row) => row.delta !== null && row.delta > 0)
+    .sort((left, right) => (right.delta ?? 0) - (left.delta ?? 0))[0] ?? null;
+  const strongestNegativeSnapshot = [...subjectSignalRows]
+    .filter((row) => row.delta !== null && row.delta < 0)
+    .sort((left, right) => (left.delta ?? 0) - (right.delta ?? 0))[0] ?? null;
+  const recentBestPoint = [...recentTimelineHighlights]
+    .filter((point) => point.topScore !== null)
+    .sort((left, right) => (right.topScore ?? 0) - (left.topScore ?? 0))[0] ?? null;
+  const recentAttendanceSignal = recentTimelineHighlights.find(
+    (point) => point.toneAttendType === "ABSENT" || point.toneAttendType === "EXCUSED" || point.toneAttendType === "LIVE",
+  );
+
+  const recentHighlightCards: Array<{
+    id: string;
+    title: string;
+    headline: string;
+    supporting: string;
+    caption: string;
+    toneClass: string;
+  }> = [];
+
+  if (latestTimelinePoint) {
+    recentHighlightCards.push({
+      id: "latest",
+      title: "최근 시험",
+      headline: `${formatScore(latestTimelinePoint.averageScore)}점`,
+      supporting: latestTimelinePoint.subjectSummary,
+      caption: `${latestTimelinePoint.metaSubtitle} · ${latestTimelinePoint.attendSummary}`,
+      toneClass: "border-ink/10 bg-mist/40",
+    });
+  }
+
+  if (strongestPositiveSnapshot) {
+    recentHighlightCards.push({
+      id: "rise",
+      title: "최근 상승 과목",
+      headline: SUBJECT_LABEL[strongestPositiveSnapshot.subject],
+      supporting: `직전 대비 ${formatSignedScoreDelta(strongestPositiveSnapshot.delta)}`,
+      caption: `현재 ${formatScore(strongestPositiveSnapshot.latestScore)}점 · ${strongestPositiveSnapshot.latestDateLabel}`,
+      toneClass: "border-green-200 bg-green-50/70",
+    });
+  }
+
+  if (recentBestPoint) {
+    recentHighlightCards.push({
+      id: "best",
+      title: "최근 최고점",
+      headline: `${formatScore(recentBestPoint.topScore)}점`,
+      supporting: recentBestPoint.subjectSummary,
+      caption: `${recentBestPoint.metaSubtitle} · ${recentBestPoint.periodName}`,
+      toneClass: "border-forest/20 bg-forest/5",
+    });
+  }
+
+  if (recentAttendanceSignal) {
+    recentHighlightCards.push({
+      id: "attendance",
+      title: "최근 출결 신호",
+      headline: recentAttendanceSignal.attendSummary,
+      supporting: recentAttendanceSignal.subjectSummary,
+      caption: `${recentAttendanceSignal.metaSubtitle} · ${recentAttendanceSignal.periodName}`,
+      toneClass:
+        recentAttendanceSignal.toneAttendType === "ABSENT"
+          ? "border-red-200 bg-red-50/70"
+          : recentAttendanceSignal.toneAttendType === "EXCUSED"
+          ? "border-amber-200 bg-amber-50/70"
+          : "border-sky-200 bg-sky-50/70",
+    });
+  } else if (strongestNegativeSnapshot) {
+    recentHighlightCards.push({
+      id: "drop",
+      title: "최근 하락 과목",
+      headline: SUBJECT_LABEL[strongestNegativeSnapshot.subject],
+      supporting: `직전 대비 ${formatSignedScoreDelta(strongestNegativeSnapshot.delta)}`,
+      caption: `현재 ${formatScore(strongestNegativeSnapshot.latestScore)}점 · ${strongestNegativeSnapshot.latestDateLabel}`,
+      toneClass: "border-red-200 bg-red-50/70",
+    });
+  }
   // Period comparison bar data
   const periodBarData = periods.map((p) => ({
     label: p.name.length > 6 ? p.name.slice(0, 6) + "…" : p.name,
@@ -86,6 +413,10 @@ export function StudentCumulativeAnalysis({ data }: Props) {
     }));
 
   const weakStats = subjectStats.filter((s) => s.isWeak);
+
+  const goalProgressRows = subjectStats.filter(
+    (row) => row.target !== null && row.target > 0 && row.sessionCount > 0,
+  );
 
   return (
     <div className="space-y-8">
@@ -182,7 +513,7 @@ export function StudentCumulativeAnalysis({ data }: Props) {
           <h3 className="text-xl font-semibold">전체 성적 추이</h3>
           <p className="mt-1 text-xs text-slate">전체 기간에 걸친 과목별 점수 변화</p>
           <div className="mt-4">
-            <TrendLineChart data={trendChartData} xKey="label" lines={trendLines} />
+            <TrendLineChart data={trendChartData} xKey="axisKey" xTickKey="label" lines={trendLines} />
           </div>
         </section>
 
@@ -199,6 +530,55 @@ export function StudentCumulativeAnalysis({ data }: Props) {
         </section>
       </div>
 
+      {periods.length > 0 ? (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold">기간별 성과 카드</h3>
+              <p className="mt-1 text-xs text-slate">어느 기간이 강점이었는지 평균과 응시율로 빠르게 비교합니다.</p>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            {periods.map((period) => {
+              const rate = period.sessionCount === 0 ? 0 : Math.round((period.attendedCount / period.sessionCount) * 1000) / 10;
+              const isBest = bestPeriod?.id === period.id;
+
+              return (
+                <article
+                  key={period.id}
+                  className={`rounded-[24px] border p-5 ${isBest ? "border-forest/30 bg-forest/5" : "border-ink/10 bg-mist/30"}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-semibold text-ink">{period.name}</p>
+                      <p className="mt-1 text-sm text-slate">응시 {period.attendedCount} / {period.sessionCount}회</p>
+                    </div>
+                    {isBest ? (
+                      <span className="rounded-full border border-forest/20 bg-white px-3 py-1 text-xs font-semibold text-forest">
+                        최고 구간
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-5 h-2 overflow-hidden rounded-full bg-ink/10">
+                    <div className="h-full rounded-full bg-ink" style={{ width: `${Math.max(0, Math.min(rate, 100))}%` }} />
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate">평균</p>
+                      <p className="mt-1 font-semibold text-ink">{formatScore(period.avg)}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate">응시율</p>
+                      <p className="mt-1 font-semibold text-ink">{rate.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {/* Radar chart */}
       {radarData.length > 0 && (
         <section className="rounded-[28px] border border-ink/10 bg-white p-6">
@@ -209,6 +589,69 @@ export function StudentCumulativeAnalysis({ data }: Props) {
           </div>
         </section>
       )}
+
+      {goalProgressRows.length > 0 ? (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold">과목별 목표 달성 현황</h3>
+              <p className="mt-1 text-xs text-slate">누적 평균과 목표 점수 차이를 함께 확인합니다.</p>
+            </div>
+            <Link
+              prefetch={false}
+              href={`/admin/students/${student.examNumber}?tab=counseling`}
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              목표 점수 조정
+            </Link>
+          </div>
+          <div className="mt-6 space-y-4">
+            {goalProgressRows.map((row) => {
+              const achievementRate = row.avg !== null && row.target ? (row.avg / row.target) * 100 : null;
+              const cappedWidth = achievementRate !== null ? Math.max(0, Math.min(achievementRate, 100)) : 0;
+              const gap = row.avg !== null && row.target !== null ? row.avg - row.target : null;
+              const barClass =
+                achievementRate === null
+                  ? "bg-slate/20"
+                  : achievementRate >= 100
+                  ? "bg-forest"
+                  : achievementRate >= 80
+                  ? "bg-amber-500"
+                  : "bg-ember";
+
+              return (
+                <article key={row.subject} className="rounded-[24px] border border-ink/10 bg-mist/30 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-semibold">{SUBJECT_LABEL[row.subject]}</p>
+                      <p className="mt-2 text-sm text-slate">
+                        현재 {formatScore(row.avg)}점 · 목표 {formatScore(row.target)}점
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate">달성률</p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {achievementRate !== null ? `${achievementRate.toFixed(1)}%` : "-"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-ink/10">
+                    <div className={`h-full rounded-full ${barClass}`} style={{ width: `${cappedWidth}%` }} />
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className={gap !== null && gap >= 0 ? "font-semibold text-forest" : "font-semibold text-ember"}>
+                      {gap === null ? "비교 불가" : `${gap >= 0 ? "+" : ""}${gap.toFixed(1)}점`}
+                    </span>
+                    <span className="text-slate">
+                      {row.trend === "up" ? "상승 추세" : row.trend === "down" ? "하락 추세" : "유지 추세"}
+                    </span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {/* Subject stats table */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
@@ -232,10 +675,10 @@ export function StudentCumulativeAnalysis({ data }: Props) {
                 <tr key={row.subject} className={row.isWeak ? "bg-red-50/40" : undefined}>
                   <td className="px-4 py-3 font-medium">{SUBJECT_LABEL[row.subject]}</td>
                   <td className="px-4 py-3">{row.scoredCount} / {row.sessionCount}회</td>
-                  <td className="px-4 py-3 font-semibold">{row.avg !== null ? row.avg.toFixed(1) : "-"}</td>
-                  <td className="px-4 py-3">{row.target ?? "-"}</td>
-                  <td className="px-4 py-3">{row.highest ?? "-"}</td>
-                  <td className="px-4 py-3">{row.lowest ?? "-"}</td>
+                  <td className="px-4 py-3 font-semibold">{formatScore(row.avg)}</td>
+                  <td className="px-4 py-3">{formatScore(row.target)}</td>
+                  <td className="px-4 py-3">{formatScore(row.highest)}</td>
+                  <td className="px-4 py-3">{formatScore(row.lowest)}</td>
                   <td className="px-4 py-3"><TrendIcon trend={row.trend} /></td>
                   <td className="px-4 py-3">
                     {row.isWeak ? (
@@ -271,7 +714,7 @@ export function StudentCumulativeAnalysis({ data }: Props) {
                 <div className="mt-2 flex items-center gap-3 text-sm">
                   <div>
                     <span className="text-slate">현재 평균</span>
-                    <p className="text-xl font-bold text-red-600">{s.avg?.toFixed(1) ?? "-"}</p>
+                    <p className="text-xl font-bold text-red-600">{formatScore(s.avg)}</p>
                   </div>
                   <div className="text-slate/40 text-2xl">→</div>
                   <div>
@@ -339,59 +782,192 @@ export function StudentCumulativeAnalysis({ data }: Props) {
         </section>
       )}
 
-      {/* Score history table */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
-        <h3 className="text-xl font-semibold">전체 성적 이력</h3>
-        <p className="mt-1 text-xs text-slate">모든 기간의 응시 기록</p>
-        <div className="mt-4 overflow-x-auto rounded-[24px] border border-ink/10">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">기간</th>
-                <th className="px-4 py-3 font-semibold">날짜</th>
-                <th className="px-4 py-3 font-semibold">주차</th>
-                <th className="px-4 py-3 font-semibold">과목</th>
-                <th className="px-4 py-3 font-semibold">점수</th>
-                <th className="px-4 py-3 font-semibold">응시 유형</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {trend.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate">
-                    성적 데이터가 없습니다.
-                  </td>
-                </tr>
-              ) : null}
-              {trend.map((entry, i) => (
-                <tr
-                  key={i}
-                  className={
-                    entry.finalScore === null
-                      ? "opacity-50"
-                      : undefined
-                  }
-                >
-                  <td className="px-4 py-3 text-xs text-slate">{entry.periodName}</td>
-                  <td className="px-4 py-3">
-                    {new Date(entry.date).toLocaleDateString("ko-KR", {
-                      month: "numeric",
-                      day: "numeric",
-                    })}
-                  </td>
-                  <td className="px-4 py-3">{entry.week}주차</td>
-                  <td className="px-4 py-3">{SUBJECT_LABEL[entry.subject]}</td>
-                  <td className="px-4 py-3 font-semibold">
-                    {entry.finalScore !== null ? entry.finalScore : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {entry.attendType ? (ATTEND_TYPE_LABEL[entry.attendType as keyof typeof ATTEND_TYPE_LABEL] ?? entry.attendType) : "미응시"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-semibold">전체 성적 타임라인</h3>
+            <p className="mt-1 text-xs text-slate">
+              실선은 과목 점수, 하단 마커는 출결 이벤트, 세로선은 경고와 탈락 변화를 함께 보여줍니다.
+            </p>
+          </div>
+          <Link
+            prefetch={false}
+            href={`/admin/students/${student.examNumber}?tab=history`}
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            상세 이력으로 이동
+          </Link>
         </div>
+        {trend.length === 0 ? (
+          <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 px-5 py-10 text-center text-sm text-slate">
+            성적 데이터가 없습니다.
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[20px] border border-ink/10 bg-mist/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">누적 기록</p>
+                <p className="mt-3 text-3xl font-semibold text-ink">{trend.length}</p>
+                <p className="mt-1 text-sm text-slate">과목 단위 시험 이력</p>
+              </div>
+              <div className="rounded-[20px] border border-ink/10 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">실점수 기록</p>
+                <p className="mt-3 text-3xl font-semibold text-ink">{scoredTimelineCount}</p>
+                <p className="mt-1 text-sm text-slate">점수까지 남은 기록</p>
+              </div>
+              <div className="rounded-[20px] border border-ink/10 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">출결 이벤트</p>
+                <p className="mt-3 text-3xl font-semibold text-ember">{timelineEventCount}</p>
+                <p className="mt-1 text-sm text-slate">차트 기준 출결 이벤트 포인트</p>
+              </div>
+              <div className="rounded-[20px] border border-ink/10 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">상태 알림</p>
+                <p className="mt-3 text-3xl font-semibold text-red-600">{statusAlertCount}</p>
+                <p className="mt-1 text-sm text-slate">경고 또는 탈락 전환</p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-6">
+              <div className="rounded-[24px] border border-ink/10 bg-mist/20 p-4">
+                <div className="flex flex-wrap gap-2 text-xs text-slate">
+                  <span className="rounded-full border border-ink/10 bg-white px-3 py-1">실선: 과목별 점수 흐름</span>
+                  <span className="rounded-full border border-ink/10 bg-white px-3 py-1">마커: 라이브 · 사유 결시 · 무단 결시</span>
+                  <span className="rounded-full border border-ink/10 bg-white px-3 py-1">세로선: 경고 및 탈락 시점</span>
+                </div>
+                <div className="mt-4 overflow-x-auto pb-2">
+                  <div className="min-w-[720px]">
+                    <ScoreTimelineChart
+                      data={timelineChartData}
+                      xKey="axisKey"
+                      xTickKey="displayLabel"
+                      scoreLines={timelineScoreLines}
+                      attendanceEvents={timelineAttendanceEvents}
+                      statusChanges={timelineStatusChanges}
+                      className="h-[360px] sm:h-[420px]"
+                    />
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-slate">모바일에서는 좌우 스크롤로 전체 기간을 확인할 수 있습니다.</p>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-base font-semibold text-ink">최근 변화 하이라이트</h4>
+                      <p className="mt-1 text-xs text-slate">최근 기록을 모두 나열하지 않고, 의미 있는 변화만 먼저 보여줍니다.</p>
+                    </div>
+                    <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+                      핵심 {recentHighlightCards.length}개
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {recentHighlightCards.map((card) => (
+                      <article key={card.id} className={`rounded-[20px] border p-4 ${card.toneClass}`}>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate">{card.title}</p>
+                        <p className="mt-3 text-2xl font-semibold text-ink">{card.headline}</p>
+                        <p className="mt-2 text-sm font-medium text-ink">{card.supporting}</p>
+                        <p className="mt-1 text-xs text-slate">{card.caption}</p>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="mt-5 border-t border-ink/10 pt-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h5 className="text-sm font-semibold text-ink">핵심 과목 스냅샷</h5>
+                        <p className="mt-1 text-xs text-slate">결시, 목표 미달, 최근 변동이 큰 과목을 우선으로 정리했습니다.</p>
+                      </div>
+                      <span className="rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-slate">
+                        우선 {focusSubjectRows.length}과목
+                      </span>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {focusSubjectRows.length > 0 ? (
+                        focusSubjectRows.map((row) => (
+                          <article
+                            key={row.subject}
+                            className={`rounded-[20px] border p-4 ${historyToneClass(row.latestAttendType, row.latestRecordHasScore)}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-ink">{SUBJECT_LABEL[row.subject]}</p>
+                                <p className="mt-1 text-xs text-slate">{row.latestDateLabel} · {row.latestAttendLabel}</p>
+                              </div>
+                              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${deltaBadgeClass(row.delta)}`}>
+                                {row.delta !== null ? formatSignedScoreDelta(row.delta) : row.trendText}
+                              </span>
+                            </div>
+                            <div className="mt-4 flex items-end justify-between gap-3">
+                              <div>
+                                <p className="text-[11px] text-slate">최근 채점 점수</p>
+                                <p className="mt-1 text-xl font-semibold text-ink">{formatScore(row.latestScore)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[11px] text-slate">목표 대비</p>
+                                <p
+                                  className={`mt-1 text-sm font-semibold ${
+                                    row.targetGap === null ? "text-slate" : row.targetGap >= 0 ? "text-forest" : "text-ember"
+                                  }`}
+                                >
+                                  {row.targetGap === null
+                                    ? "목표 미설정"
+                                    : `${row.targetGap >= 0 ? "+" : ""}${row.targetGap.toFixed(1)}점`}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="mt-3 text-[11px] text-slate">{row.latestLabel}</p>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="rounded-[18px] border border-dashed border-ink/10 px-4 py-6 text-center text-sm text-slate">
+                          강조할 최근 과목 데이터가 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-base font-semibold text-ink">상태 변화 포인트</h4>
+                      <p className="mt-1 text-xs text-slate">경고와 탈락 전환만 따로 모아 읽기 쉽게 정리했습니다.</p>
+                    </div>
+                    <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+                      {recentStatusAlerts.length}건
+                    </span>
+                  </div>
+                  {recentStatusAlerts.length > 0 ? (
+                    <div className="mt-4 space-y-4">
+                      {recentStatusAlerts.map((snap, index) => (
+                        <div key={`${snap.weekKey}-${snap.status}-${index}`} className="flex gap-4 rounded-[20px] border border-ink/10 bg-mist/30 p-4">
+                          <div className={`mt-1 h-3 w-3 shrink-0 rounded-full ${snap.status === "DROPOUT" ? "bg-red-500" : snap.status === "WARNING_2" ? "bg-orange-400" : snap.status === "WARNING_1" ? "bg-yellow-400" : "bg-slate-300"}`} />
+                          <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate">{snap.weekKey}</p>
+                              <p className="mt-2 text-sm font-medium text-ink">
+                                {new Date(snap.weekStartDate).toLocaleDateString("ko-KR", {
+                                  month: "numeric",
+                                  day: "numeric",
+                                })}
+                              </p>
+                              <p className="mt-1 text-xs text-slate">해당 주차 상태 변화가 타임라인에 세로선으로 표시됩니다.</p>
+                            </div>
+                            <span className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold ${STATUS_CLASS[snap.status]}`}>
+                              {STATUS_LABEL[snap.status]}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-slate">경고나 탈락으로 바뀐 주차는 아직 없습니다.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

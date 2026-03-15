@@ -1,4 +1,4 @@
-import {
+﻿import {
   AttendType,
   ExamType,
   Prisma,
@@ -31,6 +31,8 @@ import {
   type StudentAnswerWriteRecord,
 } from "@/lib/scores/import-safety";
 import { shouldCreateDailyPoliceOxSession } from "@/lib/exam-session-rules";
+
+export const SCORE_SESSION_LOCKED_MESSAGE = "잠금된 회차입니다.";
 
 type StudentMatchRecord = {
   examNumber: string;
@@ -92,6 +94,7 @@ export type ScorePreviewResult = {
     subject: Subject;
     examDate: string;
     isCancelled: boolean;
+    isLocked: boolean;
   };
   rows: ScorePreviewRow[];
   summary: {
@@ -476,6 +479,12 @@ function mergeQuestionRecords(
   return Array.from(merged.values()).sort((left, right) => left.questionNo - right.questionNo);
 }
 
+function assertSessionUnlocked(session: { isLocked: boolean }) {
+  if (session.isLocked) {
+    throw new Error(SCORE_SESSION_LOCKED_MESSAGE);
+  }
+}
+
 async function getSessionOrThrow(sessionId: number) {
   return getPrisma().examSession.findUniqueOrThrow({
     where: {
@@ -822,6 +831,7 @@ async function buildPreview(
       subject: session.subject,
       examDate: session.examDate.toISOString(),
       isCancelled: session.isCancelled,
+      isLocked: session.isLocked,
     },
     rows: sanitizedRows,
     summary: {
@@ -978,6 +988,10 @@ async function applyParsedImport(input: {
 
   if (preview.session.isCancelled) {
     throw new Error("취소된 시험 회차에는 성적을 반영할 수 없습니다.");
+  }
+
+  if (preview.session.isLocked) {
+    throw new Error(SCORE_SESSION_LOCKED_MESSAGE);
   }
 
   if (resolvedRows.length === 0) {
@@ -1515,10 +1529,13 @@ export async function updateScoreEntry(input: {
           select: {
             periodId: true,
             examType: true,
+            isLocked: true,
           },
         },
       },
     });
+
+    assertSessionUnlocked(before.session);
 
     const payload = {
       ...input.payload,
@@ -1572,8 +1589,11 @@ export async function deleteSessionScores(input: {
       id: true,
       periodId: true,
       examType: true,
+      isLocked: true,
     },
   });
+
+  assertSessionUnlocked(session);
 
   const [scores, questions] = await Promise.all([
     prisma.score.findMany({
@@ -1683,10 +1703,13 @@ export async function deleteScoreEntry(input: {
           select: {
             periodId: true,
             examType: true,
+            isLocked: true,
           },
         },
       },
     });
+
+    assertSessionUnlocked(before.session);
 
     await tx.score.delete({
       where: {
@@ -1723,3 +1746,105 @@ export async function deleteScoreEntry(input: {
 }
 
 
+
+
+export async function deleteMultipleScoreEntries(input: {
+  adminId: string;
+  scoreIds: number[];
+  ipAddress?: string | null;
+}) {
+  const uniqueScoreIds = Array.from(new Set(input.scoreIds));
+
+  if (uniqueScoreIds.length === 0) {
+    throw new Error("삭제할 성적을 선택해 주세요.");
+  }
+
+  const deletedRows = await getPrisma().$transaction(async (tx) => {
+    const rows = await tx.score.findMany({
+      where: {
+        id: {
+          in: uniqueScoreIds,
+        },
+      },
+      include: {
+        session: {
+          select: {
+            periodId: true,
+            examType: true,
+            isLocked: true,
+          },
+        },
+      },
+    });
+
+    if (rows.length !== uniqueScoreIds.length) {
+      throw new Error("일부 성적을 찾을 수 없습니다.");
+    }
+
+    for (const row of rows) {
+      assertSessionUnlocked(row.session);
+    }
+
+    await tx.score.deleteMany({
+      where: {
+        id: {
+          in: uniqueScoreIds,
+        },
+      },
+    });
+
+    await Promise.all(
+      rows.map((row) =>
+        tx.auditLog.create({
+          data: {
+            adminId: input.adminId,
+            action: "SCORE_DELETE",
+            targetType: "Score",
+            targetId: String(row.id),
+            before: toAuditJson(row),
+            after: toAuditJson(null),
+            ipAddress: input.ipAddress ?? null,
+          },
+        }),
+      ),
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      examNumber: row.examNumber,
+      session: row.session,
+    }));
+  });
+
+  const recalcGroups = new Map<string, {
+    periodId: number;
+    examType: ExamType;
+    examNumbers: Set<string>;
+  }>();
+
+  for (const row of deletedRows) {
+    const key = row.session.periodId + ":" + row.session.examType;
+    const current =
+      recalcGroups.get(key) ??
+      {
+        periodId: row.session.periodId,
+        examType: row.session.examType,
+        examNumbers: new Set<string>(),
+      };
+    current.examNumbers.add(row.examNumber);
+    recalcGroups.set(key, current);
+  }
+
+  await Promise.all(
+    Array.from(recalcGroups.values()).map((group) =>
+      recalculateScoreStatusCache(group.periodId, group.examType, {
+        examNumbers: Array.from(group.examNumbers),
+      }),
+    ),
+  );
+
+  return {
+    success: true,
+    deletedCount: deletedRows.length,
+  };
+}

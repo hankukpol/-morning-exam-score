@@ -44,8 +44,12 @@ export default async function AdminScoreEditPage() {
               examType: session.examType,
               week: session.week,
               subject: session.subject,
+              displaySubjectName: session.displaySubjectName ?? null,
               examDate: session.examDate.toISOString(),
               isCancelled: session.isCancelled,
+              isLocked: session.isLocked,
+              lockedAt: session.lockedAt?.toISOString() ?? null,
+              lockedBy: session.lockedBy ?? null,
             })),
           }))}
         />

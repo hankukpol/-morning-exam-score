@@ -3,9 +3,10 @@
 import { Subject } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
+import { useSubmitShortcut } from "@/hooks/use-submit-shortcut";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/format";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 type CounselingRecord = {
   id: number;
@@ -69,9 +70,20 @@ function RecordCard({
   const [showChangeStudent, setShowChangeStudent] = useState(false);
   const [newExamNumber, setNewExamNumber] = useState("");
   const confirmModal = useActionModalState();
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  useSubmitShortcut({
+    containerRef: formRef,
+    enabled: !isPending,
+    onSubmit: () => {
+      if (formRef.current) {
+        onUpdate(record.id, new FormData(formRef.current));
+      }
+    },
+  });
 
   return (
-    <form className="rounded-[24px] border border-ink/10 bg-mist p-4">
+    <form ref={formRef} className="rounded-[24px] border border-ink/10 bg-mist p-4">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div>
           <label className="mb-2 block text-sm font-medium">담당 강사</label>
@@ -130,7 +142,11 @@ function RecordCard({
         </button>
         <button
           type="button"
-          onClick={(event) => onUpdate(record.id, new FormData(event.currentTarget.form!))}
+          onClick={() => {
+            if (formRef.current) {
+              onUpdate(record.id, new FormData(formRef.current));
+            }
+          }}
           disabled={isPending}
           className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -169,13 +185,13 @@ function RecordCard({
               disabled={isPending || !newExamNumber.trim()}
               onClick={() => {
                 confirmModal.openModal({
-                  badgeLabel: "?? ?? ??",
+                  badgeLabel: "변경 확인",
                   badgeTone: "warning",
-                  title: "?? ?? ?? ??",
-                  description: `? ?? ??? ??? "${newExamNumber}"?? ?????????`,
-                  details: ["?? ? ?? ??? ?? ????? ? ??? ?????."],
-                  cancelLabel: "??",
-                  confirmLabel: "?? ??",
+                  title: "학생 변경",
+                  description: `이 면담 기록의 학생을 "${newExamNumber}"으로 변경하시겠습니까?`,
+                  details: ["변경 후 이 면담 기록은 새 학생 계정으로 연결됩니다."],
+                  cancelLabel: "취소",
+                  confirmLabel: "변경",
                   onConfirm: () => {
                     confirmModal.closeModal();
                     onChangeStudent(record.id, newExamNumber);
@@ -200,7 +216,7 @@ function RecordCard({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -232,6 +248,8 @@ export function CounselingPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
+  const targetSectionRef = useRef<HTMLElement | null>(null);
+  const createRecordSectionRef = useRef<HTMLElement | null>(null);
 
   async function requestJson(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -311,13 +329,13 @@ export function CounselingPanel({
 
   function deleteRecord(recordId: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제 확인",
       badgeTone: "warning",
-      title: "?? ?? ??",
-      description: "? ?? ??? ?????????",
-      details: ["?? ??? ?? ???? ?? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "면담 기록 삭제",
+      description: "이 면담 기록을 삭제하시겠습니까?",
+      details: ["삭제 후에는 되돌릴 수 없으며 통계에도 반영됩니다."],
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -327,11 +345,11 @@ export function CounselingPanel({
           try {
             await requestJson(`/api/counseling/${recordId}`, { method: "DELETE" });
             setRecords((prev) => prev.filter((r) => r.id !== recordId));
-            setNotice("?? ??? ??????.");
+            setNotice("면담 기록을 삭제했습니다.");
           } catch (error) {
             setMessage(
               null,
-              error instanceof Error ? error.message : "?? ?? ??? ??????.",
+              error instanceof Error ? error.message : "면담 기록 삭제에 실패했습니다.",
             );
           }
         });
@@ -397,6 +415,18 @@ export function CounselingPanel({
     });
   }
 
+  useSubmitShortcut({
+    containerRef: targetSectionRef,
+    enabled: !isPending,
+    onSubmit: saveTargets,
+  });
+
+  useSubmitShortcut({
+    containerRef: createRecordSectionRef,
+    enabled: !isPending,
+    onSubmit: createRecord,
+  });
+
   return (
     <div className="space-y-8">
       {notice ? (
@@ -410,7 +440,7 @@ export function CounselingPanel({
         </div>
       ) : null}
 
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+      <section ref={targetSectionRef} className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">과목별 목표 점수</h2>
@@ -451,7 +481,7 @@ export function CounselingPanel({
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+      <section ref={createRecordSectionRef} className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">면담 기록 입력</h2>
@@ -555,7 +585,7 @@ export function CounselingPanel({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}

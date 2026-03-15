@@ -107,6 +107,8 @@ export async function GET(request: NextRequest) {
       periodId: periodId ? Number(periodId) : undefined,
       examType,
       date: searchParams.get("date") ?? undefined,
+      dateFrom: searchParams.get("dateFrom") ?? undefined,
+      dateTo: searchParams.get("dateTo") ?? undefined,
     });
     const buffer =
       format === "csv"

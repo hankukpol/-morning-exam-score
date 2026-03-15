@@ -15,22 +15,37 @@ export type QueryFilters = {
   periodId?: number;
   examType?: ExamType;
   date?: string;
+  dateFrom?: string;
+  dateTo?: string;
   subject?: Subject;
   keyword?: string;
 };
 
-function buildDateRange(date?: string) {
-  if (!date) {
+function parseDateInput(value?: string) {
+  if (!value) {
     return null;
   }
 
-  const start = new Date(date);
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
-  if (Number.isNaN(start.getTime())) {
+function buildDateRange(filters: Pick<QueryFilters, "date" | "dateFrom" | "dateTo">) {
+  const legacyDate = filters.date?.trim();
+  const parsedFrom = parseDateInput(filters.dateFrom?.trim() || legacyDate);
+  const parsedTo = parseDateInput(filters.dateTo?.trim() || legacyDate);
+  const startCandidate = parsedFrom ?? parsedTo;
+  const endCandidate = parsedTo ?? parsedFrom;
+
+  if (!startCandidate || !endCandidate) {
     return null;
   }
 
-  const end = new Date(start);
+  const start =
+    startCandidate.getTime() <= endCandidate.getTime() ? startCandidate : endCandidate;
+  const endBase =
+    startCandidate.getTime() <= endCandidate.getTime() ? endCandidate : startCandidate;
+  const end = new Date(endBase);
   end.setDate(end.getDate() + 1);
 
   return {
@@ -57,7 +72,7 @@ function average(values: number[]) {
 }
 
 export async function getDateQueryRows(filters: QueryFilters) {
-  const range = buildDateRange(filters.date);
+  const range = buildDateRange(filters);
 
   if (!range) {
     return [];
@@ -88,7 +103,7 @@ export async function getDateQueryRows(filters: QueryFilters) {
         },
       },
     },
-    orderBy: [{ examType: "asc" }, { subject: "asc" }],
+    orderBy: [{ examDate: "asc" }, { subject: "asc" }],
   });
 
   return sessions.flatMap((session) =>

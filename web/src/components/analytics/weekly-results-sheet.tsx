@@ -1,16 +1,17 @@
 ﻿import { Fragment } from "react";
 import Link from "next/link";
 import { AttendType, Subject, StudentStatus, type ExamType } from "@prisma/client";
-import { WeeklyResultsSheetRow, type TuesdayWeekSummary } from "@/lib/analytics/service";
+import { type TuesdayWeekSummary, type WeeklyResultsSheetRow } from "@/lib/analytics/service";
 import { STATUS_LABEL, STATUS_ROW_CLASS, formatRank, formatScore } from "@/lib/analytics/presentation";
-import { SUBJECT_LABEL } from "@/lib/constants";
+import { getSubjectDisplayLabel } from "@/lib/constants";
 import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
-import { formatDate } from "@/lib/format";
+import { formatDateWithWeekday } from "@/lib/format";
 
 type SessionColumn = {
   id: number;
   examType: ExamType;
   subject: Subject;
+  displaySubjectName: string | null;
   examDate: Date | string;
 };
 
@@ -18,6 +19,8 @@ type WeeklyResultsSheetProps = {
   week: TuesdayWeekSummary;
   sessions: SessionColumn[];
   rows: WeeklyResultsSheetRow[];
+  className?: string;
+  printTitle?: string;
 };
 
 function reviveDate(value: Date | string) {
@@ -83,7 +86,13 @@ function noteClass(row: WeeklyResultsSheetRow) {
   return "";
 }
 
-export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetProps) {
+export function WeeklyResultsSheet({
+  week,
+  sessions,
+  rows,
+  className,
+  printTitle,
+}: WeeklyResultsSheetProps) {
   const headCellClass = "border border-slate-200 bg-slate-50 px-3 py-3 font-semibold";
   const headNameCellClass = "border border-slate-200 bg-slate-50 px-4 py-3 font-semibold";
   const subHeadCellClass = "border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold";
@@ -119,9 +128,12 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
   });
 
   return (
-    <div className="overflow-x-auto rounded-[28px] border border-ink/10 bg-white">
+    <div
+      className={`${className ? `${className} ` : ""}overflow-x-auto rounded-[28px] border border-ink/10 bg-white`}
+      data-print-title={printTitle ?? undefined}
+    >
       <div className="min-w-[1280px]">
-        <div className="border-b border-ink/10 px-6 py-5 text-center">
+        <div className="print-sheet-heading border-b border-ink/10 px-6 py-5 text-center">
           <h2 className="text-2xl font-semibold">주간 성적표</h2>
           <p className="mt-2 text-sm text-slate">
             {week.label}
@@ -135,14 +147,10 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
               <th rowSpan={2} className={headCellClass}>순번</th>
               <th rowSpan={2} className={headNameCellClass}>이름</th>
               {displayColumns.map((column) => (
-                <th
-                  key={column.key}
-                  colSpan={column.oxSession ? 2 : 1}
-                  className={headCellClass}
-                >
-                  <div>{formatDate(column.examDate)}</div>
+                <th key={column.key} colSpan={column.oxSession ? 2 : 1} className={headCellClass}>
+                  <div>{formatDateWithWeekday(column.examDate)}</div>
                   <div className="mt-1 text-xs font-medium text-slate">
-                    {SUBJECT_LABEL[column.subject]}
+                    {getSubjectDisplayLabel(column.subject, column.displaySubjectName)}
                   </div>
                 </th>
               ))}
@@ -231,6 +239,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                       "ox",
                       oxCell?.isPendingInput ?? mainCell?.isPendingInput ?? false,
                     );
+
                     return (
                       <Fragment key={`${row.examNumber}-${column.key}`}>
                         <td className="border border-ink/10 px-3 py-3">{mockDisplay}</td>
@@ -240,10 +249,7 @@ export function WeeklyResultsSheet({ week, sessions, rows }: WeeklyResultsSheetP
                   }
 
                   return (
-                    <td
-                      key={`${row.examNumber}-${column.key}-mock`}
-                      className="border border-ink/10 px-3 py-3"
-                    >
+                    <td key={`${row.examNumber}-${column.key}-mock`} className="border border-ink/10 px-3 py-3">
                       {mockDisplay}
                     </td>
                   );

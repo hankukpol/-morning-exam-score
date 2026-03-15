@@ -39,13 +39,13 @@ export function DropoutNotificationActions({
     }
 
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "발송 확인",
       badgeTone: "warning",
-      title: "??/?? ?? ?? ??",
-      description: `${recipientCount}??? ?? ??/?? ?? ??? ?????????`,
-      details: ["?? ?? ?? ??? ???? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "경고/탈락 안내 발송",
+      description: `${recipientCount}명에게 현재 경고/탈락 안내 문자를 발송하시겠습니까?`,
+      details: ["이미 오늘 발송된 대상은 중복으로 제외됩니다."],
+      cancelLabel: "취소",
+      confirmLabel: "발송",
       onConfirm: () => {
         confirmModal.closeModal();
         setNotice(null);
@@ -74,22 +74,22 @@ export function DropoutNotificationActions({
             };
 
             if (!response.ok) {
-              throw new Error(payload.error ?? "?? ??? ??????.");
+              throw new Error(payload.error ?? "문자 발송에 실패했습니다.");
             }
 
-            const summary = `?? ${recipientCount}? / ?? ${payload.createdCount ?? 0}? / ???? ${payload.duplicateCount ?? 0}? / ?? ${payload.sentCount ?? 0}? / ?? ${payload.failedCount ?? 0}? / ?? ${payload.skippedCount ?? 0}?`;
+            const summary = `대상 ${recipientCount}명 / 신규 ${payload.createdCount ?? 0}건 / 오늘중복 ${payload.duplicateCount ?? 0}건 / 발송 ${payload.sentCount ?? 0}건 / 실패 ${payload.failedCount ?? 0}건 / 제외 ${payload.skippedCount ?? 0}건`;
             setNotice(summary);
             completionModal.openModal({
-              badgeLabel: "?? ??",
+              badgeLabel: "발송 완료",
               badgeTone: "success",
-              title: "?? ?? ??? ???????.",
-              description: "??/?? ?? ?? ?? ??? ?????.",
+              title: "문자 발송 완료",
+              description: "경고/탈락 안내 문자 발송이 처리되었습니다.",
               details: [summary],
-              confirmLabel: "??",
+              confirmLabel: "확인",
             });
           } catch (error) {
             setErrorMessage(
-              error instanceof Error ? error.message : "?? ??? ??????.",
+              error instanceof Error ? error.message : "문자 발송에 실패했습니다.",
             );
           }
         });
@@ -122,7 +122,7 @@ export function DropoutNotificationActions({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -135,7 +135,7 @@ export function DropoutNotificationActions({
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

@@ -5,13 +5,17 @@ import {
   RadarComparisonChart,
   TrendLineChart,
 } from "@/components/analytics/charts";
+import { GenerationCohortAnalysisPanel } from "@/components/analytics/generation-cohort-analysis";
 import { SubjectRankingTable } from "@/components/analytics/subject-ranking-table";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FilterPresetControls } from "@/components/ui/filter-preset-controls";
 import {
   getDailyAnalysis,
   getMonthlyStudentAnalysis,
   getSubjectStudentRanking,
   getSubjectTrendAnalysis,
 } from "@/lib/analytics/analysis";
+import { getGenerationCohortAnalysis } from "@/lib/analytics/cohort-analysis";
 import {
   getAnalyticsContext,
   getDefaultMonthOption,
@@ -32,17 +36,18 @@ type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-type AnalyticsTab = "daily" | "monthly" | "subject";
+type AnalyticsTab = "daily" | "monthly" | "subject" | "cohort";
 
 const TAB_LABEL: Record<AnalyticsTab, string> = {
-  daily: "일일 분석",
-  monthly: "월별 분석",
-  subject: "과목별 분석",
+  daily: "\uC77C\uC77C \uBD84\uC11D",
+  monthly: "\uC6D4\uAC04 \uBD84\uC11D",
+  subject: "\uACFC\uBAA9\uBCC4 \uBD84\uC11D",
+  cohort: "\uAE30\uC218 \uBE44\uAD50",
 };
 
 function readAnalyticsTab(searchParams: PageProps["searchParams"]): AnalyticsTab {
   const value = readStringParam(searchParams, "tab");
-  return value === "monthly" || value === "subject" ? value : "daily";
+  return value === "monthly" || value === "subject" || value === "cohort" ? value : "daily";
 }
 
 function readSubjectParam(searchParams: PageProps["searchParams"]) {
@@ -58,7 +63,9 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
     withPrismaReadRetry(() => getAnalyticsContext(searchParams)),
   ]);
   const tab = readAnalyticsTab(searchParams);
-  const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
+  const legacyDate = readStringParam(searchParams, "date");
+  const dateFrom = readStringParam(searchParams, "dateFrom") ?? legacyDate ?? todayDateInputValue();
+  const dateTo = readStringParam(searchParams, "dateTo") ?? legacyDate ?? dateFrom;
   const subject = readSubjectParam(searchParams);
   const examNumber = readStringParam(searchParams, "examNumber") ?? "";
   const monthOptions = getMonthOptions(selectedPeriod, examType);
@@ -67,40 +74,48 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
     monthOptions.find((option) => `${option.year}-${option.month}` === monthKey) ??
     getDefaultMonthOption(monthOptions);
 
-  const [dailyData, monthlyData, subjectData, subjectRanking] = await withPrismaReadRetry(() =>
+  const [dailyData, monthlyData, subjectData, subjectRanking, cohortData] = await withPrismaReadRetry(() =>
     Promise.all([
-    tab === "daily"
-      ? getDailyAnalysis({
-          periodId: selectedPeriod?.id,
-          examType,
-          date,
-          search: examNumber,
-        })
-      : Promise.resolve([]),
-    tab === "monthly"
-      ? getMonthlyStudentAnalysis({
-          periodId: selectedPeriod?.id,
-          examType,
-          year: selectedMonth?.year,
-          month: selectedMonth?.month,
-          examNumber: examNumber || undefined,
-        })
-      : Promise.resolve(null),
-    tab === "subject"
-      ? getSubjectTrendAnalysis({
-          periodId: selectedPeriod?.id,
-          examType,
-          subject,
-          examNumber: examNumber || undefined,
-        })
-      : Promise.resolve([]),
-    tab === "subject"
-      ? getSubjectStudentRanking({
-          periodId: selectedPeriod?.id,
-          examType,
-          subject,
-        })
-      : Promise.resolve([]),
+      tab === "daily"
+        ? getDailyAnalysis({
+            periodId: selectedPeriod?.id,
+            examType,
+            date: legacyDate ?? undefined,
+            dateFrom,
+            dateTo,
+            search: examNumber,
+          })
+        : Promise.resolve([]),
+      tab === "monthly"
+        ? getMonthlyStudentAnalysis({
+            periodId: selectedPeriod?.id,
+            examType,
+            year: selectedMonth?.year,
+            month: selectedMonth?.month,
+            examNumber: examNumber || undefined,
+          })
+        : Promise.resolve(null),
+      tab === "subject"
+        ? getSubjectTrendAnalysis({
+            periodId: selectedPeriod?.id,
+            examType,
+            subject,
+            examNumber: examNumber || undefined,
+          })
+        : Promise.resolve([]),
+      tab === "subject"
+        ? getSubjectStudentRanking({
+            periodId: selectedPeriod?.id,
+            examType,
+            subject,
+          })
+        : Promise.resolve([]),
+      tab === "cohort" && selectedPeriod
+        ? getGenerationCohortAnalysis({
+            periodId: selectedPeriod.id,
+            examType,
+          })
+        : Promise.resolve(null),
     ]),
   );
 
@@ -114,7 +129,7 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
         일일, 월별, 과목별, 개인 분석에 공통으로 쓰이는 관리자용 차트 화면입니다.
       </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-6">
+      <form id="analytics-filter-form" className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-6">
         <div>
           <label className="mb-2 block text-sm font-medium">탭</label>
           <select
@@ -154,13 +169,13 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
           </select>
         </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">날짜</label>
-          <input
-            type="date"
-            name="date"
-            defaultValue={date}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                <div>
+          <label className="mb-2 block text-sm font-medium">날짜 범위</label>
+          <DateRangePicker
+            fromName="dateFrom"
+            toName="dateTo"
+            defaultFrom={dateFrom}
+            defaultTo={dateTo}
           />
         </div>
         <div>
@@ -201,13 +216,30 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             />
           </div>
         </div>
-        <div className="md:col-span-6 flex justify-end">
+        <div className="md:col-span-6 flex flex-wrap items-center justify-between gap-3">
+          <FilterPresetControls
+            pathname="/admin/analytics"
+            storageKey="admin-analytics-filter-presets"
+            formId="analytics-filter-form"
+            currentFilters={{
+              tab,
+              periodId: selectedPeriod?.id ? String(selectedPeriod.id) : "",
+              examType,
+              dateFrom,
+              dateTo,
+              monthKey: selectedMonth ? `${selectedMonth.year}-${selectedMonth.month}` : "",
+              subject: subject ?? "",
+              examNumber,
+            }}
+          />
+          <div className="flex justify-end">
           <button
             type="submit"
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
             분석 실행
           </button>
+          </div>
         </div>
       </form>
 
@@ -477,6 +509,9 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             </>
           )}
         </div>
+      ) : null}
+      {tab === "cohort" ? (
+        <GenerationCohortAnalysisPanel data={cohortData} />
       ) : null}
     </div>
   );

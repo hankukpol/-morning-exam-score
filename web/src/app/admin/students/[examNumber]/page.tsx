@@ -5,22 +5,26 @@ import { requireAdminContext, roleAtLeast } from "@/lib/auth";
 import { getStudentHistory } from "@/lib/students/service";
 import { getStudentCumulativeAnalysis, getStudentDetailAnalysis } from "@/lib/analytics/analysis";
 import { getCounselingProfile } from "@/lib/counseling/service";
+import { getStudentTimeline } from "@/lib/students/timeline";
 import { StudentScoreHistoryManager } from "@/components/students/student-score-history-manager";
 import { StudentCumulativeAnalysis } from "@/components/students/student-cumulative-analysis";
+import { StudentTimeline } from "@/components/students/student-timeline";
 import { CounselingPanel } from "@/components/counseling/counseling-panel";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { BarComparisonChart, RadarComparisonChart, TrendLineChart } from "@/components/analytics/charts";
+import { SubjectScoreHeatmap } from "@/components/analytics/subject-score-heatmap";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["history", "cumulative", "analysis", "counseling"] as const;
+const TABS = ["history", "cumulative", "analysis", "timeline", "counseling"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   history: "성적 이력",
   cumulative: "누적 분석",
   analysis: "기간별 분석",
+  timeline: "\uD0C0\uC784\uB77C\uC778",
   counseling: "면담",
 };
 
@@ -47,6 +51,7 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
   let cumulativeData = null;
   let analysisData = null;
+  let timelineData = null;
   let counselingProfile = null;
 
   if (tab === "cumulative") {
@@ -54,13 +59,16 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   } else if (tab === "analysis") {
     const periodId = Number(readParam(searchParams, "periodId")) || undefined;
     analysisData = await getStudentDetailAnalysis({ examNumber: params.examNumber, periodId });
+  } else if (tab === "timeline") {
+    if (!canEdit) redirect(`/admin/students/${params.examNumber}?tab=history`);
+    timelineData = await getStudentTimeline({ examNumber: params.examNumber });
   } else if (tab === "counseling") {
     if (!canEdit) redirect(`/admin/students/${params.examNumber}?tab=history`);
     counselingProfile = await getCounselingProfile(params.examNumber);
   }
 
   const visibleTabs: Tab[] = canEdit
-    ? ["history", "cumulative", "analysis", "counseling"]
+    ? ["history", "cumulative", "analysis", "timeline", "counseling"]
     : ["history", "cumulative", "analysis"];
 
   return (
@@ -259,6 +267,8 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                     </div>
                   </section>
 
+                  <SubjectScoreHeatmap data={analysisData.subjectHeatmap} />
+
                   <section className="rounded-[28px] border border-ink/10 bg-white p-6">
                     <h2 className="text-xl font-semibold">오답 상위 문항</h2>
                     <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
@@ -307,6 +317,10 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           ))}
 
         {/* 면담 */}
+        {tab === "timeline" && timelineData && (
+          <StudentTimeline examNumber={params.examNumber} initialData={timelineData} />
+        )}
+
         {tab === "counseling" && counselingProfile && (
           <CounselingPanel
             examNumber={counselingProfile.student.examNumber}

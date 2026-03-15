@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
+  SCORE_SESSION_LOCKED_MESSAGE,
   deleteScoreEntry,
   parseScoreUpdate,
   updateScoreEntry,
@@ -12,6 +13,10 @@ type RouteContext = {
     id: string;
   };
 };
+
+function getErrorStatus(error: unknown) {
+  return error instanceof Error && error.message === SCORE_SESSION_LOCKED_MESSAGE ? 409 : 400;
+}
 
 export async function PUT(request: Request, { params }: RouteContext) {
   const auth = await requireApiAdmin(AdminRole.TEACHER);
@@ -34,7 +39,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "성적 수정에 실패했습니다." },
-      { status: 400 },
+      { status: getErrorStatus(error) },
     );
   }
 }
@@ -57,7 +62,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "성적 삭제에 실패했습니다." },
-      { status: 400 },
+      { status: getErrorStatus(error) },
     );
   }
 }

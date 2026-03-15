@@ -3,21 +3,30 @@
 import { AttendType, ExamType, Subject } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import {
+  BulkSelectHeaderCheckbox,
+  BulkSelectRowCheckbox,
+  BulkSelectionActionBar,
+} from "@/components/ui/bulk-select-table";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
   SUBJECT_LABEL,
 } from "@/lib/constants";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 type SessionOption = {
   id: number;
   examType: "GONGCHAE" | "GYEONGCHAE";
   week: number;
   subject: Subject;
+  displaySubjectName?: string | null;
   examDate: string;
   isCancelled: boolean;
+  isLocked: boolean;
+  lockedAt: string | null;
+  lockedBy: string | null;
 };
 
 type PeriodOption = {
@@ -80,6 +89,10 @@ function formatKoreanDate(dateStr: string) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일 (${DAY_NAMES[date.getDay()]})`;
 }
 
+function formatSessionLabel(session: SessionOption) {
+  return `${session.week}주차 · ${EXAM_TYPE_LABEL[session.examType]} · ${SUBJECT_LABEL[session.subject]}`;
+}
+
 function findTodaySelection(periods: PeriodOption[], todayKey: string) {
   for (const period of periods) {
     const todaySession = period.sessions.find((session) => session.examDate.slice(0, 10) === todayKey);
@@ -101,6 +114,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
   const initialSelection = findTodaySelection(periods, todayKey);
+  const [periodOptions, setPeriodOptions] = useState(periods);
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection.dateKey);
@@ -113,13 +127,14 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
+  const [selectedScoreIds, setSelectedScoreIds] = useState<number[]>([]);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, Array<SessionOption & { periodName: string }>>();
 
-    for (const period of periods) {
+    for (const period of periodOptions) {
       for (const session of period.sessions) {
         const key = session.examDate.slice(0, 10);
         const current = map.get(key) ?? [];
@@ -140,11 +155,12 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
     }
 
     return map;
-  }, [periods]);
+  }, [periodOptions]);
 
   const sessionsForSelectedDate = selectedDate ? sessionsByDate.get(selectedDate) ?? [] : [];
   const selectedSession =
     sessionsForSelectedDate.find((session) => String(session.id) === selectedSessionId) ?? null;
+  const selectedSessionLocked = selectedSession?.isLocked ?? false;
 
   const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay();
   const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
@@ -183,6 +199,19 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
         setErrorMessage(error instanceof Error ? error.message : "작업 처리 중 오류가 발생했습니다.");
       }
     });
+  }
+
+  function handleSessionUpdated(updatedSession: SessionOption) {
+    setPeriodOptions((current) =>
+      current.map((period) => ({
+        ...period,
+        sessions: period.sessions.map((session) =>
+          session.id === updatedSession.id ? { ...session, ...updatedSession } : session,
+        ),
+      })),
+    );
+    setSelectedDate(updatedSession.examDate.slice(0, 10));
+    setSelectedSessionId(String(updatedSession.id));
   }
 
   function prevMonth() {
@@ -272,6 +301,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
       setScores(payload.scores);
       setEditingId(null);
       setDrafts({});
+      setSelectedScoreIds([]);
       setPage(1);
       if (payload.scores.length === 0) {
         setNotice("조회된 성적이 없습니다.");
@@ -299,13 +329,18 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
   }
 
   function deleteScore(scoreId: number) {
+    if (selectedSessionLocked) {
+      setErrorMessage("잠금된 회차에서는 성적을 삭제할 수 없습니다.");
+      return;
+    }
+
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제 확인",
       badgeTone: "warning",
-      title: "?? ??",
-      description: "??? ??? ?????? ? ??? ??? ? ????.",
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "성적 삭제",
+      description: "선택한 성적을 삭제합니다. 삭제 후에는 되돌릴 수 없습니다.",
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -315,7 +350,74 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
           if (editingId === scoreId) {
             setEditingId(null);
           }
-          setNotice("??? ??????.");
+          setNotice("성적을 삭제했습니다.");
+        });
+      },
+    });
+  }
+
+  function toggleScoreSelection(scoreId: number, checked: boolean) {
+    setSelectedScoreIds((current) =>
+      checked ? Array.from(new Set([...current, scoreId])) : current.filter((value) => value !== scoreId),
+    );
+  }
+
+  function toggleCurrentPageScoreSelection(checked: boolean) {
+    setSelectedScoreIds((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...currentPageScoreIds]));
+      }
+
+      return current.filter((scoreId) => !currentPageScoreIds.includes(scoreId));
+    });
+  }
+
+  function clearSelectedScores() {
+    setSelectedScoreIds([]);
+  }
+
+  function deleteSelectedScores() {
+    if (selectedSessionLocked) {
+      setErrorMessage("잠금된 회차에서는 성적을 삭제할 수 없습니다.");
+      return;
+    }
+
+    if (selectedScoreIds.length === 0) {
+      setErrorMessage("삭제할 성적을 선택해 주세요.");
+      return;
+    }
+
+    confirmModal.openModal({
+      badgeLabel: "선택 삭제 확인",
+      badgeTone: "warning",
+      title: "선택 성적 일괄 삭제",
+      description: `선택한 성적 ${selectedScoreIds.length}건을 삭제합니다. 삭제 후에는 되돌릴 수 없습니다.`,
+      cancelLabel: "취소",
+      confirmLabel: "일괄 삭제",
+      confirmTone: "danger",
+      onConfirm: () => {
+        const targetIds = [...selectedScoreIds];
+        confirmModal.closeModal();
+        run(async () => {
+          const payload = await requestJson<{ deletedCount: number }>("/api/scores/bulk", {
+            method: "POST",
+            body: JSON.stringify({
+              mode: "deleteScores",
+              sessionId: Number(selectedSessionId),
+              scoreIds: targetIds,
+            }),
+          });
+          setScores((current) => current?.filter((score) => !targetIds.includes(score.id)) ?? null);
+          setSelectedScoreIds([]);
+          setDrafts((current) =>
+            Object.fromEntries(
+              Object.entries(current).filter(([key]) => !targetIds.includes(Number(key))),
+            ) as Record<number, EditDraft>,
+          );
+          if (editingId !== null && targetIds.includes(editingId)) {
+            setEditingId(null);
+          }
+          setNotice(`선택한 성적 ${payload.deletedCount}건을 삭제했습니다.`);
         });
       },
     });
@@ -323,18 +425,23 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
 
   function deleteSelectedSession() {
     if (!selectedSession) {
-      setErrorMessage("??? ??? ??? ???.");
+      setErrorMessage("삭제할 회차를 먼저 선택해 주세요.");
+      return;
+    }
+
+    if (selectedSessionLocked) {
+      setErrorMessage("잠금된 회차에서는 회차 전체 삭제를 진행할 수 없습니다.");
       return;
     }
 
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "전체 삭제 확인",
       badgeTone: "warning",
-      title: "?? ??? ?? ??",
-      description: `${formatKoreanDate(selectedSession.examDate.slice(0, 10))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} ??? ??, ?? ??, ??, ???? ???? ?? ??????`,
-      details: ["?? ?? ??? ?? ??? ?? ???? ??? ? ????."],
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "선택 회차 전체 삭제",
+      description: `${formatKoreanDate(selectedSession.examDate.slice(0, 10))} ${EXAM_TYPE_LABEL[selectedSession.examType]} ${SUBJECT_LABEL[selectedSession.subject]} 회차의 성적, 문항, 정답, 북마크 데이터를 모두 삭제합니다.`,
+      details: ["삭제된 데이터는 즉시 반영되며 복구할 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "전체 삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -349,19 +456,47 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
             body: JSON.stringify({ mode: "deleteSession", sessionId: Number(selectedSessionId) }),
           });
           setScores([]);
+          setSelectedScoreIds([]);
           setEditingId(null);
           setDrafts({});
           setNotice(
-            `?? ???? ??????. ?? ${payload.deletedScoreCount}?, ?? ${payload.deletedQuestionCount}?, ?? ${payload.deletedAnswerCount}?, ??? ${payload.deletedBookmarkCount}?`,
+            `회차 전체를 삭제했습니다. 성적 ${payload.deletedScoreCount}건, 문항 ${payload.deletedQuestionCount}건, 정답 ${payload.deletedAnswerCount}건, 북마크 ${payload.deletedBookmarkCount}건이 정리되었습니다.`,
           );
         });
       },
     });
   }
 
+  function toggleSessionLock() {
+    if (!selectedSession) {
+      setErrorMessage("잠금 상태를 변경할 회차를 선택해 주세요.");
+      return;
+    }
+
+    run(async () => {
+      const payload = await requestJson<{ session: SessionOption }>(`/api/sessions/${selectedSession.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isLocked: !selectedSession.isLocked }),
+      });
+      handleSessionUpdated(payload.session);
+      setEditingId(null);
+      setNotice(payload.session.isLocked ? "회차를 잠금 처리했습니다." : "회차 잠금을 해제했습니다.");
+    });
+  }
+
   const totalPages = Math.max(1, Math.ceil((scores?.length ?? 0) / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedScores = scores?.slice((currentPage - 1) * pageSize, currentPage * pageSize) ?? [];
+  const currentPageScoreIds = pagedScores.map((score) => score.id);
+  const allCurrentPageSelected =
+    currentPageScoreIds.length > 0 &&
+    currentPageScoreIds.every((scoreId) => selectedScoreIds.includes(scoreId));
+  const someCurrentPageSelected =
+    currentPageScoreIds.some((scoreId) => selectedScoreIds.includes(scoreId)) && !allCurrentPageSelected;
+
+  useEffect(() => {
+    setSelectedScoreIds([]);
+  }, [currentPage, pageSize, selectedSessionId]);
 
   return (
     <div className="space-y-8">
@@ -443,9 +578,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                     sessions.length === 0 ? "cursor-default text-ink/30" : "",
                     !isSelected && isSunday ? "text-red-500" : "",
                     !isSelected && isSaturday ? "text-blue-500" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  ].filter(Boolean).join(" ")}
                 >
                   <span>{dayNumber}</span>
                   {sessions.length > 0 ? (
@@ -496,15 +629,19 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                         ? "border-ember bg-ember text-white"
                         : "border-ink/10 hover:border-ember/30 hover:text-ember",
                       session.isCancelled ? "opacity-60 line-through" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
+                    ].filter(Boolean).join(" ")}
                   >
-                    {session.week}주차 · {EXAM_TYPE_LABEL[session.examType]} · {SUBJECT_LABEL[session.subject]}
+                    {formatSessionLabel(session)}
                     {session.isCancelled ? " [취소]" : ""}
+                    {session.isLocked ? " [잠금]" : ""}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate">
+              {selectedSession?.isLocked ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">잠금됨</span> : null}
+              {selectedSession?.lockedAt ? <span>잠금 일시 {formatKoreanDate(selectedSession.lockedAt.slice(0, 10))}</span> : null}
             </div>
 
             <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -532,8 +669,16 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
               </button>
               <button
                 type="button"
+                onClick={toggleSessionLock}
+                disabled={isPending || !selectedSession}
+                className={`inline-flex items-center rounded-full border px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate ${selectedSessionLocked ? "border-amber-200 text-amber-700 hover:bg-amber-50" : "border-ink/10 hover:border-amber-300 hover:text-amber-700"}`}
+              >
+                {selectedSessionLocked ? "잠금 해제" : "회차 잠금"}
+              </button>
+              <button
+                type="button"
                 onClick={deleteSelectedSession}
-                disabled={isPending || !selectedSessionId}
+                disabled={isPending || !selectedSessionId || selectedSessionLocked}
                 className="inline-flex items-center rounded-full border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate"
               >
                 회차 전체 삭제
@@ -547,8 +692,13 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
         )}
       </section>
 
-      {notice ? <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div> : null}
-      {errorMessage ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
+      {notice ? <div role="status" aria-live="polite" className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div> : null}
+      {errorMessage ? <div role="alert" aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
+      {selectedSessionLocked ? (
+        <div role="status" aria-live="polite" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          잠금된 회차입니다. 성적 조회는 가능하지만 수정, 삭제, 전체 삭제는 비활성화됩니다.
+        </div>
+      ) : null}
 
       {scores !== null ? (
         <section className="rounded-[28px] border border-ink/10 bg-white p-6">
@@ -567,10 +717,20 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
               }}
               itemLabel="건"
             />
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto sm:block">
               <table className="min-w-full divide-y divide-ink/10 text-sm">
+                <caption className="sr-only">Score table for the selected session with editable rows.</caption>
                 <thead className="bg-mist text-left">
                   <tr>
+                    <th className="px-4 py-3 font-semibold">
+                      <BulkSelectHeaderCheckbox
+                        checked={allCurrentPageSelected}
+                        indeterminate={someCurrentPageSelected}
+                        disabled={pagedScores.length === 0}
+                        onChange={toggleCurrentPageScoreSelection}
+                        ariaLabel="현재 페이지 성적 전체 선택"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold">수험번호 / 이름</th>
                     <th className="px-4 py-3 font-semibold">원점수</th>
                     <th className="px-4 py-3 font-semibold">OX</th>
@@ -583,14 +743,21 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                 <tbody className="divide-y divide-ink/10 bg-white">
                   {pagedScores.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate">조회된 성적이 없습니다.</td>
+                      <td colSpan={8} className="px-4 py-8 text-center text-slate">조회된 성적이 없습니다.</td>
                     </tr>
                   ) : null}
                   {pagedScores.map((score) => {
                     const draft = getDraft(score);
                     const isEditing = editingId === score.id;
                     return (
-                      <tr key={score.id} className={isEditing ? "bg-amber-50/40" : ""}>
+                      <tr key={score.id} className={isEditing || selectedScoreIds.includes(score.id) ? "bg-amber-50/40" : ""}>
+                        <td className="px-4 py-3">
+                          <BulkSelectRowCheckbox
+                            checked={selectedScoreIds.includes(score.id)}
+                            onChange={(checked) => toggleScoreSelection(score.id, checked)}
+                            ariaLabel={`${score.examNumber} 성적 선택`}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{score.student?.name ?? "-"}</div>
                           <div className="mt-0.5 flex items-center gap-1.5">
@@ -623,9 +790,9 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex flex-wrap gap-2">
-                                <button type="button" onClick={() => saveScore(score)} disabled={isPending} className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white transition hover:bg-forest disabled:opacity-50">저장</button>
+                                <button type="button" onClick={() => saveScore(score)} disabled={isPending || selectedSessionLocked} className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white transition hover:bg-forest disabled:opacity-50">저장</button>
                                 <button type="button" onClick={() => setEditingId(null)} className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ink/30">취소</button>
-                                <button type="button" onClick={() => deleteScore(score.id)} disabled={isPending} className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50">삭제</button>
+                                <button type="button" onClick={() => deleteScore(score.id)} disabled={isPending || selectedSessionLocked} className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50">삭제</button>
                               </div>
                             </td>
                           </>
@@ -637,7 +804,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                             <td className="px-4 py-3">{ATTEND_TYPE_LABEL[score.attendType]}</td>
                             <td className="px-4 py-3 text-slate">{score.note ?? "-"}</td>
                             <td className="px-4 py-3">
-                              <button type="button" onClick={() => setEditingId(score.id)} className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember">수정</button>
+                              <button type="button" onClick={() => setEditingId(score.id)} disabled={selectedSessionLocked} className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">수정</button>
                             </td>
                           </>
                         )}
@@ -647,9 +814,198 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
                 </tbody>
               </table>
             </div>
+            <div className="px-4 pt-4 sm:hidden">
+              <button
+                type="button"
+                onClick={() => toggleCurrentPageScoreSelection(!allCurrentPageSelected)}
+                disabled={pagedScores.length === 0}
+                className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {allCurrentPageSelected ? "?? ??? ?? ??" : "?? ??? ?? ??"}
+              </button>
+            </div>
+            <div className="space-y-4 px-4 pb-4 sm:hidden">
+              {pagedScores.length === 0 ? (
+                <div className="rounded-[24px] border border-dashed border-ink/10 px-4 py-8 text-center text-sm text-slate">
+                  ??? ??? ????.
+                </div>
+              ) : (
+                pagedScores.map((score) => {
+                  const draft = getDraft(score);
+                  const isEditing = editingId === score.id;
+                  const isSelected = selectedScoreIds.includes(score.id);
+
+                  return (
+                    <article
+                      key={score.id}
+                      className={`rounded-[24px] border p-4 shadow-sm ${
+                        isEditing || isSelected
+                          ? "border-ember/30 bg-amber-50/40"
+                          : "border-ink/10 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-semibold text-ink">
+                            {score.student?.name ?? "-"}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate">
+                            <span className="font-mono">{score.examNumber}</span>
+                            {score.student?.examType ? (
+                              <span className="rounded-full bg-ink/5 px-1.5 py-0.5 font-semibold text-slate">
+                                {EXAM_TYPE_LABEL[score.student.examType as ExamType]}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <BulkSelectRowCheckbox
+                          checked={isSelected}
+                          onChange={(checked) => toggleScoreSelection(score.id, checked)}
+                          ariaLabel={`${score.examNumber} ?? ??`}
+                        />
+                      </div>
+
+                      {isEditing ? (
+                        <div className="mt-4 grid gap-3 rounded-[20px] border border-ink/10 p-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="grid gap-1 text-xs font-medium text-slate">
+                              <span>???</span>
+                              <input
+                                type="number"
+                                value={draft.rawScore}
+                                onChange={(event) => patchDraft(score, { rawScore: event.target.value })}
+                                className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm text-ink"
+                                placeholder="-"
+                              />
+                            </label>
+                            <label className="grid gap-1 text-xs font-medium text-slate">
+                              <span>OX</span>
+                              <input
+                                type="number"
+                                value={draft.oxScore}
+                                onChange={(event) => patchDraft(score, { oxScore: event.target.value })}
+                                className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm text-ink"
+                                placeholder="-"
+                              />
+                            </label>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="grid gap-1 text-xs font-medium text-slate">
+                              <span>?? ??</span>
+                              <select
+                                value={draft.attendType}
+                                onChange={(event) => patchDraft(score, { attendType: event.target.value as AttendType })}
+                                className="rounded-xl border border-ink/10 px-3 py-2 text-sm text-ink"
+                              >
+                                {Object.values(AttendType).map((type) => (
+                                  <option key={type} value={type}>
+                                    {ATTEND_TYPE_LABEL[type]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <div className="grid gap-1 text-xs font-medium text-slate">
+                              <span>????</span>
+                              <div className="rounded-xl border border-dashed border-ink/10 bg-mist px-3 py-2 text-sm text-slate">
+                                ?? ??
+                              </div>
+                            </div>
+                          </div>
+                          <label className="grid gap-1 text-xs font-medium text-slate">
+                            <span>??</span>
+                            <input
+                              value={draft.note}
+                              onChange={(event) => patchDraft(score, { note: event.target.value })}
+                              className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm text-ink"
+                              placeholder="??"
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="mt-4 grid gap-3 rounded-[20px] bg-mist/60 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium text-slate">???</span>
+                            <span className="text-sm font-semibold text-ink">{score.rawScore ?? "-"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium text-slate">OX</span>
+                            <span className="text-sm font-semibold text-ink">{score.oxScore ?? "-"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium text-slate">????</span>
+                            <span className="text-sm font-semibold text-ink">{score.finalScore ?? "-"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium text-slate">?? ??</span>
+                            <span className="text-sm font-semibold text-ink">
+                              {ATTEND_TYPE_LABEL[score.attendType]}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium text-slate">??</span>
+                            <span className="text-right text-sm font-semibold text-ink">
+                              {score.note ?? "-"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => saveScore(score)}
+                              disabled={isPending || selectedSessionLocked}
+                              className="rounded-full bg-ink px-3 py-2 text-xs font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              ??
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ink/30"
+                            >
+                              ??
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteScore(score.id)}
+                              disabled={isPending || selectedSessionLocked}
+                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              ??
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(score.id)}
+                            disabled={selectedSessionLocked}
+                            className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate"
+                          >
+                            ??
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
           </div>
         </section>
       ) : null}
+      <BulkSelectionActionBar selectedCount={selectedScoreIds.length} onClear={clearSelectedScores}>
+        <button
+          type="button"
+          onClick={deleteSelectedScores}
+          disabled={isPending || selectedSessionLocked}
+          className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {"\uC77C\uAD04 \uC0AD\uC81C"}
+        </button>
+      </BulkSelectionActionBar>
       <ActionModal
         open={Boolean(confirmModal.modal)}
         badgeLabel={confirmModal.modal?.badgeLabel ?? ""}
@@ -658,7 +1014,7 @@ export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}

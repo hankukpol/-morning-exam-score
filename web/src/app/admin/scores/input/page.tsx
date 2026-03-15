@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { ScoreInputWorkbench } from "@/components/scores/score-input-workbench";
 import { requireAdminContext } from "@/lib/auth";
@@ -44,8 +44,13 @@ export default async function AdminScoreInputPage() {
               examType: session.examType,
               week: session.week,
               subject: session.subject,
+              displaySubjectName: session.displaySubjectName ?? null,
               examDate: session.examDate.toISOString(),
               isCancelled: session.isCancelled,
+              cancelReason: session.cancelReason ?? null,
+              isLocked: session.isLocked,
+              lockedAt: session.lockedAt?.toISOString() ?? null,
+              lockedBy: session.lockedBy ?? null,
             })),
           }))}
         />

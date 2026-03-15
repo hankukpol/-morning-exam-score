@@ -1,7 +1,8 @@
-import { AdminRole, AttendType } from "@prisma/client";
+﻿import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
+  SCORE_SESSION_LOCKED_MESSAGE,
   executeOnlineScoreUpload,
   previewOnlineScoreUpload,
   type ScoreResolutionInput,
@@ -18,6 +19,10 @@ function parseResolutions(raw: FormDataEntryValue | null) {
   }
 
   return JSON.parse(raw) as ScoreResolutionInput;
+}
+
+function getErrorStatus(error: unknown) {
+  return error instanceof Error && error.message === SCORE_SESSION_LOCKED_MESSAGE ? 409 : 400;
 }
 
 export async function POST(request: Request) {
@@ -97,7 +102,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "온라인 채점 파일 처리에 실패했습니다." },
-      { status: 400 },
+      { status: getErrorStatus(error) },
     );
   }
 }

@@ -189,13 +189,13 @@ export function MergeWorkbench() {
     }
 
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "병합 확인",
       badgeTone: "warning",
-      title: "?? ?? ??",
-      description: `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) ?? ???? ${preview.targetStudent.name} (${preview.targetStudent.examNumber}) ???? ?????. ?????????`,
-      details: ["?? ??? ??? ??? ??, ?? ???? ?? ?? ???? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "학생 데이터 병합",
+      description: `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) 학생 데이터를 ${preview.targetStudent.name} (${preview.targetStudent.examNumber}) 계정으로 병합합니다. 계속하시겠습니까?`,
+      details: ["기존 학생 정보와 성적 기록은 대상 계정으로 통합되며 되돌릴 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "병합",
       onConfirm: () => {
         confirmModal.closeModal();
         resetMessages();
@@ -212,21 +212,21 @@ export function MergeWorkbench() {
 
             setNotice(null);
             completionModal.openModal({
-              badgeLabel: "?? ??",
+              badgeLabel: "병합 완료",
               badgeTone: "success",
-              title: "?? ??? ???????.",
-              description: "?? ?? ???? ?? ?? ???? ???? ??????.",
+              title: "학생 병합 완료",
+              description: "학생 병합이 완료되었습니다.",
               details: [
-                `?? ${result.sourceExamNumber} ? ?? ${result.targetExamNumber}`,
+                `원본 ${result.sourceExamNumber} → 대상 ${result.targetExamNumber}`,
               ],
-              confirmLabel: "??",
+              confirmLabel: "확인",
             });
             setPreview(null);
             setSourceExamNumber("");
             setTargetExamNumber("");
             setConfirmed(false);
           } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : "?? ??? ??????.");
+            setErrorMessage(error instanceof Error ? error.message : "학생 병합에 실패했습니다.");
           }
         });
       },
@@ -453,7 +453,7 @@ export function MergeWorkbench() {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -466,7 +466,7 @@ export function MergeWorkbench() {
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

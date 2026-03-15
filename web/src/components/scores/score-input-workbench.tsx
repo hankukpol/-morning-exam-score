@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { DistributionChart } from "@/components/analytics/charts";
 import { ActionModal } from "@/components/ui/action-modal";
 import { fetchJson } from "@/lib/client/fetch-json";
 import {
   ATTEND_TYPE_LABEL,
   EXAM_TYPE_LABEL,
+  EXAM_TYPE_SUBJECTS,
   SUBJECT_LABEL,
+  getSubjectDisplayLabel,
 } from "@/lib/constants";
 import { formatDate, todayDateInputValue } from "@/lib/format";
 import type {
@@ -15,6 +19,7 @@ import type {
   ScorePreviewResult,
   ScoreResolutionInput,
 } from "@/lib/scores/service";
+import type { ScoreDistributionSummary } from "@/lib/scores/distribution";
 
 const KO_MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const KO_DAYS = ["일","월","화","수","목","금","토"];
@@ -28,9 +33,22 @@ type PeriodOption = {
     examType: keyof typeof EXAM_TYPE_LABEL;
     week: number;
     subject: keyof typeof SUBJECT_LABEL;
+    displaySubjectName: string | null;
     examDate: string;
     isCancelled: boolean;
+    cancelReason: string | null;
+    isLocked: boolean;
+    lockedAt: string | null;
+    lockedBy: string | null;
   }>;
+};
+
+type SessionEditDraft = {
+  examDate: string;
+  subject: keyof typeof SUBJECT_LABEL;
+  displaySubjectName: string;
+  isCancelled: boolean;
+  cancelReason: string;
 };
 
 type ScoreInputWorkbenchProps = {
@@ -56,6 +74,8 @@ type CompletionModalState = {
   title: string;
   description: string;
   details: string[];
+  distribution: ScoreDistributionSummary | null;
+  analyticsHref: string | null;
 };
 
 const tabs = [
@@ -78,8 +98,22 @@ function statusClass(status: ScorePreviewResult["rows"][number]["status"]) {
   return "bg-red-50 text-red-700";
 }
 
+function sessionSubjectLabel(session: PeriodOption["sessions"][number]) {
+  return getSubjectDisplayLabel(session.subject, session.displaySubjectName);
+}
+
 function formatOxSessionLabel(session: PeriodOption["sessions"][number]) {
-  return `${session.examDate.slice(0, 10)} · ${EXAM_TYPE_LABEL[session.examType]} · ${SUBJECT_LABEL[session.subject]} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
+  return `${session.examDate.slice(0, 10)} · ${EXAM_TYPE_LABEL[session.examType]} · ${sessionSubjectLabel(session)} · ${session.week}주차${session.isCancelled ? " (취소)" : ""}`;
+}
+
+function buildSessionEditDraft(session: PeriodOption["sessions"][number]): SessionEditDraft {
+  return {
+    examDate: session.examDate.slice(0, 10),
+    subject: session.subject,
+    displaySubjectName: session.displaySubjectName ?? "",
+    isCancelled: session.isCancelled,
+    cancelReason: session.cancelReason ?? "",
+  };
 }
 
 function sessionDateKey(session: PeriodOption["sessions"][number]) {
@@ -404,8 +438,9 @@ function SessionCalendar({
                 }
                 ${s.isCancelled ? "opacity-50" : ""}`}
             >
-              {EXAM_TYPE_LABEL[s.examType]} / {SUBJECT_LABEL[s.subject]}
+              {EXAM_TYPE_LABEL[s.examType]} / {sessionSubjectLabel(s)}
               {s.isCancelled ? " (취소)" : ""}
+              {s.isLocked ? " (잠금)" : ""}
             </button>
           ))}
         </div>
@@ -414,6 +449,204 @@ function SessionCalendar({
   );
 }
 
+function SessionQuickEditCard({
+  session,
+  onError,
+  onSaved,
+}: {
+  session: PeriodOption["sessions"][number] | null;
+  onError: (message: string) => void;
+  onSaved: (session: PeriodOption["sessions"][number]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState<SessionEditDraft | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDraft(session ? buildSessionEditDraft(session) : null);
+    setIsOpen(false);
+  }, [session]);
+
+  const subjectOptions = useMemo(
+    () => (session ? EXAM_TYPE_SUBJECTS[session.examType] : []),
+    [session],
+  );
+
+  if (!session || !draft) {
+    return null;
+  }
+
+  const currentSession = session;
+  const currentDraft = draft;
+
+  function patchDraft(patch: Partial<SessionEditDraft>) {
+    setDraft((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      try {
+        const payload = await fetchJson<{
+          session: {
+            id: number;
+            examType: keyof typeof EXAM_TYPE_LABEL;
+            week: number;
+            subject: keyof typeof SUBJECT_LABEL;
+            displaySubjectName: string | null;
+            examDate: string;
+            isCancelled: boolean;
+            cancelReason: string | null;
+            isLocked: boolean;
+            lockedAt: string | null;
+            lockedBy: string | null;
+          };
+        }>(
+          `/api/sessions/${currentSession.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              examDate: currentDraft.examDate,
+              subject: currentDraft.subject,
+              displaySubjectName: currentDraft.displaySubjectName,
+              isCancelled: currentDraft.isCancelled,
+              cancelReason: currentDraft.cancelReason,
+            }),
+          },
+          {
+            defaultError: "회차 수정에 실패했습니다.",
+          },
+        );
+
+        onSaved({
+          id: payload.session.id,
+          examType: payload.session.examType,
+          week: payload.session.week,
+          subject: payload.session.subject,
+          displaySubjectName: payload.session.displaySubjectName,
+          examDate: payload.session.examDate,
+          isCancelled: payload.session.isCancelled,
+          cancelReason: payload.session.cancelReason,
+          isLocked: payload.session.isLocked,
+          lockedAt: payload.session.lockedAt,
+          lockedBy: payload.session.lockedBy,
+        });
+        setIsOpen(false);
+      } catch (error) {
+        onError(error instanceof Error ? error.message : "회차 수정 중 오류가 발생했습니다.");
+      }
+    });
+  }
+
+  return (
+    <div className="mt-4 rounded-[24px] border border-ink/10 bg-mist/60 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="text-sm leading-7 text-slate">
+          <div className="font-semibold text-ink">빠른 회차 수정</div>
+          <div>
+            {EXAM_TYPE_LABEL[session.examType]} · {session.week}주차 · {sessionSubjectLabel(session)}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(buildSessionEditDraft(session));
+            setIsOpen((current) => !current);
+          }}
+          className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+        >
+          {isOpen ? "닫기" : "회차 수정"}
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium">시험 날짜</label>
+            <input
+              type="date"
+              value={draft.examDate}
+              onChange={(event) => patchDraft({ examDate: event.target.value })}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">과목</label>
+            <select
+              value={draft.subject}
+              onChange={(event) =>
+                patchDraft({
+                  subject: event.target.value as keyof typeof SUBJECT_LABEL,
+                })
+              }
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            >
+              {subjectOptions.map((subject) => (
+                <option key={subject} value={subject}>
+                  {SUBJECT_LABEL[subject]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium">표시 과목명</label>
+            <input
+              value={draft.displaySubjectName}
+              onChange={(event) => patchDraft({ displaySubjectName: event.target.value })}
+              maxLength={40}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+              placeholder="선택, 비우면 기본 과목명"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium">상태</label>
+            <div className="space-y-3 rounded-2xl border border-ink/10 bg-white px-4 py-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.isCancelled}
+                  onChange={(event) => patchDraft({ isCancelled: event.target.checked })}
+                />
+                취소 회차로 표시
+              </label>
+              {draft.isCancelled ? (
+                <input
+                  value={draft.cancelReason}
+                  onChange={(event) => patchDraft({ cancelReason: event.target.value })}
+                  className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                  placeholder="취소 사유"
+                />
+              ) : null}
+            </div>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending || !draft.examDate}
+              className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+            >
+              {isPending ? "저장 중..." : "저장"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(buildSessionEditDraft(session));
+                setIsOpen(false);
+              }}
+              disabled={isPending}
+              className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-white disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   const todayKey = todayDateInputValue();
   const initialPeriodId = periods.find((period) => period.isActive)?.id ?? periods[0]?.id ?? null;
@@ -444,19 +677,27 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   const [onlineMainPreview, setOnlineMainPreview] = useState<ScorePreviewResult | null>(null);
   const [onlineOxPreview, setOnlineOxPreview] = useState<ScorePreviewResult | null>(null);
   const [onlineResolutions, setOnlineResolutions] = useState<ScoreResolutionInput>({});
+  const [periodOptions, setPeriodOptions] = useState(periods);
   const [pasteAttendType, setPasteAttendType] = useState<keyof typeof ATTEND_TYPE_LABEL>("NORMAL");
   const [pasteText, setPasteText] = useState("");
   const [pastePreview, setPastePreview] = useState<ScorePreviewResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setPeriodOptions(periods);
+  }, [periods]);
+
   const selectedPeriod = useMemo(
-    () => periods.find((period) => period.id === selectedPeriodId) ?? null,
-    [periods, selectedPeriodId],
+    () => periodOptions.find((period) => period.id === selectedPeriodId) ?? null,
+    [periodOptions, selectedPeriodId],
   );
   const selectedSession = useMemo(
     () => selectedPeriod?.sessions.find((session) => session.id === selectedSessionId) ?? null,
     [selectedPeriod, selectedSessionId],
   );
+  const selectedSessionLocked = selectedSession?.isLocked ?? false;
+  const selectedSessionCancelled = selectedSession?.isCancelled ?? false;
+  const selectedSessionUnavailable = selectedSessionLocked || selectedSessionCancelled;
   const isCumulativeSession = selectedSession?.subject === "CUMULATIVE";
   const oxAutoOptionLabel = isCumulativeSession
     ? "자동 연동 없음 (누적 모의고사 회차)"
@@ -537,6 +778,30 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     });
   }
 
+  function resetSessionDependentState() {
+    setOfflineMainPreview(null);
+    setOfflineOxPreview(null);
+    setOnlineMainPreview(null);
+    setOnlineOxPreview(null);
+    setPastePreview(null);
+    setOnlineResolutions({});
+  }
+
+  function handleSessionUpdated(updatedSession: PeriodOption["sessions"][number]) {
+    setPeriodOptions((current) =>
+      current.map((period) => ({
+        ...period,
+        sessions: period.sessions.map((session) =>
+          session.id === updatedSession.id ? updatedSession : session,
+        ),
+      })),
+    );
+    setSelectedSessionId(updatedSession.id);
+    resetSessionDependentState();
+    setNotice("회차 정보를 수정했습니다.");
+    setErrorMessage(null);
+  }
+
   function openConfirmModal(modal: ConfirmModalState) {
     setConfirmModal(modal);
   }
@@ -547,12 +812,92 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     }
   }
 
-  function openCompletionModal(title: string, description: string, details: string[]) {
-    setCompletionModal({ title, description, details });
+  function openCompletionModal(
+    title: string,
+    description: string,
+    details: string[],
+    options?: {
+      distribution?: ScoreDistributionSummary | null;
+      analyticsHref?: string | null;
+    },
+  ) {
+    setCompletionModal({
+      title,
+      description,
+      details,
+      distribution: options?.distribution ?? null,
+      analyticsHref: options?.analyticsHref ?? null,
+    });
   }
 
   function closeCompletionModal() {
     setCompletionModal(null);
+  }
+
+  function formatDistributionMetric(value: number | null, suffix = "") {
+    if (value === null || Number.isNaN(value)) {
+      return "-";
+    }
+
+    const formatted = Number.isInteger(value) ? String(value) : value.toFixed(1);
+    return suffix ? `${formatted}${suffix}` : formatted;
+  }
+
+  function buildAnalyticsHref(
+    session: PeriodOption["sessions"][number] | null,
+    periodId: number | null,
+  ) {
+    if (!session || !periodId) {
+      return "/admin/analytics";
+    }
+
+    const dateKey = session.examDate.slice(0, 10);
+    const params = new URLSearchParams({
+      tab: "daily",
+      periodId: String(periodId),
+      examType: session.examType,
+      dateFrom: dateKey,
+      dateTo: dateKey,
+    });
+
+    return `/admin/analytics?${params.toString()}`;
+  }
+
+  async function loadScoreDistribution(sessionId: number) {
+    return requestJson<ScoreDistributionSummary>(
+      `/api/scores/distribution?sessionId=${sessionId}`,
+      { method: "GET" },
+    );
+  }
+
+  async function presentExecutionCompletion(input: {
+    title: string;
+    description: string;
+    details: string[];
+    session: PeriodOption["sessions"][number] | null;
+    periodId: number | null;
+  }) {
+    let distribution: ScoreDistributionSummary | null = null;
+
+    if (input.session) {
+      distribution = await loadScoreDistribution(input.session.id).catch((error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "성적 분포를 불러오지 못했습니다.";
+        setNotice((current) =>
+          current
+            ? `${current} | 분포 조회 실패: ${message}`
+            : `분포 조회 실패: ${message}`
+        );
+        return null;
+      });
+    }
+
+    openCompletionModal(input.title, input.description, input.details, {
+      distribution,
+      analyticsHref: buildAnalyticsHref(input.session, input.periodId),
+    });
   }
 
   function formatSessionSummary() {
@@ -560,7 +905,7 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
       return "회차 미선택";
     }
 
-    return selectedSession.examDate.slice(0, 10) + " · " + EXAM_TYPE_LABEL[selectedSession.examType] + " · " + SUBJECT_LABEL[selectedSession.subject] + " · " + selectedSession.week + "주차";
+    return selectedSession.examDate.slice(0, 10) + " · " + EXAM_TYPE_LABEL[selectedSession.examType] + " · " + sessionSubjectLabel(selectedSession) + " · " + selectedSession.week + "주차";
   }
 
   function buildPreviewDetail(label: string, preview: ScorePreviewResult) {
@@ -608,6 +953,10 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function previewOfflineUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 미리보기를 생성할 수 없습니다.");
+    }
+
     const payload = (await requestJson("/api/scores/upload/offline", {
       method: "POST",
       body: buildOfflineFormData("preview"),
@@ -619,6 +968,12 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function executeOfflineUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 성적을 반영할 수 없습니다.");
+    }
+
+    const completionSession = selectedSession;
+    const completionPeriodId = selectedPeriodId;
     const payload = (await requestJson("/api/scores/upload/offline", {
       method: "POST",
       body: buildOfflineFormData("execute"),
@@ -630,7 +985,14 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     }
 
     setNotice("반영 완료: " + details.join(" | "));
-    openCompletionModal("오프라인 성적 반영 완료", "오프라인 업로드 데이터를 정상적으로 반영했습니다.", details);
+    await presentExecutionCompletion({
+      title: "오프라인 성적 반영 완료",
+      description:
+        "오프라인 업로드 데이터를 정상적으로 반영했습니다.",
+      details,
+      session: completionSession,
+      periodId: completionPeriodId,
+    });
     setOfflineMainPreview(null);
     setOfflineOxPreview(null);
   }
@@ -658,6 +1020,10 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function previewOnlineUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 미리보기를 생성할 수 없습니다.");
+    }
+
     const payload = (await requestJson("/api/scores/upload/online", {
       method: "POST",
       body: buildOnlineFormData("preview"),
@@ -669,6 +1035,12 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function executeOnlineUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 성적을 반영할 수 없습니다.");
+    }
+
+    const completionSession = selectedSession;
+    const completionPeriodId = selectedPeriodId;
     const payload = (await requestJson("/api/scores/upload/online", {
       method: "POST",
       body: buildOnlineFormData("execute"),
@@ -680,7 +1052,14 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
     }
 
     setNotice("반영 완료: " + details.join(" | "));
-    openCompletionModal("온라인 성적 반영 완료", "온라인 업로드 데이터를 정상적으로 반영했습니다.", details);
+    await presentExecutionCompletion({
+      title: "온라인 성적 반영 완료",
+      description:
+        "온라인 업로드 데이터를 정상적으로 반영했습니다.",
+      details,
+      session: completionSession,
+      periodId: completionPeriodId,
+    });
     setOnlineMainPreview(null);
     setOnlineOxPreview(null);
     setOnlineResolutions({});
@@ -709,6 +1088,10 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function previewPasteUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 미리보기를 생성할 수 없습니다.");
+    }
+
     const payload = (await requestJson("/api/scores/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -725,6 +1108,12 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   }
 
   async function executePasteUpload() {
+    if (selectedSessionCancelled) {
+      throw new Error("취소된 회차에는 성적을 반영할 수 없습니다.");
+    }
+
+    const completionSession = selectedSession;
+    const completionPeriodId = selectedPeriodId;
     const payload = (await requestJson("/api/scores/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -738,7 +1127,14 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
 
     const details = [buildExecuteDetail("직접 입력", payload)];
     setNotice("반영 완료: " + details[0]);
-    openCompletionModal("직접 입력 성적 반영 완료", "붙여넣기 데이터를 정상적으로 반영했습니다.", details);
+    await presentExecutionCompletion({
+      title: "직접 입력 성적 반영 완료",
+      description:
+        "붙여넣기 데이터를 정상적으로 반영했습니다.",
+      details,
+      session: completionSession,
+      periodId: completionPeriodId,
+    });
     setPastePreview(null);
   }
 
@@ -766,11 +1162,11 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
   return (
     <div className="space-y-8">
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
-        <div className="grid gap-6 md:grid-cols-[260px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(360px,420px)_minmax(0,1fr)] xl:grid-cols-[minmax(400px,460px)_minmax(0,1fr)]">
           <div>
             <label className="mb-2 block text-sm font-medium">시험 기간</label>
             <select value={selectedPeriodId ?? ""} onChange={(event) => setSelectedPeriodId(Number(event.target.value))} className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm">
-              {periods.map((period) => (
+              {periodOptions.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}{period.isActive ? " ✓" : ""}
                 </option>
@@ -778,16 +1174,27 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
             </select>
             {selectedSession ? (
               <div className="mt-4 rounded-[20px] border border-ink/10 bg-white p-4 text-sm leading-7 text-slate">
-                <div className="font-semibold text-ink">{SUBJECT_LABEL[selectedSession.subject]}</div>
+                <div className="font-semibold text-ink">{sessionSubjectLabel(selectedSession)}</div>
                 <div>{EXAM_TYPE_LABEL[selectedSession.examType]} · {selectedSession.week}주차</div>
                 <div>{formatDate(selectedSession.examDate)}</div>
-                {selectedSession.isCancelled ? <div className="mt-1 font-semibold text-red-500">취소된 회차</div> : null}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedSession.isLocked ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">잠금됨</span> : null}
+                  {selectedSession.isCancelled ? <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">취소 회차</span> : null}
+                </div>
+                {selectedSession.displaySubjectName ? <div className="text-xs text-slate">기본 과목: {SUBJECT_LABEL[selectedSession.subject]}</div> : null}
+                {selectedSession.isLocked && selectedSession.lockedAt ? <div className="text-xs text-slate">잠금 일시: {formatDate(selectedSession.lockedAt)}</div> : null}
+                {selectedSession.isCancelled && selectedSession.cancelReason ? <div className="text-xs text-slate">{selectedSession.cancelReason}</div> : null}
               </div>
             ) : (
               <div className="mt-4 rounded-[20px] border border-dashed border-ink/20 bg-white p-4 text-center text-sm text-slate">
                 날짜를 선택하세요
               </div>
             )}
+            <SessionQuickEditCard
+              session={selectedSession}
+              onError={setErrorMessage}
+              onSaved={handleSessionUpdated}
+            />
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium">시험 회차</label>
@@ -804,6 +1211,11 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
       </section>
       {notice ? <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div> : null}
       {errorMessage ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
+      {selectedSessionLocked ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          잠금된 회차입니다. 미리보기는 가능하지만 성적 반영은 비활성화됩니다.
+        </div>
+      ) : null}
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
@@ -853,8 +1265,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
               <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !offlineMainFile} onClick={() => run(previewOfflineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !offlineMainPreview || !selectedSessionId || !offlineMainFile} onClick={requestOfflineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || selectedSessionCancelled || !selectedSessionId || !offlineMainFile} onClick={() => run(previewOfflineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || selectedSessionUnavailable || !offlineMainPreview || !selectedSessionId || !offlineMainFile} onClick={requestOfflineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {offlineMainPreview ? (
               <div className="space-y-3">
@@ -922,8 +1334,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
               <p className="mt-2 text-xs text-slate">{oxRuleHint}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !onlineMainFile} onClick={() => run(previewOnlineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !onlineMainPreview || !selectedSessionId || !onlineMainFile} onClick={requestOnlineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || selectedSessionCancelled || !selectedSessionId || !onlineMainFile} onClick={() => run(previewOnlineUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || selectedSessionUnavailable || !onlineMainPreview || !selectedSessionId || !onlineMainFile} onClick={requestOnlineExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {onlineMainPreview ? (
               <div className="space-y-3">
@@ -949,8 +1361,8 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
             </div>
             <textarea value={pasteText} onChange={(event) => { setPasteText(event.target.value); setPastePreview(null); }} className="min-h-[220px] w-full rounded-[24px] border border-ink/10 bg-mist px-4 py-4 text-sm leading-7" placeholder={"35357\t홍길동\t80\n35358\t김지우\t75\tNORMAL"} />
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={isPending || !selectedSessionId || !pasteText.trim()} onClick={() => run(previewPasteUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
-              <button type="button" disabled={isPending || !pastePreview || !selectedSessionId || !pasteText.trim()} onClick={requestPasteExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
+              <button type="button" disabled={isPending || selectedSessionCancelled || !selectedSessionId || !pasteText.trim()} onClick={() => run(previewPasteUpload)} className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40">미리보기</button>
+              <button type="button" disabled={isPending || selectedSessionUnavailable || !pastePreview || !selectedSessionId || !pasteText.trim()} onClick={requestPasteExecute} className="inline-flex items-center rounded-full border border-ember/30 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10 disabled:cursor-not-allowed disabled:border-ink/10 disabled:text-slate">성적 반영</button>
             </div>
             {pastePreview ? <PreviewTable preview={pastePreview} source="paste" onlineResolutions={onlineResolutions} setOnlineResolutions={setOnlineResolutions} /> : null}
           </div>
@@ -976,9 +1388,98 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
         title={completionModal?.title ?? ""}
         description={completionModal?.description ?? ""}
         details={completionModal?.details ?? []}
+        panelClassName="max-w-5xl"
         confirmLabel="확인"
         onClose={closeCompletionModal}
-      />
+      >
+        {completionModal?.distribution ? (
+          completionModal.distribution.totalCount > 0 ? (
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {[
+                  {
+                    label: "반영 인원",
+                    value: `${completionModal.distribution.totalCount}명`,
+                  },
+                  {
+                    label: "평균 점수",
+                    value: formatDistributionMetric(completionModal.distribution.avgScore, "점"),
+                  },
+                  {
+                    label: "표준편차",
+                    value: formatDistributionMetric(completionModal.distribution.stdDev, "점"),
+                  },
+                  {
+                    label: "최고 / 최저",
+                    value: `${formatDistributionMetric(completionModal.distribution.maxScore, "점")} / ${formatDistributionMetric(completionModal.distribution.minScore, "점")}`,
+                  },
+                  {
+                    label: "상위 10% 컷",
+                    value: formatDistributionMetric(completionModal.distribution.top10Threshold, "점"),
+                  },
+                  {
+                    label: "상위 30% 컷",
+                    value: formatDistributionMetric(completionModal.distribution.top30Threshold, "점"),
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[24px] border border-ink/10 bg-white px-4 py-4"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-ink">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-[28px] border border-ink/10 bg-white p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">성적 분포</p>
+                    <p className="mt-1 text-xs leading-6 text-slate">
+                      일반 응시 기준으로 현재 회차의 점수 분포를 바로 확인합니다.
+                    </p>
+                  </div>
+                  {completionModal.analyticsHref ? (
+                    <Link
+                      href={completionModal.analyticsHref}
+                      className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-mist"
+                    >
+                      분석 화면으로 이동
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="mt-4 rounded-[24px] bg-mist px-3 py-3">
+                  <DistributionChart data={completionModal.distribution.distribution} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 rounded-[24px] border border-dashed border-ink/10 bg-white px-4 py-5 text-sm leading-7 text-slate">
+              <p>반영된 일반 응시 점수가 없어 분포를 표시하지 않았습니다.</p>
+              {completionModal.analyticsHref ? (
+                <Link
+                  href={completionModal.analyticsHref}
+                  className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-mist"
+                >
+                  분석 화면으로 이동
+                </Link>
+              ) : null}
+            </div>
+          )
+        ) : completionModal?.analyticsHref ? (
+          <div className="rounded-[24px] border border-ink/10 bg-white px-4 py-4">
+            <Link
+              href={completionModal.analyticsHref}
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-mist"
+            >
+              분석 화면으로 이동
+            </Link>
+          </div>
+        ) : null}
+      </ActionModal>
     </div>
   );
 }
+

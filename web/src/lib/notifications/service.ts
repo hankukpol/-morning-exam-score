@@ -1,26 +1,40 @@
-﻿import {
+import {
   ExamType,
   NotificationChannel,
   NotificationType,
+  Prisma,
   StudentStatus,
 } from "@prisma/client";
 import { SolapiMessageService } from "solapi";
 import { toAuditJson } from "@/lib/audit";
+import { revalidateAnalyticsCaches } from "@/lib/cache-tags";
 import { getSetupState } from "@/lib/env";
 import { normalizePhone } from "@/lib/excel/workbook";
 import { getPrisma } from "@/lib/prisma";
 import {
-  buildNotificationMessage,
   buildNotificationVariables,
-  getNotificationTemplateId,
   notificationTypeFromStatus,
 } from "@/lib/notifications/templates";
+import {
+  getResolvedNotificationTemplate,
+  getResolvedNotificationTemplateMap,
+  renderNotificationMessageFromTemplate,
+} from "@/lib/notifications/template-service";
 import { getDropoutMonitor } from "@/lib/analytics/service";
 
 type ConsentFilters = {
   examType?: ExamType;
   search?: string;
 };
+
+const QUEUED_NOTIFICATION_CHANNELS: NotificationChannel[] = [
+  NotificationChannel.ALIMTALK,
+  NotificationChannel.SMS,
+];
+
+function isQueuedNotificationChannel(channel: NotificationChannel) {
+  return channel === NotificationChannel.ALIMTALK || channel === NotificationChannel.SMS;
+}
 
 type NotificationPreviewRow = {
   examNumber: string;
@@ -102,6 +116,18 @@ function buildPreviewResponse(rows: NotificationPreviewRow[], missingExamNumbers
   };
 }
 
+function readTemplateVariables(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value).filter((entry): entry is [string, string] =>
+    typeof entry[1] === "string",
+  );
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 async function resolveManualRecipients(input: {
   examType?: ExamType;
   examNumbers?: string[];
@@ -151,6 +177,9 @@ async function loadQueuedLogs(logIds: number[]) {
       id: {
         in: logIds,
       },
+      channel: {
+        in: [NotificationChannel.ALIMTALK, NotificationChannel.SMS],
+      },
     },
     include: {
       student: {
@@ -199,6 +228,9 @@ export async function listNotificationCenterData(filters: ConsentFilters) {
       where: {
         student: {
           examType: filters.examType,
+        },
+        channel: {
+          in: [...QUEUED_NOTIFICATION_CHANNELS],
         },
         status: {
           in: ["pending", "failed"],
@@ -309,6 +341,10 @@ export async function previewQueuedNotifications(input: { logIds: number[] }) {
     throw new Error("미리보기할 대기 알림이 없습니다.");
   }
 
+  if (logs.length !== input.logIds.length) {
+    throw new Error("Some selected logs cannot be retried from this queue.");
+  }
+
   const rows: NotificationPreviewRow[] = logs.map((log) => {
     const exclusionReason = getExclusionReason(log.student);
 
@@ -351,8 +387,15 @@ export async function previewManualNotification(input: {
     throw new Error("발송 대상 학생이 없습니다.");
   }
 
+  const resolvedTemplate = await getResolvedNotificationTemplate(input.type);
   const rows: NotificationPreviewRow[] = recipients.map((student) => {
     const exclusionReason = getExclusionReason(student);
+    const rendered = renderNotificationMessageFromTemplate(resolvedTemplate, {
+      type: input.type,
+      studentName: student.name,
+      customMessage: message || undefined,
+      pointAmount: input.pointAmount ?? undefined,
+    });
 
     return {
       examNumber: student.examNumber,
@@ -360,12 +403,7 @@ export async function previewManualNotification(input: {
       phone: student.phone,
       currentStatus: student.currentStatus,
       notificationConsent: student.notificationConsent,
-      message: buildNotificationMessage({
-        type: input.type,
-        studentName: student.name,
-        customMessage: message || undefined,
-        pointAmount: input.pointAmount ?? undefined,
-      }),
+      message: rendered.message,
       state: exclusionReason ? "excluded" : "ready",
       exclusionReason,
       notificationType: input.type,
@@ -375,16 +413,20 @@ export async function previewManualNotification(input: {
   return buildPreviewResponse(rows, missingExamNumbers);
 }
 
-async function deliverNotificationLog(log: {
-  id: number;
-  type: NotificationType;
-  message: string;
-  student: {
-    name: string;
-    phone: string | null;
-    notificationConsent: boolean;
-  };
-}) {
+async function deliverNotificationLog(
+  log: {
+    id: number;
+    type: NotificationType;
+    message: string;
+    templateVariables?: unknown;
+    student: {
+      name: string;
+      phone: string | null;
+      notificationConsent: boolean;
+    };
+  },
+  templateId?: string | null,
+) {
   if (!log.student.notificationConsent) {
     return {
       status: "skipped",
@@ -404,9 +446,20 @@ async function deliverNotificationLog(log: {
   }
 
   const { client, config } = getSolapiClient();
-  const templateId = getNotificationTemplateId(log.type);
+  const resolvedTemplateId =
+    templateId ?? (await getResolvedNotificationTemplate(log.type)).solapiTemplateId;
+  const variables =
+    readTemplateVariables(log.templateVariables) ??
+    buildNotificationVariables(
+      {
+        type: log.type,
+        studentName: log.student.name,
+        customMessage: log.message,
+      },
+      log.message,
+    );
 
-  if (config.pfId && templateId) {
+  if (config.pfId && resolvedTemplateId) {
     try {
       await client.sendOne({
         to: normalizedPhone,
@@ -414,12 +467,8 @@ async function deliverNotificationLog(log: {
         text: log.message,
         kakaoOptions: {
           pfId: config.pfId,
-          templateId,
-          variables: buildNotificationVariables({
-            type: log.type,
-            studentName: log.student.name,
-            customMessage: log.message,
-          }),
+          templateId: resolvedTemplateId,
+          variables,
           disableSms: true,
         },
       });
@@ -483,6 +532,25 @@ async function deliverNotificationLog(log: {
   }
 }
 
+async function loadNotificationLogForDelivery(logId: number) {
+  return getPrisma().notificationLog.findUnique({
+    where: {
+      id: logId,
+    },
+    include: {
+      student: {
+        select: {
+          name: true,
+          phone: true,
+          notificationConsent: true,
+          currentStatus: true,
+          examType: true,
+        },
+      },
+    },
+  });
+}
+
 export async function sendQueuedNotifications(input: {
   adminId: string;
   logIds: number[];
@@ -499,10 +567,20 @@ export async function sendQueuedNotifications(input: {
     throw new Error("발송할 대기 알림이 없습니다.");
   }
 
+  if (logs.length !== input.logIds.length) {
+    throw new Error("Some selected logs cannot be retried from this queue.");
+  }
+
+  const templateMap = await getResolvedNotificationTemplateMap(
+    logs.map((log) => log.type),
+  );
   const updated = [];
 
   for (const log of logs) {
-    const result = await deliverNotificationLog(log);
+    const result = await deliverNotificationLog(
+      log,
+      templateMap.get(log.type)?.solapiTemplateId ?? null,
+    );
     const next = await prisma.notificationLog.update({
       where: {
         id: log.id,
@@ -529,11 +607,159 @@ export async function sendQueuedNotifications(input: {
     },
   });
 
+  revalidateAnalyticsCaches();
+
   return {
     sentCount: updated.filter((log) => log.status === "sent").length,
     failedCount: updated.filter((log) => log.status === "failed").length,
     skippedCount: updated.filter((log) => log.status === "skipped").length,
     logs: updated,
+  };
+}
+
+export async function retryNotificationLog(input: {
+  adminId: string;
+  notificationLogId: number;
+  ipAddress?: string | null;
+}) {
+  const prisma = getPrisma();
+  const sourceLog = await loadNotificationLogForDelivery(input.notificationLogId);
+
+  if (!sourceLog) {
+    throw new Error("Retry source notification log not found.");
+  }
+
+  if (!isQueuedNotificationChannel(sourceLog.channel)) {
+    throw new Error("Web Push delivery logs cannot be retried from this screen.");
+  }
+
+  const lockResult = await prisma.notificationLog.updateMany({
+    where: {
+      id: sourceLog.id,
+      status: "failed",
+    },
+    data: {
+      status: "retrying",
+    },
+  });
+
+  if (lockResult.count === 0) {
+    throw new Error("This notification is already being retried or cannot be retried.");
+  }
+
+  let createdLog;
+
+  try {
+    createdLog = await prisma.notificationLog.create({
+      data: {
+        examNumber: sourceLog.examNumber,
+        type: sourceLog.type,
+        channel: sourceLog.channel,
+        message: sourceLog.message,
+        status: "pending",
+        failReason: null,
+        templateVariables: sourceLog.templateVariables ?? Prisma.DbNull,
+        dedupeKey: null,
+      },
+    });
+  } catch (error) {
+    await prisma.notificationLog.update({
+      where: {
+        id: sourceLog.id,
+      },
+      data: {
+        status: "failed",
+      },
+    }).catch(() => undefined);
+    throw error;
+  }
+
+  const resolvedTemplate = await getResolvedNotificationTemplate(sourceLog.type);
+  const result = await deliverNotificationLog(
+    {
+      id: createdLog.id,
+      type: createdLog.type,
+      message: createdLog.message,
+      templateVariables: createdLog.templateVariables,
+      student: {
+        name: sourceLog.student.name,
+        phone: sourceLog.student.phone,
+        notificationConsent: sourceLog.student.notificationConsent,
+      },
+    },
+    resolvedTemplate.solapiTemplateId,
+  ).catch((error) => ({
+    status: "failed" as const,
+    channel: NotificationChannel.ALIMTALK,
+    failReason: error instanceof Error ? error.message : "Notification retry failed.",
+  }));
+
+  let deliveredLog;
+  let retriedSourceLog;
+
+  try {
+    [deliveredLog, retriedSourceLog] = await prisma.$transaction([
+      prisma.notificationLog.update({
+        where: {
+          id: createdLog.id,
+        },
+        data: {
+          status: result.status,
+          channel: result.channel,
+          failReason: result.failReason,
+          sentAt: new Date(),
+        },
+      }),
+      prisma.notificationLog.update({
+        where: {
+          id: sourceLog.id,
+        },
+        data: {
+          status: "retried",
+        },
+      }),
+    ]);
+  } catch (error) {
+    await prisma.notificationLog.update({
+      where: {
+        id: sourceLog.id,
+      },
+      data: {
+        status: "failed",
+      },
+    }).catch(() => undefined);
+    await prisma.notificationLog.update({
+      where: {
+        id: createdLog.id,
+      },
+      data: {
+        status: "failed",
+        failReason: result.failReason ?? "Failed to recover retry log state.",
+      },
+    }).catch(() => undefined);
+    throw error;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      adminId: input.adminId,
+      action: "NOTIFICATION_RETRY",
+      targetType: "NotificationLog",
+      targetId: String(sourceLog.id),
+      before: toAuditJson(sourceLog),
+      after: toAuditJson({
+        sourceLog: retriedSourceLog,
+        retryLog: deliveredLog,
+      }),
+      ipAddress: input.ipAddress ?? null,
+    },
+  });
+
+  revalidateAnalyticsCaches();
+
+  return {
+    sourceLogId: sourceLog.id,
+    log: deliveredLog,
   };
 }
 
@@ -588,6 +814,11 @@ export async function sendStatusNotifications(input: {
   });
   const existingSet = new Set(existingLogs.map((log) => `${log.examNumber}:${log.type}`));
 
+  const templateMap = await getResolvedNotificationTemplateMap(
+    targetStatuses
+      .map((status) => getStatusNotificationType(status))
+      .filter((type): type is NonNullable<typeof type> => type !== null),
+  );
   const createdLogs = [];
 
   for (const row of targets) {
@@ -607,20 +838,28 @@ export async function sendStatusNotifications(input: {
     }
 
     const canQueue = Boolean(normalizePhone(row.phone ?? ""));
+    const resolvedTemplate = templateMap.get(type);
+
+    if (!resolvedTemplate) {
+      continue;
+    }
+
+    const rendered = renderNotificationMessageFromTemplate(resolvedTemplate, {
+      type,
+      studentName: row.name,
+      recoveryDate: row.recoveryDate,
+      weekAbsenceCount: row.currentWeekAbsenceCount,
+      monthAbsenceCount: row.currentMonthAbsenceCount,
+    });
     const log = await prisma.notificationLog.create({
       data: {
         examNumber: row.examNumber,
         type,
         channel: NotificationChannel.ALIMTALK,
-        message: buildNotificationMessage({
-          type,
-          studentName: row.name,
-          recoveryDate: row.recoveryDate,
-          weekAbsenceCount: row.currentWeekAbsenceCount,
-          monthAbsenceCount: row.currentMonthAbsenceCount,
-        }),
+        message: rendered.message,
+        templateVariables: rendered.variables,
         status: canQueue ? "pending" : "skipped",
-        failReason: canQueue ? null : "전화번호가 없어 발송 대상에서 제외했습니다.",
+        failReason: canQueue ? null : "Missing phone number for delivery.",
       },
     });
 
@@ -678,20 +917,23 @@ export async function sendManualNotification(input: {
   }
 
   const prisma = getPrisma();
+  const resolvedTemplate = await getResolvedNotificationTemplate(input.type);
   const createdLogs = [];
 
   for (const student of recipients) {
+    const rendered = renderNotificationMessageFromTemplate(resolvedTemplate, {
+      type: input.type,
+      studentName: student.name,
+      customMessage: message || undefined,
+      pointAmount: input.pointAmount ?? undefined,
+    });
     const log = await prisma.notificationLog.create({
       data: {
         examNumber: student.examNumber,
         type: input.type,
         channel: NotificationChannel.ALIMTALK,
-        message: buildNotificationMessage({
-          type: input.type,
-          studentName: student.name,
-          customMessage: message || undefined,
-          pointAmount: input.pointAmount ?? undefined,
-        }),
+        message: rendered.message,
+        templateVariables: rendered.variables,
         status: "pending",
       },
     });

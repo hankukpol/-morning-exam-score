@@ -1,7 +1,8 @@
-import { AdminRole, AttendType } from "@prisma/client";
+﻿import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import {
+  SCORE_SESSION_LOCKED_MESSAGE,
   executeOfflineScoreUpload,
   previewOfflineScoreUpload,
 } from "@/lib/scores/service";
@@ -10,6 +11,10 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 type Mode = "preview" | "execute";
+
+function getErrorStatus(error: unknown) {
+  return error instanceof Error && error.message === SCORE_SESSION_LOCKED_MESSAGE ? 409 : 400;
+}
 
 export async function POST(request: Request) {
   const auth = await requireApiAdmin(AdminRole.TEACHER);
@@ -74,7 +79,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error ? error.message : "오프라인 채점 파일 처리에 실패했습니다.",
       },
-      { status: 400 },
+      { status: getErrorStatus(error) },
     );
   }
 }

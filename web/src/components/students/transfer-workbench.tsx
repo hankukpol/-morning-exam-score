@@ -150,13 +150,13 @@ export function TransferWorkbench() {
     }
 
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "이전 확인",
       badgeTone: "warning",
-      title: "???? ?? ??",
-      description: `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) ?? ???? ${normalizedTo}? ?????. ?????????`,
-      details: ["?? ??? ??????, ?? ???? ? ????? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "수험번호 이전",
+      description: `${preview.sourceStudent.name} (${preview.sourceStudent.examNumber}) 학생 데이터를 ${normalizedTo}로 이전합니다. 계속하시겠습니까?`,
+      details: ["기존 학생 기록은 유지되며, 새 수험번호로 계정이 이전됩니다."],
+      cancelLabel: "취소",
+      confirmLabel: "이전",
       onConfirm: () => {
         confirmModal.closeModal();
         resetMessages();
@@ -173,12 +173,12 @@ export function TransferWorkbench() {
 
             setNotice(null);
             completionModal.openModal({
-              badgeLabel: "?? ??",
+              badgeLabel: "이전 완료",
               badgeTone: "success",
-              title: "???? ??? ???????.",
-              description: "??? ?? ???? ? ????? ??????.",
-              details: [`? ????: ${result.toExamNumber}`],
-              confirmLabel: "??",
+              title: "수험번호 이전 완료",
+              description: "수험번호 이전이 완료되었습니다.",
+              details: [`새 수험번호: ${result.toExamNumber}`],
+              confirmLabel: "확인",
             });
             setPreview(null);
             setFromExamNumber("");
@@ -186,7 +186,7 @@ export function TransferWorkbench() {
             setConfirmed(false);
           } catch (error) {
             setErrorMessage(
-              error instanceof Error ? error.message : "???? ??? ??????.",
+              error instanceof Error ? error.message : "수험번호 이전에 실패했습니다.",
             );
           }
         });
@@ -365,7 +365,7 @@ export function TransferWorkbench() {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -378,7 +378,7 @@ export function TransferWorkbench() {
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

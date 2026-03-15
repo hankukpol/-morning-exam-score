@@ -18,6 +18,9 @@ import {
   type QueryMode,
 } from "@/lib/query/service";
 import Link from "next/link";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { FilterPresetControls } from "@/components/ui/filter-preset-controls";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +40,21 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
     getAnalyticsContext(searchParams),
   ]);
   const mode = (readStringParam(searchParams, "mode") as QueryMode | undefined) ?? "date";
-  const date = readStringParam(searchParams, "date") ?? todayDateInputValue();
+  const legacyDate = readStringParam(searchParams, "date");
+  const dateFrom = readStringParam(searchParams, "dateFrom") ?? legacyDate ?? todayDateInputValue();
+  const dateTo = readStringParam(searchParams, "dateTo") ?? legacyDate ?? dateFrom;
   const subject = (readStringParam(searchParams, "subject") as Subject | undefined) ?? undefined;
   const keyword = readStringParam(searchParams, "keyword") ?? "";
 
   const [dateRows, subjectRows, studentRows] = await Promise.all([
-    mode === "date" && date
+    mode === "date" && dateFrom
       ? getDateQueryRows({
           mode,
           periodId: selectedPeriod?.id,
           examType,
-          date,
+          date: legacyDate ?? undefined,
+          dateFrom,
+          dateTo,
         })
       : Promise.resolve([]),
     mode === "subject" && subject
@@ -76,8 +83,12 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
     exportParams.set("periodId", String(selectedPeriod.id));
   }
 
-  if (date) {
-    exportParams.set("date", date);
+  if (dateFrom) {
+    exportParams.set("dateFrom", dateFrom);
+  }
+
+  if (dateTo) {
+    exportParams.set("dateTo", dateTo);
   }
 
   if (subject) {
@@ -101,7 +112,7 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
         특정 날짜 전체 성적, 과목별 추이, 수강생별 전체 이력을 한 화면에서 조회합니다.
       </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5">
+      <form id="query-filter-form" className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5">
         <div>
           <label className="mb-2 block text-sm font-medium">조회 모드</label>
           <select
@@ -142,12 +153,12 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
           </select>
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">날짜</label>
-          <input
-            type="date"
-            name="date"
-            defaultValue={date}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+          <label className="mb-2 block text-sm font-medium">날짜 범위</label>
+          <DateRangePicker
+            fromName="dateFrom"
+            toName="dateTo"
+            defaultFrom={dateFrom}
+            defaultTo={dateTo}
           />
         </div>
         <div>
@@ -174,116 +185,113 @@ export default async function AdminQueryPage({ searchParams }: PageProps) {
             />
           </div>
         </div>
-        <div className="md:col-span-5 flex flex-wrap justify-end gap-3">
-          {hasRows ? (
-            <>
-              <a
-                href={`/api/export/query?${exportParams.toString()}&format=xlsx`}
-                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                xlsx 내보내기
-              </a>
-              <a
-                href={`/api/export/query?${exportParams.toString()}&format=csv`}
-                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-              >
-                csv 내보내기
-              </a>
-            </>
-          ) : null}
-          <button
-            type="submit"
-            className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-          >
-            조회
-          </button>
+        <div className="md:col-span-5 flex flex-wrap items-center justify-between gap-3">
+          <FilterPresetControls
+            pathname="/admin/query"
+            storageKey="admin-query-filter-presets"
+            formId="query-filter-form"
+            currentFilters={{
+              mode,
+              periodId: selectedPeriod?.id ? String(selectedPeriod.id) : "",
+              examType,
+              dateFrom,
+              dateTo,
+              subject: subject ?? "",
+              keyword,
+            }}
+          />
+          <div className="flex flex-wrap justify-end gap-3">
+            {hasRows ? (
+              <>
+                <a
+                  href={`/api/export/query?${exportParams.toString()}&format=xlsx`}
+                  className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                >
+                  xlsx 내보내기
+                </a>
+                <a
+                  href={`/api/export/query?${exportParams.toString()}&format=csv`}
+                  className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                >
+                  csv 내보내기
+                </a>
+              </>
+            ) : null}
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+            >
+              조회
+            </button>
+          </div>
         </div>
       </form>
 
       {mode === "date" ? (
         <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-          <h2 className="text-xl font-semibold">날짜별 전체 성적</h2>
-          <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
-            <table className="min-w-full divide-y divide-ink/10 text-sm">
-              <thead className="bg-mist/80 text-left">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">시험일</th>
-                  <th className="px-4 py-3 font-semibold">과목</th>
-                  <th className="px-4 py-3 font-semibold">수험번호</th>
-                  <th className="px-4 py-3 font-semibold">이름</th>
-                  <th className="px-4 py-3 font-semibold">출결</th>
-                  <th className="px-4 py-3 font-semibold">원점수</th>
-                  <th className="px-4 py-3 font-semibold">최종점수</th>
-                  <th className="px-4 py-3 font-semibold">현재 상태</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {dateRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-slate">
-                      날짜를 선택하면 결과가 표시됩니다.
-                    </td>
-                  </tr>
-                ) : null}
-                {dateRows.map((row) => (
-                  <tr key={`${row.sessionId}-${row.examNumber}`}>
-                    <td className="px-4 py-3">{formatDate(row.examDate)}</td>
-                    <td className="px-4 py-3">{SUBJECT_LABEL[row.subject]}</td>
-                    <td className="px-4 py-3">{row.examNumber}</td>
-                    <td className="px-4 py-3">{row.studentName}</td>
-                    <td className="px-4 py-3">{ATTEND_TYPE_LABEL[row.attendType]}</td>
-                    <td className="px-4 py-3">{row.rawScore ?? "-"}</td>
-                    <td className="px-4 py-3">{row.finalScore ?? "-"}</td>
-                    <td className="px-4 py-3">{STATUS_LABEL[row.currentStatus]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">날짜별 전체 성적</h2>
+              <p className="mt-2 text-sm text-slate sm:hidden">모바일에서는 카드뷰로, 큰 화면에서는 표로 표시됩니다.</p>
+            </div>
+            <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+              {dateRows.length}건
+            </span>
+          </div>
+          <div className="mt-6">
+            <ResponsiveTable
+              data={dateRows}
+              caption="날짜별 전체 성적 목록"
+              emptyState="날짜를 선택하면 결과가 표시됩니다."
+              keyExtractor={(row) => `${row.sessionId}-${row.examNumber}`}
+              cardTitle={(row) => `${row.examNumber} · ${row.studentName}`}
+              cardDescription={(row) => `${formatDate(row.examDate)} · ${SUBJECT_LABEL[row.subject]}`}
+              columns={[
+                { id: "examDate", header: "시험일", cell: (row) => formatDate(row.examDate), hideOnMobile: true },
+                { id: "subject", header: "과목", cell: (row) => SUBJECT_LABEL[row.subject], hideOnMobile: true },
+                { id: "examNumber", header: "수험번호", cell: (row) => row.examNumber, hideOnMobile: true },
+                { id: "studentName", header: "이름", cell: (row) => row.studentName, hideOnMobile: true },
+                { id: "attendType", header: "출결", cell: (row) => ATTEND_TYPE_LABEL[row.attendType] },
+                { id: "rawScore", header: "원점수", cell: (row) => row.rawScore ?? "-" },
+                { id: "finalScore", header: "최종점수", cell: (row) => row.finalScore ?? "-" },
+                { id: "currentStatus", header: "현재 상태", cell: (row) => STATUS_LABEL[row.currentStatus] },
+              ]}
+            />
           </div>
         </section>
       ) : null}
 
       {mode === "subject" ? (
         <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
-          <h2 className="text-xl font-semibold">과목별 추이</h2>
-          <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
-            <table className="min-w-full divide-y divide-ink/10 text-sm">
-              <thead className="bg-mist/80 text-left">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">시험일</th>
-                  <th className="px-4 py-3 font-semibold">주차</th>
-                  <th className="px-4 py-3 font-semibold">평균</th>
-                  <th className="px-4 py-3 font-semibold">최고</th>
-                  <th className="px-4 py-3 font-semibold">최저</th>
-                  <th className="px-4 py-3 font-semibold">현장</th>
-                  <th className="px-4 py-3 font-semibold">온라인</th>
-                  <th className="px-4 py-3 font-semibold">결시</th>
-                  <th className="px-4 py-3 font-semibold">사유 결시</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {subjectRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-slate">
-                      과목을 선택하면 추이 결과가 표시됩니다.
-                    </td>
-                  </tr>
-                ) : null}
-                {subjectRows.map((row) => (
-                  <tr key={row.sessionId}>
-                    <td className="px-4 py-3">{formatDate(row.examDate)}</td>
-                    <td className="px-4 py-3">{row.week}주차</td>
-                    <td className="px-4 py-3">{row.averageScore ?? "-"}</td>
-                    <td className="px-4 py-3">{row.highestScore ?? "-"}</td>
-                    <td className="px-4 py-3">{row.lowestScore ?? "-"}</td>
-                    <td className="px-4 py-3">{row.normalCount}</td>
-                    <td className="px-4 py-3">{row.liveCount}</td>
-                    <td className="px-4 py-3">{row.absentCount}</td>
-                    <td className="px-4 py-3">{row.excusedCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">과목별 추이</h2>
+              <p className="mt-2 text-sm text-slate sm:hidden">시험 회차별 집계를 모바일 카드뷰로 전환했습니다.</p>
+            </div>
+            <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+              {subjectRows.length}회차
+            </span>
+          </div>
+          <div className="mt-6">
+            <ResponsiveTable
+              data={subjectRows}
+              caption="과목별 추이 요약 표"
+              emptyState="과목을 선택하면 추이 결과가 표시됩니다."
+              keyExtractor={(row) => String(row.sessionId)}
+              cardTitle={(row) => `${formatDate(row.examDate)} · ${row.week}주차`}
+              cardDescription={(row) => SUBJECT_LABEL[row.subject]}
+              columns={[
+                { id: "examDate", header: "시험일", cell: (row) => formatDate(row.examDate), hideOnMobile: true },
+                { id: "week", header: "주차", cell: (row) => `${row.week}주차`, hideOnMobile: true },
+                { id: "averageScore", header: "평균", cell: (row) => row.averageScore ?? "-" },
+                { id: "highestScore", header: "최고", cell: (row) => row.highestScore ?? "-" },
+                { id: "lowestScore", header: "최저", cell: (row) => row.lowestScore ?? "-" },
+                { id: "normalCount", header: "현장", cell: (row) => row.normalCount },
+                { id: "liveCount", header: "온라인", cell: (row) => row.liveCount },
+                { id: "absentCount", header: "결시", cell: (row) => row.absentCount },
+                { id: "excusedCount", header: "사유 결시", cell: (row) => row.excusedCount },
+              ]}
+            />
           </div>
         </section>
       ) : null}

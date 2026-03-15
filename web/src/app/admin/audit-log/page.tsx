@@ -1,7 +1,10 @@
-import { AdminRole } from "@prisma/client";
+﻿import { AdminRole } from "@prisma/client";
+import { ScoreSourceStatsPanel } from "@/components/audit-log/score-source-stats-panel";
+import { listAuditLogs } from "@/lib/audit-log/service";
 import { requireAdminContext } from "@/lib/auth";
 import { formatDateTime, todayDateInputValue } from "@/lib/format";
-import { listAuditLogs } from "@/lib/audit-log/service";
+import { listPeriodsBasic } from "@/lib/periods/service";
+import { getScoreSourceStats } from "@/lib/scores/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +12,7 @@ type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-function readParam(
-  searchParams: PageProps["searchParams"],
-  key: string,
-) {
+function readParam(searchParams: PageProps["searchParams"], key: string) {
   const value = searchParams?.[key];
   return Array.isArray(value) ? value[0] : value;
 }
@@ -30,45 +30,49 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
   const action = readParam(searchParams, "action") ?? "";
   const date = readParam(searchParams, "date") ?? todayDateInputValue();
   const examNumber = readParam(searchParams, "examNumber") ?? "";
-  const [, rows] = await Promise.all([
+
+  const [, rows, periods] = await Promise.all([
     requireAdminContext(AdminRole.SUPER_ADMIN),
     listAuditLogs({ admin, action, date, examNumber }),
+    listPeriodsBasic(),
   ]);
+
+  const initialPeriodId = periods.find((period) => period.isActive)?.id ?? periods[0]?.id ?? null;
+  const initialStats = initialPeriodId ? await getScoreSourceStats(initialPeriodId) : null;
 
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-16 Audit Log
+        D-12 Score Source Stats
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">감사 로그</h1>
+      <h1 className="mt-5 text-3xl font-semibold">Audit Log</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        관리자 작업 이력과 변경 전후 값을 추적합니다. 수정이나 삭제는 허용하지 않고 조회만
-        제공합니다.
+        Review admin actions together with before and after payloads. This screen is read-only.
       </p>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
         <div>
-          <label className="mb-2 block text-sm font-medium">관리자</label>
+          <label className="mb-2 block text-sm font-medium">Admin</label>
           <input
             type="text"
             name="admin"
             defaultValue={admin}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            placeholder="이름 또는 이메일"
+            placeholder="Name or email"
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">작업 유형</label>
+          <label className="mb-2 block text-sm font-medium">Action</label>
           <input
             type="text"
             name="action"
             defaultValue={action}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            placeholder="예: SCORE_UPDATE"
+            placeholder="Example: SCORE_UPDATE"
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">날짜</label>
+          <label className="mb-2 block text-sm font-medium">Date</label>
           <input
             type="date"
             name="date"
@@ -77,35 +81,35 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium">수험번호</label>
+          <label className="mb-2 block text-sm font-medium">Exam number</label>
           <input
             type="text"
             name="examNumber"
             defaultValue={examNumber}
             className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-            placeholder="targetId 또는 JSON 내 examNumber 검색"
+            placeholder="Search targetId or examNumber in JSON payload"
           />
         </div>
-        <div className="md:col-span-4 flex justify-end">
+        <div className="flex justify-end md:col-span-4">
           <button
             type="submit"
             className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
           >
-            조회
+            Search
           </button>
         </div>
       </form>
 
       <section className="mt-8 rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold">조회 결과</h2>
-          <p className="text-sm text-slate">{rows.length}건</p>
+          <h2 className="text-xl font-semibold">Results</h2>
+          <p className="text-sm text-slate">{`${rows.length} rows`}</p>
         </div>
 
         <div className="mt-6 space-y-4">
           {rows.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-ink/10 p-8 text-center text-sm text-slate">
-              조건에 맞는 감사 로그가 없습니다.
+              No audit logs matched the current filters.
             </div>
           ) : null}
           {rows.map((row) => (
@@ -115,27 +119,25 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="text-lg font-semibold">{row.action}</h3>
                     <span className="inline-flex rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate">
-                      {row.targetType} · {row.targetId}
+                      {`${row.targetType} / ${row.targetId}`}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-slate">
-                    {row.admin.name} ({row.admin.email}) · {formatDateTime(row.createdAt)}
+                    {`${row.admin.name} (${row.admin.email}) / ${formatDateTime(row.createdAt)}`}
                   </p>
-                  <p className="mt-1 text-xs text-slate">
-                    IP: {row.ipAddress ?? "-"}
-                  </p>
+                  <p className="mt-1 text-xs text-slate">{`IP: ${row.ipAddress ?? "-"}`}</p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 <details className="rounded-[24px] border border-ink/10 bg-mist p-4">
-                  <summary className="cursor-pointer text-sm font-semibold">변경 전</summary>
+                  <summary className="cursor-pointer text-sm font-semibold">Before</summary>
                   <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-slate">
                     {stringifyAuditValue(row.before)}
                   </pre>
                 </details>
                 <details className="rounded-[24px] border border-ink/10 bg-mist p-4">
-                  <summary className="cursor-pointer text-sm font-semibold">변경 후</summary>
+                  <summary className="cursor-pointer text-sm font-semibold">After</summary>
                   <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-slate">
                     {stringifyAuditValue(row.after)}
                   </pre>
@@ -145,6 +147,16 @@ export default async function AdminAuditLogPage({ searchParams }: PageProps) {
           ))}
         </div>
       </section>
+
+      <ScoreSourceStatsPanel
+        periods={periods.map((period) => ({
+          id: period.id,
+          name: period.name,
+          isActive: period.isActive,
+        }))}
+        initialPeriodId={initialPeriodId}
+        initialStats={initialStats}
+      />
     </div>
   );
 }

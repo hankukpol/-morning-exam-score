@@ -28,8 +28,6 @@ const MIGRATION_TRANSACTION_OPTIONS = {
 } as const;
 const MIGRATION_WRITE_BATCH_SIZE = 10;
 const MIGRATION_STATEMENT_TIMEOUT_MS = 300_000;
-const MIGRATION_TIMEOUT_RETRY_COUNT = 3;
-const MIGRATION_TIMEOUT_RETRY_DELAY_MS = 1_500;
 
 function chunkItems<T>(items: readonly T[], chunkSize: number) {
   const chunks: T[][] = [];
@@ -522,7 +520,7 @@ function parseWeekNumber(sheetName: string) {
   const matched = sheetName.match(/(\d+)/);
 
   if (!matched) {
-    throw new Error(`시트 이름에서 주차 번호를 찾을 수 없습니다. 시트명을 확인해 주세요: ${sheetName}`);
+    throw new Error(`시트 이름에서 주차 번호를 찾을 수 없습니다. 시트명을 확인해 주세요. ${sheetName}`);
   }
 
   return Number(matched[1]);
@@ -833,7 +831,7 @@ export async function previewLegacyWorkbookScores(input: {
     const issues: string[] = [];
 
     if (!row.sessionId) {
-      issues.push("파일 행과 대응되는 회차를 찾을 수 없습니다.");
+      issues.push("파일 결과와 대응되는 회차를 찾을 수 없습니다.");
     }
 
     if (!row.examNumber) {
@@ -845,7 +843,7 @@ export async function previewLegacyWorkbookScores(input: {
     }
 
     if (row.examNumber && studentSet.size > 0 && !studentSet.has(row.examNumber)) {
-      issues.push("학생 DB에 없는 수험번호입니다. 먼저 학생 데이터를 이관했는지 확인해 주세요.");
+      issues.push("학생 DB에 없는 수험번호입니다. 먼저 학생 데이터가 등록되어 있는지 확인해 주세요.");
     }
 
     if (

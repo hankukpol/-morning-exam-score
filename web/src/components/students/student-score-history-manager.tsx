@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AttendType, StudentStatus, Subject } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
+import { DeltaBadge } from "@/components/ui/delta-badge";
+import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
   ATTEND_TYPE_LABEL,
@@ -21,7 +23,7 @@ type ScoreHistoryRow = {
   finalScore: number | null;
   attendType: AttendType;
   note: string | null;
-  sourceType: keyof typeof SCORE_SOURCE_LABEL;
+  sourceType: keyof typeof SCORE_SOURCE_LABEL | null;
   session: {
     id: number;
     week: number;
@@ -49,6 +51,78 @@ type EditDraft = {
   attendType: AttendType;
   note: string;
 };
+
+function LoadingSpinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+    />
+  );
+}
+
+function SuccessCheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      className="check-animated h-3.5 w-3.5"
+    >
+      <path
+        d="M5 10.5 8.5 14 15 7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function resolveScoreValue(score: ScoreHistoryRow) {
+  if (score.finalScore !== null) {
+    return score.finalScore;
+  }
+
+  if (score.session.subject === Subject.POLICE_SCIENCE && score.oxScore !== null) {
+    return score.oxScore;
+  }
+
+  return score.rawScore;
+}
+
+function buildScoreInsights(scores: ScoreHistoryRow[]) {
+  const ordered = [...scores].sort(
+    (left, right) =>
+      new Date(left.session.examDate).getTime() - new Date(right.session.examDate).getTime() ||
+      left.session.id - right.session.id ||
+      left.id - right.id,
+  );
+  const deltas: Record<number, { current: number; previous: number | null }> = {};
+  const previousBySubject = new Map<Subject, number>();
+  let latestScore: number | null = null;
+  let latestPreviousScore: number | null = null;
+
+  for (const score of ordered) {
+    const currentScore = resolveScoreValue(score);
+    if (currentScore === null) {
+      continue;
+    }
+
+    const subjectPreviousScore = previousBySubject.get(score.session.subject) ?? null;
+    deltas[score.id] = { current: currentScore, previous: subjectPreviousScore };
+    latestPreviousScore = subjectPreviousScore;
+    latestScore = currentScore;
+    previousBySubject.set(score.session.subject, currentScore);
+  }
+
+  return {
+    deltas,
+    latestScore,
+    previousScore: latestPreviousScore,
+  };
+}
 
 async function requestJson<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, {
@@ -88,8 +162,26 @@ export function StudentScoreHistoryManager({
   const [drafts, setDrafts] = useState<Record<number, EditDraft>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [activeAction, setActiveAction] = useState<{
+    type: "save" | "delete";
+    scoreId: number;
+  } | null>(null);
+  const [savedScoreId, setSavedScoreId] = useState<number | null>(null);
   const confirmModal = useActionModalState();
+  const scoreInsights = useMemo(() => buildScoreInsights(student.scores), [student.scores]);
+
+  useEffect(() => {
+    if (savedScoreId === null) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSavedScoreId((current) => (current === savedScoreId ? null : current));
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [savedScoreId]);
 
   function getDraft(score: ScoreHistoryRow) {
     return (
@@ -119,9 +211,14 @@ export function StudentScoreHistoryManager({
   }
 
   function startEdit(score: ScoreHistoryRow) {
+    if (activeAction !== null) {
+      return;
+    }
+
     setEditingId(score.id);
     setNotice(null);
     setErrorMessage(null);
+    setSavedScoreId(null);
     setDrafts((current) => ({
       ...current,
       [score.id]: getDraft(score),
@@ -141,6 +238,10 @@ export function StudentScoreHistoryManager({
   }
 
   function saveScore(scoreId: number) {
+    if (activeAction !== null) {
+      return;
+    }
+
     const currentScore = student.scores.find((score) => score.id === scoreId);
 
     if (!currentScore) {
@@ -148,6 +249,8 @@ export function StudentScoreHistoryManager({
     }
 
     const draft = getDraft(currentScore);
+    setSavedScoreId(null);
+    setActiveAction({ type: "save", scoreId });
 
     startTransition(async () => {
       try {
@@ -162,10 +265,15 @@ export function StudentScoreHistoryManager({
         });
 
         await refreshStudent();
-        setEditingId(null);
+        setActiveAction(null);
+        setSavedScoreId(scoreId);
+        window.setTimeout(() => {
+          setEditingId((current) => (current === scoreId ? null : current));
+        }, 1200);
         setNotice("출결/성적을 수정했고, 경고·탈락 상태를 다시 계산했습니다.");
         setErrorMessage(null);
       } catch (error) {
+        setActiveAction(null);
         setNotice(null);
         setErrorMessage(
           error instanceof Error ? error.message : "출결/성적 수정에 실패했습니다.",
@@ -175,28 +283,36 @@ export function StudentScoreHistoryManager({
   }
 
   function deleteScore(scoreId: number) {
+    if (activeAction !== null) {
+      return;
+    }
+
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "성적 삭제",
       badgeTone: "warning",
-      title: "?? ?? ??",
-      description: "? ?? ??? ???? ?? ??? ?? ??? ?? ?????.",
-      details: ["?? ??? ?? ??? ??? ??? ?? ?? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "이 성적을 삭제할까요?",
+      description: "삭제 후에는 원래 점수와 출결을 되돌릴 수 없으며, 경고 상태도 다시 계산됩니다.",
+      details: ["삭제한 기록은 복구되지 않으므로 필요하면 먼저 학생 이력을 확인해 주세요."],
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
+        setSavedScoreId(null);
+        setActiveAction({ type: "delete", scoreId });
         startTransition(async () => {
           try {
             await requestJson(`/api/scores/${scoreId}`, { method: "DELETE" });
             await refreshStudent();
+            setActiveAction(null);
             setEditingId((current) => (current === scoreId ? null : current));
-            setNotice("?? ??? ????, ????? ??? ?? ??????.");
+            setNotice("성적을 삭제했고, 경고·탈락 상태를 다시 계산했습니다.");
             setErrorMessage(null);
           } catch (error) {
+            setActiveAction(null);
             setNotice(null);
             setErrorMessage(
-              error instanceof Error ? error.message : "?? ??? ??????.",
+              error instanceof Error ? error.message : "성적 삭제에 실패했습니다.",
             );
           }
         });
@@ -209,7 +325,7 @@ export function StudentScoreHistoryManager({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-            Student History
+            학생 이력
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold">
@@ -237,14 +353,14 @@ export function StudentScoreHistoryManager({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/admin/students?examType=${student.examType}`}
-            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            className="btn-ripple inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
             목록으로
           </Link>
           {canEdit ? (
             <Link
               href="/admin/scores/edit"
-              className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
+              className="btn-ripple inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest"
             >
               성적 수정 화면
             </Link>
@@ -263,6 +379,25 @@ export function StudentScoreHistoryManager({
         </div>
       ) : null}
 
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <article className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate">최근 점수</p>
+          <p className="count-animated mt-3 text-3xl font-semibold text-ink">{scoreInsights.latestScore ?? "-"}</p>
+          <div className="mt-2 min-h-[20px]">
+            <DeltaBadge current={scoreInsights.latestScore} previous={scoreInsights.previousScore} />
+          </div>
+        </article>
+        <article className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate">기록 건수</p>
+          <p className="count-animated mt-3 text-3xl font-semibold text-ink">{student.scores.length}</p>
+          <p className="mt-2 text-sm text-slate">같은 과목 전회차 대비 변화는 표에서 바로 확인할 수 있습니다.</p>
+        </article>
+      </div>
+
+      <div className="mt-8">
+        <StudentAttendanceCalendar scores={student.scores} />
+      </div>
+
       <div className="mt-8 overflow-hidden rounded-[28px] border border-ink/10">
         <table className="min-w-full divide-y divide-ink/10 text-sm">
           <thead className="bg-mist text-left">
@@ -274,6 +409,7 @@ export function StudentScoreHistoryManager({
               <th className="px-4 py-3 font-semibold">원점수</th>
               <th className="px-4 py-3 font-semibold">OX</th>
               <th className="px-4 py-3 font-semibold">최종점수</th>
+              <th className="px-4 py-3 font-semibold">전회차 대비</th>
               <th className="px-4 py-3 font-semibold">응시유형</th>
               <th className="px-4 py-3 font-semibold">메모</th>
               <th className="px-4 py-3 font-semibold">입력원천</th>
@@ -284,6 +420,10 @@ export function StudentScoreHistoryManager({
             {student.scores.map((score) => {
               const isEditing = canEdit && editingId === score.id;
               const draft = getDraft(score);
+              const isActionLocked = activeAction !== null;
+              const isSaving =
+                activeAction?.type === "save" && activeAction.scoreId === score.id;
+              const isSaved = savedScoreId === score.id;
 
               return (
                 <tr key={score.id} className={isEditing ? "bg-amber-50/40" : ""}>
@@ -317,6 +457,9 @@ export function StudentScoreHistoryManager({
                       </td>
                       <td className="px-4 py-3 text-slate">자동 계산</td>
                       <td className="px-4 py-3">
+                        <DeltaBadge current={scoreInsights.deltas[score.id]?.current} previous={scoreInsights.deltas[score.id]?.previous} />
+                      </td>
+                      <td className="px-4 py-3">
                         <select
                           value={draft.attendType}
                           onChange={(event) =>
@@ -343,29 +486,34 @@ export function StudentScoreHistoryManager({
                           placeholder="메모"
                         />
                       </td>
-                      <td className="px-4 py-3">{SCORE_SOURCE_LABEL[score.sourceType]}</td>
+                      <td className="px-4 py-3">{score.sourceType ? SCORE_SOURCE_LABEL[score.sourceType] : "-"}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => saveScore(score.id)}
-                            disabled={isPending}
-                            className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white transition hover:bg-forest disabled:opacity-50"
+                            disabled={isActionLocked || isSaved}
+                            className={`btn-ripple btn-success inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white transition disabled:opacity-50 ${
+                              isSaved ? "bg-forest" : "bg-ink hover:bg-forest"
+                            }`}
                           >
-                            저장
+                            {isSaving ? <LoadingSpinner /> : null}
+                            {isSaved && !isSaving ? <SuccessCheckIcon /> : null}
+                            <span>{isSaving ? "저장 중..." : isSaved ? "저장됨" : "저장"}</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
-                            className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ink/30"
+                            disabled={isActionLocked}
+                            className="btn-ripple rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ink/30"
                           >
                             취소
                           </button>
                           <button
                             type="button"
                             onClick={() => deleteScore(score.id)}
-                            disabled={isPending}
-                            className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                            disabled={isActionLocked}
+                            className="btn-ripple rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                           >
                             삭제
                           </button>
@@ -377,15 +525,19 @@ export function StudentScoreHistoryManager({
                       <td className="px-4 py-3">{score.rawScore ?? "-"}</td>
                       <td className="px-4 py-3">{score.oxScore ?? "-"}</td>
                       <td className="px-4 py-3">{score.finalScore ?? "-"}</td>
+                      <td className="px-4 py-3">
+                        <DeltaBadge current={scoreInsights.deltas[score.id]?.current} previous={scoreInsights.deltas[score.id]?.previous} />
+                      </td>
                       <td className="px-4 py-3">{ATTEND_TYPE_LABEL[score.attendType]}</td>
                       <td className="px-4 py-3 text-slate">{score.note ?? "-"}</td>
-                      <td className="px-4 py-3">{SCORE_SOURCE_LABEL[score.sourceType]}</td>
+                      <td className="px-4 py-3">{score.sourceType ? SCORE_SOURCE_LABEL[score.sourceType] : "-"}</td>
                       {canEdit ? (
                         <td className="px-4 py-3">
                           <button
                             type="button"
                             onClick={() => startEdit(score)}
-                            className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
+                            disabled={isActionLocked}
+                            className="btn-ripple rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                           >
                             정정
                           </button>
@@ -398,7 +550,7 @@ export function StudentScoreHistoryManager({
             })}
             {student.scores.length === 0 ? (
               <tr>
-                <td colSpan={canEdit ? 11 : 10} className="px-4 py-8 text-center text-slate">
+                <td colSpan={canEdit ? 12 : 11} className="px-4 py-8 text-center text-slate">
                   입력된 성적이 없습니다.
                 </td>
               </tr>
@@ -420,9 +572,9 @@ export function StudentScoreHistoryManager({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
-        isPending={isPending}
+        isPending={activeAction !== null}
         onClose={confirmModal.closeModal}
         onConfirm={confirmModal.modal?.onConfirm}
       />

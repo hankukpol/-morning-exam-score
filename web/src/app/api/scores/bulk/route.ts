@@ -1,12 +1,22 @@
-import { AdminRole, AttendType } from "@prisma/client";
+﻿import { AdminRole, AttendType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { deleteSessionScores, executePastedScores, previewPastedScores } from "@/lib/scores/service";
+import {
+  SCORE_SESSION_LOCKED_MESSAGE,
+  deleteMultipleScoreEntries,
+  deleteSessionScores,
+  executePastedScores,
+  previewPastedScores,
+} from "@/lib/scores/service";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-type Mode = "preview" | "execute" | "deleteSession";
+type Mode = "preview" | "execute" | "deleteSession" | "deleteScores";
+
+function getErrorStatus(error: unknown) {
+  return error instanceof Error && error.message === SCORE_SESSION_LOCKED_MESSAGE ? 409 : 400;
+}
 
 export async function POST(request: Request) {
   const auth = await requireApiAdmin(AdminRole.TEACHER);
@@ -21,6 +31,7 @@ export async function POST(request: Request) {
       sessionId?: number;
       text?: string;
       attendType?: AttendType;
+      scoreIds?: number[];
     };
 
     if (!body.sessionId) {
@@ -31,6 +42,25 @@ export async function POST(request: Request) {
       const result = await deleteSessionScores({
         adminId: auth.context.adminUser.id,
         sessionId: Number(body.sessionId),
+        ipAddress: request.headers.get("x-forwarded-for"),
+      });
+
+      return NextResponse.json(result);
+    }
+
+    if ((body.mode ?? "preview") === "deleteScores") {
+      if (!Array.isArray(body.scoreIds) || body.scoreIds.length === 0) {
+        return NextResponse.json({ error: "삭제할 성적을 선택해 주세요." }, { status: 400 });
+      }
+
+      const scoreIds = body.scoreIds.map((value) => Number(value));
+      if (scoreIds.some((value) => !Number.isInteger(value) || value <= 0)) {
+        return NextResponse.json({ error: "삭제할 성적 선택이 올바르지 않습니다." }, { status: 400 });
+      }
+
+      const result = await deleteMultipleScoreEntries({
+        adminId: auth.context.adminUser.id,
+        scoreIds,
         ipAddress: request.headers.get("x-forwarded-for"),
       });
 
@@ -63,7 +93,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "붙여넣기 성적 처리에 실패했습니다." },
-      { status: 400 },
+      { status: getErrorStatus(error) },
     );
   }
 }

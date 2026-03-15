@@ -29,6 +29,9 @@ export default async function AdminPeriodsPage() {
             sessions: period.sessions.map((session) => ({
               ...session,
               examDate: session.examDate.toISOString(),
+              isLocked: session.isLocked,
+              lockedAt: session.lockedAt?.toISOString() ?? null,
+              lockedBy: session.lockedBy ?? null,
             })),
           }))}
         />

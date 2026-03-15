@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import {
   ExamType,
+  NotificationChannel,
   NotificationType,
   StudentStatus,
   Subject,
@@ -13,7 +14,13 @@ import {
 import { EXAM_TYPE_LABEL, NOTIFICATION_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, formatDateTime } from "@/lib/format";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import {
+  BulkSelectHeaderCheckbox,
+  BulkSelectRowCheckbox,
+  BulkSelectionActionBar,
+} from "@/components/ui/bulk-select-table";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 type NotificationStudent = {
   examNumber: string;
@@ -29,7 +36,7 @@ type NotificationLogRecord = {
   id: number;
   examNumber: string;
   type: NotificationType;
-  channel: "ALIMTALK" | "SMS";
+  channel: NotificationChannel;
   message: string;
   status: string;
   sentAt: string;
@@ -41,6 +48,7 @@ type NotificationLogRecord = {
     examType: ExamType;
   };
 };
+
 
 type SessionOption = {
   id: number;
@@ -57,6 +65,14 @@ type PeriodOption = {
   isActive: boolean;
   sessions: SessionOption[];
 };
+
+const MANUAL_NOTIFICATION_TYPES = [
+  NotificationType.WARNING_1,
+  NotificationType.WARNING_2,
+  NotificationType.DROPOUT,
+  NotificationType.POINT,
+  NotificationType.NOTICE,
+] as const;
 
 type NotificationCenterProps = {
   filters: {
@@ -126,15 +142,25 @@ type PreviewModalState = {
 const SEND_STATUS_LABEL: Record<string, string> = {
   pending: "대기",
   failed: "실패",
+  retrying: "재시도 중",
+  retried: "재시도 완료",
   sent: "발송 완료",
-  skipped: "제외",
+  skipped: "건너뜀",
 };
 
 const SEND_STATUS_CLASS: Record<string, string> = {
   pending: "border-amber-200 bg-amber-50 text-amber-700",
   failed: "border-red-200 bg-red-50 text-red-700",
+  retrying: "border-blue-200 bg-blue-50 text-blue-700",
+  retried: "border-slate-200 bg-slate-50 text-slate-600",
   sent: "border-forest/20 bg-forest/10 text-forest",
   skipped: "border-slate-200 bg-slate-50 text-slate-600",
+};
+
+const CHANNEL_LABEL: Record<NotificationLogRecord["channel"], string> = {
+  ALIMTALK: "\uC54C\uB9BC\uD1A1",
+  SMS: "SMS",
+  WEB_PUSH: "\uC6F9 \uD478\uC2DC",
 };
 
 const PREVIEW_STATE_LABEL = {
@@ -179,6 +205,7 @@ export function NotificationCenter({
       .filter((log) => log.status === "pending" || log.status === "failed")
       .map((log) => log.id),
   );
+  const [selectedStudentExamNumbers, setSelectedStudentExamNumbers] = useState<string[]>([]);
   const activePeriod = periods.find((period) => period.isActive) ?? periods[0] ?? null;
   const [manualType, setManualType] = useState<NotificationType>(NotificationType.NOTICE);
   const [manualMessage, setManualMessage] = useState("");
@@ -211,12 +238,32 @@ export function NotificationCenter({
   const allSelectableLogIds = selectableLogs.map((log) => log.id);
   const isAllSelectableChecked =
     selectableLogs.length > 0 && allSelectableLogIds.every((id) => selectedLogIds.includes(id));
+  const someSelectableChecked =
+    allSelectableLogIds.some((id) => selectedLogIds.includes(id)) && !isAllSelectableChecked;
   const sendingEnabled = setup.notificationReady && !isPending;
 
   const parsedManualExamNumbers = useMemo(
     () => parseExamNumbers(manualExamNumbers),
     [manualExamNumbers],
   );
+
+  const currentPageStudentExamNumbers = useMemo(
+    () => students.map((student) => student.examNumber),
+    [students],
+  );
+  const allSelectedStudentsChecked =
+    currentPageStudentExamNumbers.length > 0 &&
+    currentPageStudentExamNumbers.every((examNumber) =>
+      selectedStudentExamNumbers.includes(examNumber),
+    );
+  const someSelectedStudentsChecked =
+    currentPageStudentExamNumbers.some((examNumber) =>
+      selectedStudentExamNumbers.includes(examNumber),
+    ) && !allSelectedStudentsChecked;
+
+  useEffect(() => {
+    setSelectedStudentExamNumbers([]);
+  }, [filters.examType, filters.search]);
 
   async function requestJson<T>(url: string, init?: RequestInit) {
     const response = await fetch(url, {
@@ -295,20 +342,24 @@ export function NotificationCenter({
     );
   }
 
-  function toggleSelection(id: number) {
-    setSelectedLogIds((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id],
-    );
+  function toggleSelection(id: number, checked?: boolean) {
+    setSelectedLogIds((current) => {
+      const isSelected = current.includes(id);
+      const nextChecked = checked ?? !isSelected;
+      return nextChecked
+        ? Array.from(new Set([...current, id]))
+        : current.filter((value) => value !== id);
+    });
   }
 
-  function buildManualPayload(): NotificationRequestBody {
+  function buildManualPayload(examNumbersOverride?: string[]): NotificationRequestBody {
+    const targetExamNumbers = examNumbersOverride ?? parsedManualExamNumbers;
+
     return {
       type: manualType,
       message: manualMessage,
-      examType: parsedManualExamNumbers.length === 0 ? filters.examType : undefined,
-      examNumbers: parsedManualExamNumbers.length > 0 ? parsedManualExamNumbers : undefined,
+      examType: targetExamNumbers.length === 0 ? filters.examType : undefined,
+      examNumbers: targetExamNumbers.length > 0 ? targetExamNumbers : undefined,
       pointAmount:
         manualType === NotificationType.POINT ? Number(manualPointAmount || 0) : null,
     };
@@ -346,6 +397,100 @@ export function NotificationCenter({
       });
       await refreshCenter();
       setNotice("수신 동의 상태를 변경했습니다.");
+    });
+  }
+
+  function toggleStudentSelection(examNumber: string, checked: boolean) {
+    setSelectedStudentExamNumbers((current) =>
+      checked
+        ? Array.from(new Set([...current, examNumber]))
+        : current.filter((value) => value !== examNumber),
+    );
+  }
+
+  function setAllSelectableLogSelection(checked: boolean) {
+    setSelectedLogIds(checked ? allSelectableLogIds : []);
+  }
+
+  function setCurrentPageStudentSelection(checked: boolean) {
+    setSelectedStudentExamNumbers((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...currentPageStudentExamNumbers]));
+      }
+
+      return current.filter((examNumber) => !currentPageStudentExamNumbers.includes(examNumber));
+    });
+  }
+
+  function renderSendStatusBadge(status: string) {
+    return (
+      <span
+        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+          SEND_STATUS_CLASS[status] ?? SEND_STATUS_CLASS.pending
+        }`}
+      >
+        {SEND_STATUS_LABEL[status] ?? status}
+      </span>
+    );
+  }
+
+  function renderStudentStatusBadge(status: StudentStatus) {
+    return (
+      <span
+        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[status]}`}
+      >
+        {STATUS_LABEL[status]}
+      </span>
+    );
+  }
+
+  function renderPreviewStateBadge(state: PreviewRow["state"]) {
+    return (
+      <span
+        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${PREVIEW_STATE_CLASS[state]}`}
+      >
+        {PREVIEW_STATE_LABEL[state]}
+      </span>
+    );
+  }
+
+  function fillManualTargetsFromSelection() {
+    if (selectedStudentExamNumbers.length === 0) {
+      setErrorMessage("발송 대상을 선택해 주세요.");
+      return;
+    }
+
+    resetMessages();
+    setManualExamNumbers(selectedStudentExamNumbers.join("\n"));
+    setSelectedStudentExamNumbers([]);
+    setNotice(`선택 학생 ${selectedStudentExamNumbers.length}명을 수동 발송 대상으로 반영했습니다.`);
+  }
+
+  function previewSelectedStudentsNotification() {
+    if (!setup.notificationReady) {
+      setErrorMessage("알림 연동 설정이 완료되지 않았습니다.");
+      return;
+    }
+
+    if (selectedStudentExamNumbers.length === 0) {
+      setErrorMessage("발송 대상을 선택해 주세요.");
+      return;
+    }
+
+    run(async () => {
+      const payload = buildManualPayload(selectedStudentExamNumbers);
+      const response = await requestJson<PreviewResponse>("/api/notifications/send", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, preview: true }),
+      });
+
+      openPreviewModal(
+        "선택 학생 발송 미리보기",
+        "선택한 학생에게만 현재 발송 설정으로 알림을 보냅니다.",
+        "선택 학생 발송",
+        payload,
+        response,
+      );
     });
   }
 
@@ -458,6 +603,7 @@ export function NotificationCenter({
       setMissingMessage("");
       setMissingStudents(null);
       setMissingSessionId("");
+      setSelectedStudentExamNumbers([]);
       await refreshCenter();
     });
   }
@@ -523,7 +669,7 @@ export function NotificationCenter({
               </p>
             </div>
             <Link
-              href="/admin/settings/notifications"
+              href="/admin/settings/notification-templates"
               className="inline-flex items-center rounded-full border border-amber-300 px-4 py-2 font-semibold transition hover:border-amber-500"
             >
               설정 페이지
@@ -533,12 +679,12 @@ export function NotificationCenter({
       ) : null}
 
       {notice ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
+        <div role="status" aria-live="polite" className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
           {notice}
         </div>
       ) : null}
       {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
         </div>
       ) : null}
@@ -569,7 +715,7 @@ export function NotificationCenter({
               onChange={(event) => setManualType(event.target.value as NotificationType)}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
             >
-              {Object.values(NotificationType).map((type) => (
+              {MANUAL_NOTIFICATION_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {NOTIFICATION_TYPE_LABEL[type]}
                 </option>
@@ -580,7 +726,12 @@ export function NotificationCenter({
             <label className="mb-2 block text-sm font-medium">대상 수험번호</label>
             <input
               value={manualExamNumbers}
-              onChange={(event) => setManualExamNumbers(event.target.value)}
+              onChange={(event) => {
+                setManualExamNumbers(event.target.value);
+                if (selectedStudentExamNumbers.length > 0) {
+                  setSelectedStudentExamNumbers([]);
+                }
+              }}
               className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
               placeholder="비워 두면 현재 직렬 전체 발송, 여러 명은 쉼표나 줄바꿈으로 구분"
             />
@@ -628,170 +779,265 @@ export function NotificationCenter({
           </button>
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">
-                  <input
-                    type="checkbox"
+        <div className="mt-4 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setAllSelectableLogSelection(!isAllSelectableChecked)}
+            disabled={selectableLogs.length === 0}
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isAllSelectableChecked ? "\uD604\uC7AC \uC54C\uB9BC \uC120\uD0DD \uD574\uC81C" : "\uD604\uC7AC \uC54C\uB9BC \uC804\uCCB4 \uC120\uD0DD"}
+          </button>
+        </div>
+
+        <div className="mt-6">
+          <ResponsiveTable
+            data={pendingLogs}
+            keyExtractor={(log) => String(log.id)}
+            caption="Pending or failed notifications available for resend."
+            emptyState="대기 중인 알림이 없습니다."
+            cardTitle={(log) => `${log.examNumber} · ${log.student.name}`}
+            cardDescription={(log) => `${formatDateTime(log.sentAt)} · ${NOTIFICATION_TYPE_LABEL[log.type]}`}
+            columns={[
+              {
+                id: "select",
+                header: (
+                  <BulkSelectHeaderCheckbox
                     checked={isAllSelectableChecked}
-                    onChange={(event) =>
-                      setSelectedLogIds(event.target.checked ? allSelectableLogIds : [])
-                    }
+                    indeterminate={someSelectableChecked}
+                    disabled={selectableLogs.length === 0}
+                    onChange={setAllSelectableLogSelection}
+                    ariaLabel="Select all pending notifications on this page"
                   />
-                </th>
-                <th className="px-4 py-3 font-semibold">발생 시각</th>
-                <th className="px-4 py-3 font-semibold">유형</th>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">상태</th>
-                <th className="px-4 py-3 font-semibold">사유</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {pendingLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate">
-                    대기 중인 알림이 없습니다.
-                  </td>
-                </tr>
-              ) : null}
-              {pendingLogs.map((log) => {
-                const selectable = log.status === "pending" || log.status === "failed";
-                return (
-                  <tr key={log.id}>
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
+                ),
+                cell: (log) => {
+                  const selectable = log.status === "pending" || log.status === "failed";
+                  return (
+                    <div className="flex justify-end sm:justify-start">
+                      <BulkSelectRowCheckbox
                         checked={selectedLogIds.includes(log.id)}
-                        onChange={() => toggleSelection(log.id)}
                         disabled={!selectable}
+                        onChange={(checked) => toggleSelection(log.id, checked)}
+                        ariaLabel={`${log.examNumber} pending notification`}
                       />
-                    </td>
-                    <td className="px-4 py-3">{formatDateTime(log.sentAt)}</td>
-                    <td className="px-4 py-3">{NOTIFICATION_TYPE_LABEL[log.type]}</td>
-                    <td className="px-4 py-3">{log.examNumber}</td>
-                    <td className="px-4 py-3">{log.student.name}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
-                          SEND_STATUS_CLASS[log.status] ?? SEND_STATUS_CLASS.pending
-                        }`}
-                      >
-                        {SEND_STATUS_LABEL[log.status] ?? log.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate">{log.failReason ?? "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  );
+                },
+                mobileLabel: "선택",
+              },
+              {
+                id: "sentAt",
+                header: "발생 시각",
+                cell: (log) => formatDateTime(log.sentAt),
+                hideOnMobile: true,
+              },
+              {
+                id: "type",
+                header: "유형",
+                cell: (log) => NOTIFICATION_TYPE_LABEL[log.type],
+                hideOnMobile: true,
+              },
+              {
+                id: "examNumber",
+                header: "수험번호",
+                cell: (log) => log.examNumber,
+                hideOnMobile: true,
+              },
+              {
+                id: "name",
+                header: "이름",
+                cell: (log) => log.student.name,
+                hideOnMobile: true,
+              },
+              {
+                id: "status",
+                header: "상태",
+                cell: (log) => renderSendStatusBadge(log.status),
+                mobileLabel: "상태",
+              },
+              {
+                id: "reason",
+                header: "사유",
+                cell: (log) => <span className="text-slate">{log.failReason ?? "-"}</span>,
+                mobileLabel: "사유",
+              },
+            ]}
+          />
         </div>
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-xl font-semibold">수신 동의 관리</h2>
-        <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">연락처</th>
-                <th className="px-4 py-3 font-semibold">현재 상태</th>
-                <th className="px-4 py-3 font-semibold">수신 동의</th>
-                <th className="px-4 py-3 font-semibold">갱신 시각</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate">
-                    조회된 학생이 없습니다.
-                  </td>
-                </tr>
-              ) : null}
-              {students.map((student) => (
-                <tr key={student.examNumber}>
-                  <td className="px-4 py-3">{student.examNumber}</td>
-                  <td className="px-4 py-3">{student.name}</td>
-                  <td className="px-4 py-3">{student.phone ?? "-"}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[student.currentStatus]}`}
-                    >
-                      {STATUS_LABEL[student.currentStatus]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={student.notificationConsent}
-                        onChange={(event) =>
-                          updateConsent(student.examNumber, event.target.checked)
-                        }
-                        disabled={isPending}
-                      />
-                      <span>{student.notificationConsent ? "동의" : "미동의"}</span>
-                    </label>
-                  </td>
-                  <td className="px-4 py-3">
-                    {student.consentedAt ? formatDateTime(student.consentedAt) : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setCurrentPageStudentSelection(!allSelectedStudentsChecked)}
+            disabled={students.length === 0}
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {allSelectedStudentsChecked ? "\uD604\uC7AC \uD559\uC0DD \uC120\uD0DD \uD574\uC81C" : "\uD604\uC7AC \uD559\uC0DD \uC804\uCCB4 \uC120\uD0DD"}
+          </button>
+        </div>
+
+        <div className="mt-6">
+          <ResponsiveTable
+            data={students}
+            keyExtractor={(student) => student.examNumber}
+            caption="Student notification consent table."
+            emptyState="조회된 학생이 없습니다."
+            cardTitle={(student) => `${student.examNumber} · ${student.name}`}
+            cardDescription={(student) => `${student.phone ?? "-"} · ${EXAM_TYPE_LABEL[student.examType]}`}
+            columns={[
+              {
+                id: "select",
+                header: (
+                  <BulkSelectHeaderCheckbox
+                    checked={allSelectedStudentsChecked}
+                    indeterminate={someSelectedStudentsChecked}
+                    disabled={students.length === 0}
+                    onChange={setCurrentPageStudentSelection}
+                    ariaLabel="현재 페이지 학생 전체 선택"
+                  />
+                ),
+                cell: (student) => (
+                  <div className="flex justify-end sm:justify-start">
+                    <BulkSelectRowCheckbox
+                      checked={selectedStudentExamNumbers.includes(student.examNumber)}
+                      onChange={(checked) => toggleStudentSelection(student.examNumber, checked)}
+                      ariaLabel={`${student.examNumber} 학생 선택`}
+                    />
+                  </div>
+                ),
+                mobileLabel: "선택",
+              },
+              {
+                id: "examNumber",
+                header: "수험번호",
+                cell: (student) => student.examNumber,
+                hideOnMobile: true,
+              },
+              {
+                id: "name",
+                header: "이름",
+                cell: (student) => student.name,
+                hideOnMobile: true,
+              },
+              {
+                id: "phone",
+                header: "연락처",
+                cell: (student) => student.phone ?? "-",
+                hideOnMobile: true,
+              },
+              {
+                id: "currentStatus",
+                header: "현재 상태",
+                cell: (student) => renderStudentStatusBadge(student.currentStatus),
+                mobileLabel: "현재 상태",
+              },
+              {
+                id: "notificationConsent",
+                header: "수신 동의",
+                cell: (student) => (
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={student.notificationConsent}
+                      onChange={(event) => updateConsent(student.examNumber, event.target.checked)}
+                      disabled={isPending}
+                    />
+                    <span>{student.notificationConsent ? "동의" : "미동의"}</span>
+                  </label>
+                ),
+                mobileLabel: "수신 동의",
+              },
+              {
+                id: "consentedAt",
+                header: "갱신 시각",
+                cell: (student) => (student.consentedAt ? formatDateTime(student.consentedAt) : "-"),
+                mobileLabel: "갱신 시각",
+              },
+            ]}
+          />
         </div>
       </section>
 
+      <BulkSelectionActionBar
+        selectedCount={selectedStudentExamNumbers.length}
+        onClear={() => setSelectedStudentExamNumbers([])}
+      >
+        <button
+          type="button"
+          onClick={fillManualTargetsFromSelection}
+          disabled={isPending}
+          className="rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {"대상 입력칸 채우기"}
+        </button>
+        <button
+          type="button"
+          onClick={previewSelectedStudentsNotification}
+          disabled={!sendingEnabled}
+          className="rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+        >
+          {"선택 학생 미리보기"}
+        </button>
+      </BulkSelectionActionBar>
+
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-xl font-semibold">발송 이력</h2>
-        <div className="mt-6 overflow-x-auto rounded-[28px] border border-ink/10">
-          <table className="min-w-full divide-y divide-ink/10 text-sm">
-            <thead className="bg-mist/80 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">발송 시각</th>
-                <th className="px-4 py-3 font-semibold">유형</th>
-                <th className="px-4 py-3 font-semibold">채널</th>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
-                <th className="px-4 py-3 font-semibold">결과</th>
-                <th className="px-4 py-3 font-semibold">메시지</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/10">
-              {historyLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate">
-                    발송 이력이 없습니다.
-                  </td>
-                </tr>
-              ) : null}
-              {historyLogs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-4 py-3">{formatDateTime(log.sentAt)}</td>
-                  <td className="px-4 py-3">{NOTIFICATION_TYPE_LABEL[log.type]}</td>
-                  <td className="px-4 py-3">{log.channel}</td>
-                  <td className="px-4 py-3">{log.examNumber}</td>
-                  <td className="px-4 py-3">{log.student.name}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
-                        SEND_STATUS_CLASS[log.status] ?? SEND_STATUS_CLASS.pending
-                      }`}
-                    >
-                      {SEND_STATUS_LABEL[log.status] ?? log.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 leading-6 text-slate">{log.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-6">
+          <ResponsiveTable
+            data={historyLogs}
+            keyExtractor={(log) => String(log.id)}
+            caption="Notification history table."
+            emptyState="발송 이력이 없습니다."
+            cardTitle={(log) => `${log.examNumber} · ${log.student.name}`}
+            cardDescription={(log) => `${formatDateTime(log.sentAt)} · ${NOTIFICATION_TYPE_LABEL[log.type]}`}
+            columns={[
+              {
+                id: "sentAt",
+                header: "발송 시각",
+                cell: (log) => formatDateTime(log.sentAt),
+                hideOnMobile: true,
+              },
+              {
+                id: "type",
+                header: "유형",
+                cell: (log) => NOTIFICATION_TYPE_LABEL[log.type],
+                hideOnMobile: true,
+              },
+              {
+                id: "channel",
+                header: "채널",
+                cell: (log) => CHANNEL_LABEL[log.channel] ?? log.channel,
+                mobileLabel: "채널",
+              },
+              {
+                id: "examNumber",
+                header: "수험번호",
+                cell: (log) => log.examNumber,
+                hideOnMobile: true,
+              },
+              {
+                id: "name",
+                header: "이름",
+                cell: (log) => log.student.name,
+                hideOnMobile: true,
+              },
+              {
+                id: "status",
+                header: "결과",
+                cell: (log) => renderSendStatusBadge(log.status),
+                mobileLabel: "결과",
+              },
+              {
+                id: "message",
+                header: "메시지",
+                cell: (log) => <span className="leading-6 text-slate">{log.message}</span>,
+                mobileLabel: "메시지",
+              },
+            ]}
+          />
         </div>
       </section>
 
@@ -970,49 +1216,66 @@ export function NotificationCenter({
                 </div>
               ) : null}
 
-              <div className="overflow-x-auto rounded-[24px] border border-ink/10">
-                <table className="min-w-full divide-y divide-ink/10 text-sm">
-                  <thead className="bg-mist/80 text-left">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">상태</th>
-                      <th className="px-4 py-3 font-semibold">유형</th>
-                      <th className="px-4 py-3 font-semibold">수험번호</th>
-                      <th className="px-4 py-3 font-semibold">이름</th>
-                      <th className="px-4 py-3 font-semibold">연락처</th>
-                      <th className="px-4 py-3 font-semibold">현재 상태</th>
-                      <th className="px-4 py-3 font-semibold">제외 사유</th>
-                      <th className="px-4 py-3 font-semibold">메시지</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink/10 bg-white">
-                    {previewModal.response.rows.map((row) => (
-                      <tr key={`${row.logId ?? row.examNumber}-${row.notificationType}`}>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${PREVIEW_STATE_CLASS[row.state]}`}
-                          >
-                            {PREVIEW_STATE_LABEL[row.state]}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">{NOTIFICATION_TYPE_LABEL[row.notificationType]}</td>
-                        <td className="px-4 py-3">{row.examNumber}</td>
-                        <td className="px-4 py-3">{row.name}</td>
-                        <td className="px-4 py-3">{row.phone ?? "-"}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[row.currentStatus]}`}
-                          >
-                            {STATUS_LABEL[row.currentStatus]}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate">{row.exclusionReason ?? "-"}</td>
-                        <td className="px-4 py-3 whitespace-pre-wrap leading-6 text-slate">
-                          {row.message}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mt-5">
+                <ResponsiveTable
+                  data={previewModal.response.rows}
+                  keyExtractor={(row) => `${row.logId ?? row.examNumber}-${row.notificationType}`}
+                  caption="Notification preview recipients and exclusion reasons."
+                  cardTitle={(row) => `${row.examNumber} · ${row.name}`}
+                  cardDescription={(row) => NOTIFICATION_TYPE_LABEL[row.notificationType]}
+                  columns={[
+                    {
+                      id: "state",
+                      header: "상태",
+                      cell: (row) => renderPreviewStateBadge(row.state),
+                      mobileLabel: "상태",
+                    },
+                    {
+                      id: "type",
+                      header: "유형",
+                      cell: (row) => NOTIFICATION_TYPE_LABEL[row.notificationType],
+                      hideOnMobile: true,
+                    },
+                    {
+                      id: "examNumber",
+                      header: "수험번호",
+                      cell: (row) => row.examNumber,
+                      hideOnMobile: true,
+                    },
+                    {
+                      id: "name",
+                      header: "이름",
+                      cell: (row) => row.name,
+                      hideOnMobile: true,
+                    },
+                    {
+                      id: "phone",
+                      header: "연락처",
+                      cell: (row) => row.phone ?? "-",
+                      mobileLabel: "연락처",
+                    },
+                    {
+                      id: "currentStatus",
+                      header: "현재 상태",
+                      cell: (row) => renderStudentStatusBadge(row.currentStatus),
+                      mobileLabel: "현재 상태",
+                    },
+                    {
+                      id: "exclusionReason",
+                      header: "제외 사유",
+                      cell: (row) => <span className="text-slate">{row.exclusionReason ?? "-"}</span>,
+                      mobileLabel: "제외 사유",
+                    },
+                    {
+                      id: "message",
+                      header: "메시지",
+                      cell: (row) => (
+                        <span className="whitespace-pre-wrap leading-6 text-slate">{row.message}</span>
+                      ),
+                      mobileLabel: "메시지",
+                    },
+                  ]}
+                />
               </div>
             </div>
 

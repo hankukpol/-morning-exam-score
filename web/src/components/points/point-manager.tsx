@@ -102,12 +102,12 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
 
   function openCompletionModal(title: string, description: string, details: string[] = []) {
     completionModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "처리 완료",
       badgeTone: "success",
       title,
       description,
       details,
-      confirmLabel: "??",
+      confirmLabel: "확인",
       onClose: refreshPage,
     });
   }
@@ -153,7 +153,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
 
   function grantAttendancePoints() {
     if (selectedExamNumbers.length === 0) {
-      setMessage(null, "?? ???? ??? ??? ?????.");
+      setMessage(null, "개근 포인트를 지급할 대상을 선택하세요.");
       return;
     }
 
@@ -168,7 +168,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
               examNumber,
               type: PointType.PERFECT_ATTENDANCE,
               amount: ATTENDANCE_POINT_AMOUNT,
-              reason: `${formatMonthLabel(filters.year, filters.month)} ?? ??`,
+              reason: `${formatMonthLabel(filters.year, filters.month)} 개근 장학`,
               periodId: filters.periodId,
               year: filters.year,
               month: filters.month,
@@ -177,14 +177,14 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
         });
         setNotice(null);
         openCompletionModal(
-          "?? ??? ?? ??",
-          "??? ???? ?? ???? ??????.",
-          [`?? ?? ${selectedExamNumbers.length}?`, `${formatMonthLabel(filters.year, filters.month)} ?? ??`],
+          "개근 포인트 지급 완료",
+          "개근 포인트를 지급했습니다.",
+          [`대상 학생 ${selectedExamNumbers.length}명`, `${formatMonthLabel(filters.year, filters.month)} 개근 장학`],
         );
       } catch (error) {
         setMessage(
           null,
-          error instanceof Error ? error.message : "?? ??? ??? ??????.",
+          error instanceof Error ? error.message : "개근 포인트 지급에 실패했습니다.",
         );
       }
     });
@@ -217,14 +217,14 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
         setManualAmount("10000");
         setManualType(PointType.MANUAL);
         openCompletionModal(
-          "??? ?? ??",
-          "?? ??? ??? ??????.",
-          [`???? ${manualExamNumber}`, `${POINT_TYPE_LABEL[manualType]} ${formatPoint(Number(manualAmount))}`],
+          "포인트 지급 완료",
+          "포인트를 지급했습니다.",
+          [`수험번호 ${manualExamNumber}`, `${POINT_TYPE_LABEL[manualType]} ${formatPoint(Number(manualAmount))}`],
         );
       } catch (error) {
         setMessage(
           null,
-          error instanceof Error ? error.message : "??? ??? ??????.",
+          error instanceof Error ? error.message : "포인트 지급에 실패했습니다.",
         );
       }
     });
@@ -232,13 +232,13 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
 
   function revokePoint(log: PointLogRecord) {
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "취소 확인",
       badgeTone: "warning",
-      title: "??? ?? ??",
-      description: `${log.studentName}? ???(${formatPoint(log.amount)})? ?????????`,
-      details: ["?? ? ??? ??? ?? ?????."],
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "포인트 취소 확인",
+      description: `${log.studentName}의 포인트(${formatPoint(log.amount)})를 취소하시겠습니까?`,
+      details: ["취소 후 지급 이력은 즉시 목록에서 사라집니다."],
+      cancelLabel: "취소",
+      confirmLabel: "포인트 취소",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -248,12 +248,12 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
             await requestJson(`/api/points/${log.id}`, { method: "DELETE" });
             setNotice(null);
             openCompletionModal(
-              "??? ?? ??",
-              "??? ?? ??? ??????.",
+              "포인트 취소 완료",
+              "포인트를 취소했습니다.",
               [`${log.studentName} ? ${formatPoint(log.amount)}`],
             );
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : "??? ??? ??????.");
+            setMessage(null, error instanceof Error ? error.message : "포인트 취소에 실패했습니다.");
           }
         });
       },
@@ -486,7 +486,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -499,7 +499,7 @@ export function PointManager({ filters, candidates: initialCandidates, logs: ini
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

@@ -1,10 +1,15 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ExamType, StudentType } from "@prisma/client";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import {
+  BulkSelectHeaderCheckbox,
+  BulkSelectRowCheckbox,
+  BulkSelectionActionBar,
+} from "@/components/ui/bulk-select-table";
 import {
   EXAM_TYPE_LABEL,
   EXAM_TYPE_VALUES,
@@ -109,6 +114,8 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   const [activeOnly, setActiveOnly] = useState(filters.activeOnly);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedExamNumbers, setSelectedExamNumbers] = useState<string[]>([]);
+  const [bulkGeneration, setBulkGeneration] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const rowDrafts = useMemo(
@@ -118,6 +125,33 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       ) as Record<string, StudentFormState>,
     [students],
   );
+  const currentPageExamNumbers = useMemo(
+    () => students.map((student) => student.examNumber),
+    [students],
+  );
+  const selectedStudents = useMemo(
+    () => students.filter((student) => selectedExamNumbers.includes(student.examNumber)),
+    [selectedExamNumbers, students],
+  );
+  const allCurrentPageSelected =
+    currentPageExamNumbers.length > 0 &&
+    currentPageExamNumbers.every((examNumber) => selectedExamNumbers.includes(examNumber));
+  const someCurrentPageSelected =
+    currentPageExamNumbers.some((examNumber) => selectedExamNumbers.includes(examNumber)) &&
+    !allCurrentPageSelected;
+  const selectedActiveCount = selectedStudents.filter((student) => student.isActive).length;
+
+  useEffect(() => {
+    setSelectedExamNumbers([]);
+    setBulkGeneration("");
+  }, [
+    filters.activeOnly,
+    filters.examType,
+    filters.generation,
+    filters.page,
+    filters.pageSize,
+    filters.search,
+  ]);
 
   function getDraft(examNumber: string) {
     return drafts[examNumber] ?? rowDrafts[examNumber];
@@ -158,7 +192,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
     router.push(`/admin/students?${params.toString()}`);
   }
 
-  async function requestJson(url: string, init?: RequestInit) {
+  async function requestJson<T = Record<string, unknown>>(url: string, init?: RequestInit) {
     const response = await fetch(url, {
       ...init,
       headers: {
@@ -167,23 +201,22 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       },
     });
     const text = await response.text();
-    let payload: { error?: string } = {};
+    let payload: T & { error?: string } = {} as T & { error?: string };
 
     if (text.trim()) {
       try {
-        payload = (JSON.parse(text) as { error?: string }) ?? {};
+        payload = (JSON.parse(text) as T & { error?: string }) ?? ({} as T & { error?: string });
       } catch {
-        payload = {};
+        payload = {} as T & { error?: string };
       }
     }
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "요청을 처리하지 못했습니다.");
+      throw new Error(payload.error ?? "Request failed.");
     }
 
-    return payload;
+    return payload as T;
   }
-
   function run(action: () => Promise<void>) {
     setNotice(null);
     setErrorMessage(null);
@@ -199,6 +232,172 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
     });
   }
 
+  function toggleStudentSelection(examNumber: string, checked: boolean) {
+    setSelectedExamNumbers((current) =>
+      checked
+        ? Array.from(new Set([...current, examNumber]))
+        : current.filter((value) => value !== examNumber),
+    );
+  }
+
+  function toggleCurrentPageSelection(checked: boolean) {
+    setSelectedExamNumbers((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...currentPageExamNumbers]));
+      }
+
+      return current.filter((examNumber) => !currentPageExamNumbers.includes(examNumber));
+    });
+  }
+
+  function clearSelection() {
+    setSelectedExamNumbers([]);
+    setBulkGeneration("");
+  }
+
+  function patchDraft(examNumber: string, patch: Partial<StudentFormState>) {
+    setDrafts((current) => ({
+      ...current,
+      [examNumber]: {
+        ...(current[examNumber] ?? rowDrafts[examNumber]),
+        ...patch,
+      },
+    }));
+  }
+
+  function beginEditingStudent(student: StudentRow) {
+    setDrafts((current) => ({
+      ...current,
+      [student.examNumber]: buildDraft(student),
+    }));
+    setEditingExamNumber(student.examNumber);
+  }
+
+  function saveStudent(student: StudentRow) {
+    const draft = getDraft(student.examNumber);
+    run(async () => {
+      await requestJson(`/api/students/${student.examNumber}`, {
+        method: "PUT",
+        body: JSON.stringify(draft),
+      });
+      setNotice("수강생 정보를 수정했습니다.");
+      setEditingExamNumber(null);
+      refreshWithFilters();
+    });
+  }
+
+  function deactivateStudent(examNumber: string) {
+    run(async () => {
+      await requestJson(`/api/students/${examNumber}`, {
+        method: "DELETE",
+      });
+      setNotice("수강생을 비활성화하고 학생 포털 접근을 차단했습니다.");
+      refreshWithFilters();
+    });
+  }
+
+  function reactivateStudent(examNumber: string) {
+    run(async () => {
+      await requestJson(`/api/students/${examNumber}`, {
+        method: "PATCH",
+      });
+      setNotice("수강생을 다시 활성화하고 학생 포털 접근을 허용했습니다.");
+      refreshWithFilters();
+    });
+  }
+
+  function renderPortalAccessBadge(isActive: boolean) {
+    return (
+      <span
+        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+          isActive
+            ? "border-forest/20 bg-forest/10 text-forest"
+            : "border-ink/10 bg-mist text-slate"
+        }`}
+      >
+        {isActive ? "접근 가능" : "접근 불가"}
+      </span>
+    );
+  }
+
+  function bulkDeactivateStudents() {
+    if (selectedExamNumbers.length === 0) {
+      setErrorMessage("비활성화할 수강생을 선택해 주세요.");
+      return;
+    }
+
+    run(async () => {
+      const result = await requestJson<{
+        updatedCount: number;
+        skippedCount: number;
+        missingExamNumbers: string[];
+      }>("/api/students/bulk", {
+        method: "POST",
+        body: JSON.stringify({ action: "deactivate", examNumbers: selectedExamNumbers }),
+      });
+      clearSelection();
+      const suffix = [
+        result.skippedCount > 0
+          ? `이미 비활성 ${result.skippedCount}명`
+          : null,
+        result.missingExamNumbers.length > 0
+          ? `미조회 ${result.missingExamNumbers.length}명`
+          : null,
+      ].filter(Boolean);
+      setNotice(
+        `선택 수강생 ${result.updatedCount}명을 비활성화했습니다.${suffix.length > 0 ? ` (${suffix.join(", ")})` : ""}`,
+      );
+      refreshWithFilters();
+    });
+  }
+
+  function bulkChangeGeneration() {
+    if (selectedExamNumbers.length === 0) {
+      setErrorMessage("기수를 변경할 수강생을 선택해 주세요.");
+      return;
+    }
+
+    const nextGeneration = bulkGeneration.trim();
+    if (!nextGeneration) {
+      setErrorMessage("변경할 기수를 입력해 주세요.");
+      return;
+    }
+
+    const generationValue = Number(nextGeneration);
+    if (!Number.isInteger(generationValue) || generationValue < 0) {
+      setErrorMessage("기수는 0 이상의 정수로 입력해 주세요.");
+      return;
+    }
+
+    run(async () => {
+      const result = await requestJson<{
+        updatedCount: number;
+        skippedCount: number;
+        missingExamNumbers: string[];
+        generation: number | null;
+      }>("/api/students/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "setGeneration",
+          examNumbers: selectedExamNumbers,
+          generation: generationValue,
+        }),
+      });
+      clearSelection();
+      const suffix = [
+        result.skippedCount > 0
+          ? `동일 기수 ${result.skippedCount}명`
+          : null,
+        result.missingExamNumbers.length > 0
+          ? `미조회 ${result.missingExamNumbers.length}명`
+          : null,
+      ].filter(Boolean);
+      setNotice(
+        `선택 수강생 ${result.updatedCount}명의 기수를 ${generationValue}기로 변경했습니다.${suffix.length > 0 ? ` (${suffix.join(", ")})` : ""}`,
+      );
+      refreshWithFilters();
+    });
+  }
   return (
     <div className="space-y-8">
       <section className="rounded-[28px] border border-ink/10 bg-mist p-6">
@@ -434,12 +633,12 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
         </div>
 
         {notice ? (
-          <div className="mt-6 rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
+          <div role="status" aria-live="polite" className="mt-6 rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
             {notice}
           </div>
         ) : null}
         {errorMessage ? (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" aria-live="assertive" className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
           </div>
         ) : null}
@@ -455,15 +654,27 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
             }
             itemLabel="명"
           />
+          <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full divide-y divide-ink/10 text-sm">
+            <caption className="sr-only">Student list with generation, portal access, and management actions.</caption>
             <thead className="bg-mist text-left">
               <tr>
+                <th className="px-4 py-3 font-semibold">
+                  <BulkSelectHeaderCheckbox
+                    checked={allCurrentPageSelected}
+                    indeterminate={someCurrentPageSelected}
+                    disabled={students.length === 0}
+                    onChange={toggleCurrentPageSelection}
+                    ariaLabel="현재 페이지 수강생 전체 선택"
+                  />
+                </th>
                 <th className="px-4 py-3 font-semibold">수험번호</th>
                 <th className="px-4 py-3 font-semibold">이름</th>
                 <th className="px-4 py-3 font-semibold">연락처</th>
                 <th className="px-4 py-3 font-semibold">기수</th>
                 <th className="px-4 py-3 font-semibold">반</th>
                 <th className="px-4 py-3 font-semibold">구분</th>
+                <th className="px-4 py-3 font-semibold">포털 접근</th>
                 <th className="px-4 py-3 font-semibold">성적 수</th>
                 <th className="px-4 py-3 font-semibold">동작</th>
               </tr>
@@ -474,6 +685,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
 
                 return (
                   <tr key={student.examNumber}>
+                    <td className="px-4 py-3">
+                      <BulkSelectRowCheckbox
+                        checked={selectedExamNumbers.includes(student.examNumber)}
+                        onChange={(checked) => toggleStudentSelection(student.examNumber, checked)}
+                        ariaLabel={`${student.examNumber} 선택`}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium">{student.examNumber}</td>
                     <td className="px-4 py-3">
                       {editingExamNumber === student.examNumber ? (
@@ -552,6 +770,17 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                       )}
                     </td>
                     <td className="px-4 py-3">{STUDENT_TYPE_LABEL[student.studentType]}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+                          student.isActive
+                            ? "border-forest/20 bg-forest/10 text-forest"
+                            : "border-ink/10 bg-mist text-slate"
+                        }`}
+                      >
+                        {student.isActive ? "접근 가능" : "접근 불가"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{student._count.scores}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -613,7 +842,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "DELETE",
                                     });
-                                    setNotice("수강생을 비활성화했습니다.");
+                                    setNotice("수강생을 비활성화하고 학생 포털 접근을 차단했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
@@ -630,14 +859,14 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                                     await requestJson(`/api/students/${student.examNumber}`, {
                                       method: "PATCH",
                                     });
-                                    setNotice("수강생을 다시 활성화했습니다.");
+                                    setNotice("수강생을 다시 활성화하고 학생 포털 접근을 허용했습니다.");
                                     refreshWithFilters();
                                   })
                                 }
                                 disabled={isPending}
                                 className="rounded-full border border-forest/30 px-3 py-2 text-xs font-semibold text-forest transition hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                재활성화
+                                포털 활성화
                               </button>
                             )}
                           </>
@@ -718,15 +947,240 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               })}
               {filters.totalCount === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate">
                     조건에 맞는 수강생이 없습니다.
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+          </div>
+          <div className="px-4 pt-4 sm:hidden">
+            <button
+              type="button"
+              onClick={() => toggleCurrentPageSelection(!allCurrentPageSelected)}
+              disabled={students.length === 0}
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {allCurrentPageSelected
+                ? "현재 페이지 선택 해제"
+                : "현재 페이지 전체 선택"}
+            </button>
+          </div>
+          <div className="space-y-4 px-4 pb-4 sm:hidden">
+            {students.length === 0 ? (
+              <div className="rounded-[24px] border border-dashed border-ink/10 px-4 py-8 text-center text-sm text-slate">
+                {"조건에 맞는 수강생이 없습니다."}
+              </div>
+            ) : (
+              students.map((student) => {
+                const draft = getDraft(student.examNumber);
+                const isEditing = editingExamNumber === student.examNumber;
+                const isSelected = selectedExamNumbers.includes(student.examNumber);
+                return (
+                  <article
+                    key={student.examNumber}
+                    className={`rounded-[24px] border p-4 shadow-sm ${
+                      isSelected
+                        ? "border-ember/30 bg-ember/5"
+                        : "border-ink/10 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-ink">
+                          {student.examNumber} {"·"} {student.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-slate">
+                          {EXAM_TYPE_LABEL[student.examType]} {"·"} {STUDENT_TYPE_LABEL[student.studentType]}
+                        </p>
+                      </div>
+                      <BulkSelectRowCheckbox
+                        checked={isSelected}
+                        onChange={(checked) => toggleStudentSelection(student.examNumber, checked)}
+                        ariaLabel={`${student.examNumber} 선택`}
+                      />
+                    </div>
+                    <div className="mt-4 grid gap-3 rounded-[20px] bg-mist/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate">{"연락처"}</span>
+                        <span className="text-sm font-semibold text-ink">{student.phone ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate">{"기수 / 반"}</span>
+                        <span className="text-sm font-semibold text-ink">
+                          {(student.generation ?? "-").toString()} {"/"} {student.className ?? "-"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate">{"구분"}</span>
+                        <span className="text-sm font-semibold text-ink">{STUDENT_TYPE_LABEL[student.studentType]}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate">{"포털 접근"}</span>
+                        {renderPortalAccessBadge(student.isActive)}
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-slate">{"성적 수"}</span>
+                        <span className="text-sm font-semibold text-ink">{student._count.scores}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link
+                        prefetch={false}
+                        href={`/admin/students/${student.examNumber}`}
+                        className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
+                      >
+                        {"상세 보기"}
+                      </Link>
+                      {isEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => saveStudent(student)}
+                            disabled={isPending}
+                            className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-forest/30 hover:text-forest"
+                          >
+                            {"저장"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingExamNumber(null)}
+                            className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ink/30"
+                          >
+                            {"취소"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => beginEditingStudent(student)}
+                            className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
+                          >
+                            {"수정"}
+                          </button>
+                          {student.isActive ? (
+                            <button
+                              type="button"
+                              onClick={() => deactivateStudent(student.examNumber)}
+                              disabled={isPending}
+                              className="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {"비활성화"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => reactivateStudent(student.examNumber)}
+                              disabled={isPending}
+                              className="rounded-full border border-forest/30 px-3 py-2 text-xs font-semibold text-forest transition hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {"포털 활성화"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {isEditing ? (
+                      <div className="mt-4 grid gap-3 rounded-[20px] border border-ink/10 p-4">
+                        <input
+                          value={draft.name}
+                          onChange={(event) => patchDraft(student.examNumber, { name: event.target.value })}
+                          className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                          placeholder={"이름"}
+                        />
+                        <input
+                          value={draft.phone}
+                          onChange={(event) => patchDraft(student.examNumber, { phone: event.target.value })}
+                          className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                          placeholder={"연락처"}
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <input
+                            value={draft.generation}
+                            onChange={(event) => patchDraft(student.examNumber, { generation: event.target.value })}
+                            className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                            placeholder={"기수"}
+                          />
+                          <input
+                            value={draft.className}
+                            onChange={(event) => patchDraft(student.examNumber, { className: event.target.value })}
+                            className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                            placeholder={"반"}
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <select
+                            value={draft.studentType}
+                            onChange={(event) =>
+                              patchDraft(student.examNumber, {
+                                studentType: parseStudentType(event.target.value, draft.studentType),
+                              })
+                            }
+                            className="rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                          >
+                            <option value="NEW">{STUDENT_TYPE_LABEL.NEW}</option>
+                            <option value="EXISTING">{STUDENT_TYPE_LABEL.EXISTING}</option>
+                          </select>
+                          <input
+                            type="date"
+                            value={draft.registeredAt}
+                            onChange={(event) => patchDraft(student.examNumber, { registeredAt: event.target.value })}
+                            className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <input
+                            value={draft.onlineId}
+                            onChange={(event) => patchDraft(student.examNumber, { onlineId: event.target.value })}
+                            className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                            placeholder={"온라인 ID"}
+                          />
+                          <input
+                            value={draft.note}
+                            onChange={(event) => patchDraft(student.examNumber, { note: event.target.value })}
+                            className="w-full rounded-xl border border-ink/10 px-3 py-2 text-sm"
+                            placeholder={"메모"}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
         </div>
       </section>
+      <BulkSelectionActionBar selectedCount={selectedExamNumbers.length} onClear={clearSelection}>
+        <button
+          type="button"
+          onClick={bulkDeactivateStudents}
+          disabled={isPending || selectedActiveCount === 0}
+          className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          일괄 비활성화
+        </button>
+        <div className="flex items-center gap-2 rounded-full border border-ink/10 bg-white px-2 py-1">
+          <input
+            value={bulkGeneration}
+            onChange={(event) => setBulkGeneration(event.target.value)}
+            inputMode="numeric"
+            className="w-20 rounded-full border border-transparent px-3 py-1 text-xs text-ink outline-none focus:border-ink/10"
+            placeholder="기수"
+            aria-label="선택 수강생 기수 변경"
+          />
+          <button
+            type="button"
+            onClick={bulkChangeGeneration}
+            disabled={isPending}
+            className="rounded-full bg-ink px-3 py-2 text-xs font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
+          >
+            기수 변경
+          </button>
+        </div>
+      </BulkSelectionActionBar>
     </div>
   );
 }

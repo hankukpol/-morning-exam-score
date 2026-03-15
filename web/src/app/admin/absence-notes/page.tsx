@@ -3,7 +3,9 @@
   AbsenceStatus,
   AdminRole,
 } from "@prisma/client";
+import { AbsenceNoteFilterPresetControls } from "@/components/absence-notes/absence-note-filter-preset-controls";
 import { AbsenceNoteManager } from "@/components/absence-notes/absence-note-manager";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   getAnalyticsContext,
   readStringParam,
@@ -106,15 +108,25 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
   const activePolicyCount = policyOptions.filter((policy) => policy.isActive).length;
 
   const exportParams = new URLSearchParams();
-  if (selectedPeriod) exportParams.set("periodId", String(selectedPeriod.id));
+  if (selectedPeriod) {
+    exportParams.set("periodId", String(selectedPeriod.id));
+  }
   exportParams.set("examType", examType);
-  if (selectedStatus !== "ALL") exportParams.set("status", selectedStatus);
+  if (selectedStatus !== "ALL") {
+    exportParams.set("status", selectedStatus);
+  }
   if (selectedCategory !== "ALL") {
     exportParams.set("absenceCategory", selectedCategory);
   }
-  if (search) exportParams.set("search", search);
-  if (submittedFrom) exportParams.set("submittedFrom", submittedFrom);
-  if (submittedTo) exportParams.set("submittedTo", submittedTo);
+  if (search) {
+    exportParams.set("search", search);
+  }
+  if (submittedFrom) {
+    exportParams.set("submittedFrom", submittedFrom);
+  }
+  if (submittedTo) {
+    exportParams.set("submittedTo", submittedTo);
+  }
   const exportUrl = `/api/absence-notes/export?${exportParams.toString()}`;
 
   const mappedNotes = notes.map((note) => ({
@@ -125,6 +137,10 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
       ...note.session,
       examDate: note.session.examDate.toISOString(),
     },
+    attachments: (note.attachments ?? []).map((attachment) => ({
+      ...attachment,
+      createdAt: attachment.createdAt.toISOString(),
+    })),
   }));
 
   const summaryCards = [
@@ -250,8 +266,8 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
           <div>
             <h2 className="text-2xl font-semibold text-ink">사유서 등록</h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
-              신규 사유서를 바로 입력하는 구역입니다. 등록 후 검토가 필요하면 아래 조회 및 검토
-              구역으로 바로 이동할 수 있습니다.
+              신규 사유서를 바로 입력하는 구역입니다. 등록 후 검토가 필요하면 아래 조회 및
+              검토 구역으로 바로 이동할 수 있습니다.
             </p>
           </div>
 
@@ -262,10 +278,14 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
                 href={card.href}
                 className={`rounded-[24px] border p-5 transition ${card.className}`}
               >
-                <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${card.captionClassName}`}>
+                <p
+                  className={`text-xs font-semibold uppercase tracking-[0.16em] ${card.captionClassName}`}
+                >
                   {card.caption}
                 </p>
-                <p className={`mt-3 text-base font-semibold leading-6 ${card.textClassName}`}>
+                <p
+                  className={`mt-3 text-base font-semibold leading-6 ${card.textClassName}`}
+                >
                   {card.title}
                 </p>
               </a>
@@ -290,6 +310,7 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
               sessions={sessionOptions}
               policies={policyOptions}
               notes={[]}
+              settingsHref={ABSENCE_POLICY_SETTINGS_HREF}
               showReviewSection={false}
               showGuidanceSection={false}
             />
@@ -323,7 +344,22 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
               </span>
             </div>
 
-            <form className="mt-5 flex flex-1 flex-col">
+            <AbsenceNoteFilterPresetControls
+              formId="absence-note-filter-form"
+              storageKey="absence-note-review-filters"
+              fieldNames={[
+                "periodId",
+                "examType",
+                "status",
+                "absenceCategory",
+                "submittedFrom",
+                "submittedTo",
+                "search",
+              ]}
+              anchor="absence-review"
+            />
+
+            <form id="absence-note-filter-form" className="mt-5 flex flex-1 flex-col">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium">시험 기간</label>
@@ -379,22 +415,13 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">제출일 시작</label>
-                  <input
-                    type="date"
-                    name="submittedFrom"
-                    defaultValue={submittedFrom}
-                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">제출일 종료</label>
-                  <input
-                    type="date"
-                    name="submittedTo"
-                    defaultValue={submittedTo}
-                    className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">제출일 범위</label>
+                  <DateRangePicker
+                    fromName="submittedFrom"
+                    toName="submittedTo"
+                    defaultFrom={submittedFrom}
+                    defaultTo={submittedTo}
                   />
                 </div>
                 <div className="sm:col-span-2">

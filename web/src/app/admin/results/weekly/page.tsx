@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
+import { PrintButton } from "@/components/ui/print-button";
 import {
   buildHref,
   getAnalyticsContext,
@@ -10,9 +11,9 @@ import {
 import { getTuesdayWeekKey } from "@/lib/analytics/week";
 import { requireAdminContext } from "@/lib/auth";
 import { getWeeklyResults } from "@/lib/analytics/service";
-import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { EXAM_TYPE_LABEL, getSubjectDisplayLabel } from "@/lib/constants";
 import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
-import { formatDate } from "@/lib/format";
+import { formatDateWithWeekday } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -50,70 +51,76 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         })
       : null;
   const displayColumns = data ? buildSessionDisplayColumns(data.sessions) : [];
+  const printTitle =
+    selectedPeriod && selectedWeek
+      ? `${selectedPeriod.name} · ${selectedWeek.label} · ${view === "new" ? "신규생 주간 성적표" : "주간 성적표"}`
+      : undefined;
 
   return (
     <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-05-B Weekly Results
-      </div>
-      <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 출감표</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 표도 바로 내려받을 수 있습니다.
-      </p>
+      <div className="no-print">
+        <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+          F-05-B Weekly Results
+        </div>
+        <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 출감표</h1>
+        <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+          선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 표도 바로 내려받을 수 있습니다.
+        </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
-        <div>
-          <label className="mb-2 block text-sm font-medium">시험 기간</label>
-          <select
-            name="periodId"
-            defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            {periods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">직렬</label>
-          <select
-            name="examType"
-            defaultValue={examType}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
-            <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">주차</label>
-          <select
-            name="weekKey"
-            defaultValue={selectedWeek?.key ?? ""}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            {weekOptions.map((week) => (
-              <option key={week.key} value={week.key}>
-                {week.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-          >
-            조회
-          </button>
-        </div>
-      </form>
+        <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">시험 기간</label>
+            <select
+              name="periodId"
+              defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            >
+              {periods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">직렬</label>
+            <select
+              name="examType"
+              defaultValue={examType}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            >
+              <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
+              <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">주차</label>
+            <select
+              name="weekKey"
+              defaultValue={selectedWeek?.key ?? ""}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            >
+              {weekOptions.map((week) => (
+                <option key={week.key} value={week.key}>
+                  {week.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
+            >
+              조회
+            </button>
+          </div>
+        </form>
+      </div>
 
       {selectedPeriod && selectedWeek && data ? (
         <>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="no-print mt-6 flex flex-wrap gap-3">
             <Link
               prefetch={false}
               href={buildHref("/admin/results/weekly", {
@@ -146,6 +153,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
             >
               신규생 성적
             </Link>
+            <PrintButton />
             <a
               href={downloadHref ?? undefined}
               className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
@@ -154,21 +162,16 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
             </a>
           </div>
 
-          <section className="mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
+          <section className="no-print mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
             <h2 className="text-xl font-semibold">선택한 주차</h2>
             <p className="mt-2 text-sm text-slate">
               {data.week.label}
-              {data.week.legacyWeeks.length > 0
-                ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}`
-                : ""}
+              {data.week.legacyWeeks.length > 0 ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}` : ""}
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
               {displayColumns.map((column) => (
-                <span
-                  key={column.key}
-                  className="rounded-full border border-ink/10 px-3 py-2"
-                >
-                  {formatDate(column.examDate)} · {SUBJECT_LABEL[column.subject]}
+                <span key={column.key} className="rounded-full border border-ink/10 px-3 py-2">
+                  {formatDateWithWeekday(column.examDate)} · {getSubjectDisplayLabel(column.subject, column.displaySubjectName)}
                   {column.oxSession ? " + 경찰학 OX" : ""}
                 </span>
               ))}
@@ -180,6 +183,8 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
               week={data.week}
               sessions={data.sessions}
               rows={data.sheetRows}
+              className="print-title"
+              printTitle={printTitle}
             />
           </div>
         </>

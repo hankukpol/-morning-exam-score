@@ -305,13 +305,13 @@ export function AppointmentManager({
 
   function deleteAppointment(id: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제 확인",
       badgeTone: "warning",
-      title: "?? ??",
-      description: "? ??? ?????????",
-      details: ["?? ?? ??? ??? ??? ? ????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "예약 삭제",
+      description: "이 예약을 삭제하시겠습니까?",
+      details: ["삭제 후에는 같은 일정 정보를 다시 복구할 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -319,9 +319,9 @@ export function AppointmentManager({
           try {
             await requestJson(`/api/counseling/appointments/${id}`, { method: "DELETE" });
             setAppointments((prev) => prev.filter((a) => a.id !== id));
-            setMessage("??? ???????.", null);
+            setMessage("예약이 삭제되었습니다.", null);
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : "??? ??????.");
+            setMessage(null, error instanceof Error ? error.message : "삭제에 실패했습니다.");
           }
         });
       },
@@ -733,7 +733,7 @@ export function AppointmentManager({
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}

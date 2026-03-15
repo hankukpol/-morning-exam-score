@@ -4,10 +4,10 @@ import {
   getMonthlyResults,
   getWeeklyResults,
 } from "@/lib/analytics/service";
-import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { EXAM_TYPE_LABEL, getSubjectDisplayLabel } from "@/lib/constants";
 import { formatRank, formatScore } from "@/lib/analytics/presentation";
 import { formatTuesdayWeekLabel } from "@/lib/analytics/week";
-import { formatDate } from "@/lib/format";
+import { formatDateWithWeekday } from "@/lib/format";
 import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
 
 type WeeklyPrintData = Awaited<ReturnType<typeof getWeeklyResults>>;
@@ -319,7 +319,7 @@ export async function createWeeklyResultsPrintWorkbook(
       worksheet,
       3,
       columnIndex,
-      `${formatDate(column.examDate)} ${SUBJECT_LABEL[column.subject]}`,
+      `${formatDateWithWeekday(column.examDate)}\n${getSubjectDisplayLabel(column.subject, column.displaySubjectName)}`,
     );
     writeCell(worksheet, 4, columnIndex, "모의고사");
     writeCell(worksheet, 5, columnIndex, averages[index]?.mock ?? "-");

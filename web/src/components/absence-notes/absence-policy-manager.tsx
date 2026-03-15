@@ -80,12 +80,12 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
 
   function openCompletionModal(title: string, description: string, details: string[] = []) {
     completionModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "처리 완료",
       badgeTone: "success",
       title,
       description,
       details,
-      confirmLabel: "??",
+      confirmLabel: "확인",
       onClose: () => window.location.reload(),
     });
   }
@@ -110,12 +110,12 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
         setMessage(null);
         setErrorMessage(null);
         openCompletionModal(
-          editingId ? "?? ?? ?? ??" : "?? ?? ?? ??",
-          editingId ? "?? ??? ??????." : "?? ??? ??????.",
+          editingId ? "정책 수정 완료" : "정책 추가 완료",
+          editingId ? "사유 정책을 수정했습니다." : "사유 정책을 추가했습니다.",
           [name],
         );
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "?? ?? ??? ??????.");
+        setErrorMessage(error instanceof Error ? error.message : "정책 저장에 실패했습니다.");
       }
     });
   }
@@ -134,13 +134,13 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
 
   function removePolicy(policy: AbsencePolicyRecord) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제 확인",
       badgeTone: "warning",
-      title: "?? ?? ??",
-      description: `?? "${policy.name}"? ?????????`,
-      details: ["?? ??? ??? ?? ???? ? ?? ??? ? ????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "정책 삭제",
+      description: `정책 "${policy.name}"을 삭제하시겠습니까?`,
+      details: ["삭제 후에는 새 사유서 등록 시 이 정책을 더 이상 선택할 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -155,12 +155,12 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
               resetForm();
             }
             openCompletionModal(
-              "?? ?? ?? ??",
-              "?? ??? ??????.",
+              "정책 삭제 완료",
+              "사유 정책을 삭제했습니다.",
               [policy.name],
             );
           } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : "?? ?? ??? ??????.");
+            setErrorMessage(error instanceof Error ? error.message : "정책 삭제에 실패했습니다.");
           }
         });
       },
@@ -394,7 +394,7 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}
@@ -407,7 +407,7 @@ export function AbsencePolicyManager({ policies }: AbsencePolicyManagerProps) {
         title={completionModal.modal?.title ?? ""}
         description={completionModal.modal?.description ?? ""}
         details={completionModal.modal?.details ?? []}
-        confirmLabel={completionModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={completionModal.modal?.confirmLabel ?? "확인"}
         onClose={completionModal.closeModal}
         onConfirm={completionModal.modal?.onConfirm}
       />

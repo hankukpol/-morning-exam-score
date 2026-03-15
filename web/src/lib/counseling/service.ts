@@ -10,6 +10,7 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
 import { getScoredMockScore } from "@/lib/scores/calculation";
+import { buildPeriodScopedStudentWhere } from "@/lib/analytics/data";
 
 export type CounselingSearchFilters = {
   examType?: ExamType;
@@ -492,6 +493,48 @@ export async function listAppointments(filters?: {
             },
           }
         : {}),
+    },
+    include: APPOINTMENT_INCLUDE,
+    orderBy: { scheduledAt: "asc" },
+  });
+}
+
+export async function listPeriodScopedAppointmentsForCalendar(input: {
+  periodId: number;
+  examType: ExamType;
+  from: Date;
+  to: Date;
+}) {
+  const scopedStudents = await getPrisma().student.findMany({
+    where: {
+      AND: [
+        NON_PLACEHOLDER_STUDENT_FILTER,
+        { isActive: true },
+        buildPeriodScopedStudentWhere(input.periodId, input.examType, {
+          includePointLogs: false,
+        }),
+      ],
+    },
+    select: {
+      examNumber: true,
+    },
+  });
+
+  const scopedExamNumbers = scopedStudents.map((student) => student.examNumber);
+  if (scopedExamNumbers.length === 0) {
+    return [];
+  }
+
+  return getPrisma().counselingAppointment.findMany({
+    where: {
+      examNumber: {
+        in: scopedExamNumbers,
+      },
+      status: AppointmentStatus.SCHEDULED,
+      scheduledAt: {
+        gte: input.from,
+        lte: input.to,
+      },
     },
     include: APPOINTMENT_INCLUDE,
     orderBy: { scheduledAt: "asc" },

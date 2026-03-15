@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { ExamType, StudentType } from "@prisma/client";
+import { AbsenceStatus, AttendType, ExamType, StudentType } from "@prisma/client";
 import {
   DUPLICATE_STRATEGY_LABEL,
   EXAM_TYPE_VALUES,
@@ -56,6 +56,22 @@ type PasteDefaults = {
 type PasteMapping = Partial<Record<StudentPasteFieldKey, number>>;
 
 const STUDENT_IMPORT_UPDATE_BATCH_SIZE = 25;
+
+function endOfToday() {
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  return now;
+}
+
+function buildSessionScoreCountMap(rows: Array<{ sessionId: number }>) {
+  const counts = new Map<number, number>();
+
+  for (const row of rows) {
+    counts.set(row.sessionId, (counts.get(row.sessionId) ?? 0) + 1);
+  }
+
+  return counts;
+}
 
 function buildStudentListWhere(filters: StudentFilters): Prisma.StudentWhereInput {
   const search = filters.search?.trim();
@@ -135,12 +151,35 @@ export async function listStudentsPage(filters: StudentFilters) {
 }
 
 export async function getStudentHistory(examNumber: string) {
-  const student = await getPrisma().student.findUnique({
+  const prisma = getPrisma();
+  const student = await prisma.student.findUnique({
     where: {
       examNumber,
     },
     include: {
+      enrollments: {
+        select: {
+          periodId: true,
+        },
+      },
       scores: {
+        include: {
+          session: {
+            include: {
+              period: true,
+            },
+          },
+        },
+        orderBy: {
+          session: {
+            examDate: "desc",
+          },
+        },
+      },
+      absenceNotes: {
+        where: {
+          status: AbsenceStatus.APPROVED,
+        },
         include: {
           session: {
             include: {
@@ -161,9 +200,100 @@ export async function getStudentHistory(examNumber: string) {
     return null;
   }
 
+  const periodIds = Array.from(
+    new Set([
+      ...student.enrollments.map((enrollment) => enrollment.periodId),
+      ...student.scores.map((score) => score.session.periodId),
+      ...student.absenceNotes.map((absence) => absence.session.periodId),
+    ]),
+  );
+
+  const scoreRows = student.scores.map((score) => ({
+    ...withAbsenceNoteDisplay(score),
+    isVirtual: false,
+  }));
+
+  if (periodIds.length === 0) {
+    return {
+      ...student,
+      scores: scoreRows,
+    };
+  }
+
+  const sessions = await prisma.examSession.findMany({
+    where: {
+      periodId: {
+        in: periodIds,
+      },
+      examType: student.examType,
+      isCancelled: false,
+    },
+    include: {
+      period: true,
+    },
+    orderBy: [{ examDate: "desc" }, { id: "desc" }],
+  });
+  const sessionIds = sessions.map((session) => session.id);
+  const sessionScoreCounts =
+    sessionIds.length > 0
+      ? buildSessionScoreCountMap(
+          await prisma.score.findMany({
+            where: {
+              sessionId: {
+                in: sessionIds,
+              },
+            },
+            select: {
+              sessionId: true,
+            },
+          }),
+        )
+      : new Map<number, number>();
+  const scoreRowsBySessionId = new Map(scoreRows.map((score) => [score.sessionId, score]));
+  const approvedAbsenceBySessionId = new Map(
+    student.absenceNotes.map((absence) => [absence.sessionId, absence]),
+  );
+  const today = endOfToday();
+  const virtualRows = sessions.flatMap((session) => {
+    if (scoreRowsBySessionId.has(session.id)) {
+      return [];
+    }
+
+    const approvedAbsence = approvedAbsenceBySessionId.get(session.id) ?? null;
+    const isOccurred = session.examDate <= today;
+    const isPendingInput = isOccurred && (sessionScoreCounts.get(session.id) ?? 0) === 0;
+    const inferredAbsent = isOccurred && !isPendingInput && !approvedAbsence;
+
+    if (!approvedAbsence && !inferredAbsent) {
+      return [];
+    }
+
+    return [
+      {
+        id: -session.id,
+        examNumber: student.examNumber,
+        sessionId: session.id,
+        rawScore: null,
+        oxScore: null,
+        finalScore: null,
+        attendType: approvedAbsence ? AttendType.EXCUSED : AttendType.ABSENT,
+        note: approvedAbsence?.reason ?? null,
+        rawNote: approvedAbsence?.reason ?? null,
+        sourceType: null,
+        isVirtual: true,
+        session,
+      },
+    ];
+  });
+  const historyRows = [...scoreRows, ...virtualRows].sort(
+    (left, right) =>
+      right.session.examDate.getTime() - left.session.examDate.getTime() ||
+      right.session.id - left.session.id,
+  );
+
   return {
     ...student,
-    scores: student.scores.map((score) => withAbsenceNoteDisplay(score)),
+    scores: historyRows,
   };
 }
 
@@ -331,6 +461,159 @@ export async function reactivateStudent(input: {
 
   revalidateAdminReadCaches({ analytics: true, periods: false });
   return student;
+}
+
+export async function bulkDeactivateStudents(input: {
+  adminId: string;
+  examNumbers: string[];
+  ipAddress?: string | null;
+}) {
+  if (input.examNumbers.length === 0) {
+    throw new Error("비활성화할 수강생을 선택해 주세요.");
+  }
+
+  const result = await getPrisma().$transaction(async (tx) => {
+    const targets = await tx.student.findMany({
+      where: {
+        AND: [
+          NON_PLACEHOLDER_STUDENT_FILTER,
+          {
+            examNumber: {
+              in: input.examNumbers,
+            },
+          },
+        ],
+      },
+      select: {
+        examNumber: true,
+        name: true,
+        isActive: true,
+        generation: true,
+      },
+    });
+
+    const foundExamNumbers = new Set(targets.map((target) => target.examNumber));
+    const missingExamNumbers = input.examNumbers.filter((examNumber) => !foundExamNumbers.has(examNumber));
+    const updatableTargets = targets.filter((target) => target.isActive);
+    const skippedCount = targets.length - updatableTargets.length;
+
+    if (updatableTargets.length > 0) {
+      await tx.student.updateMany({
+        where: {
+          examNumber: {
+            in: updatableTargets.map((target) => target.examNumber),
+          },
+        },
+        data: {
+          isActive: false,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "STUDENT_BULK_DEACTIVATE",
+        targetType: "Student",
+        targetId: "bulk",
+        before: toAuditJson(targets),
+        after: toAuditJson({
+          updatedCount: updatableTargets.length,
+          skippedCount,
+          missingExamNumbers,
+          examNumbers: updatableTargets.map((target) => target.examNumber),
+        }),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return {
+      updatedCount: updatableTargets.length,
+      skippedCount,
+      missingExamNumbers,
+    };
+  });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return result;
+}
+
+export async function bulkUpdateStudentGeneration(input: {
+  adminId: string;
+  examNumbers: string[];
+  generation: number | null;
+  ipAddress?: string | null;
+}) {
+  if (input.examNumbers.length === 0) {
+    throw new Error("기수를 변경할 수강생을 선택해 주세요.");
+  }
+
+  const result = await getPrisma().$transaction(async (tx) => {
+    const targets = await tx.student.findMany({
+      where: {
+        AND: [
+          NON_PLACEHOLDER_STUDENT_FILTER,
+          {
+            examNumber: {
+              in: input.examNumbers,
+            },
+          },
+        ],
+      },
+      select: {
+        examNumber: true,
+        name: true,
+        generation: true,
+        isActive: true,
+      },
+    });
+
+    const foundExamNumbers = new Set(targets.map((target) => target.examNumber));
+    const missingExamNumbers = input.examNumbers.filter((examNumber) => !foundExamNumbers.has(examNumber));
+    const updatableTargets = targets.filter((target) => target.generation !== input.generation);
+    const skippedCount = targets.length - updatableTargets.length;
+
+    if (updatableTargets.length > 0) {
+      await tx.student.updateMany({
+        where: {
+          examNumber: {
+            in: updatableTargets.map((target) => target.examNumber),
+          },
+        },
+        data: {
+          generation: input.generation,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId: input.adminId,
+        action: "STUDENT_BULK_GENERATION_UPDATE",
+        targetType: "Student",
+        targetId: "bulk",
+        before: toAuditJson(targets),
+        after: toAuditJson({
+          updatedCount: updatableTargets.length,
+          skippedCount,
+          missingExamNumbers,
+          generation: input.generation,
+          examNumbers: updatableTargets.map((target) => target.examNumber),
+        }),
+        ipAddress: input.ipAddress ?? null,
+      },
+    });
+
+    return {
+      updatedCount: updatableTargets.length,
+      skippedCount,
+      missingExamNumbers,
+      generation: input.generation,
+    };
+  });
+
+  revalidateAdminReadCaches({ analytics: true, periods: false });
+  return result;
 }
 
 export function parseStudentForm(raw: Record<string, unknown>) {

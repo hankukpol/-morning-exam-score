@@ -36,6 +36,7 @@ export type DatasetSession = {
   id: number;
   week: number;
   subject: Subject;
+  displaySubjectName: string | null;
   examDate: Date;
   isCancelled: boolean;
   periodId: number;
@@ -46,6 +47,8 @@ export type DatasetStudent = {
   examNumber: string;
   name: string;
   phone: string | null;
+  generation: number | null;
+  className: string | null;
   studentType: StudentType;
   isActive: boolean;
   notificationConsent: boolean;
@@ -297,6 +300,8 @@ async function loadDatasetRaw(
         examNumber: true,
         name: true,
         phone: true,
+        generation: true,
+        className: true,
         studentType: true,
         isActive: true,
         notificationConsent: true,

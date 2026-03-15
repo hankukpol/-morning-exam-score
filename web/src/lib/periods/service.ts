@@ -1,9 +1,10 @@
-﻿import { cache } from "react";
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { ExamType, Subject } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { toAuditJson } from "@/lib/audit";
 import { buildPeriodSessions } from "@/lib/periods/schedule";
+import { normalizeDisplaySubjectName } from "@/lib/periods/display-subject-name";
 import { getEnabledExamTypes, isExamTypeEnabled } from "@/lib/periods/exam-types";
 import { CACHE_TAGS, revalidateAdminReadCaches } from "@/lib/cache-tags";
 import { recalculateStatusCache } from "@/lib/analytics/service";
@@ -22,6 +23,7 @@ export type SessionFormInput = {
   examType: ExamType;
   week: number;
   subject: Subject;
+  displaySubjectName?: string | null;
   examDate: Date;
 };
 
@@ -143,9 +145,13 @@ const getPeriodWithSessionsShared = unstable_cache(
             examType: true,
             week: true,
             subject: true,
+            displaySubjectName: true,
             examDate: true,
             isCancelled: true,
             cancelReason: true,
+            isLocked: true,
+            lockedAt: true,
+            lockedBy: true,
           },
         },
       },
@@ -231,7 +237,6 @@ export async function createPeriod(input: {
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return result;
 }
-
 export async function updatePeriod(input: {
   adminId: string;
   periodId: number;
@@ -444,6 +449,7 @@ export async function createSession(input: {
         examType: input.session.examType,
         week: input.session.week,
         subject: input.session.subject,
+        displaySubjectName: input.session.displaySubjectName ?? null,
         examDate: input.session.examDate,
       },
     });
@@ -467,15 +473,16 @@ export async function createSession(input: {
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return session;
 }
-
 export async function updateSession(input: {
   adminId: string;
   sessionId: number;
   payload: {
     examDate?: Date;
     subject?: Subject;
+    displaySubjectName?: string | null;
     isCancelled?: boolean;
     cancelReason?: string | null;
+    isLocked?: boolean;
   };
   ipAddress?: string | null;
 }) {
@@ -488,6 +495,12 @@ export async function updateSession(input: {
 
     const nextExamDate = input.payload.examDate ?? before.examDate;
     const nextSubject = input.payload.subject ?? before.subject;
+    const nextIsLocked = input.payload.isLocked ?? before.isLocked;
+    const lockStateChanged = nextIsLocked !== before.isLocked;
+
+    if (!EXAM_TYPE_SUBJECTS[before.examType].includes(nextSubject)) {
+      throw new Error("선택한 직렬에서 사용할 수 없는 과목입니다.");
+    }
 
     const duplicated = await tx.examSession.findFirst({
       where: {
@@ -511,18 +524,29 @@ export async function updateSession(input: {
       data: {
         examDate: nextExamDate,
         subject: nextSubject,
+        displaySubjectName:
+          input.payload.displaySubjectName !== undefined
+            ? input.payload.displaySubjectName
+            : before.displaySubjectName,
         isCancelled: input.payload.isCancelled ?? before.isCancelled,
         cancelReason:
           input.payload.isCancelled === false
             ? null
             : input.payload.cancelReason ?? before.cancelReason,
+        isLocked: nextIsLocked,
+        lockedAt: lockStateChanged ? (nextIsLocked ? new Date() : null) : before.lockedAt,
+        lockedBy: lockStateChanged ? (nextIsLocked ? input.adminId : null) : before.lockedBy,
       },
     });
 
     await tx.auditLog.create({
       data: {
         adminId: input.adminId,
-        action: "SESSION_UPDATE",
+        action: lockStateChanged
+          ? nextIsLocked
+            ? "SESSION_LOCK"
+            : "SESSION_UNLOCK"
+          : "SESSION_UPDATE",
         targetType: "ExamSession",
         targetId: String(input.sessionId),
         before: toAuditJson(before),
@@ -538,7 +562,6 @@ export async function updateSession(input: {
   revalidateAdminReadCaches({ analytics: true, periods: true });
   return session;
 }
-
 export function parsePeriodForm(raw: Record<string, unknown>) {
   const name = String(raw.name ?? "").trim();
   const startDate = new Date(String(raw.startDate ?? ""));
@@ -580,10 +603,11 @@ export function parsePeriodForm(raw: Record<string, unknown>) {
     isGyeongchaeEnabled,
   } satisfies PeriodFormInput;
 }
-
 export function parseSessionCreate(raw: Record<string, unknown>) {
   const examType = String(raw.examType ?? "").trim() as ExamType;
   const subject = String(raw.subject ?? "").trim() as Subject;
+  const displaySubjectName =
+    raw.displaySubjectName === undefined ? null : normalizeDisplaySubjectName(raw.displaySubjectName);
   const week = Number(raw.week ?? 0);
   const examDate = new Date(String(raw.examDate ?? ""));
 
@@ -607,16 +631,18 @@ export function parseSessionCreate(raw: Record<string, unknown>) {
     examType,
     week,
     subject,
+    displaySubjectName,
     examDate,
   } satisfies SessionFormInput;
 }
-
 export function parseSessionUpdate(raw: Record<string, unknown>) {
   const result: {
     examDate?: Date;
     subject?: Subject;
+    displaySubjectName?: string | null;
     isCancelled?: boolean;
     cancelReason?: string | null;
+    isLocked?: boolean;
   } = {};
 
   if (raw.examDate) {
@@ -637,6 +663,10 @@ export function parseSessionUpdate(raw: Record<string, unknown>) {
     result.subject = subject;
   }
 
+  if (raw.displaySubjectName !== undefined) {
+    result.displaySubjectName = normalizeDisplaySubjectName(raw.displaySubjectName);
+  }
+
   if (raw.isCancelled !== undefined) {
     result.isCancelled = Boolean(raw.isCancelled);
   }
@@ -644,6 +674,10 @@ export function parseSessionUpdate(raw: Record<string, unknown>) {
   if (raw.cancelReason !== undefined) {
     const cancelReason = String(raw.cancelReason ?? "").trim();
     result.cancelReason = cancelReason || null;
+  }
+
+  if (raw.isLocked !== undefined) {
+    result.isLocked = Boolean(raw.isLocked);
   }
 
   return result;

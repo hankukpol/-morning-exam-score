@@ -1,13 +1,149 @@
-﻿import { NotificationType, StudentStatus } from "@prisma/client";
+import { NotificationChannel, NotificationType, StudentStatus } from "@prisma/client";
 
-type MessageInput = {
+export type NotificationMessageInput = {
   type: NotificationType;
   studentName: string;
   recoveryDate?: Date | null;
   weekAbsenceCount?: number | null;
   monthAbsenceCount?: number | null;
+  pointAmount?: number | null;
   customMessage?: string;
-  pointAmount?: number;
+  absenceNoteOutcome?: string | null;
+  absenceNoteFollowUp?: string | null;
+  recipientName?: string | null;
+  sessionLabel?: string | null;
+  examDateLabel?: string | null;
+  missingScoreCount?: number | null;
+  periodName?: string | null;
+};
+
+export type NotificationTemplateSummary = {
+  id: string;
+  type: NotificationType;
+  channel: NotificationChannel;
+  label: string;
+  description: string;
+  content: string;
+  variables: string[];
+  solapiTemplateId: string | null;
+  envFallbackTemplateId: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  sampleValues: Record<string, string>;
+  preview: string;
+  usesDefault: boolean;
+};
+
+type NotificationTemplateDefinition = {
+  label: string;
+  description: string;
+  content: string;
+  variables: string[];
+  sampleValues: Record<string, string>;
+  envKey: string | null;
+};
+
+export const NOTIFICATION_TEMPLATE_TYPES = Object.values(NotificationType);
+
+const DEFAULT_TEMPLATE_DEFINITIONS: Record<NotificationType, NotificationTemplateDefinition> = {
+  WARNING_1: {
+    label: "Warning 1",
+    description: "First warning after an unexcused absence.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8, \uC774\uBC88 \uC8FC \uBB34\uB2E8 \uACB0\uC2DC {weekAbsenceCount}\uD68C\uB85C 1\uCC28 \uACBD\uACE0 \uC0C1\uD0DC\uC785\uB2C8\uB2E4. \uB2E4\uC74C \uC2DC\uD5D8 \uCC38\uC5EC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
+    variables: ["studentName", "weekAbsenceCount"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+      weekAbsenceCount: "1",
+    },
+    envKey: "SOLAPI_TEMPLATE_WARNING_1",
+  },
+  WARNING_2: {
+    label: "Warning 2",
+    description: "Second warning before dropout treatment.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8, \uC774\uBC88 \uC8FC \uBB34\uB2E8 \uACB0\uC2DC {weekAbsenceCount}\uD68C\uB85C 2\uCC28 \uACBD\uACE0 \uC0C1\uD0DC\uC785\uB2C8\uB2E4. \uCD94\uAC00 \uACB0\uC2DC \uC2DC \uD0C8\uB77D \uCC98\uB9AC\uB429\uB2C8\uB2E4.",
+    variables: ["studentName", "weekAbsenceCount"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+      weekAbsenceCount: "2",
+    },
+    envKey: "SOLAPI_TEMPLATE_WARNING_2",
+  },
+  DROPOUT: {
+    label: "Dropout",
+    description: "Dropout notice after exceeding absence rules.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8\uC740 \uACB0\uC2DC \uAE30\uC900 \uCD08\uACFC\uB85C \uD0C8\uB77D \uCC98\uB9AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC8FC\uAC04 {weekAbsenceCount}\uD68C / \uC6D4\uAC04 {monthAbsenceCount}\uD68C \uAE30\uC900\uC774\uBA70 \uBCF5\uAD6C \uAC00\uB2A5\uC77C\uC740 {recoveryDate}\uC785\uB2C8\uB2E4.",
+    variables: ["studentName", "weekAbsenceCount", "monthAbsenceCount", "recoveryDate"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+      weekAbsenceCount: "3",
+      monthAbsenceCount: "8",
+      recoveryDate: "2026. 3. 31.",
+    },
+    envKey: "SOLAPI_TEMPLATE_DROPOUT",
+  },
+  ABSENCE_NOTE: {
+    label: "Absence Note",
+    description: "Absence note approval or rejection result.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8 \uC0AC\uC720\uC11C\uAC00 {absenceNoteOutcome}\uB418\uC5C8\uC2B5\uB2C8\uB2E4. {absenceNoteFollowUp}",
+    variables: ["studentName", "absenceNoteOutcome", "absenceNoteFollowUp"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+      absenceNoteOutcome: "\uC2B9\uC778",
+      absenceNoteFollowUp:
+        "\uAD00\uB9AC\uC790 \uD654\uBA74\uC5D0\uC11C \uCC98\uB9AC \uACB0\uACFC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
+    },
+    envKey: "SOLAPI_TEMPLATE_ABSENCE_NOTE",
+  },
+  POINT: {
+    label: "Point",
+    description: "Point grant notification.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8\uAED8 \uD3EC\uC778\uD2B8 {pointAmount}P\uAC00 \uC9C0\uAE09\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+    variables: ["studentName", "pointAmount"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+      pointAmount: "500",
+    },
+    envKey: "SOLAPI_TEMPLATE_POINT",
+  },
+  NOTICE: {
+    label: "Notice",
+    description: "Default body for manual notice sends.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {studentName}\uB2D8\uAED8 \uC6B4\uC601 \uACF5\uC9C0\uB97C \uC804\uB2EC\uB4DC\uB9BD\uB2C8\uB2E4.",
+    variables: ["studentName"],
+    sampleValues: {
+      name: "Hong Gil-dong",
+      studentName: "Hong Gil-dong",
+    },
+    envKey: "SOLAPI_TEMPLATE_NOTICE",
+  },
+  SCORE_DEADLINE: {
+    label: "Score Deadline",
+    description: "Admin alert when today's score entry is still incomplete after the deadline.",
+    content:
+      "[\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC] {recipientName}\uB2D8, {examDateLabel} {sessionLabel} \uC131\uC801 \uC785\uB825\uC774 \uC544\uC9C1 {missingScoreCount}\uAC74 \uB0A8\uC544 \uC788\uC2B5\uB2C8\uB2E4. {periodName} \uD654\uBA74\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
+    variables: ["recipientName", "examDateLabel", "sessionLabel", "missingScoreCount", "periodName"],
+    sampleValues: {
+      name: "Lead Teacher",
+      studentName: "Lead Teacher",
+      recipientName: "Lead Teacher",
+      examDateLabel: "2026-03-14",
+      sessionLabel: "\uACF5\uCC44 2\uC8FC\uCC28 \uD615\uBC95",
+      missingScoreCount: "3",
+      periodName: "2026 \uBD04\uC2DC\uC98C",
+    },
+    envKey: "SOLAPI_TEMPLATE_SCORE_DEADLINE",
+  },
 };
 
 export function notificationTypeFromStatus(status: StudentStatus) {
@@ -23,23 +159,6 @@ export function notificationTypeFromStatus(status: StudentStatus) {
   }
 }
 
-export function getNotificationTemplateId(type: NotificationType) {
-  switch (type) {
-    case NotificationType.WARNING_1:
-      return process.env.SOLAPI_TEMPLATE_WARNING_1 ?? null;
-    case NotificationType.WARNING_2:
-      return process.env.SOLAPI_TEMPLATE_WARNING_2 ?? null;
-    case NotificationType.DROPOUT:
-      return process.env.SOLAPI_TEMPLATE_DROPOUT ?? null;
-    case NotificationType.POINT:
-      return process.env.SOLAPI_TEMPLATE_POINT ?? null;
-    case NotificationType.NOTICE:
-      return process.env.SOLAPI_TEMPLATE_NOTICE ?? null;
-    default:
-      return null;
-  }
-}
-
 function formatRecoveryDate(value?: Date | null) {
   if (!value) {
     return "-";
@@ -48,34 +167,153 @@ function formatRecoveryDate(value?: Date | null) {
   return value.toLocaleDateString("ko-KR");
 }
 
-export function buildNotificationMessage(input: MessageInput) {
-  if (input.customMessage?.trim()) {
-    return input.customMessage.trim();
-  }
+function stringifyNumber(value?: number | null) {
+  return value === null || value === undefined ? "" : String(value);
+}
 
-  switch (input.type) {
-    case NotificationType.WARNING_1:
-      return `[아침모의고사] ${input.studentName}님, 이번 주 무단 결시 ${input.weekAbsenceCount ?? 1}회로 1차 경고 상태입니다. 다음 시험 참여를 확인해 주세요.`;
-    case NotificationType.WARNING_2:
-      return `[아침모의고사] ${input.studentName}님, 이번 주 무단 결시 ${input.weekAbsenceCount ?? 2}회로 2차 경고 상태입니다. 추가 결시 시 탈락 처리됩니다.`;
-    case NotificationType.DROPOUT:
-      return `[아침모의고사] ${input.studentName}님은 결시 기준 초과로 탈락 처리되었습니다. 주간 ${input.weekAbsenceCount ?? 0}회 / 월간 ${input.monthAbsenceCount ?? 0}회 기준이며 복구 가능일은 ${formatRecoveryDate(input.recoveryDate)}입니다.`;
-    case NotificationType.POINT:
-      return `[아침모의고사] ${input.studentName}님께 포인트 ${input.pointAmount?.toLocaleString("ko-KR") ?? "0"}P가 지급되었습니다.`;
-    case NotificationType.NOTICE:
-      return `[아침모의고사] ${input.studentName}님께 운영 공지를 전달드립니다.`;
-    default:
-      return `[아침모의고사] ${input.studentName}님께 안내드립니다.`;
+export function buildNotificationTemplateValues(input: NotificationMessageInput) {
+  const studentName = input.studentName.trim();
+  const customMessage = input.customMessage?.trim() ?? "";
+  const recoveryDate = formatRecoveryDate(input.recoveryDate);
+  const weekAbsenceCount = stringifyNumber(input.weekAbsenceCount);
+  const monthAbsenceCount = stringifyNumber(input.monthAbsenceCount);
+  const pointAmount = stringifyNumber(input.pointAmount);
+  const absenceNoteOutcome = input.absenceNoteOutcome?.trim() ?? "";
+  const absenceNoteFollowUp = input.absenceNoteFollowUp?.trim() ?? "";
+  const recipientName = input.recipientName?.trim() ?? studentName;
+  const sessionLabel = input.sessionLabel?.trim() ?? "";
+  const examDateLabel = input.examDateLabel?.trim() ?? "";
+  const missingScoreCount = stringifyNumber(input.missingScoreCount);
+  const periodName = input.periodName?.trim() ?? "";
+
+  return {
+    name: studentName,
+    studentName,
+    recoveryDate,
+    weekAbsenceCount,
+    monthAbsenceCount,
+    pointAmount,
+    customMessage,
+    absenceNoteOutcome,
+    absenceNoteFollowUp,
+    recipientName,
+    sessionLabel,
+    examDateLabel,
+    missingScoreCount,
+    periodName,
+  } satisfies Record<string, string>;
+}
+
+export function renderNotificationTemplateContent(
+  content: string,
+  values: Record<string, string>,
+) {
+  return content
+    .replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => values[key] ?? match)
+    .trim();
+}
+
+export function extractNotificationTemplatePlaceholders(content: string) {
+  return Array.from(
+    new Set(
+      Array.from(content.matchAll(/\{([a-zA-Z0-9_]+)\}/g), (match) => match[1]),
+    ),
+  );
+}
+
+export function validateNotificationTemplateContent(
+  content: string,
+  allowedVariables: string[],
+) {
+  const allowed = new Set(allowedVariables);
+  const unknownVariables = extractNotificationTemplatePlaceholders(content).filter(
+    (variable) => !allowed.has(variable),
+  );
+
+  if (unknownVariables.length > 0) {
+    throw new Error(
+      `Unknown template variables: ${unknownVariables
+        .map((variable) => `{${variable}}`)
+        .join(", ")}`,
+    );
   }
 }
 
-export function buildNotificationVariables(input: MessageInput) {
+export function buildNotificationVariables(
+  input: NotificationMessageInput,
+  renderedMessage?: string,
+) {
+  const values = buildNotificationTemplateValues(input);
+  const messageBody = renderedMessage ?? values.customMessage;
+
   return {
-    student_name: input.studentName,
-    recovery_date: formatRecoveryDate(input.recoveryDate),
-    week_absence_count: input.weekAbsenceCount ? String(input.weekAbsenceCount) : "",
-    month_absence_count: input.monthAbsenceCount ? String(input.monthAbsenceCount) : "",
-    point_amount: input.pointAmount ? String(input.pointAmount) : "",
-    message_body: buildNotificationMessage(input),
+    ...values,
+    student_name: values.studentName,
+    recovery_date: values.recoveryDate,
+    week_absence_count: values.weekAbsenceCount,
+    month_absence_count: values.monthAbsenceCount,
+    point_amount: values.pointAmount,
+    custom_message: values.customMessage,
+    absence_note_outcome: values.absenceNoteOutcome,
+    absence_note_follow_up: values.absenceNoteFollowUp,
+    recipient_name: values.recipientName,
+    session_label: values.sessionLabel,
+    exam_date_label: values.examDateLabel,
+    missing_score_count: values.missingScoreCount,
+    period_name: values.periodName,
+    messageBody,
+    message_body: messageBody,
+  } satisfies Record<string, string>;
+}
+
+export function getDefaultNotificationTemplateId(type: NotificationType) {
+  const envKey = DEFAULT_TEMPLATE_DEFINITIONS[type].envKey;
+  return envKey ? process.env[envKey]?.trim() || null : null;
+}
+
+export function getDefaultNotificationTemplateDefinition(
+  type: NotificationType,
+  channel: NotificationChannel = NotificationChannel.ALIMTALK,
+): NotificationTemplateSummary {
+  const definition = DEFAULT_TEMPLATE_DEFINITIONS[type];
+  const envFallbackTemplateId = getDefaultNotificationTemplateId(type);
+
+  return {
+    id: `default:${type}:${channel}`,
+    type,
+    channel,
+    label: definition.label,
+    description: definition.description,
+    content: definition.content,
+    variables: definition.variables,
+    solapiTemplateId: envFallbackTemplateId,
+    envFallbackTemplateId,
+    updatedAt: null,
+    updatedBy: null,
+    sampleValues: definition.sampleValues,
+    preview: renderNotificationTemplateContent(definition.content, definition.sampleValues),
+    usesDefault: true,
   };
+}
+
+export function listDefaultNotificationTemplateDefinitions(
+  channel: NotificationChannel = NotificationChannel.ALIMTALK,
+) {
+  return NOTIFICATION_TEMPLATE_TYPES.map((type) =>
+    getDefaultNotificationTemplateDefinition(type, channel),
+  );
+}
+
+export function buildDefaultNotificationMessage(input: NotificationMessageInput) {
+  const customMessage = input.customMessage?.trim();
+
+  if (customMessage) {
+    return customMessage;
+  }
+
+  const template = getDefaultNotificationTemplateDefinition(input.type);
+  return renderNotificationTemplateContent(
+    template.content,
+    buildNotificationTemplateValues(input),
+  );
 }

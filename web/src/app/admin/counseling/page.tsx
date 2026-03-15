@@ -51,7 +51,7 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-14 Counseling
+        F-14 면담 지원
       </div>
       <h1 className="mt-5 text-3xl font-semibold">학생 면담 지원</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
