@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ExamType } from "@prisma/client";
 import { useState, useTransition } from "react";
@@ -50,7 +50,7 @@ export function StudentLookupForm({
 
     startTransition(async () => {
       try {
-        await requestJson("/api/student/lookup", {
+        await requestJson("/api/student/auth/login", {
           method: "POST",
           body: JSON.stringify({
             examNumber,
@@ -62,7 +62,7 @@ export function StudentLookupForm({
       } catch (error) {
         setNotice(null);
         setErrorMessage(
-          error instanceof Error ? error.message : "학생 조회에 실패했습니다.",
+          error instanceof Error ? error.message : "학생 로그인에 실패했습니다.",
         );
       }
     });
@@ -74,11 +74,11 @@ export function StudentLookupForm({
 
     startTransition(async () => {
       try {
-        await requestJson("/api/student/lookup", {
-          method: "DELETE",
+        await requestJson("/api/student/auth/logout", {
+          method: "POST",
         });
 
-        window.location.href = "/student";
+        window.location.href = "/student/login";
       } catch (error) {
         setNotice(null);
         setErrorMessage(
@@ -92,9 +92,9 @@ export function StudentLookupForm({
     <div className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">학생 조회</h2>
+          <h2 className="text-xl font-semibold">학생 로그인</h2>
           <p className="mt-3 text-sm leading-7 text-slate">
-            수험번호와 이름으로 본인 성적을 조회합니다.
+            수험번호와 이름으로 본인 포털에 로그인합니다.
           </p>
         </div>
         {currentStudent ? (
@@ -138,7 +138,7 @@ export function StudentLookupForm({
           disabled={isPending}
           className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:bg-ink/40"
         >
-          조회하기
+          로그인
         </button>
         {currentStudent ? (
           <button
@@ -147,10 +147,14 @@ export function StudentLookupForm({
             disabled={isPending}
             className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
           >
-            다른 학생으로 전환
+            로그아웃
           </button>
         ) : null}
       </div>
     </div>
   );
 }
+
+
+
+

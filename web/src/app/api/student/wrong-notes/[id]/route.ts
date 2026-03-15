@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { requireStudentPortalStudent } from "@/lib/student-portal/api";
 import {
   deleteStudentWrongNote,
@@ -26,7 +26,7 @@ function parseNoteId(value: string) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
-  const auth = await requireStudentPortalStudent();
+  const auth = await requireStudentPortalStudent(request);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -52,8 +52,8 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
-  const auth = await requireStudentPortalStudent();
+export async function DELETE(request: Request, context: RouteContext) {
+  const auth = await requireStudentPortalStudent(request);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -76,3 +76,5 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 }
+
+

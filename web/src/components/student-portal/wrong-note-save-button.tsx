@@ -62,9 +62,7 @@ export function WrongNoteSaveButton({
       >
         {saved ? "저장됨" : "노트 저장"}
       </button>
-      {errorMessage ? (
-        <p className="text-xs text-red-700">{errorMessage}</p>
-      ) : null}
+      {errorMessage ? <p className="text-xs text-red-700">{errorMessage}</p> : null}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import { Subject } from "@prisma/client";
+import { useMemo, useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
-import { useMemo, useState, useTransition } from "react";
 
 type WrongNoteRow = {
   id: number;
@@ -75,7 +75,7 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "요청에 실패했습니다.");
+      throw new Error(payload.error ?? "요청 처리에 실패했습니다.");
     }
 
     return payload;
@@ -117,13 +117,13 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
 
   function deleteNote(noteId: number) {
     confirmModal.openModal({
-      badgeLabel: "?? ??",
+      badgeLabel: "삭제 확인",
       badgeTone: "warning",
-      title: "?? ?? ??",
-      description: "??? ?? ??? ?????????",
-      details: ["??? ??? ?? ??? ? ????."],
-      cancelLabel: "??",
-      confirmLabel: "??",
+      title: "오답 노트 삭제",
+      description: "이 오답 노트를 삭제하시겠습니까?",
+      details: ["삭제한 노트는 다시 복구할 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -136,12 +136,12 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
             });
 
             setNotes((current) => current.filter((note) => note.id !== noteId));
-            setNotice("?? ??? ??????.");
+            setNotice("오답 노트를 삭제했습니다.");
             setErrorMessage(null);
           } catch (error) {
             setNotice(null);
             setErrorMessage(
-              error instanceof Error ? error.message : "?? ?? ??? ??????.",
+              error instanceof Error ? error.message : "오답 노트 삭제에 실패했습니다.",
             );
           }
         });
@@ -151,13 +151,13 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
 
   function clearAll() {
     confirmModal.openModal({
-      badgeLabel: "?? ?? ??",
+      badgeLabel: "전체 삭제 확인",
       badgeTone: "warning",
-      title: "?? ?? ?? ??",
-      description: "??? ?? ??? ?? ?????????",
-      details: ["?? ?? ??? ??? ???? ??? ? ????."],
-      cancelLabel: "??",
-      confirmLabel: "?? ??",
+      title: "오답 노트 전체 삭제",
+      description: "저장한 오답 노트를 모두 삭제하시겠습니까?",
+      details: ["전체 삭제 후에는 저장한 메모와 오답 기록을 복구할 수 없습니다."],
+      cancelLabel: "취소",
+      confirmLabel: "전체 삭제",
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
@@ -170,12 +170,12 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
             });
 
             setNotes([]);
-            setNotice("?? ??? ?? ??????.");
+            setNotice("오답 노트를 모두 삭제했습니다.");
             setErrorMessage(null);
           } catch (error) {
             setNotice(null);
             setErrorMessage(
-              error instanceof Error ? error.message : "?? ?? ?? ??? ??????.",
+              error instanceof Error ? error.message : "오답 노트 전체 삭제에 실패했습니다.",
             );
           }
         });
@@ -245,9 +245,9 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold">저장된 오답</h2>
+            <h2 className="text-xl font-semibold">저장한 오답</h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              {filteredNotes.length}개 문항이 현재 필터에 표시됩니다.
+              현재 필터에 맞는 문항 {filteredNotes.length}건을 표시하고 있습니다.
             </p>
           </div>
         </div>
@@ -255,7 +255,7 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
         <div className="mt-6 space-y-4">
           {filteredNotes.length === 0 ? (
             <div className="rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              저장된 오답이 없거나 현재 필터에 맞는 데이터가 없습니다.
+              저장한 오답이 없거나, 현재 필터에 맞는 데이터가 없습니다.
             </div>
           ) : null}
 
@@ -271,14 +271,12 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
                       {formatDate(note.examDate)}
                     </span>
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold">
-                    {note.questionNo}번 문항
-                  </h3>
+                  <h3 className="mt-4 text-lg font-semibold">{note.questionNo}번 문항</h3>
                   <div className="mt-3 grid gap-2 text-sm text-slate sm:grid-cols-2">
                     <p>정답: {note.correctAnswer}</p>
                     <p>내 답안: {note.studentAnswer ?? "-"}</p>
                     <p>
-                      정답률:{" "}
+                      정답률{" "}
                       {note.correctRate !== null && note.correctRate !== undefined
                         ? `${note.correctRate.toFixed(1)}%`
                         : "-"}
@@ -309,14 +307,12 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
                   }
                   rows={4}
                   className="w-full rounded-[20px] border border-ink/10 px-4 py-3 text-sm leading-7"
-                  placeholder="복습 포인트나 다음에 확인할 내용을 기록해 두세요."
+                  placeholder="복습 포인트나 다음에 다시 확인할 내용을 적어 두세요."
                 />
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-slate">
-                  마지막 수정 {formatDate(note.updatedAt)}
-                </p>
+                <p className="text-xs text-slate">마지막 수정 {formatDate(note.updatedAt)}</p>
                 <button
                   type="button"
                   onClick={() => saveMemo(note.id)}
@@ -338,7 +334,7 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
         description={confirmModal.modal?.description ?? ""}
         details={confirmModal.modal?.details ?? []}
         cancelLabel={confirmModal.modal?.cancelLabel}
-        confirmLabel={confirmModal.modal?.confirmLabel ?? "??"}
+        confirmLabel={confirmModal.modal?.confirmLabel ?? "확인"}
         confirmTone={confirmModal.modal?.confirmTone}
         isPending={isPending}
         onClose={confirmModal.closeModal}

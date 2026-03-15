@@ -1,4 +1,4 @@
-import { ExamType, Subject } from "@prisma/client";
+﻿import { ExamType, Subject } from "@prisma/client";
 import {
   getDailyAnalysis,
   getMonthlyStudentAnalysis,
@@ -9,7 +9,7 @@ import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
-import { readStudentPortalSession } from "@/lib/student-portal/session";
+import { requireStudent } from "@/lib/auth/require-student";
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, "");
@@ -86,15 +86,17 @@ export async function getStudentPortalViewer() {
     return null;
   }
 
-  const session = readStudentPortalSession();
+  let authenticatedStudent: Awaited<ReturnType<typeof requireStudent>>;
 
-  if (!session) {
+  try {
+    authenticatedStudent = await requireStudent();
+  } catch {
     return null;
   }
 
   const student = await getPrisma().student.findUnique({
     where: {
-      examNumber: session.examNumber,
+      examNumber: authenticatedStudent.examNumber,
     },
     select: {
       examNumber: true,
@@ -109,10 +111,6 @@ export async function getStudentPortalViewer() {
   });
 
   if (!student || !student.isActive) {
-    return null;
-  }
-
-  if (normalizeName(student.name) !== normalizeName(session.name)) {
     return null;
   }
 
@@ -449,3 +447,5 @@ export async function clearStudentWrongNotes(input: { examNumber: string }) {
     deletedCount: result.count,
   };
 }
+
+

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { WrongNoteManager } from "@/components/student-portal/wrong-note-manager";
 import { hasDatabaseConfig } from "@/lib/env";
@@ -96,7 +96,7 @@ export default async function StudentWrongNotesPage() {
                 포털로 돌아가기
               </Link>
               <Link
-                href={`/student/notices?examType=${student.examType}`}
+                href="/student/notices"
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 공지사항
@@ -135,3 +135,4 @@ export default async function StudentWrongNotesPage() {
     </main>
   );
 }
+

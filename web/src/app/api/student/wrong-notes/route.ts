@@ -1,4 +1,4 @@
-import { Subject } from "@prisma/client";
+﻿import { Subject } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentPortalStudent } from "@/lib/student-portal/api";
 import {
@@ -23,7 +23,7 @@ function parseSubject(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireStudentPortalStudent();
+  const auth = await requireStudentPortalStudent(request);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireStudentPortalStudent();
+  const auth = await requireStudentPortalStudent(request);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE() {
-  const auth = await requireStudentPortalStudent();
+export async function DELETE(request: Request) {
+  const auth = await requireStudentPortalStudent(request);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -99,3 +99,4 @@ export async function DELETE() {
     );
   }
 }
+

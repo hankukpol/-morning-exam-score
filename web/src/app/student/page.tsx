@@ -11,7 +11,7 @@ import {
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
 } from "@/lib/analytics/presentation";
-import { SUBJECT_LABEL, EXAM_TYPE_LABEL } from "@/lib/constants";
+import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 import { getStudentPortalPageData } from "@/lib/student-portal/service";
@@ -22,10 +22,7 @@ type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-function readParam(
-  searchParams: PageProps["searchParams"],
-  key: string,
-) {
+function readParam(searchParams: PageProps["searchParams"], key: string) {
   const value = searchParams?.[key];
   return Array.isArray(value) ? value[0] : value;
 }
@@ -59,14 +56,13 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
         <div className="mx-auto max-w-4xl space-y-6">
           <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
             <div className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-              Student Portal Unavailable
+              학생 포털 준비 중
             </div>
             <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">
               학생 포털은 DB 연결 후 사용할 수 있습니다.
             </h1>
             <p className="mt-5 text-sm leading-8 text-slate sm:text-base">
-              현재 환경에는 `DATABASE_URL`과 `DIRECT_URL`이 없어 실제 학생 조회와
-              성적 분석을 실행할 수 없습니다.
+              현재 환경에는 학생 성적과 공지 데이터를 불러올 데이터베이스가 연결되어 있지 않습니다.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -96,14 +92,13 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
           <section className="overflow-hidden rounded-[32px] border border-ink/10 bg-white shadow-panel">
             <div className="bg-hero-grid bg-[size:28px_28px] px-6 py-8 sm:px-8 sm:py-10">
               <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-                F-15 Student Portal
+                학생 포털
               </div>
               <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">
-                수험번호와 이름으로 본인 성적을 조회합니다.
+                학생 포털에 로그인해 주세요.
               </h1>
               <p className="mt-5 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-                일일 분석, 월별 분석, 과목별 추이를 한 화면에서 확인하고 틀린
-                문항은 오답 노트로 저장할 수 있습니다.
+                수험번호와 이름으로 로그인하면 성적, 출결, 공지, 사유서, 오답 노트를 한 곳에서 확인할 수 있습니다.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -129,6 +124,8 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
   }
 
   const wrongNoteQuestionIds = new Set(data.wrongNoteQuestionIds);
+  const classLabel = data.student.className ?? "반 정보 없음";
+  const generationLabel = data.student.generation ? `${data.student.generation}기` : "기수 미지정";
 
   return (
     <main className="min-h-screen bg-mist px-4 py-6 text-ink sm:px-6 lg:px-8">
@@ -138,15 +135,13 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-                  F-15 Student Portal
+                  학생 포털
                 </div>
                 <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">
                   {data.student.name} ({data.student.examNumber})
                 </h1>
                 <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-                  {EXAM_TYPE_LABEL[data.student.examType]} /{" "}
-                  {data.student.className ?? "반 미지정"} /{" "}
-                  {data.student.generation ? `${data.student.generation}기` : "기수 미지정"}
+                  {EXAM_TYPE_LABEL[data.student.examType]} / {classLabel} / {generationLabel}
                 </p>
               </div>
 
@@ -157,26 +152,24 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                   {STATUS_LABEL[data.student.currentStatus]}
                 </span>
                 <span className="inline-flex rounded-full border border-ink/10 bg-white/70 px-3 py-2 text-sm font-semibold">
-                  오답 노트 {data.wrongNoteCount}개
+                  오답 노트 {data.wrongNoteCount}건
                 </span>
               </div>
             </div>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <article className="rounded-[24px] border border-ink/10 bg-white/75 p-4">
-                <p className="text-sm text-slate">선택 기간</p>
+                <p className="text-sm text-slate">조회 기간</p>
                 <p className="mt-3 text-xl font-semibold">
-                  {data.selectedPeriod?.name ?? "기간 없음"}
+                  {data.selectedPeriod?.name ?? "기간 미선택"}
                 </p>
               </article>
               <article className="rounded-[24px] border border-ink/10 bg-white/75 p-4">
-                <p className="text-sm text-slate">최근 조회 날짜</p>
-                <p className="mt-3 text-xl font-semibold">
-                  {data.selectedDate || "-"}
-                </p>
+                <p className="text-sm text-slate">선택 일자</p>
+                <p className="mt-3 text-xl font-semibold">{data.selectedDate || "-"}</p>
               </article>
               <article className="rounded-[24px] border border-ink/10 bg-white/75 p-4">
-                <p className="text-sm text-slate">월별 분석 기준</p>
+                <p className="text-sm text-slate">선택 월</p>
                 <p className="mt-3 text-xl font-semibold">
                   {data.selectedMonth
                     ? `${data.selectedMonth.year}년 ${data.selectedMonth.month}월`
@@ -184,7 +177,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 </p>
               </article>
               <article className="rounded-[24px] border border-ink/10 bg-white/75 p-4">
-                <p className="text-sm text-slate">과목별 추이 기준</p>
+                <p className="text-sm text-slate">선택 과목</p>
                 <p className="mt-3 text-xl font-semibold">
                   {data.selectedSubject ? SUBJECT_LABEL[data.selectedSubject] : "-"}
                 </p>
@@ -201,12 +194,36 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
           }}
         />
 
-        <section className="grid gap-3 sm:grid-cols-2">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Link
-            href={`/student/notices?examType=${data.student.examType}`}
+            href="/student/scores"
             className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
-            학생 공지사항
+            성적 카드
+          </Link>
+          <Link
+            href="/student/attendance"
+            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            출결 현황
+          </Link>
+          <Link
+            href="/student/notices"
+            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            공지사항
+          </Link>
+          <Link
+            href="/student/absence-notes"
+            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            사유서
+          </Link>
+          <Link
+            href="/student/points"
+            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            포인트
           </Link>
           <Link
             href="/student/wrong-notes"
@@ -218,7 +235,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
 
         <form className="grid gap-4 rounded-[28px] border border-ink/10 bg-white p-5 sm:grid-cols-2 xl:grid-cols-5 sm:p-6">
           <div>
-            <label className="mb-2 block text-sm font-medium">시험 기간</label>
+            <label className="mb-2 block text-sm font-medium">조회 기간</label>
             <select
               name="periodId"
               defaultValue={data.selectedPeriod?.id ? String(data.selectedPeriod.id) : ""}
@@ -232,7 +249,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">일일 분석 날짜</label>
+            <label className="mb-2 block text-sm font-medium">일자</label>
             <select
               name="date"
               defaultValue={data.selectedDate}
@@ -246,7 +263,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">월별 분석</label>
+            <label className="mb-2 block text-sm font-medium">월</label>
             <select
               name="monthKey"
               defaultValue={data.selectedMonthKey}
@@ -260,7 +277,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">과목별 추이</label>
+            <label className="mb-2 block text-sm font-medium">과목</label>
             <select
               name="subject"
               defaultValue={data.selectedSubject ?? ""}
@@ -278,7 +295,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
               type="submit"
               className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
             >
-              조회 갱신
+              조회 적용
             </button>
           </div>
         </form>
@@ -286,16 +303,16 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
         <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold">일일 성적 분석</h2>
+              <h2 className="text-2xl font-semibold">일자별 시험 분석</h2>
               <p className="mt-3 text-sm leading-7 text-slate">
-                선택한 날짜의 과목별 시험 결과와 문항 채점표를 확인합니다.
+                선택한 날짜의 과목별 비교표와 문항 분석을 확인할 수 있습니다.
               </p>
             </div>
           </div>
 
           {data.dailyAnalysis.length === 0 ? (
             <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              선택한 날짜에 조회 가능한 성적이 없습니다.
+              선택한 날짜에 표시할 시험 데이터가 없습니다.
             </div>
           ) : (
             <div className="mt-6 space-y-8">
@@ -316,9 +333,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                     {data.dailyAnalysis.map((session) => (
                       <tr key={session.sessionId}>
                         <td className="px-4 py-3">{SUBJECT_LABEL[session.subject]}</td>
-                        <td className="px-4 py-3">
-                          {formatScore(session.searchedStudent?.score)}
-                        </td>
+                        <td className="px-4 py-3">{formatScore(session.searchedStudent?.score)}</td>
                         <td className="px-4 py-3">
                           {session.searchedStudent?.rank
                             ? `${session.searchedStudent.rank}/${session.participantCount}`
@@ -347,8 +362,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                         </p>
                         {session.searchedStudent ? (
                           <p className="mt-2 text-sm text-slate">
-                            내 점수 {formatScore(session.searchedStudent.score)} / 석차{" "}
-                            {session.searchedStudent.rank ?? "-"}위
+                            내 점수 {formatScore(session.searchedStudent.score)} / 석차 {session.searchedStudent.rank ?? "-"}등
                           </p>
                         ) : null}
                       </div>
@@ -439,7 +453,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                       <table className="min-w-full divide-y divide-ink/10 text-sm">
                         <thead className="bg-mist/80 text-left">
                           <tr>
-                            <th className="px-4 py-3 font-semibold">오답률 TOP5</th>
+                            <th className="px-4 py-3 font-semibold">상위 오답 TOP5</th>
                             <th className="px-4 py-3 font-semibold">정답</th>
                             <th className="px-4 py-3 font-semibold">정답률</th>
                             <th className="px-4 py-3 font-semibold">최다 오답</th>
@@ -469,22 +483,22 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
         <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold">월별 성적 분석</h2>
+              <h2 className="text-2xl font-semibold">월간 종합 분석</h2>
               <p className="mt-3 text-sm leading-7 text-slate">
-                월 단위 평균, 석차, 목표 점수 달성 정도를 확인합니다.
+                월 평균, 출결, 과목별 비교를 함께 확인할 수 있습니다.
               </p>
             </div>
           </div>
 
           {!data.monthlyAnalysis ? (
             <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              월별 분석 데이터가 없습니다.
+              선택한 월의 분석 데이터가 없습니다.
             </div>
           ) : (
             <div className="mt-6 space-y-6">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-                  <p className="text-sm text-slate">월 평균</p>
+                  <p className="text-sm text-slate">내 평균</p>
                   <p className="mt-3 text-xl font-semibold">
                     {formatScore(data.monthlyAnalysis.summary.monthlyAverage)}
                   </p>
@@ -498,8 +512,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
                   <p className="text-sm text-slate">응시 횟수</p>
                   <p className="mt-3 text-xl font-semibold">
-                    {data.monthlyAnalysis.summary.attendedCount} /{" "}
-                    {data.monthlyAnalysis.summary.sessionCount}
+                    {data.monthlyAnalysis.summary.attendedCount} / {data.monthlyAnalysis.summary.sessionCount}
                   </p>
                 </article>
                 <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
@@ -512,13 +525,13 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
 
               <div className="grid gap-6 xl:grid-cols-2">
                 <article className="rounded-[24px] border border-ink/10 p-4">
-                  <h3 className="text-lg font-semibold">과목별 레이더</h3>
+                  <h3 className="text-lg font-semibold">과목별 균형</h3>
                   <div className="mt-4">
                     <RadarComparisonChart data={data.monthlyAnalysis.radarData} />
                   </div>
                 </article>
                 <article className="rounded-[24px] border border-ink/10 p-4">
-                  <h3 className="text-lg font-semibold">개인 vs 평균</h3>
+                  <h3 className="text-lg font-semibold">내 점수 vs 코호트</h3>
                   <div className="mt-4">
                     <BarComparisonChart
                       data={data.monthlyAnalysis.barData}
@@ -576,14 +589,14 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             <div>
               <h2 className="text-2xl font-semibold">과목별 추이</h2>
               <p className="mt-3 text-sm leading-7 text-slate">
-                선택한 과목의 전체 회차 추이를 목표 점수와 함께 확인합니다.
+                선택한 과목의 회차별 변화와 비교 지표를 확인할 수 있습니다.
               </p>
             </div>
           </div>
 
           {data.subjectAnalysis.length === 0 ? (
             <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              과목별 추이 데이터가 없습니다.
+              선택한 과목의 추이 데이터가 없습니다.
             </div>
           ) : (
             <div className="mt-6 space-y-6">
@@ -613,7 +626,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                     <tr>
                       <th className="px-4 py-3 font-semibold">시험일</th>
                       <th className="px-4 py-3 font-semibold">주차</th>
-                      <th className="px-4 py-3 font-semibold">응시 인원</th>
+                      <th className="px-4 py-3 font-semibold">응시자 수</th>
                       <th className="px-4 py-3 font-semibold">내 점수</th>
                       <th className="px-4 py-3 font-semibold">전체 평균</th>
                       <th className="px-4 py-3 font-semibold">상위 10%</th>
