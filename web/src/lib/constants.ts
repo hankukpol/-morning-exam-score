@@ -311,6 +311,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "학사 관리",
   },
   {
+    href: "/admin/counseling/prospects",
+    label: "상담 방문자",
+    description: "미등록 예비 원생 상담 단계 관리 및 전환율 추적",
+    minRole: AdminRole.COUNSELOR,
+    group: "학사 관리",
+  },
+  {
     href: "/admin/absence-notes",
     label: "사유서 관리",
     description: "사유 결시 등록, 승인 및 반려, 소급 처리",

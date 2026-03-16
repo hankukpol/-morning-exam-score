@@ -1,29 +1,7 @@
 import { AdminRole } from "@prisma/client";
-import { requireAdminContext } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
-import { InstructorSettlementView } from "@/components/settlements/instructor-settlement-view";
-
-export const dynamic = "force-dynamic";
-
-export type InstructorSettlementRow = {
-  instructorId: string;
-  instructorName: string;
-  subject: string;
-  lectures: Array<{
-    lectureId: string;
-    lectureName: string;
-    subjectName: string;
-    price: number;
-    instructorRate: number;
-    enrolledCount: number;
-    totalRevenue: number;
-    instructorAmount: number;
-    academyAmount: number;
-  }>;
-  totalRevenue: number;
-  totalInstructorAmount: number;
-  totalAcademyAmount: number;
-};
 
 function parseMonthParam(param: string | null): string {
   if (param && /^\d{4}-\d{2}$/.test(param)) {
@@ -33,23 +11,19 @@ function parseMonthParam(param: string | null): string {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default async function InstructorSettlementsPage({
-  searchParams,
-}: {
-  searchParams: { month?: string };
-}) {
-  await requireAdminContext(AdminRole.MANAGER);
+export async function GET(request: NextRequest) {
+  const auth = await requireApiAdmin(AdminRole.MANAGER);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const monthStr = parseMonthParam(searchParams.month ?? null);
+  const sp = request.nextUrl.searchParams;
+  const monthStr = parseMonthParam(sp.get("month"));
   const [yearStr, monStr] = monthStr.split("-");
   const year = parseInt(yearStr, 10);
   const mon = parseInt(monStr, 10);
 
-  // First day and last day of the requested month
   const firstDay = new Date(year, mon - 1, 1);
-  const lastDay = new Date(year, mon, 0, 23, 59, 59, 999); // last ms of last day
+  const lastDay = new Date(year, mon, 0, 23, 59, 59, 999);
 
-  // Get all active instructors with their lecture subjects and month-filtered enrollment counts
   const instructors = await getPrisma().instructor.findMany({
     where: { isActive: true },
     include: {
@@ -67,10 +41,6 @@ export default async function InstructorSettlementsPage({
                   enrollments: {
                     where: {
                       status: { in: ["ACTIVE", "COMPLETED"] },
-                      // Enrollment's lecture must overlap with the requested month:
-                      //   lecture.startDate <= lastDay of month
-                      //   AND (lecture.endDate >= firstDay of month OR endDate is null)
-                      // We filter on the enrollment's startDate/endDate instead:
                       startDate: { lte: lastDay },
                       OR: [
                         { endDate: { gte: firstDay } },
@@ -88,10 +58,9 @@ export default async function InstructorSettlementsPage({
     orderBy: { name: "asc" },
   });
 
-  const rows: InstructorSettlementRow[] = instructors.map((instructor) => {
+  const rows = instructors.map((instructor) => {
     const lectures = instructor.lectureSubjects
       .filter((subject) => {
-        // Only include lectures whose period overlaps the requested month
         const lec = subject.lecture;
         const lectureStart = new Date(lec.startDate);
         const lectureEnd = lec.endDate ? new Date(lec.endDate) : null;
@@ -132,22 +101,21 @@ export default async function InstructorSettlementsPage({
     };
   });
 
-  // Filter out instructors with no lectures in this month
   const activeRows = rows.filter((r) => r.lectures.length > 0);
 
-  return (
-    <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
-        수납 정산
-      </div>
-      <h1 className="mt-5 text-3xl font-semibold">강사 정산</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        특강 강사별 수강료 배분 및 정산 현황을 조회합니다. 강사별 배분율은 강사 설정에서 특강 과목을
-        등록할 때 설정됩니다.
-      </p>
-      <div className="mt-8">
-        <InstructorSettlementView month={monthStr} rows={activeRows} />
-      </div>
-    </div>
-  );
+  const grandTotalRevenue = activeRows.reduce((s, r) => s + r.totalRevenue, 0);
+  const grandTotalInstructor = activeRows.reduce((s, r) => s + r.totalInstructorAmount, 0);
+  const grandTotalAcademy = activeRows.reduce((s, r) => s + r.totalAcademyAmount, 0);
+
+  return NextResponse.json({
+    data: {
+      month: monthStr,
+      rows: activeRows,
+      summary: {
+        totalRevenue: grandTotalRevenue,
+        totalInstructorAmount: grandTotalInstructor,
+        totalAcademyAmount: grandTotalAcademy,
+      },
+    },
+  });
 }

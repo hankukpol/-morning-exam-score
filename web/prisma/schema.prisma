@@ -393,6 +393,7 @@ model AdminUser {
   paymentLinks                   PaymentLink[]
   textbookSales                  TextbookSale[]
   courseContracts                CourseContract[]
+  consultationProspects          ConsultationProspect[]
 
   @@map("admin_users")
 }
@@ -1618,4 +1619,44 @@ model CourseContract {
 
   @@index([staffId])
   @@map("course_contracts")
+}
+
+// ─── 상담 방문자 (미등록 예비 원생) ──────────────────────────────────────────
+
+enum ProspectSource {
+  WALK_IN   // 내방
+  PHONE     // 전화
+  SNS       // SNS·온라인
+  REFERRAL  // 추천
+  OTHER     // 기타
+}
+
+enum ProspectStage {
+  INQUIRY     // 문의
+  VISITING    // 내방 상담 중
+  DECIDING    // 검토 중
+  REGISTERED  // 등록 완료
+  DROPPED     // 이탈
+}
+
+model ConsultationProspect {
+  id          String         @id @default(cuid())
+  name        String
+  phone       String?
+  examType    ExamType?
+  source      ProspectSource @default(WALK_IN)
+  stage       ProspectStage  @default(INQUIRY)
+  note        String?
+  staffId     String         @db.Uuid
+  enrollmentId String?       // 등록 완료 시 연결
+  visitedAt   DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  staff AdminUser @relation(fields: [staffId], references: [id])
+
+  @@index([stage])
+  @@index([staffId])
+  @@index([visitedAt])
+  @@map("consultation_prospects")
 }
