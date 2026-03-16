@@ -248,6 +248,20 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/payments/unpaid",
+    label: "미납 관리",
+    description: "미납·부분납 수강생 조회 및 수납 처리 연결",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/enrollments/ledger",
+    label: "수강대장",
+    description: "기수·기간별 수강생 명단 조회 및 출력 (학원법 준수)",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/settlements/instructors",
     label: "강사 정산",
     description: "특강 강사별 수강료 배분 및 정산 현황",
@@ -528,7 +542,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "설정",
   },
   {
-    href: "/admin/settings/payment-policies",
+    href: "/admin/settings/discount-codes",
     label: "할인 코드 관리",
     description: "추천인·입소·캠페인 할인 코드 발급 및 관리",
     minRole: AdminRole.MANAGER,
