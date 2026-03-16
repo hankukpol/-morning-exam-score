@@ -367,6 +367,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "판정 관리",
   },
   {
+    href: "/admin/points/manage",
+    label: "포인트 직접 관리",
+    description: "학생 포인트 수동 지급 및 차감",
+    minRole: AdminRole.MANAGER,
+    group: "판정 관리",
+  },
+  {
     href: "/admin/notices",
     label: "학생 공지",
     description: "학생 대상 공지 작성 및 발행",
