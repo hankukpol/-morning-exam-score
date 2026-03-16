@@ -392,6 +392,7 @@ model AdminUser {
   issuedDiscountCodes            DiscountCode[]
   paymentLinks                   PaymentLink[]
   textbookSales                  TextbookSale[]
+  courseContracts                CourseContract[]
 
   @@map("admin_users")
 }
@@ -1002,6 +1003,7 @@ model CourseEnrollment {
   staff           AdminUser                   @relation(fields: [staffId], references: [id])
   seatAssignments SeatAssignment[]
   leaveRecords    LeaveRecord[]
+  contract        CourseContract?
 
   @@index([examNumber, status])
   @@index([cohortId, status])
@@ -1598,4 +1600,22 @@ model PaymentLink {
   @@index([status])
   @@index([createdBy])
   @@map("payment_links")
+}
+
+// ─── 수강계약서 ───────────────────────────────────────────────────────────────
+
+model CourseContract {
+  id           String           @id @default(cuid())
+  enrollmentId String           @unique
+  items        Json             @default("[]") // [{label:string, amount:number}]
+  note         String?
+  issuedAt     DateTime         @default(now())
+  printedAt    DateTime?
+  staffId      String           @db.Uuid
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id])
+  staff      AdminUser        @relation(fields: [staffId], references: [id])
+
+  @@index([staffId])
+  @@map("course_contracts")
 }

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
-import { ContractPrintButton } from "./print-button";
+import { ContractEditor, type ContractData, type ContractItem } from "./contract-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +34,10 @@ export default async function EnrollmentContractPage({
 }: {
   params: { id: string };
 }) {
-  await requireAdminContext(AdminRole.COUNSELOR);
+  const { adminUser } = await requireAdminContext(AdminRole.COUNSELOR);
 
-  const enrollment = await getPrisma().courseEnrollment.findUnique({
+  const prisma = getPrisma();
+  const enrollment = await prisma.courseEnrollment.findUnique({
     where: { id: params.id },
     include: {
       student: true,
@@ -50,10 +51,37 @@ export default async function EnrollmentContractPage({
 
   if (!enrollment) notFound();
 
-  // Fetch academy settings for director name
-  const settings = await getPrisma().academySettings.findUnique({
-    where: { id: 1 },
+  // 계약서 DB 레코드 조회 — 없으면 자동 생성
+  let contractRecord = await prisma.courseContract.findUnique({
+    where: { enrollmentId: params.id },
   });
+
+  if (!contractRecord) {
+    const courseName =
+      enrollment.cohort?.name ??
+      enrollment.specialLecture?.name ??
+      enrollment.product?.name ??
+      "강좌";
+    contractRecord = await prisma.courseContract.create({
+      data: {
+        enrollmentId: params.id,
+        items: [{ label: courseName, amount: enrollment.finalFee }],
+        staffId: adminUser.id,
+      },
+    });
+  }
+
+  const contractData: ContractData = {
+    id: contractRecord.id,
+    enrollmentId: contractRecord.enrollmentId,
+    items: contractRecord.items as ContractItem[],
+    note: contractRecord.note,
+    issuedAt: contractRecord.issuedAt.toISOString(),
+    printedAt: contractRecord.printedAt ? contractRecord.printedAt.toISOString() : null,
+  };
+
+  // Fetch academy settings for director name
+  const settings = await prisma.academySettings.findUnique({ where: { id: 1 } });
 
   const student = enrollment.student;
   const courseName =
@@ -65,9 +93,11 @@ export default async function EnrollmentContractPage({
   const today = new Date();
   const contractDate = formatKorDate(today);
   const courseTypeLabel = COURSE_TYPE_LABEL[enrollment.courseType] ?? enrollment.courseType;
-
-  // Short enrollment number from cuid
   const enrollNumber = enrollment.id.slice(-8).toUpperCase();
+
+  // 계약서 인쇄용 항목 (DB 저장 데이터 우선)
+  const printItems = contractData.items;
+  const printTotal = printItems.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -95,13 +125,13 @@ export default async function EnrollmentContractPage({
         >
           ← 수강 상세
         </a>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">
-            {student.name} · {courseName}
-          </span>
-          <ContractPrintButton />
-        </div>
+        <span className="text-sm text-gray-500">
+          {student.name} · {courseName}
+        </span>
       </div>
+
+      {/* 편집 패널 */}
+      <ContractEditor enrollmentId={params.id} initial={contractData} />
 
       {/* Contract */}
       <div className="flex justify-center p-8">
@@ -129,12 +159,7 @@ export default async function EnrollmentContractPage({
             <TwoCol
               rows={[
                 ["성명", student.name, "학번(수험번호)", student.examNumber],
-                [
-                  "수강번호",
-                  enrollNumber,
-                  "연락처",
-                  student.phone ?? "-",
-                ],
+                ["수강번호", enrollNumber, "연락처", student.phone ?? "-"],
                 ["수강 유형", courseTypeLabel, "", ""],
               ]}
             />
@@ -161,28 +186,33 @@ export default async function EnrollmentContractPage({
             />
           </Section>
 
-          {/* 수강료 */}
+          {/* 수강료 — items 기반 */}
           <Section title="수강료">
-            <TwoCol
-              rows={[
-                [
-                  "정가",
-                  `${enrollment.regularFee.toLocaleString()}원`,
-                  "할인액",
-                  enrollment.discountAmount > 0
-                    ? `-${enrollment.discountAmount.toLocaleString()}원`
-                    : "-",
-                ],
-                [
-                  "최종 수강료",
-                  `${enrollment.finalFee.toLocaleString()}원`,
-                  "납부 방법",
-                  enrollment.installments.length > 1
-                    ? `할부 ${enrollment.installments.length}회`
-                    : "일시납",
-                ],
-              ]}
-            />
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border border-gray-200 px-3 py-1.5 text-left">항목</th>
+                  <th className="border border-gray-200 px-3 py-1.5 text-right w-36">금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printItems.map((item, i) => (
+                  <tr key={i}>
+                    <td className="border border-gray-200 px-3 py-1.5">{item.label}</td>
+                    <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
+                      {item.amount.toLocaleString()}원
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="border border-gray-200 px-3 py-1.5">합계</td>
+                  <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
+                    {printTotal.toLocaleString()}원
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
             {enrollment.installments.length > 1 && (
               <div className="mt-3">
                 <p className="mb-1.5 text-xs font-semibold text-gray-600">납부 일정</p>
@@ -212,6 +242,13 @@ export default async function EnrollmentContractPage({
             )}
           </Section>
 
+          {/* 특약사항 */}
+          {contractData.note && (
+            <Section title="특약사항">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{contractData.note}</p>
+            </Section>
+          )}
+
           {/* 환불 규정 */}
           <Section title="환불 규정 (학원의 설립·운영 및 과외교습에 관한 법률 제18조)">
             <table className="w-full text-sm border-collapse">
@@ -228,14 +265,8 @@ export default async function EnrollmentContractPage({
                     "수강 시작 후 1개월 이내 (총 수강기간이 1개월 미만인 경우)",
                     "이미 경과한 수업 일수에 해당하는 금액을 공제 후 환불",
                   ],
-                  [
-                    "수강 기간의 1/3 경과 전",
-                    "납부한 수강료의 2/3에 해당하는 금액 환불",
-                  ],
-                  [
-                    "수강 기간의 1/2 경과 전",
-                    "납부한 수강료의 1/2에 해당하는 금액 환불",
-                  ],
+                  ["수강 기간의 1/3 경과 전", "납부한 수강료의 2/3에 해당하는 금액 환불"],
+                  ["수강 기간의 1/2 경과 전", "납부한 수강료의 1/2에 해당하는 금액 환불"],
                   ["수강 기간의 1/2 이후", "환불 불가"],
                 ].map(([period, amount]) => (
                   <tr key={period}>
@@ -270,17 +301,13 @@ export default async function EnrollmentContractPage({
 
           {/* 서명란 */}
           <div className="mt-8 border-t border-gray-900 pt-6">
-            <p className="mb-6 text-center text-sm">
-              위 계약 내용을 확인하고 동의합니다.
-            </p>
+            <p className="mb-6 text-center text-sm">위 계약 내용을 확인하고 동의합니다.</p>
             <div className="mb-1 text-center text-sm font-semibold">{contractDate}</div>
             <div className="mt-6 grid grid-cols-2 gap-8">
               <div className="text-center">
                 <p className="mb-1 text-sm text-gray-600">원생(보호자) 서명</p>
                 <div className="h-12 border-b border-gray-400" />
-                <p className="mt-1 text-xs text-gray-500">
-                  {student.name}
-                </p>
+                <p className="mt-1 text-xs text-gray-500">{student.name}</p>
               </div>
               <div className="text-center">
                 <p className="mb-1 text-sm text-gray-600">학원 원장 서명</p>

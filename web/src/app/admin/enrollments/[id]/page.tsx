@@ -34,6 +34,7 @@ export type EnrollmentDetailData = {
   specialLectureName: string | null;
   staffName: string;
   leaveRecords: LeaveRecordRow[];
+  contractPrintedAt: string | null;
 };
 
 export default async function EnrollmentDetailPage({
@@ -43,17 +44,24 @@ export default async function EnrollmentDetailPage({
 }) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
-  const enrollment = await getPrisma().courseEnrollment.findUnique({
-    where: { id: params.id },
-    include: {
-      student: { select: { name: true, phone: true } },
-      cohort: { select: { name: true } },
-      product: { select: { name: true } },
-      specialLecture: { select: { name: true } },
-      staff: { select: { name: true } },
-      leaveRecords: { orderBy: { leaveDate: "desc" } },
-    },
-  });
+  const prisma = getPrisma();
+  const [enrollment, contract] = await Promise.all([
+    prisma.courseEnrollment.findUnique({
+      where: { id: params.id },
+      include: {
+        student: { select: { name: true, phone: true } },
+        cohort: { select: { name: true } },
+        product: { select: { name: true } },
+        specialLecture: { select: { name: true } },
+        staff: { select: { name: true } },
+        leaveRecords: { orderBy: { leaveDate: "desc" } },
+      },
+    }),
+    prisma.courseContract.findUnique({
+      where: { enrollmentId: params.id },
+      select: { printedAt: true },
+    }),
+  ]);
 
   if (!enrollment) notFound();
 
@@ -82,6 +90,7 @@ export default async function EnrollmentDetailPage({
       returnDate: l.returnDate ? l.returnDate.toISOString() : null,
       reason: l.reason,
     })),
+    contractPrintedAt: contract?.printedAt ? contract.printedAt.toISOString() : null,
   };
 
   return (
