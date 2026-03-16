@@ -1066,6 +1066,14 @@ enum RefundType {
   PARTIAL // 부분 환불
 }
 
+enum RefundStatus {
+  PENDING    // 환불 요청 (검토 대기)
+  APPROVED   // 원장 승인
+  REJECTED   // 거절
+  COMPLETED  // 환불 실행 완료
+  CANCELLED  // 요청 취소
+}
+
 // 수납 마스터 (결제 헤더)
 model Payment {
   id             String          @id @default(cuid())
@@ -1122,24 +1130,29 @@ model PaymentItem {
 
 // 환불 기록
 model Refund {
-  id            String     @id @default(cuid())
-  paymentId     String
-  refundType    RefundType
-  amount        Int
-  reason        String
-  approvedBy    String?    @db.Uuid
-  approvedAt    DateTime?
-  processedBy   String     @db.Uuid
-  processedAt   DateTime   @default(now())
-  bankName      String?
-  accountNo     String?
-  accountHolder String?
-  cardCancelNo  String?
-  createdAt     DateTime   @default(now())
+  id              String       @id @default(cuid())
+  paymentId       String
+  refundType      RefundType
+  status          RefundStatus @default(PENDING)
+  amount          Int
+  reason          String
+  rejectionReason String?
+  approvedBy      String?      @db.Uuid
+  approvedAt      DateTime?
+  rejectedBy      String?      @db.Uuid
+  rejectedAt      DateTime?
+  processedBy     String       @db.Uuid
+  processedAt     DateTime     @default(now())
+  bankName        String?
+  accountNo       String?
+  accountHolder   String?
+  cardCancelNo    String?
+  createdAt       DateTime     @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
   @@index([paymentId])
+  @@index([status])
   @@map("refunds")
 }
 

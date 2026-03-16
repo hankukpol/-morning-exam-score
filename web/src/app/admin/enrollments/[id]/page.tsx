@@ -14,6 +14,15 @@ export type LeaveRecordRow = {
   reason: string | null;
 };
 
+export type AuditLogRow = {
+  id: number;
+  action: string;
+  adminName: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
+};
+
 export type EnrollmentDetailData = {
   id: string;
   examNumber: string;
@@ -35,6 +44,7 @@ export type EnrollmentDetailData = {
   staffName: string;
   leaveRecords: LeaveRecordRow[];
   contractPrintedAt: string | null;
+  auditLogs: AuditLogRow[];
 };
 
 export default async function EnrollmentDetailPage({
@@ -45,7 +55,7 @@ export default async function EnrollmentDetailPage({
   await requireAdminContext(AdminRole.COUNSELOR);
 
   const prisma = getPrisma();
-  const [enrollment, contract] = await Promise.all([
+  const [enrollment, contract, auditLogs] = await Promise.all([
     prisma.courseEnrollment.findUnique({
       where: { id: params.id },
       include: {
@@ -60,6 +70,11 @@ export default async function EnrollmentDetailPage({
     prisma.courseContract.findUnique({
       where: { enrollmentId: params.id },
       select: { printedAt: true },
+    }),
+    prisma.auditLog.findMany({
+      where: { targetId: params.id, targetType: "courseEnrollment" },
+      include: { admin: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -91,6 +106,14 @@ export default async function EnrollmentDetailPage({
       reason: l.reason,
     })),
     contractPrintedAt: contract?.printedAt ? contract.printedAt.toISOString() : null,
+    auditLogs: auditLogs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      adminName: log.admin.name,
+      before: log.before,
+      after: log.after,
+      createdAt: log.createdAt.toISOString(),
+    })),
   };
 
   return (

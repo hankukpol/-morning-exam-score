@@ -46,6 +46,30 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
+  // Resolve closedBy / reopenedBy names
+  const adminIds = [
+    settlement?.closedBy,
+    settlement?.reopenedBy,
+  ].filter((id): id is string => !!id);
+
+  const adminUsers = adminIds.length > 0
+    ? await getPrisma().adminUser.findMany({
+        where: { id: { in: adminIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+
+  const adminNameMap: Record<string, string> = {};
+  for (const u of adminUsers) adminNameMap[u.id] = u.name;
+
+  const settlementWithNames = settlement
+    ? {
+        ...settlement,
+        closedByName: settlement.closedBy ? (adminNameMap[settlement.closedBy] ?? null) : null,
+        reopenedByName: settlement.reopenedBy ? (adminNameMap[settlement.reopenedBy] ?? null) : null,
+      }
+    : null;
+
   // Aggregate all payments for the day (not just top 20)
   const allPayments = await getPrisma().payment.findMany({
     where: {
@@ -120,7 +144,7 @@ export async function GET(request: NextRequest) {
     date: dateStr,
     summary,
     methods,
-    settlement,
+    settlement: settlementWithNames,
     recentPayments: payments,
   });
 }
@@ -131,7 +155,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { date, cashActual } = body as { date: string; cashActual: number };
+    const { date, cashActual, reopenReason } = body as {
+      date: string;
+      cashActual: number;
+      reopenReason?: string;
+    };
 
     if (!date) throw new Error("날짜를 입력하세요.");
     if (cashActual === undefined || cashActual === null)
@@ -154,10 +182,19 @@ export async function POST(request: NextRequest) {
     const canReopen =
       userRole === AdminRole.SUPER_ADMIN || userRole === AdminRole.DIRECTOR;
 
-    if (existing?.closedAt && !canReopen) {
+    const isReopening = !!(existing?.closedAt);
+
+    if (isReopening && !canReopen) {
       return NextResponse.json(
         { error: "이미 마감된 일계표입니다. 원장 이상만 재마감할 수 있습니다." },
         { status: 403 },
+      );
+    }
+
+    if (isReopening && !reopenReason?.trim()) {
+      return NextResponse.json(
+        { error: "재오픈 사유를 입력하세요." },
+        { status: 400 },
       );
     }
 
@@ -202,6 +239,9 @@ export async function POST(request: NextRequest) {
     const transferAmount = byMethod("TRANSFER");
     const cashDiff = Number(cashActual) - cashAmount;
 
+    const now = new Date();
+    const adminId = auth.context.adminUser.id;
+
     const settlement = await getPrisma().dailySettlement.upsert({
       where: { date: dateObj },
       create: {
@@ -219,8 +259,8 @@ export async function POST(request: NextRequest) {
         transferAmount,
         cashActual: Number(cashActual),
         cashDiff,
-        closedAt: new Date(),
-        closedBy: auth.context.adminUser.id,
+        closedAt: now,
+        closedBy: adminId,
       },
       update: {
         tuitionTotal,
@@ -236,8 +276,15 @@ export async function POST(request: NextRequest) {
         transferAmount,
         cashActual: Number(cashActual),
         cashDiff,
-        closedAt: new Date(),
-        closedBy: auth.context.adminUser.id,
+        closedAt: now,
+        closedBy: adminId,
+        ...(isReopening
+          ? {
+              reopenedAt: now,
+              reopenedBy: adminId,
+              reopenReason: reopenReason!.trim(),
+            }
+          : {}),
       },
     });
 

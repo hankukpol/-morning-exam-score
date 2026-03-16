@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import type { EnrollmentDetailData, LeaveRecordRow } from "./page";
+import { EnrollmentHistorySection } from "./enrollment-history-section";
 
 type Props = {
   enrollment: EnrollmentDetailData;
@@ -481,6 +482,9 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           <p className="text-sm text-slate">수강 신청을 <strong>취소</strong>합니다. 아직 수납이 없는 경우에만 사용하세요.</p>
         </div>
       </ActionModal>
+
+      {/* 변경 이력 */}
+      <EnrollmentHistorySection logs={enrollment.auditLogs} />
     </div>
   );
 }

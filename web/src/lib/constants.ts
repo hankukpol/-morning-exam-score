@@ -255,6 +255,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/payments/refunds",
+    label: "환불 대기",
+    description: "승인 대기 중인 환불 요청 검토 및 승인·거절 처리",
+    minRole: AdminRole.MANAGER,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/enrollments/ledger",
     label: "수강대장",
     description: "기수·기간별 수강생 명단 조회 및 출력 (학원법 준수)",

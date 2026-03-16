@@ -9,6 +9,11 @@ type Props = {
   rows: InstructorSettlementRow[];
 };
 
+function formatPaidAt(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function formatMonthLabel(month: string): string {
   const [y, m] = month.split("-");
   return `${y}년 ${parseInt(m, 10)}월`;
@@ -24,6 +29,37 @@ export function InstructorSettlementView({ month, rows }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+
+  async function handleMarkPaid(row: InstructorSettlementRow) {
+    const alreadyPaid = row.settlementStatus === "PAID";
+    const confirmMsg = alreadyPaid
+      ? `이미 지급 완료된 정산입니다.\n총 ${row.totalInstructorAmount.toLocaleString()}원을 재처리하시겠습니까?`
+      : `총 ${row.totalInstructorAmount.toLocaleString()}원 정산 완료 처리하시겠습니까?`;
+    if (!confirm(confirmMsg)) return;
+
+    setMarkingPaidId(row.instructorId);
+    try {
+      const res = await fetch(
+        `/api/settlements/instructors/${encodeURIComponent(row.instructorId)}/mark-paid`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month, amount: row.totalInstructorAmount }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        alert(body?.error ?? "정산 처리 실패");
+        return;
+      }
+      router.refresh();
+    } catch {
+      alert("정산 처리 중 오류가 발생했습니다.");
+    } finally {
+      setMarkingPaidId(null);
+    }
+  }
 
   const totalRevenue = rows.reduce((s, r) => s + r.totalRevenue, 0);
   const totalInstructor = rows.reduce((s, r) => s + r.totalInstructorAmount, 0);
@@ -165,26 +201,47 @@ export function InstructorSettlementView({ month, rows }: Props) {
         <div className="space-y-4">
           {rows.map((row) => {
             const isExpanded = expandedId === row.instructorId;
+            const isPaid = row.settlementStatus === "PAID";
+            const isMarkingThis = markingPaidId === row.instructorId;
             return (
               <div
                 key={row.instructorId}
                 className="overflow-hidden rounded-[28px] border border-ink/10 bg-white"
               >
                 {/* Instructor header row */}
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isExpanded ? null : row.instructorId)}
-                  className="flex w-full items-center justify-between px-6 py-4 text-left transition hover:bg-mist/30"
-                >
-                  <div className="flex items-center gap-4">
+                <div className="flex w-full items-center justify-between px-6 py-4">
+                  {/* Left: name, subject, status badge — clickable to expand */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : row.instructorId)}
+                    className="flex flex-1 items-center gap-4 text-left transition hover:opacity-80"
+                  >
                     <div>
-                      <p className="font-semibold text-ink">{row.instructorName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-ink">{row.instructorName}</p>
+                        {isPaid ? (
+                          <span className="inline-flex items-center rounded-full bg-forest/10 px-2.5 py-0.5 text-[11px] font-semibold text-forest">
+                            지급완료
+                            {row.paidAt && (
+                              <span className="ml-1 font-normal opacity-80">
+                                ({formatPaidAt(row.paidAt)})
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                            미지급
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-0.5 text-xs text-slate">
                         {row.subject} · {row.lectures.length}개 과목
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-8">
+                  </button>
+
+                  {/* Right: amounts + mark-paid button + expand toggle */}
+                  <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="text-xs text-slate">강사 수령</p>
                       <p className="text-base font-bold tabular-nums text-ember">
@@ -197,9 +254,36 @@ export function InstructorSettlementView({ month, rows }: Props) {
                         {row.totalAcademyAmount.toLocaleString()}원
                       </p>
                     </div>
-                    <span className="text-xs text-slate">{isExpanded ? "▲" : "▼"}</span>
+
+                    {/* 정산 완료 처리 버튼 */}
+                    <button
+                      type="button"
+                      onClick={() => handleMarkPaid(row)}
+                      disabled={isMarkingThis}
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
+                        isPaid
+                          ? "border border-forest/30 text-forest hover:bg-forest/5"
+                          : "bg-ember text-white hover:bg-ember/90"
+                      }`}
+                    >
+                      {isMarkingThis
+                        ? "처리 중…"
+                        : isPaid
+                          ? "재처리"
+                          : "정산 완료 처리"}
+                    </button>
+
+                    {/* Expand toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : row.instructorId)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/10 text-xs text-slate transition hover:border-ink/30 hover:text-ink"
+                      aria-label={isExpanded ? "접기" : "펼치기"}
+                    >
+                      {isExpanded ? "▲" : "▼"}
+                    </button>
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded detail table */}
                 {isExpanded && (

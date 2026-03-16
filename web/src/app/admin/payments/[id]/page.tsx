@@ -21,6 +21,18 @@ export default async function PaymentDetailPage({
       items: true,
       refunds: {
         orderBy: { processedAt: "desc" },
+        select: {
+          id: true,
+          refundType: true,
+          status: true,
+          amount: true,
+          reason: true,
+          rejectionReason: true,
+          bankName: true,
+          accountNo: true,
+          accountHolder: true,
+          processedAt: true,
+        },
       },
     },
   });

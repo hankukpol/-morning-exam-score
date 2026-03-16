@@ -1,4 +1,4 @@
-import { AdminRole } from "@prisma/client";
+import { AdminRole, SettlementStatus } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { InstructorSettlementView } from "@/components/settlements/instructor-settlement-view";
@@ -23,6 +23,8 @@ export type InstructorSettlementRow = {
   totalRevenue: number;
   totalInstructorAmount: number;
   totalAcademyAmount: number;
+  settlementStatus: SettlementStatus | null;
+  paidAt: string | null;
 };
 
 function parseMonthParam(param: string | null): string {
@@ -88,7 +90,7 @@ export default async function InstructorSettlementsPage({
     orderBy: { name: "asc" },
   });
 
-  const rows: InstructorSettlementRow[] = instructors.map((instructor) => {
+  const rows = instructors.map((instructor) => {
     const lectures = instructor.lectureSubjects
       .filter((subject) => {
         // Only include lectures whose period overlaps the requested month
@@ -135,6 +137,29 @@ export default async function InstructorSettlementsPage({
   // Filter out instructors with no lectures in this month
   const activeRows = rows.filter((r) => r.lectures.length > 0);
 
+  // 각 강사별 정산 완료 기록 조회
+  const instructorIds = activeRows.map((r) => r.instructorId);
+  const settlementRecords = instructorIds.length > 0
+    ? await getPrisma().specialLectureSettlement.findMany({
+        where: {
+          specialLectureId: `SUMMARY_${monthStr}`,
+          instructorId: { in: instructorIds },
+          settlementMonth: monthStr,
+        },
+      })
+    : [];
+
+  const settlementMap = new Map(settlementRecords.map((r) => [r.instructorId, r]));
+
+  const rowsWithStatus: InstructorSettlementRow[] = activeRows.map((row) => {
+    const record = settlementMap.get(row.instructorId);
+    return {
+      ...row,
+      settlementStatus: record?.status ?? null,
+      paidAt: record?.paidAt ? record.paidAt.toISOString() : null,
+    };
+  });
+
   return (
     <div className="p-8 sm:p-10">
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
@@ -146,7 +171,7 @@ export default async function InstructorSettlementsPage({
         등록할 때 설정됩니다.
       </p>
       <div className="mt-8">
-        <InstructorSettlementView month={monthStr} rows={activeRows} />
+        <InstructorSettlementView month={monthStr} rows={rowsWithStatus} />
       </div>
     </div>
   );

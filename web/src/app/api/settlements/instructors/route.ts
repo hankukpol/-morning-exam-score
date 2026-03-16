@@ -1,4 +1,4 @@
-import { AdminRole } from "@prisma/client";
+import { AdminRole, SettlementStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
@@ -103,14 +103,37 @@ export async function GET(request: NextRequest) {
 
   const activeRows = rows.filter((r) => r.lectures.length > 0);
 
-  const grandTotalRevenue = activeRows.reduce((s, r) => s + r.totalRevenue, 0);
-  const grandTotalInstructor = activeRows.reduce((s, r) => s + r.totalInstructorAmount, 0);
-  const grandTotalAcademy = activeRows.reduce((s, r) => s + r.totalAcademyAmount, 0);
+  // 각 강사별 정산 완료 기록 조회
+  const instructorIds = activeRows.map((r) => r.instructorId);
+  const settlementRecords = instructorIds.length > 0
+    ? await getPrisma().specialLectureSettlement.findMany({
+        where: {
+          specialLectureId: `SUMMARY_${monthStr}`,
+          instructorId: { in: instructorIds },
+          settlementMonth: monthStr,
+        },
+      })
+    : [];
+
+  const settlementMap = new Map(settlementRecords.map((r) => [r.instructorId, r]));
+
+  const rowsWithStatus = activeRows.map((row) => {
+    const record = settlementMap.get(row.instructorId);
+    return {
+      ...row,
+      settlementStatus: (record?.status ?? null) as SettlementStatus | null,
+      paidAt: record?.paidAt ? record.paidAt.toISOString() : null,
+    };
+  });
+
+  const grandTotalRevenue = rowsWithStatus.reduce((s, r) => s + r.totalRevenue, 0);
+  const grandTotalInstructor = rowsWithStatus.reduce((s, r) => s + r.totalInstructorAmount, 0);
+  const grandTotalAcademy = rowsWithStatus.reduce((s, r) => s + r.totalAcademyAmount, 0);
 
   return NextResponse.json({
     data: {
       month: monthStr,
-      rows: activeRows,
+      rows: rowsWithStatus,
       summary: {
         totalRevenue: grandTotalRevenue,
         totalInstructorAmount: grandTotalInstructor,

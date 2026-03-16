@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { PaymentCategory, PaymentMethod, PaymentStatus, RefundType } from "@prisma/client";
+import { PaymentCategory, PaymentMethod, PaymentStatus, RefundStatus, RefundType } from "@prisma/client";
 import {
   PAYMENT_CATEGORY_LABEL,
   PAYMENT_CATEGORY_COLOR,
@@ -13,11 +13,29 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { RefundModal } from "@/components/payments/refund-modal";
 
+const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
+  PENDING: "승인 대기",
+  APPROVED: "승인됨",
+  REJECTED: "거절됨",
+  COMPLETED: "완료",
+  CANCELLED: "취소",
+};
+
+const REFUND_STATUS_COLOR: Record<RefundStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  APPROVED: "border-forest/30 bg-forest/10 text-forest",
+  REJECTED: "border-red-200 bg-red-50 text-red-700",
+  COMPLETED: "border-forest/30 bg-forest/10 text-forest",
+  CANCELLED: "border-ink/20 bg-ink/5 text-slate",
+};
+
 export type RefundRecord = {
   id: string;
   refundType: RefundType;
+  status: RefundStatus;
   amount: number;
   reason: string;
+  rejectionReason: string | null;
   bankName: string | null;
   accountNo: string | null;
   accountHolder: string | null;
@@ -217,7 +235,7 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
               <table className="min-w-full text-sm divide-y divide-ink/10">
                 <thead>
                   <tr>
-                    {["처리일시", "유형", "금액", "사유", "계좌 정보"].map((h) => (
+                    {["처리일시", "상태", "유형", "금액", "사유", "계좌 정보"].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-2 text-left text-xs font-medium text-slate uppercase bg-mist/50 whitespace-nowrap"
@@ -232,6 +250,20 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
                     <tr key={r.id}>
                       <td className="px-4 py-3 text-xs text-slate whitespace-nowrap">
                         {formatDateTime(r.processedAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${REFUND_STATUS_COLOR[r.status]}`}
+                          >
+                            {REFUND_STATUS_LABEL[r.status]}
+                          </span>
+                          {r.status === "REJECTED" && r.rejectionReason ? (
+                            <p className="mt-1 text-xs text-red-600 max-w-[140px] truncate" title={r.rejectionReason}>
+                              {r.rejectionReason}
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">

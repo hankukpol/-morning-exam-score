@@ -41,6 +41,11 @@ type SettlementRecord = {
   cashDiff: number | null;
   closedAt: string | null;
   closedBy: string | null;
+  closedByName: string | null;
+  reopenedAt: string | null;
+  reopenedBy: string | null;
+  reopenedByName: string | null;
+  reopenReason: string | null;
 };
 
 type RecentPayment = {
@@ -126,10 +131,14 @@ export function DailySettlementView({ initialData }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [showReopenForm, setShowReopenForm] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   async function fetchDate(date: string) {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setShowReopenForm(false);
+    setReopenReason("");
     startTransition(async () => {
       try {
         const result = await requestJson<DailyData>(
@@ -148,10 +157,16 @@ export function DailySettlementView({ initialData }: Props) {
     });
   }
 
+  const isAlreadyClosed = !!(data.settlement?.closedAt);
+
   async function handleClose() {
     const parsed = parseInt(cashActualInput.replace(/,/g, ""), 10);
     if (isNaN(parsed) || parsed < 0) {
       setErrorMessage("현금 실제액을 올바르게 입력하세요.");
+      return;
+    }
+    if (isAlreadyClosed && !reopenReason.trim()) {
+      setErrorMessage("재오픈 사유를 입력하세요.");
       return;
     }
     setErrorMessage(null);
@@ -160,9 +175,17 @@ export function DailySettlementView({ initialData }: Props) {
       try {
         await requestJson("/api/settlements/daily", {
           method: "POST",
-          body: JSON.stringify({ date: currentDate, cashActual: parsed }),
+          body: JSON.stringify({
+            date: currentDate,
+            cashActual: parsed,
+            ...(isAlreadyClosed ? { reopenReason: reopenReason.trim() } : {}),
+          }),
         });
-        setSuccessMessage("마감 처리가 완료되었습니다.");
+        setSuccessMessage(
+          isAlreadyClosed ? "재오픈 후 재마감 처리가 완료되었습니다." : "마감 처리가 완료되었습니다.",
+        );
+        setShowReopenForm(false);
+        setReopenReason("");
         const refreshed = await requestJson<DailyData>(
           `/api/settlements/daily?date=${currentDate}`,
         );
@@ -225,18 +248,83 @@ export function DailySettlementView({ initialData }: Props) {
           {settlement?.closedAt ? (
             <span className="rounded-full border border-forest/30 bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest">
               마감 완료 · {new Date(settlement.closedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+              {settlement.closedByName ? ` (${settlement.closedByName})` : ""}
             </span>
           ) : null}
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isPending}
-            className="rounded-full bg-ember px-4 py-1.5 text-sm font-medium text-white transition hover:bg-ember/90 disabled:opacity-50"
-          >
-            {isPending ? "처리 중..." : settlement?.closedAt ? "재마감" : "마감 처리"}
-          </button>
+          {isAlreadyClosed ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowReopenForm((prev) => !prev);
+                setReopenReason("");
+                setErrorMessage(null);
+              }}
+              disabled={isPending}
+              className="rounded-full border border-ember/30 bg-ember/10 px-4 py-1.5 text-sm font-medium text-ember transition hover:bg-ember/20 disabled:opacity-50"
+            >
+              재오픈
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isPending}
+              className="rounded-full bg-ember px-4 py-1.5 text-sm font-medium text-white transition hover:bg-ember/90 disabled:opacity-50"
+            >
+              {isPending ? "처리 중..." : "마감 처리"}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Settlement history badge */}
+      {settlement?.reopenedAt ? (
+        <div className="flex flex-wrap gap-2 items-center text-xs">
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-semibold text-amber-700">
+            재오픈: {new Date(settlement.reopenedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+            {settlement.reopenedByName ? ` (${settlement.reopenedByName})` : ""}
+          </span>
+          {settlement.reopenReason ? (
+            <span className="text-slate">사유: {settlement.reopenReason}</span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Reopen reason form */}
+      {showReopenForm && isAlreadyClosed ? (
+        <div className="rounded-[20px] border border-amber-200 bg-amber-50 p-4 space-y-3">
+          <p className="text-sm font-semibold text-amber-800">재오픈 후 재마감 처리</p>
+          <p className="text-xs text-amber-700">마감된 일계표를 수정하려면 사유를 입력하고 재마감하세요.</p>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-amber-800">재오픈 사유 *</label>
+            <input
+              type="text"
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              placeholder="예: 현금 실수령액 오기입 수정"
+              className="w-full rounded-2xl border border-amber-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isPending || !reopenReason.trim()}
+              className="rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90 disabled:opacity-50"
+            >
+              {isPending ? "처리 중..." : "재마감 처리"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowReopenForm(false); setReopenReason(""); setErrorMessage(null); }}
+              disabled={isPending}
+              className="rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate transition hover:border-ink/30 disabled:opacity-50"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Messages */}
       {errorMessage ? (

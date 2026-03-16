@@ -1,8 +1,7 @@
-import { AdminRole, PaymentStatus, RefundType } from "@prisma/client";
+import { AdminRole, RefundType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
-import { sendEventNotification } from "@/lib/notifications/event-notify";
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +27,10 @@ export async function POST(
       const payment = await tx.payment.findUnique({
         where: { id: params.id },
         include: {
-          refunds: { select: { amount: true } },
+          refunds: {
+            where: { status: { in: ["PENDING", "APPROVED", "COMPLETED"] } },
+            select: { amount: true },
+          },
         },
       });
 
@@ -52,6 +54,7 @@ export async function POST(
         data: {
           paymentId: params.id,
           refundType: refundType as RefundType,
+          status: "PENDING",
           amount: refundAmount,
           reason: reason.trim(),
           bankName: bankName?.trim() || null,
@@ -60,15 +63,6 @@ export async function POST(
           processedBy: auth.context.adminUser.id,
           processedAt: new Date(),
         },
-      });
-
-      const newTotalRefunded = totalRefunded + refundAmount;
-      const newStatus: PaymentStatus =
-        newTotalRefunded >= payment.netAmount ? "FULLY_REFUNDED" : "PARTIAL_REFUNDED";
-
-      const updatedPayment = await tx.payment.update({
-        where: { id: params.id },
-        data: { status: newStatus },
       });
 
       await tx.auditLog.create({
@@ -82,33 +76,16 @@ export async function POST(
             refundType,
             amount: refundAmount,
             reason: reason.trim(),
-            newStatus,
+            status: "PENDING",
           },
           ipAddress: request.headers.get("x-forwarded-for"),
         },
       });
 
-      return { refund, payment: updatedPayment };
+      return { refund, payment };
     });
 
-    // 환불 완료 알림 발송 (fire-and-forget)
-    const refundedPayment = await getPrisma().payment.findUnique({
-      where: { id: params.id },
-      select: { examNumber: true, student: { select: { name: true } } },
-    });
-    if (refundedPayment?.examNumber) {
-      void sendEventNotification({
-        examNumber: refundedPayment.examNumber,
-        type: "REFUND_COMPLETE",
-        messageInput: {
-          studentName: refundedPayment.student?.name ?? refundedPayment.examNumber,
-          refundAmount: result.refund.amount.toLocaleString(),
-        },
-        dedupeKey: `refund_complete:${result.refund.id}`,
-      });
-    }
-
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json({ data: result }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "환불 처리 실패" },
