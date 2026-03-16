@@ -15,9 +15,10 @@ import {
   type StudentEnrollmentRow,
 } from "@/components/students/student-enrollments-panel";
 import {
-  StudentPaymentsPanel,
-  type StudentPaymentRow,
-} from "@/components/students/student-payments-panel";
+  StudentPaymentHistory,
+  type PaymentHistoryRow,
+} from "./student-payment-history";
+import { StudentScoreChart, type ScoreChartPoint } from "./student-score-chart";
 import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
@@ -31,6 +32,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   "history",
+  "score-chart",
   "cumulative",
   "analysis",
   "timeline",
@@ -42,6 +44,7 @@ type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   history: "성적 이력",
+  "score-chart": "성적 차트",
   cumulative: "누적 분석",
   analysis: "기간별 분석",
   timeline: "타임라인",
@@ -77,9 +80,32 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   let counselingProfile = null;
   let briefingData = null;
   let studentEnrollments: StudentEnrollmentRow[] | null = null;
-  let studentPayments: StudentPaymentRow[] | null = null;
+  let studentPayments: PaymentHistoryRow[] | null = null;
+  let scoreChartPoints: ScoreChartPoint[] | null = null;
 
-  if (tab === "cumulative") {
+  if (tab === "score-chart") {
+    // student.scores는 이미 로드됨 — AttendType이 ABSENT이 아닌 것만 차트에 표시
+    scoreChartPoints = student.scores
+      .filter((s) => s.attendType !== "ABSENT" && s.finalScore !== null)
+      .map((s) => ({
+        sessionId: s.session.id,
+        week: s.session.week,
+        subject: s.session.subject,
+        subjectLabel:
+          (
+            {
+              CONSTITUTIONAL_LAW: "헌법",
+              CRIMINAL_LAW: "형법",
+              CRIMINAL_PROCEDURE: "형소법",
+              POLICE_SCIENCE: "경찰학",
+              CRIMINOLOGY: "범죄학",
+              CUMULATIVE: "누적",
+            } as Record<string, string>
+          )[s.session.subject] ?? s.session.subject,
+        examDate: s.session.examDate.toISOString(),
+        finalScore: s.finalScore,
+      }));
+  } else if (tab === "cumulative") {
     cumulativeData = await getStudentCumulativeAnalysis(params.examNumber);
   } else if (tab === "analysis") {
     const periodId = Number(readParam(searchParams, "periodId")) || undefined;
@@ -171,6 +197,7 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   const canViewPayments = roleAtLeast(context.adminUser.role, AdminRole.COUNSELOR);
   const visibleTabs: Tab[] = [
     "history",
+    "score-chart",
     "cumulative",
     "analysis",
     ...(canEdit ? (["timeline", "counseling"] as Tab[]) : []),
@@ -544,9 +571,14 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           />
         )}
 
+        {/* 성적 차트 탭 */}
+        {tab === "score-chart" && (
+          <StudentScoreChart scores={scoreChartPoints ?? []} />
+        )}
+
         {/* 수납 탭 */}
         {tab === "payments" && (
-          <StudentPaymentsPanel
+          <StudentPaymentHistory
             examNumber={params.examNumber}
             payments={studentPayments ?? []}
           />

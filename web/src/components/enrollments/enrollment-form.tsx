@@ -108,6 +108,19 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
   const [discountBaseInput, setDiscountBaseInput] = useState(""); // 인강/타학원 환승 기준 금액
   const [manualDiscountInput, setManualDiscountInput] = useState("0"); // 관리자 직접 입력
 
+  // 할인 코드 관련 상태
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [appliedCode, setAppliedCode] = useState<{
+    codeId: number;
+    code: string;
+    discountType: string;
+    discountValue: number;
+    finalDiscount: number;
+    description: string;
+  } | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
   function calcDiscountAmount(types: string[], fee: number, baseInput: string, manualInput: string): number {
     let total = 0;
     for (const t of types) {
@@ -124,11 +137,65 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
     return Math.min(total, 500000);
   }
 
-  const discountAmount = String(
-    calcDiscountAmount(selectedDiscountTypes, Number(regularFee) || 0, discountBaseInput, manualDiscountInput),
+  const manualDiscountAmount = calcDiscountAmount(
+    selectedDiscountTypes,
+    Number(regularFee) || 0,
+    discountBaseInput,
+    manualDiscountInput,
   );
+  const codeDiscountAmount = appliedCode?.finalDiscount ?? 0;
+  const discountAmount = String(manualDiscountAmount + codeDiscountAmount);
 
-  const finalFee = Math.max(0, (Number(regularFee) || 0) - Number(discountAmount));
+  const finalFee = Math.max(0, (Number(regularFee) || 0) - manualDiscountAmount - codeDiscountAmount);
+
+  async function handleApplyDiscountCode() {
+    const trimmedCode = discountCodeInput.trim();
+    if (!trimmedCode) return;
+
+    const fee = Number(regularFee) || 0;
+    if (fee <= 0) {
+      setCodeError("수강료를 먼저 입력해주세요.");
+      return;
+    }
+
+    setIsValidatingCode(true);
+    setCodeError(null);
+
+    try {
+      const res = await fetch("/api/settings/discount-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: trimmedCode, amount: fee }),
+        cache: "no-store",
+      });
+      const data = await res.json();
+
+      if (!data.valid) {
+        setCodeError(data.error ?? "유효하지 않은 할인 코드입니다.");
+        return;
+      }
+
+      setAppliedCode({
+        codeId: data.codeId,
+        code: trimmedCode.toUpperCase(),
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        finalDiscount: data.finalDiscount,
+        description: data.description,
+      });
+      setDiscountCodeInput("");
+    } catch {
+      setCodeError("코드 검증 중 오류가 발생했습니다.");
+    } finally {
+      setIsValidatingCode(false);
+    }
+  }
+
+  function handleRemoveDiscountCode() {
+    setAppliedCode(null);
+    setCodeError(null);
+    setDiscountCodeInput("");
+  }
 
   const selectedProduct = initialProducts.find((p) => p.id === selectedProductId) ?? null;
   const selectedCohort = initialCohorts.find((c) => c.id === selectedCohortId) ?? null;
@@ -215,7 +282,7 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
 
   function validateStep3(): string | null {
     if (!regularFee || Number(regularFee) < 0) return "수강료를 입력하세요.";
-    if (Number(discountAmount) < 0 || Number(discountAmount) > 500000) return "할인 금액은 0~50만원 이내이어야 합니다.";
+    if (manualDiscountAmount < 0 || manualDiscountAmount > 500000) return "수동 할인 금액은 0~50만원 이내이어야 합니다.";
     if (finalFee < 0) return "최종 수강료가 0 미만이 될 수 없습니다.";
     return null;
   }
@@ -265,7 +332,16 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
             finalFee,
             enrollSource: enrollSource || undefined,
             isRe,
-            extraData: selectedDiscountTypes.length > 0 ? { discountTypes: selectedDiscountTypes } : undefined,
+            discountCodeId: appliedCode?.codeId ?? undefined,
+            extraData:
+              selectedDiscountTypes.length > 0 || appliedCode
+                ? {
+                    ...(selectedDiscountTypes.length > 0 ? { discountTypes: selectedDiscountTypes } : {}),
+                    ...(appliedCode
+                      ? { discountCode: appliedCode.code, codeDiscount: appliedCode.finalDiscount }
+                      : {}),
+                  }
+                : undefined,
           }),
         });
         router.push("/admin/enrollments");
@@ -851,21 +927,109 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
                   />
                 </div>
               )}
-              {Number(discountAmount) > 0 && (
+              {manualDiscountAmount > 0 && (
                 <p className="mt-1.5 text-sm font-semibold text-forest">
-                  적용 할인: {Number(discountAmount).toLocaleString()}원
-                  {Number(discountAmount) >= 500000 && <span className="ml-1 text-xs text-ember font-normal">(50만원 한도 적용)</span>}
+                  수동 할인: {manualDiscountAmount.toLocaleString()}원
+                  {manualDiscountAmount >= 500000 && <span className="ml-1 text-xs text-ember font-normal">(50만원 한도 적용)</span>}
                 </p>
+              )}
+            </div>
+
+            {/* 할인 코드 섹션 */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink">할인 코드</label>
+
+              {/* 이미 적용된 코드 표시 */}
+              {appliedCode ? (
+                <div className="flex items-center justify-between rounded-2xl border border-forest/30 bg-forest/5 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border border-forest/30 bg-forest/10 px-2.5 py-0.5 text-xs font-bold text-forest">
+                      {appliedCode.code}
+                    </span>
+                    <span className="text-sm text-forest font-semibold">
+                      {appliedCode.description}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveDiscountCode}
+                    className="ml-3 flex h-5 w-5 items-center justify-center rounded-full bg-slate/20 text-slate transition hover:bg-red-100 hover:text-red-600"
+                    aria-label="할인 코드 제거"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={discountCodeInput}
+                      onChange={(e) => {
+                        setDiscountCodeInput(e.target.value.toUpperCase());
+                        setCodeError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyDiscountCode();
+                        }
+                      }}
+                      placeholder="할인 코드 입력 (예: POLICE2026)"
+                      className="flex-1 rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30 uppercase placeholder:normal-case"
+                    />
+                    <button
+                      type="button"
+                      disabled={isValidatingCode || !discountCodeInput.trim()}
+                      onClick={handleApplyDiscountCode}
+                      className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isValidatingCode ? "확인 중..." : "적용"}
+                    </button>
+                  </div>
+                  {codeError ? (
+                    <p className="text-xs text-red-600">{codeError}</p>
+                  ) : null}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Final fee display */}
-          <div className="rounded-[20px] border border-ember/20 bg-ember/5 px-5 py-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-ember">최종 수강료</span>
-            <span className="text-2xl font-bold text-ember tabular-nums">
-              {finalFee.toLocaleString()}원
-            </span>
+          {/* 수강료 계산 요약 */}
+          <div className="rounded-[20px] border border-ink/10 bg-white divide-y divide-ink/5 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3">
+              <span className="text-sm text-slate">정가</span>
+              <span className="text-sm font-medium text-ink tabular-nums">
+                {(Number(regularFee) || 0).toLocaleString()}원
+              </span>
+            </div>
+            {manualDiscountAmount > 0 && (
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-slate">수동 할인</span>
+                <span className="text-sm font-medium text-red-600 tabular-nums">
+                  −{manualDiscountAmount.toLocaleString()}원
+                </span>
+              </div>
+            )}
+            {codeDiscountAmount > 0 && appliedCode && (
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-slate">
+                  코드 할인{" "}
+                  <span className="rounded-full border border-forest/20 bg-forest/5 px-1.5 py-0.5 text-xs text-forest">
+                    {appliedCode.code}
+                  </span>
+                </span>
+                <span className="text-sm font-medium text-red-600 tabular-nums">
+                  −{codeDiscountAmount.toLocaleString()}원
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between bg-ember/5 px-5 py-4">
+              <span className="text-sm font-semibold text-ember">최종 수강료</span>
+              <span className="text-xl font-bold text-ember tabular-nums">
+                {finalFee.toLocaleString()}원
+              </span>
+            </div>
           </div>
 
           <div className="flex justify-between pt-2">

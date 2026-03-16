@@ -255,6 +255,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/payments/installments",
+    label: "할부 관리",
+    description: "분할납부 회차별 납부 현황 조회 및 납부 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/payments/refunds",
     label: "환불 대기",
     description: "승인 대기 중인 환불 요청 검토 및 승인·거절 처리",

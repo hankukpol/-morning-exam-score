@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       enrollSource,
       isRe,
       extraData,
+      discountCodeId,
     } = body;
 
     if (!examNumber?.trim()) throw new Error("수험번호를 입력하세요.");
@@ -100,6 +101,30 @@ export async function POST(request: Request) {
       }
     }
 
+    // Validate discount code if provided (re-validate server-side)
+    let resolvedDiscountCodeId: number | null = null;
+    if (discountCodeId) {
+      const codeRecord = await getPrisma().discountCode.findUnique({
+        where: { id: Number(discountCodeId) },
+      });
+      if (!codeRecord) throw new Error("할인 코드를 찾을 수 없습니다.");
+      if (!codeRecord.isActive) throw new Error("비활성화된 할인 코드입니다.");
+      if (codeRecord.maxUsage !== null && codeRecord.usageCount >= codeRecord.maxUsage) {
+        throw new Error("사용 한도가 초과된 할인 코드입니다.");
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const validFrom = new Date(codeRecord.validFrom);
+      validFrom.setHours(0, 0, 0, 0);
+      if (today < validFrom) throw new Error("아직 유효 기간이 시작되지 않은 코드입니다.");
+      if (codeRecord.validUntil) {
+        const validUntil = new Date(codeRecord.validUntil);
+        validUntil.setHours(23, 59, 59, 999);
+        if (today > validUntil) throw new Error("만료된 할인 코드입니다.");
+      }
+      resolvedDiscountCodeId = codeRecord.id;
+    }
+
     const enrollment = await getPrisma().$transaction(async (tx) => {
       const created = await tx.courseEnrollment.create({
         data: {
@@ -127,6 +152,18 @@ export async function POST(request: Request) {
           specialLecture: { select: { name: true } },
         },
       });
+
+      // Record discount code usage if applied
+      if (resolvedDiscountCodeId !== null) {
+        // DiscountCodeUsage requires a paymentId, so we store in extraData only here.
+        // The actual DiscountCodeUsage linking to a Payment is created at payment time.
+        // We increment usageCount immediately so it can't be reused beyond maxUsage.
+        await tx.discountCode.update({
+          where: { id: resolvedDiscountCodeId },
+          data: { usageCount: { increment: 1 } },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           adminId: auth.context.adminUser.id,
@@ -138,6 +175,7 @@ export async function POST(request: Request) {
             courseType: created.courseType,
             finalFee: created.finalFee,
             status: created.status,
+            ...(resolvedDiscountCodeId !== null ? { discountCodeId: resolvedDiscountCodeId } : {}),
           },
           ipAddress: request.headers.get("x-forwarded-for"),
         },
