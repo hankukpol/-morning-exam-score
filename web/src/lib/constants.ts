@@ -283,6 +283,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/reports/monthly",
+    label: "월간 운영 보고서",
+    description: "수강생·수납·환불·출결·강사 정산 통합 월간 요약",
+    minRole: AdminRole.MANAGER,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/periods",
     label: "시험 등록",
     description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",
