@@ -6,38 +6,17 @@ import {
   ENROLLMENT_STATUS_LABEL,
   ENROLLMENT_STATUS_COLOR,
 } from "@/lib/constants";
+import { UnpaidListClient, type UnpaidRow } from "./unpaid-list-client";
 
 export const dynamic = "force-dynamic";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-function formatKRW(amount: number): string {
-  return amount.toLocaleString("ko-KR") + "원";
-}
 
 function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}.${m}.${d}`;
-}
-
-/** Returns Tailwind classes for the unpaid badge */
-function unpaidBadgeClass(unpaid: number, finalFee: number): string {
-  if (finalFee === 0) return "border-ink/20 bg-ink/5 text-ink/60"; // free / zero-fee
-  if (unpaid >= finalFee) {
-    // fully unpaid
-    return "border-red-300 bg-red-50 text-red-700";
-  }
-  // partially unpaid
-  return "border-amber-300 bg-amber-50 text-amber-700";
-}
-
-/** Returns Tailwind classes for the row left-border accent */
-function rowAccentClass(unpaid: number, finalFee: number): string {
-  if (finalFee === 0) return "border-l-4 border-l-slate-200";
-  if (unpaid >= finalFee) return "border-l-4 border-l-red-400";
-  return "border-l-4 border-l-amber-400";
 }
 
 const UNPAID_STATUSES: EnrollmentStatus[] = ["PENDING", "ACTIVE", "SUSPENDED"];
@@ -91,20 +70,7 @@ export default async function UnpaidPage({
     paidMap.set(p.enrollmentId, (paidMap.get(p.enrollmentId) ?? 0) + p.netAmount);
   }
 
-  // 3. Compute unpaid rows
-  type UnpaidRow = {
-    id: string;
-    examNumber: string;
-    studentName: string;
-    mobile: string | null;
-    courseName: string;
-    status: EnrollmentStatus;
-    finalFee: number;
-    paidAmount: number;
-    unpaidAmount: number;
-    createdAt: Date;
-  };
-
+  // 3. Compute unpaid rows (serialise Date → string for client component)
   const unpaidRows: UnpaidRow[] = enrollments
     .map((e) => {
       const paidAmount = paidMap.get(e.id) ?? 0;
@@ -121,7 +87,7 @@ export default async function UnpaidPage({
         finalFee: e.finalFee,
         paidAmount,
         unpaidAmount,
-        createdAt: e.createdAt,
+        createdAt: formatDate(e.createdAt),
       };
     })
     .filter((row) => row.unpaidAmount > 0);
@@ -149,7 +115,8 @@ export default async function UnpaidPage({
       <h1 className="mt-5 text-3xl font-semibold">미납 관리</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         수강 등록 후 수납이 완료되지 않은 내역을 조회합니다. 전액 미납(빨강)과 부분 미납(노랑)으로
-        구분됩니다.
+        구분됩니다. <strong className="text-ink">독촉 발송</strong> 버튼으로 학생에게 알림을 보낼 수
+        있습니다.
       </p>
 
       {/* Summary cards */}
@@ -223,171 +190,16 @@ export default async function UnpaidPage({
         </span>
       </div>
 
-      {/* Table */}
+      {/* Table — Client Component (독촉 발송 버튼 포함) */}
       <div className="mt-4 overflow-hidden rounded-[20px] border border-ink/10 bg-white shadow-sm">
-        {filteredRows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-4xl">✓</div>
-            <p className="mt-4 text-lg font-medium text-ink">미납 내역이 없습니다</p>
-            <p className="mt-2 text-sm text-slate">
-              선택한 조건에 해당하는 미납 수강생이 없습니다.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-mist">
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate">
-                    학번
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate">
-                    이름
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate">
-                    연락처
-                  </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate">
-                    강좌
-                  </th>
-                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate">
-                    수강 상태
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate">
-                    최종 수강료
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate">
-                    납부 금액
-                  </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate">
-                    미납 금액
-                  </th>
-                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate">
-                    등록일
-                  </th>
-                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate">
-                    바로가기
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {filteredRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={[
-                      rowAccentClass(row.unpaidAmount, row.finalFee),
-                      "hover:bg-mist/60 transition-colors",
-                    ].join(" ")}
-                  >
-                    {/* 학번 */}
-                    <td className="px-5 py-4">
-                      <Link
-                        href={`/admin/students/${row.examNumber}`}
-                        className="font-mono text-xs font-medium text-forest hover:underline"
-                      >
-                        {row.examNumber}
-                      </Link>
-                    </td>
-
-                    {/* 이름 */}
-                    <td className="px-5 py-4">
-                      <Link
-                        href={`/admin/students/${row.examNumber}`}
-                        className="font-medium text-ink hover:text-forest hover:underline"
-                      >
-                        {row.studentName}
-                      </Link>
-                    </td>
-
-                    {/* 연락처 */}
-                    <td className="px-5 py-4 font-mono text-xs text-slate">
-                      {row.mobile ?? "—"}
-                    </td>
-
-                    {/* 강좌 */}
-                    <td className="px-5 py-4 text-ink">{row.courseName}</td>
-
-                    {/* 수강 상태 */}
-                    <td className="px-5 py-4 text-center">
-                      <span
-                        className={[
-                          "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                          ENROLLMENT_STATUS_COLOR[row.status],
-                        ].join(" ")}
-                      >
-                        {ENROLLMENT_STATUS_LABEL[row.status]}
-                      </span>
-                    </td>
-
-                    {/* 최종 수강료 */}
-                    <td className="px-5 py-4 text-right font-mono text-sm text-ink">
-                      {formatKRW(row.finalFee)}
-                    </td>
-
-                    {/* 납부 금액 */}
-                    <td className="px-5 py-4 text-right font-mono text-sm text-forest">
-                      {formatKRW(row.paidAmount)}
-                    </td>
-
-                    {/* 미납 금액 */}
-                    <td className="px-5 py-4 text-right">
-                      <span
-                        className={[
-                          "inline-flex rounded-full border px-2.5 py-0.5 font-mono text-xs font-semibold",
-                          unpaidBadgeClass(row.unpaidAmount, row.finalFee),
-                        ].join(" ")}
-                      >
-                        {formatKRW(row.unpaidAmount)}
-                      </span>
-                    </td>
-
-                    {/* 등록일 */}
-                    <td className="px-5 py-4 text-center font-mono text-xs text-slate">
-                      {formatDate(row.createdAt)}
-                    </td>
-
-                    {/* 바로가기 */}
-                    <td className="px-5 py-4 text-center">
-                      <Link
-                        href={`/admin/enrollments/${row.id}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-ember/30 bg-ember/5 px-3 py-1.5 text-xs font-medium text-ember transition-colors hover:border-ember hover:bg-ember hover:text-white"
-                      >
-                        수납하기
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-
-              {/* Footer total row */}
-              {filteredRows.length > 0 && (
-                <tfoot>
-                  <tr className="border-t-2 border-ink/10 bg-mist/80">
-                    <td colSpan={5} className="px-5 py-3 text-xs font-semibold text-slate">
-                      합계 ({filteredRows.length.toLocaleString()}건)
-                    </td>
-                    <td className="px-5 py-3 text-right font-mono text-sm font-semibold text-ink">
-                      {formatKRW(filteredRows.reduce((s, r) => s + r.finalFee, 0))}
-                    </td>
-                    <td className="px-5 py-3 text-right font-mono text-sm font-semibold text-forest">
-                      {formatKRW(filteredRows.reduce((s, r) => s + r.paidAmount, 0))}
-                    </td>
-                    <td className="px-5 py-3 text-right font-mono text-sm font-semibold text-ember">
-                      {formatKRW(filteredRows.reduce((s, r) => s + r.unpaidAmount, 0))}
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        )}
+        <UnpaidListClient rows={filteredRows} />
       </div>
 
       {/* Footnote */}
       <p className="mt-4 text-xs text-slate/70">
         * 최대 500건의 수강 등록 내역을 조회합니다. 상태가 신청·수강 중·휴원인 수강 건 중 승인된
-        수납 합계가 최종 수강료에 미달하는 경우에만 표시됩니다.
+        수납 합계가 최종 수강료에 미달하는 경우에만 표시됩니다. 독촉 발송은 알림 수신에 동의한
+        학생에게만 전송됩니다.
       </p>
     </div>
   );

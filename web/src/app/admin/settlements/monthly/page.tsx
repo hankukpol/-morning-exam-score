@@ -5,12 +5,23 @@ import { MonthlySettlementView } from "@/components/settlements/monthly-settleme
 
 export const dynamic = "force-dynamic";
 
-export default async function MonthlySettlementPage() {
+function parseMonthParam(param: string | undefined): { year: number; month: number } {
+  if (param && /^\d{4}-\d{2}$/.test(param)) {
+    const [y, m] = param.split("-").map(Number);
+    if (m >= 1 && m <= 12) return { year: y, month: m };
+  }
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+export default async function MonthlySettlementPage({
+  searchParams,
+}: {
+  searchParams: { month?: string };
+}) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
+  const { year, month } = parseMonthParam(searchParams.month);
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
 
   const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);

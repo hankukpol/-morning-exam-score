@@ -1,6 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 type CategoryStat = { count: number; gross: number; refund: number };
 type MethodStat = { count: number; amount: number };
@@ -79,6 +89,12 @@ function formatDayLabel(dateStr: string): string {
   return `${m}/${day}(${weekdays[d.getDay()]})`;
 }
 
+/** Bar Chart용 단순 일(day) 레이블 */
+function formatDayShort(dateStr: string): string {
+  const day = parseInt(dateStr.split("-")[2], 10);
+  return `${day}일`;
+}
+
 const CATEGORY_ROWS: Array<{
   key: keyof MonthlySummary;
   label: string;
@@ -92,13 +108,50 @@ const CATEGORY_ROWS: Array<{
   { key: "etc", label: "기타" },
 ];
 
+/* ── Custom Tooltip ─────────────────────────────────── */
+interface TooltipPayloadItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+function DailyTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-ink/10 bg-white px-3 py-2 shadow-lg text-xs">
+      <p className="mb-1 font-semibold text-ink">{label}</p>
+      {payload.map((item) => (
+        <p key={item.name} style={{ color: item.color }}>
+          {item.name}: {item.value.toLocaleString()}원
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ── Main Component ─────────────────────────────────── */
 export function MonthlySettlementView({ initialData }: Props) {
+  const router = useRouter();
   const [data, setData] = useState<MonthlyData>(initialData);
   const [currentMonth, setCurrentMonth] = useState(initialData.month);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const thisMonth = currentMonthStr();
+
+  const navigateToMonth = useCallback(
+    (month: string) => {
+      router.push(`/admin/settlements/monthly?month=${month}`);
+    },
+    [router],
+  );
 
   async function fetchMonth(month: string) {
     setErrorMessage(null);
@@ -109,10 +162,33 @@ export function MonthlySettlementView({ initialData }: Props) {
         );
         setData(result);
         setCurrentMonth(month);
+        navigateToMonth(month);
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "조회 실패");
       }
     });
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const url = `/api/settlements/monthly/export?month=${currentMonth}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error((json as { error?: string }).error ?? "내보내기 실패");
+      }
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `월계표_${currentMonth}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "내보내기 실패");
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   const { summary, methods, dailyBreakdown } = data;
@@ -124,10 +200,17 @@ export function MonthlySettlementView({ initialData }: Props) {
   const methodTotal =
     methods.cash.amount + methods.card.amount + methods.transfer.amount;
 
+  /* Bar Chart 데이터: 수납액은 만원 단위로 표시 */
+  const chartData = dailyBreakdown.map((entry) => ({
+    label: formatDayShort(entry.date),
+    수납: Math.round(entry.gross / 10000),
+    환불: Math.round(entry.refund / 10000),
+  }));
+
   return (
     <div className="space-y-6">
-      {/* Month Navigation */}
-      <div className="flex items-center gap-2">
+      {/* Month Navigation + Excel button */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => fetchMonth(addMonths(currentMonth, -1))}
@@ -157,6 +240,55 @@ export function MonthlySettlementView({ initialData }: Props) {
             이번 달
           </button>
         )}
+
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting || isPending}
+            className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-1.5 text-sm font-medium text-white transition hover:bg-ember/90 disabled:opacity-50"
+          >
+            {isExporting ? (
+              <>
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
+                내보내는 중…
+              </>
+            ) : (
+              <>
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Excel 내보내기
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -195,6 +327,61 @@ export function MonthlySettlementView({ initialData }: Props) {
             <span className="ml-1 text-base font-normal text-forest/70">원</span>
           </p>
         </div>
+      </div>
+
+      {/* Daily Bar Chart */}
+      <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">
+        <div className="border-b border-ink/10 px-6 py-4">
+          <h2 className="text-sm font-semibold text-ink">일별 수납 현황</h2>
+          <p className="mt-0.5 text-xs text-slate">단위: 만원</p>
+        </div>
+        <div className={`px-4 py-4 ${isPending ? "opacity-50" : ""}`}>
+          {chartData.length === 0 ? (
+            <div className="flex h-60 items-center justify-center text-sm text-slate">
+              수납 내역이 없습니다.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                barGap={2}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#4B5563" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#E5E7EB" }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#4B5563" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) => `${v}`}
+                  width={40}
+                />
+                <Tooltip content={<DailyTooltip />} />
+                <Bar dataKey="수납" fill="#1F4D3A" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                <Bar dataKey="환불" fill="#C55A11" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        {/* Legend */}
+        {chartData.length > 0 && (
+          <div className="flex items-center gap-4 px-6 pb-4 text-xs text-slate">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#1F4D3A]" />
+              수납
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#C55A11]" />
+              환불
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -364,7 +551,7 @@ export function MonthlySettlementView({ initialData }: Props) {
         </div>
       </div>
 
-      {/* Daily Breakdown */}
+      {/* Daily Breakdown Table */}
       <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">
         <div className="border-b border-ink/10 px-6 py-4">
           <h2 className="text-sm font-semibold text-ink">일별 수납 추이</h2>

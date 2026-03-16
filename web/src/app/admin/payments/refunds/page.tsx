@@ -21,7 +21,6 @@ export default async function RefundsPendingPage() {
           note: true,
         },
       },
-      processor: { select: { name: true } },
     },
   });
 
@@ -33,7 +32,7 @@ export default async function RefundsPendingPage() {
     amount: r.amount,
     reason: r.reason,
     processedAt: r.processedAt.toISOString(),
-    processor: r.processor ?? null,
+    processor: null,
     payment: {
       examNumber: r.payment.examNumber,
       student: r.payment.student ?? null,

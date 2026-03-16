@@ -45,9 +45,16 @@ export default async function EnrollmentContractPage({
       product: { select: { name: true } },
       specialLecture: { select: { name: true } },
       staff: { select: { name: true } },
-      installments: { orderBy: { dueDate: "asc" } },
     },
   });
+
+  // 분할납부 일정 별도 조회 (Payment → Installment)
+  const installments = enrollment
+    ? await prisma.installment.findMany({
+        where: { payment: { enrollmentId: params.id } },
+        orderBy: { dueDate: "asc" },
+      })
+    : [];
 
   if (!enrollment) notFound();
 
@@ -213,7 +220,7 @@ export default async function EnrollmentContractPage({
               </tbody>
             </table>
 
-            {enrollment.installments.length > 1 && (
+            {installments.length > 1 && (
               <div className="mt-3">
                 <p className="mb-1.5 text-xs font-semibold text-gray-600">납부 일정</p>
                 <table className="w-full text-sm border-collapse">
@@ -225,7 +232,7 @@ export default async function EnrollmentContractPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {enrollment.installments.map((inst, i) => (
+                    {installments.map((inst, i) => (
                       <tr key={inst.id}>
                         <td className="border border-gray-200 px-3 py-1.5">{i + 1}회</td>
                         <td className="border border-gray-200 px-3 py-1.5">
