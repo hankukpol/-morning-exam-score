@@ -541,6 +541,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
   },
+  {
+    href: "/admin/facilities/textbooks",
+    label: "교재 판매",
+    description: "교재 현장 판매 등록 및 오늘 판매 내역 조회",
+    minRole: AdminRole.ACADEMIC_ADMIN,
+    group: "시설 관리",
+  },
 ];
 
 export const PAYMENT_CATEGORY_LABEL: Record<PaymentCategory, string> = {

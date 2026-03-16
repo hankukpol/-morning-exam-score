@@ -391,6 +391,7 @@ model AdminUser {
   graduateRecordsCreated         GraduateRecord[]        @relation("GraduateRecordStaff")
   issuedDiscountCodes            DiscountCode[]
   paymentLinks                   PaymentLink[]
+  textbookSales                  TextbookSale[]
 
   @@map("admin_users")
 }
@@ -670,19 +671,39 @@ model Course {
 }
 
 model Textbook {
-  id        Int      @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   title     String
   author    String?
   publisher String?
   price     Int // 판매가 (원)
-  stock     Int      @default(0)
+  stock     Int            @default(0)
   subject   Subject? // 관련 과목 (null = 일반)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean        @default(true)
+  sales     TextbookSale[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([isActive])
   @@map("textbooks")
+}
+
+model TextbookSale {
+  id         Int       @id @default(autoincrement())
+  textbookId Int
+  textbook   Textbook  @relation(fields: [textbookId], references: [id])
+  examNumber String? // 수험번호 (외부 구매자 시 null)
+  staffId    String    @db.Uuid // 처리 직원 (AdminUser.id)
+  staff      AdminUser @relation(fields: [staffId], references: [id])
+  quantity   Int       @default(1)
+  unitPrice  Int // 판매 단가
+  totalPrice Int // 합계 (quantity * unitPrice)
+  note       String?
+  soldAt     DateTime  @default(now())
+
+  @@index([textbookId])
+  @@index([soldAt])
+  @@index([examNumber])
+  @@map("textbook_sales")
 }
 
 // ─── Phase 0: 직원 권한 모델 ─────────────────────────────────────────────────
