@@ -28,17 +28,26 @@ model Student {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  absenceNotes           AbsenceNote[]
-  counselingAppointments CounselingAppointment[]
-  counselingRecords      CounselingRecord[]
-  enrollments            PeriodEnrollment[]
-  notifications          NotificationLog[]
-  pointLogs              PointLog[]
-  pushSubscriptions      PushSubscription[]
-  scores                 Score[]
-  studentAnswers         StudentAnswer[]
-  weeklyStatusSnapshots  WeeklyStatusSnapshot[]
-  wrongNoteBookmarks     WrongNoteBookmark[]
+  absenceNotes               AbsenceNote[]
+  counselingAppointments     CounselingAppointment[]
+  counselingRecords          CounselingRecord[]
+  enrollments                PeriodEnrollment[]
+  notifications              NotificationLog[]
+  pointLogs                  PointLog[]
+  pushSubscriptions          PushSubscription[]
+  scores                     Score[]
+  studentAnswers             StudentAnswer[]
+  weeklyStatusSnapshots      WeeklyStatusSnapshot[]
+  wrongNoteBookmarks         WrongNoteBookmark[]
+  courseEnrollments          CourseEnrollment[]
+  payments                   Payment[]
+  classroomStudents          ClassroomStudent[]
+  classroomAttendanceResults ClassroomAttendanceResult[] @relation("ClassroomAttendanceResultStudent")
+  classroomAttendanceLogs    ClassroomAttendanceLog[]    @relation("ClassroomAttendanceLogStudent")
+  lockerRentals              LockerRental[]
+  studyRoomBookings          StudyRoomBooking[]
+  graduateRecords            GraduateRecord[]
+  discountCodeUsages         DiscountCodeUsage[]
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -46,6 +55,7 @@ model Student {
   @@index([studentType])
   @@map("students")
 }
+
 model PushSubscription {
   id         String   @id @default(cuid())
   examNumber String
@@ -61,17 +71,18 @@ model PushSubscription {
   @@index([examNumber, updatedAt])
   @@map("push_subscriptions")
 }
+
 model ExamPeriod {
-  id                 Int      @id @default(autoincrement())
-  name               String
-  startDate          DateTime
-  endDate            DateTime
-  totalWeeks         Int      @default(8)
-  isActive           Boolean  @default(false)
-  isGongchaeEnabled  Boolean  @default(true)
-  isGyeongchaeEnabled Boolean @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  Int      @id @default(autoincrement())
+  name                String
+  startDate           DateTime
+  endDate             DateTime
+  totalWeeks          Int      @default(8)
+  isActive            Boolean  @default(false)
+  isGongchaeEnabled   Boolean  @default(true)
+  isGyeongchaeEnabled Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   enrollments           PeriodEnrollment[]
   monthlyResults        MonthlyResult[]
@@ -97,26 +108,26 @@ model MonthlyResult {
 }
 
 model ExamSession {
-  id           Int      @id @default(autoincrement())
-  periodId     Int
-  examType     ExamType
-  week         Int
-  subject      Subject
+  id                 Int       @id @default(autoincrement())
+  periodId           Int
+  examType           ExamType
+  week               Int
+  subject            Subject
   displaySubjectName String?
-  examDate     DateTime
-  isCancelled  Boolean  @default(false)
-  cancelReason String?
-  isLocked     Boolean  @default(false)
-  lockedAt     DateTime?
-  lockedBy     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  examDate           DateTime
+  isCancelled        Boolean   @default(false)
+  cancelReason       String?
+  isLocked           Boolean   @default(false)
+  lockedAt           DateTime?
+  lockedBy           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  absenceNotes AbsenceNote[]
-  period       ExamPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  questions    ExamQuestion[]
+  absenceNotes        AbsenceNote[]
+  period              ExamPeriod              @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  questions           ExamQuestion[]
   scoreDeadlineAlerts ScoreDeadlineAlertLog[]
-  scores       Score[]
+  scores              Score[]
 
   @@unique([periodId, examType, examDate, subject])
   @@index([periodId, examType, week])
@@ -162,8 +173,8 @@ model AbsenceNote {
   updatedAt                     DateTime         @updatedAt
 
   attachments AbsenceNoteAttachment[]
-  session ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student Student     @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+  session     ExamSession             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student     Student                 @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
   @@unique([examNumber, sessionId])
   @@index([status, submittedAt])
@@ -207,16 +218,16 @@ model AbsencePolicy {
 }
 
 model NotificationLog {
-  id         Int                 @id @default(autoincrement())
-  examNumber String
-  type       NotificationType
-  channel    NotificationChannel
-  message    String
-  status     String              @default("sent")
-  sentAt           DateTime            @default(now())
-  failReason       String?
+  id                Int                 @id @default(autoincrement())
+  examNumber        String
+  type              NotificationType
+  channel           NotificationChannel
+  message           String
+  status            String              @default("sent")
+  sentAt            DateTime            @default(now())
+  failReason        String?
   templateVariables Json?
-  dedupeKey        String?             @unique
+  dedupeKey         String?             @unique
 
   student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
@@ -371,6 +382,15 @@ model AdminUser {
   ownedMemos                     AdminMemo[]             @relation("AdminMemoOwner")
   scoreDeadlineAlerts            ScoreDeadlineAlertLog[]
   uploadedAbsenceNoteAttachments AbsenceNoteAttachment[] @relation("AbsenceNoteAttachmentUploader")
+  staff                          Staff?
+  managedEnrollments             CourseEnrollment[]
+  processedPayments              Payment[]
+  classroomsAsTeacher            Classroom[]             @relation("ClassroomTeacher")
+  lockerRentalsCreated           LockerRental[]
+  studyRoomBookingsAssigned      StudyRoomBooking[]
+  graduateRecordsCreated         GraduateRecord[]        @relation("GraduateRecordStaff")
+  issuedDiscountCodes            DiscountCode[]
+  paymentLinks                   PaymentLink[]
 
   @@map("admin_users")
 }
@@ -532,6 +552,9 @@ enum NotificationType {
   POINT
   NOTICE
   SCORE_DEADLINE
+  ENROLLMENT_COMPLETE
+  PAYMENT_COMPLETE
+  REFUND_COMPLETE
 }
 
 enum NotificationChannel {
@@ -556,9 +579,14 @@ enum ScoreSource {
 }
 
 enum AdminRole {
-  SUPER_ADMIN
-  TEACHER
-  VIEWER
+  SUPER_ADMIN // 대표/시스템관리자
+  DIRECTOR // 원장
+  DEPUTY_DIRECTOR // 부원장
+  MANAGER // 실장
+  ACADEMIC_ADMIN // 교무행정
+  COUNSELOR // 상담
+  TEACHER // 강사/선생님
+  VIEWER // 조회 전용
 }
 
 enum StudentStatus {
@@ -604,12 +632,949 @@ enum AdminMemoStatus {
   DONE
 }
 
+// ─── Phase 0: 수강·결제 기반 모델 ────────────────────────────────────────────
 
+enum CourseCategory {
+  COMPREHENSIVE // 종합반
+  SINGLE // 단과
+  SPECIAL // 특강
+}
 
+enum CourseStatus {
+  ACTIVE // 모집 중 / 진행 중
+  CLOSED // 마감
+  FINISHED // 종료
+  CANCELLED // 취소
+}
 
+model Course {
+  id              Int            @id @default(autoincrement())
+  name            String // 강좌명 (예: "2026 공채 종합반 1기")
+  category        CourseCategory
+  examType        ExamType? // null = 공통 (공채+경채 모두)
+  tuitionFee      Int // 수강료 (원)
+  description     String?
+  status          CourseStatus   @default(ACTIVE)
+  isActive        Boolean        @default(true)
+  maxCapacity     Int? // 정원 (null = 무제한)
+  cohortStartDate DateTime? // 기수 시작일
+  cohortEndDate   DateTime? // 기수 종료일 (학가 기준)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
+  paymentLinks PaymentLink[]
 
+  @@index([category, status, isActive])
+  @@index([examType, isActive])
+  @@map("courses")
+}
 
+model Textbook {
+  id        Int      @id @default(autoincrement())
+  title     String
+  author    String?
+  publisher String?
+  price     Int // 판매가 (원)
+  stock     Int      @default(0)
+  subject   Subject? // 관련 과목 (null = 일반)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@index([isActive])
+  @@map("textbooks")
+}
 
+// ─── Phase 0: 직원 권한 모델 ─────────────────────────────────────────────────
 
+enum StaffRole {
+  OWNER // 대표
+  DIRECTOR // 원장
+  DEPUTY_DIRECTOR // 부원장
+  MANAGER // 실장
+  ACADEMIC_ADMIN // 교무행정
+  COUNSELOR // 상담
+  TEACHER // 강사
+}
+
+model Staff {
+  id          String    @id @default(cuid())
+  authUid     String    @unique // Supabase Auth UUID
+  email       String    @unique
+  name        String
+  role        StaffRole
+  mobile      String?
+  isActive    Boolean   @default(true)
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+  adminUserId String?   @unique @db.Uuid // 기존 AdminUser 연동 (선택적)
+
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([role, isActive])
+  @@map("staffs")
+}
+
+// ─── Phase 1: 수강 등록 모델 ─────────────────────────────────────────────────
+
+enum ExamCategory {
+  GONGCHAE
+  GYEONGCHAE
+  SOGANG
+  CUSTOM
+}
+
+enum CourseType {
+  COMPREHENSIVE
+  SPECIAL_LECTURE
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  WAITING
+  SUSPENDED
+  COMPLETED
+  WITHDRAWN
+  CANCELLED
+}
+
+enum EnrollSource {
+  VISIT
+  PHONE
+  ONLINE
+  REFERRAL
+  SNS
+  OTHER
+}
+
+enum SpecialLectureType {
+  THEMED
+  SINGLE
+  INTERVIEW_COACHING
+}
+
+enum SettlementStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum FieldType {
+  TEXT
+  SELECT
+  CHECKBOX
+  DATE
+  NUMBER
+  MULTI_SELECT
+}
+
+enum DiscountType {
+  RATE
+  FIXED
+}
+
+// 강사 마스터
+model Instructor {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  phone       String?
+  email       String?
+  bankName    String?
+  bankAccount String?
+  bankHolder  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lectureSubjects SpecialLectureSubject[]
+
+  @@index([isActive])
+  @@map("instructors")
+}
+
+// 종합반 상품 마스터
+model ComprehensiveCourseProduct {
+  id             String       @id @default(cuid())
+  name           String
+  examCategory   ExamCategory
+  durationMonths Int
+  regularPrice   Int
+  salePrice      Int
+  features       String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  enrollments CourseEnrollment[]
+
+  @@index([examCategory, isActive])
+  @@map("comprehensive_course_products")
+}
+
+// 기수(期數) 마스터
+model Cohort {
+  id             String       @id @default(cuid())
+  name           String
+  examCategory   ExamCategory
+  targetExamYear Int?
+  startDate      DateTime
+  endDate        DateTime
+  maxCapacity    Int? // 정원 (null = 무제한)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  enrollments CourseEnrollment[]
+
+  @@index([examCategory, isActive])
+  @@map("cohorts")
+}
+
+// 특강 단과 마스터
+model SpecialLecture {
+  id                 String             @id @default(cuid())
+  name               String
+  lectureType        SpecialLectureType
+  examCategory       ExamCategory?
+  startDate          DateTime
+  endDate            DateTime
+  isMultiSubject     Boolean            @default(false)
+  fullPackagePrice   Int?
+  hasSeatAssignment  Boolean            @default(false)
+  hasLive            Boolean            @default(false)
+  hasOffline         Boolean            @default(true)
+  maxCapacityLive    Int?
+  maxCapacityOffline Int?
+  waitlistAllowed    Boolean            @default(true)
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  subjects         SpecialLectureSubject[]
+  enrollments      CourseEnrollment[]
+  discountPolicies SpecialLectureDiscount[]
+  fieldConfigs     SpecialLectureFieldConfig[]
+
+  @@index([isActive])
+  @@map("special_lectures")
+}
+
+// 특강 과목별 상세 (복합 특강)
+model SpecialLectureSubject {
+  id             String @id @default(cuid())
+  lectureId      String
+  subjectName    String
+  instructorId   String
+  price          Int
+  instructorRate Int
+  sortOrder      Int    @default(0)
+
+  lecture         SpecialLecture   @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  instructor      Instructor       @relation(fields: [instructorId], references: [id])
+  seatAssignments SeatAssignment[]
+
+  @@index([lectureId])
+  @@map("special_lecture_subjects")
+}
+
+// 좌석 배정 (hasSeatAssignment = true인 특강에서만 사용)
+model SeatAssignment {
+  id           String   @id @default(cuid())
+  subjectId    String
+  enrollmentId String
+  seatNumber   String
+  assignedAt   DateTime @default(now())
+
+  subject    SpecialLectureSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  enrollment CourseEnrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, seatNumber])
+  @@index([enrollmentId])
+  @@map("seat_assignments")
+}
+
+// 특강 할인 정책
+model SpecialLectureDiscount {
+  id            String       @id @default(cuid())
+  lectureId     String
+  name          String
+  discountType  DiscountType
+  discountValue Int
+  condition     String?
+  isExclusive   Boolean      @default(false)
+  isActive      Boolean      @default(true)
+
+  lecture SpecialLecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@index([lectureId, isActive])
+  @@map("special_lecture_discounts")
+}
+
+// 특강 커스텀 필드 설정
+model SpecialLectureFieldConfig {
+  id         String    @id @default(cuid())
+  lectureId  String
+  fieldKey   String
+  fieldLabel String
+  fieldType  FieldType
+  options    String?
+  isRequired Boolean   @default(false)
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+
+  lecture SpecialLecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@unique([lectureId, fieldKey])
+  @@map("special_lecture_field_configs")
+}
+
+// 특강 강사 정산 기록
+model SpecialLectureSettlement {
+  id               String           @id @default(cuid())
+  specialLectureId String
+  instructorId     String
+  settlementMonth  String
+  totalRevenue     Int
+  instructorRate   Int
+  instructorAmount Int
+  academyAmount    Int
+  status           SettlementStatus @default(PENDING)
+  paidAt           DateTime?
+  note             String?
+  createdAt        DateTime         @default(now())
+
+  @@unique([specialLectureId, instructorId, settlementMonth])
+  @@map("special_lecture_settlements")
+}
+
+// 수강 등록 (종합반 + 특강 공통)
+model CourseEnrollment {
+  id               String           @id @default(cuid())
+  examNumber       String
+  courseType       CourseType
+  productId        String?
+  cohortId         String?
+  specialLectureId String?
+  startDate        DateTime
+  endDate          DateTime?
+  regularFee       Int
+  discountAmount   Int              @default(0)
+  finalFee         Int
+  status           EnrollmentStatus @default(PENDING)
+  enrollSource     EnrollSource?
+  staffId          String           @db.Uuid
+  isRe             Boolean          @default(false)
+  prevEnrollmentId String?
+  waitlistOrder    Int? // 대기 순번 (status=WAITING인 경우)
+  extraData        Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  student         Student                     @relation(fields: [examNumber], references: [examNumber], onDelete: Restrict)
+  product         ComprehensiveCourseProduct? @relation(fields: [productId], references: [id])
+  cohort          Cohort?                     @relation(fields: [cohortId], references: [id])
+  specialLecture  SpecialLecture?             @relation(fields: [specialLectureId], references: [id])
+  staff           AdminUser                   @relation(fields: [staffId], references: [id])
+  seatAssignments SeatAssignment[]
+  leaveRecords    LeaveRecord[]
+
+  @@index([examNumber, status])
+  @@index([cohortId, status])
+  @@index([specialLectureId, status])
+  @@index([staffId])
+  @@index([courseType, status])
+  @@map("course_enrollments")
+}
+
+// 휴원 기록
+model LeaveRecord {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  leaveDate    DateTime
+  returnDate   DateTime?
+  reason       String?
+  approvedBy   String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@map("leave_records")
+}
+
+// ─── Phase 1: 수납·결제 모델 ─────────────────────────────────────────────────
+
+enum PaymentCategory {
+  TUITION // 수강료
+  FACILITY // 시설비 (사물함/스터디룸)
+  TEXTBOOK // 교재 판매
+  MATERIAL // 교구·소모품
+  SINGLE_COURSE // 단과 POS
+  PENALTY // 위약금
+  ETC // 기타
+}
+
+enum PaymentMethod {
+  CASH // 현금
+  CARD // 카드
+  TRANSFER // 계좌이체
+  POINT // 포인트
+  MIXED // 혼합
+}
+
+enum PaymentStatus {
+  PENDING // 처리 중
+  APPROVED // 승인 완료
+  PARTIAL_REFUNDED // 부분 환불
+  FULLY_REFUNDED // 전액 환불
+  CANCELLED // 취소/실패
+}
+
+enum RefundType {
+  CARD_CANCEL // 카드 당일 취소
+  CASH // 현금 환불
+  TRANSFER // 계좌이체 환불
+  PARTIAL // 부분 환불
+}
+
+// 수납 마스터 (결제 헤더)
+model Payment {
+  id             String          @id @default(cuid())
+  idempotencyKey String?         @unique
+  examNumber     String?
+  enrollmentId   String?
+  paymentLinkId  Int?            // 온라인 결제 링크를 통한 수납인 경우
+  category       PaymentCategory
+  method         PaymentMethod
+  status         PaymentStatus   @default(APPROVED)
+  grossAmount    Int
+  discountAmount Int             @default(0)
+  couponAmount   Int             @default(0)
+  pointAmount    Int             @default(0)
+  netAmount      Int
+  note           String?
+  processedBy    String          @db.Uuid
+  processedAt    DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  student             Student?           @relation(fields: [examNumber], references: [examNumber], onDelete: SetNull)
+  processor           AdminUser          @relation(fields: [processedBy], references: [id])
+  paymentLink         PaymentLink?       @relation(fields: [paymentLinkId], references: [id], onDelete: SetNull)
+  items               PaymentItem[]
+  refunds             Refund[]
+  installments        Installment[]
+  discountCodeUsages  DiscountCodeUsage[]
+
+  @@index([examNumber, processedAt])
+  @@index([processedAt])
+  @@index([processedBy])
+  @@index([category, processedAt])
+  @@index([status, processedAt])
+  @@map("payments")
+}
+
+// 수납 명세 항목
+model PaymentItem {
+  id        String          @id @default(cuid())
+  paymentId String
+  itemType  PaymentCategory
+  itemId    String?
+  itemName  String
+  unitPrice Int
+  quantity  Int             @default(1)
+  amount    Int
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_items")
+}
+
+// 환불 기록
+model Refund {
+  id            String     @id @default(cuid())
+  paymentId     String
+  refundType    RefundType
+  amount        Int
+  reason        String
+  approvedBy    String?    @db.Uuid
+  approvedAt    DateTime?
+  processedBy   String     @db.Uuid
+  processedAt   DateTime   @default(now())
+  bankName      String?
+  accountNo     String?
+  accountHolder String?
+  cardCancelNo  String?
+  createdAt     DateTime   @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+// 분할납부 계획
+model Installment {
+  id            String    @id @default(cuid())
+  paymentId     String
+  seq           Int
+  amount        Int
+  dueDate       DateTime
+  paidAt        DateTime?
+  paidPaymentId String?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, seq])
+  @@index([paymentId])
+  @@map("installments")
+}
+
+// 일일 정산
+model DailySettlement {
+  id             String    @id @default(cuid())
+  date           DateTime  @unique @db.Date
+  tuitionTotal   Int       @default(0)
+  facilityTotal  Int       @default(0)
+  textbookTotal  Int       @default(0)
+  posTotal       Int       @default(0)
+  etcTotal       Int       @default(0)
+  grossTotal     Int       @default(0)
+  refundTotal    Int       @default(0)
+  netTotal       Int       @default(0)
+  cashAmount     Int       @default(0)
+  cardAmount     Int       @default(0)
+  transferAmount Int       @default(0)
+  cashActual     Int?
+  cashDiff       Int?
+  closedAt       DateTime?
+  closedBy       String?   @db.Uuid
+  reopenedAt     DateTime?
+  reopenedBy     String?   @db.Uuid
+  reopenReason   String?
+
+  @@map("daily_settlements")
+}
+
+// ─── Phase 13: 담임반 관리 ─────────────────────────────────────────────────────
+
+enum ParseMatchStatus {
+  MATCHED // 학생 매칭 성공
+  UNMATCHED // 매칭 실패 (이름 없음)
+  AMBIGUOUS // 동명이인 (복수 매칭)
+}
+
+enum AttendSource {
+  KAKAO_PARSE // 카카오톡 파싱
+  MANUAL // 수기 입력
+  IMPORT // 일괄 가져오기
+}
+
+model Classroom {
+  id         String   @id @default(cuid())
+  name       String
+  teacherId  String   @db.Uuid
+  generation Int? // 담당 기수 (null = 기수 무관)
+  note       String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  teacher          AdminUser                  @relation("ClassroomTeacher", fields: [teacherId], references: [id])
+  students         ClassroomStudent[]
+  attendanceParses ClassroomAttendanceParse[]
+  attendanceLogs   ClassroomAttendanceLog[]
+
+  @@index([teacherId, isActive])
+  @@map("classrooms")
+}
+
+model ClassroomStudent {
+  id          String    @id @default(cuid())
+  classroomId String
+  examNumber  String
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime? // null = 현재 소속
+
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@unique([classroomId, examNumber])
+  @@index([classroomId])
+  @@index([examNumber])
+  @@map("classroom_students")
+}
+
+model ClassroomAttendanceParse {
+  id          String    @id @default(cuid())
+  classroomId String
+  rawText     String
+  parsedDate  DateTime? @db.Date
+  parsedCount Int       @default(0)
+  confirmedAt DateTime?
+  confirmedBy String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  classroom Classroom                   @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  results   ClassroomAttendanceResult[]
+
+  @@index([classroomId, parsedDate])
+  @@map("classroom_attendance_parses")
+}
+
+model ClassroomAttendanceResult {
+  id          String           @id @default(cuid())
+  parseId     String
+  examNumber  String?
+  rawName     String
+  matchStatus ParseMatchStatus
+  attendType  AttendType?
+  checkInTime String? // "HH:mm" 형식
+  isConfirmed Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  parse   ClassroomAttendanceParse @relation(fields: [parseId], references: [id], onDelete: Cascade)
+  student Student?                 @relation("ClassroomAttendanceResultStudent", fields: [examNumber], references: [examNumber], onDelete: SetNull)
+
+  @@index([parseId])
+  @@index([examNumber])
+  @@map("classroom_attendance_results")
+}
+
+model ClassroomAttendanceLog {
+  id          String       @id @default(cuid())
+  classroomId String
+  examNumber  String
+  attendDate  DateTime     @db.Date
+  attendType  AttendType
+  source      AttendSource
+  parseId     String? // 파싱 기반일 때 참조
+  updatedBy   String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  student   Student   @relation("ClassroomAttendanceLogStudent", fields: [examNumber], references: [examNumber], onDelete: Cascade)
+
+  @@unique([classroomId, examNumber, attendDate])
+  @@index([classroomId, attendDate])
+  @@index([examNumber, attendDate])
+  @@map("classroom_attendance_logs")
+}
+
+// ─── Phase 7: 시설 관리 ───────────────────────────────────────────────────────
+
+enum LockerZone {
+  CLASS_ROOM // 1강의실 방향 (1~120)
+  JIDEOK_LEFT // 지덕 좌 (A-1~A-40)
+  JIDEOK_RIGHT // 지덕 우 (121~168)
+}
+
+enum LockerStatus {
+  AVAILABLE // 사용 가능
+  IN_USE // 사용 중
+  RESERVED // 예약됨
+  BROKEN // 고장
+  BLOCKED // 사용 불가 (행정 차단)
+}
+
+enum RentalFeeUnit {
+  MONTHLY // 월정액
+  PER_COHORT // 기수별
+}
+
+enum RentalStatus {
+  ACTIVE // 대여 중
+  RETURNED // 반납 완료
+  EXPIRED // 기간 만료
+  CANCELLED // 취소
+}
+
+model Locker {
+  id           String       @id @default(cuid())
+  zone         LockerZone
+  lockerNumber String // 번호 표기 (예: "1", "A-1", "121")
+  row          Int? // 시각적 그리드 행
+  col          Int? // 시각적 그리드 열
+  status       LockerStatus @default(AVAILABLE)
+  note         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  rentals LockerRental[]
+
+  @@unique([zone, lockerNumber])
+  @@index([zone, status])
+  @@map("lockers")
+}
+
+model LockerRental {
+  id         String        @id @default(cuid())
+  lockerId   String
+  examNumber String
+  startDate  DateTime      @db.Date
+  endDate    DateTime?     @db.Date
+  feeUnit    RentalFeeUnit @default(MONTHLY)
+  feeAmount  Int           @default(0)
+  status     RentalStatus  @default(ACTIVE)
+  paidAt     DateTime?
+  paymentId  String? // Payment 참조 (선택적)
+  createdBy  String        @db.Uuid
+  note       String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  locker  Locker    @relation(fields: [lockerId], references: [id])
+  student Student   @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+  creator AdminUser @relation(fields: [createdBy], references: [id])
+
+  @@index([lockerId, status])
+  @@index([examNumber, status])
+  @@index([createdBy])
+  @@map("locker_rentals")
+}
+
+// 스터디룸
+
+enum BookingStatus {
+  CONFIRMED // 확정
+  CANCELLED // 취소
+  NOSHOW // 노쇼
+}
+
+model StudyRoom {
+  id          String   @id @default(cuid())
+  name        String
+  capacity    Int      @default(1)
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings StudyRoomBooking[]
+
+  @@index([isActive, sortOrder])
+  @@map("study_rooms")
+}
+
+model StudyRoomBooking {
+  id          String        @id @default(cuid())
+  roomId      String
+  examNumber  String
+  bookingDate DateTime      @db.Date
+  startTime   String // "HH:mm" 형식
+  endTime     String // "HH:mm" 형식
+  status      BookingStatus @default(CONFIRMED)
+  assignedBy  String        @db.Uuid
+  note        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  room     StudyRoom @relation(fields: [roomId], references: [id])
+  student  Student   @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+  assigner AdminUser @relation(fields: [assignedBy], references: [id])
+
+  @@index([roomId, bookingDate])
+  @@index([examNumber, bookingDate])
+  @@index([assignedBy])
+  @@map("study_room_bookings")
+}
+
+// ─── Phase 8: 합격자 관리 ─────────────────────────────────────────────────────
+
+enum PassType {
+  WRITTEN_PASS // 필기합격
+  FINAL_PASS // 최종합격
+  APPOINTED // 임용
+  WRITTEN_FAIL // 필기불합격
+  FINAL_FAIL // 최종불합격 (필기합격 후 면접 탈락)
+}
+
+model GraduateRecord {
+  id              String    @id @default(cuid())
+  examNumber      String
+  examName        String // 시험명 (예: 2026 경찰공무원 순경)
+  passType        PassType
+  writtenPassDate DateTime? @db.Date
+  finalPassDate   DateTime? @db.Date
+  appointedDate   DateTime? @db.Date
+  enrolledMonths  Int? // 수강 기간 (월) — 등록 시 자동 계산
+  testimony       String? // 합격 수기
+  isPublic        Boolean   @default(false) // 수기 공개 여부
+  staffId         String    @db.Uuid // 담당 직원
+  note            String? // 내부 메모
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  student       Student                @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+  staff         AdminUser              @relation("GraduateRecordStaff", fields: [staffId], references: [id])
+  scoreSnapshot GraduateScoreSnapshot?
+
+  @@index([examNumber])
+  @@index([passType])
+  @@index([staffId])
+  @@map("graduate_records")
+}
+
+model GraduateScoreSnapshot {
+  id                  String   @id @default(cuid())
+  graduateId          String   @unique
+  examNumber          String
+  totalEnrolledMonths Int
+  overallAverage      Float?
+  finalMonthAverage   Float?
+  attendanceRate      Float?
+  subjectAverages     Json // Record<Subject, number>
+  monthlyAverages     Json // Array<{ year, month, avg }>
+  first3MonthsAvg     Float?
+  last3MonthsAvg      Float?
+  createdAt           DateTime @default(now())
+
+  graduate GraduateRecord @relation(fields: [graduateId], references: [id], onDelete: Cascade)
+
+  @@index([examNumber])
+  @@map("graduate_score_snapshots")
+}
+
+// ─── Phase 11: 시스템 설정 ────────────────────────────────────────────────────
+
+model AcademySettings {
+  id            Int      @id @default(1) // 단일 행 보장
+  name          String   @default("")
+  directorName  String   @default("")
+  businessRegNo String   @default("")
+  academyRegNo  String   @default("")
+  address       String   @default("")
+  phone         String   @default("")
+  bankName      String   @default("")
+  bankAccount   String   @default("")
+  bankHolder    String   @default("")
+  websiteUrl    String   @default("")
+  updatedAt     DateTime @updatedAt
+
+  @@map("academy_settings")
+}
+
+model CivilServiceExam {
+  id            Int       @id @default(autoincrement())
+  name          String
+  examType      ExamType
+  year          Int
+  writtenDate   DateTime? @db.Date
+  interviewDate DateTime? @db.Date
+  resultDate    DateTime? @db.Date
+  description   String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([examType, year])
+  @@index([isActive])
+  @@map("civil_service_exams")
+}
+
+// ─── Phase 9: 포인트 정책 ─────────────────────────────────────────────────────
+
+model DiscountCode {
+  id            Int                 @id @default(autoincrement())
+  code          String              @unique
+  type          CodeType
+  discountType  DiscountType // RATE=퍼센트(%), FIXED=고정액(원)
+  discountValue Int // 금액(원) 또는 퍼센트(%)
+  maxUsage      Int? // null = 무제한
+  usageCount    Int                 @default(0)
+  validFrom     DateTime            @db.Date
+  validUntil    DateTime?           @db.Date
+  isActive      Boolean             @default(true)
+  staffId       String              @db.Uuid
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  staff  AdminUser           @relation(fields: [staffId], references: [id])
+  usages DiscountCodeUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("discount_codes")
+}
+
+model DiscountCodeUsage {
+  id         Int      @id @default(autoincrement())
+  codeId     Int
+  paymentId  String
+  examNumber String
+  usedAt     DateTime @default(now())
+
+  code    DiscountCode @relation(fields: [codeId], references: [id])
+  payment Payment      @relation(fields: [paymentId], references: [id])
+  student Student      @relation(fields: [examNumber], references: [examNumber])
+
+  @@index([codeId])
+  @@index([paymentId])
+  @@index([examNumber])
+  @@map("discount_code_usages")
+}
+
+enum CodeType {
+  REFERRAL // 추천인 코드
+  ENROLLMENT // 입소 코드
+  CAMPAIGN // 캠페인 코드
+}
+
+model PointPolicy {
+  id            Int      @id @default(autoincrement())
+  name          String // 제도명 (예: "출석 우수 포인트")
+  description   String?
+  defaultAmount Int // 기본 지급량 (원)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("point_policies")
+}
+
+// ---------------------------------------------------------------------------
+// 온라인 결제 링크 (Payment Link)
+// ---------------------------------------------------------------------------
+
+enum LinkStatus {
+  ACTIVE   // 사용 가능
+  EXPIRED  // 만료됨
+  DISABLED // 직원이 비활성화
+  USED_UP  // maxUsage 도달
+}
+
+model PaymentLink {
+  id             Int         @id @default(autoincrement())
+  token          String      @unique @default(cuid())
+  title          String      // 링크 제목 (예: "2026 공채 종합반 3월 등록")
+  courseId       Int?
+  amount         Int         // 정상 결제 금액
+  discountAmount Int         @default(0)
+  finalAmount    Int         // 실결제 금액 = amount - discountAmount
+  allowPoint     Boolean     @default(true)
+  expiresAt      DateTime
+  maxUsage       Int?        // null = 무제한
+  usageCount     Int         @default(0)
+  status         LinkStatus  @default(ACTIVE)
+  note           String?
+  createdBy      String      @db.Uuid
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  course   Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  staff    AdminUser  @relation(fields: [createdBy], references: [id])
+  payments Payment[]
+
+  @@index([token])
+  @@index([status])
+  @@index([createdBy])
+  @@map("payment_links")
+}

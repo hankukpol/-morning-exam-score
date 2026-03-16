@@ -1,0 +1,895 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { ExamCategory, EnrollSource } from "@prisma/client";
+import {
+  ENROLL_SOURCE_LABEL,
+  EXAM_CATEGORY_LABEL,
+} from "@/lib/constants";
+import { formatDate } from "@/lib/format";
+
+type StudentResult = {
+  examNumber: string;
+  name: string;
+  phone: string | null;
+  isActive: boolean;
+  currentStatus?: string | null;
+};
+
+type ProductRecord = {
+  id: string;
+  name: string;
+  examCategory: ExamCategory;
+  durationMonths: number;
+  regularPrice: number;
+  salePrice: number;
+  features: string | null;
+  isActive: boolean;
+};
+
+type CohortRecord = {
+  id: string;
+  name: string;
+  examCategory: ExamCategory;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+};
+
+type SpecialLectureSubjectRecord = {
+  id: string;
+  subjectName: string;
+  instructorName: string;
+  price: number;
+  instructorRate: number;
+};
+
+type SpecialLectureRecord = {
+  id: string;
+  name: string;
+  lectureType: string;
+  examCategory: string | null;
+  startDate: string;
+  endDate: string;
+  isMultiSubject: boolean;
+  fullPackagePrice: number | null;
+  subjects: SpecialLectureSubjectRecord[];
+};
+
+type Props = {
+  initialProducts: ProductRecord[];
+  initialCohorts: CohortRecord[];
+  initialSpecialLectures?: SpecialLectureRecord[];
+};
+
+const ENROLL_SOURCE_VALUES = Object.values(EnrollSource);
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store",
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error ?? "요청에 실패했습니다.");
+  return payload as T;
+}
+
+type Step = 1 | 2 | 3;
+
+export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecialLectures = [] }: Props) {
+  const router = useRouter();
+  const [step, setStep] = useState<Step>(1);
+  const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Step 1 – 학생 선택
+  const [studentSearch, setStudentSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<StudentResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<StudentResult | null>(null);
+
+  // Step 2 – 수강 정보
+  const [courseType, setCourseType] = useState<"COMPREHENSIVE" | "SPECIAL_LECTURE">(
+    "COMPREHENSIVE",
+  );
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedCohortId, setSelectedCohortId] = useState<string>("");
+  const [selectedSpecialLectureId, setSelectedSpecialLectureId] = useState<string>("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [enrollSource, setEnrollSource] = useState<EnrollSource | "">("");
+  const [isRe, setIsRe] = useState(false);
+
+  // Step 3 – 수강료
+  const [regularFee, setRegularFee] = useState("");
+  const [selectedDiscountTypes, setSelectedDiscountTypes] = useState<string[]>([]);
+  const [discountBaseInput, setDiscountBaseInput] = useState(""); // 인강/타학원 환승 기준 금액
+  const [manualDiscountInput, setManualDiscountInput] = useState("0"); // 관리자 직접 입력
+
+  function calcDiscountAmount(types: string[], fee: number, baseInput: string, manualInput: string): number {
+    let total = 0;
+    for (const t of types) {
+      if (t === "SIMULTANEOUS") total += 50000;
+      else if (t === "SIBLING") total += 100000;
+      else if (t === "POLICE_ADMIN") total += 100000;
+      else if (t === "FAMILY") total += 100000;
+      else if (t === "RETURNING_30") total += Math.round(fee * 0.3);
+      else if (t === "RETURNING_50") total += Math.round(fee * 0.5);
+      else if (t === "ONLINE") total += Math.round((Number(baseInput) || 0) * 0.5);
+      else if (t === "TRANSFER") total += Math.round((Number(baseInput) || 0) * 0.3);
+      else if (t === "ADMIN_MANUAL") total += Number(manualInput) || 0;
+    }
+    return Math.min(total, 500000);
+  }
+
+  const discountAmount = String(
+    calcDiscountAmount(selectedDiscountTypes, Number(regularFee) || 0, discountBaseInput, manualDiscountInput),
+  );
+
+  const finalFee = Math.max(0, (Number(regularFee) || 0) - Number(discountAmount));
+
+  const selectedProduct = initialProducts.find((p) => p.id === selectedProductId) ?? null;
+  const selectedCohort = initialCohorts.find((c) => c.id === selectedCohortId) ?? null;
+
+  // Filter cohorts by selected product's examCategory
+  const filteredCohorts = selectedProduct
+    ? initialCohorts.filter(
+        (c) => c.examCategory === selectedProduct.examCategory && c.isActive,
+      )
+    : initialCohorts.filter((c) => c.isActive);
+
+  function handleSearchStudents() {
+    if (!studentSearch.trim()) return;
+    setIsSearching(true);
+    setErrorMessage(null);
+
+    startTransition(async () => {
+      try {
+        const result = await requestJson<{ students: StudentResult[] }>(
+          `/api/students?search=${encodeURIComponent(studentSearch.trim())}&limit=10`,
+        );
+        setSearchResults(result.students ?? []);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "학생 검색에 실패했습니다.");
+      } finally {
+        setIsSearching(false);
+      }
+    });
+  }
+
+  function handleSelectStudent(student: StudentResult) {
+    setSelectedStudent(student);
+    setSearchResults([]);
+    setStudentSearch("");
+  }
+
+  function handleProductSelect(product: ProductRecord) {
+    setSelectedProductId(product.id);
+    setRegularFee(String(product.salePrice));
+    // Reset cohort when product changes
+    setSelectedCohortId("");
+    setStartDate("");
+    setEndDate("");
+  }
+
+  function handleCohortSelect(cohort: CohortRecord) {
+    setSelectedCohortId(cohort.id);
+    setStartDate(cohort.startDate.slice(0, 10));
+    setEndDate(cohort.endDate.slice(0, 10));
+  }
+
+  function handleSpecialLectureSelect(lecture: SpecialLectureRecord) {
+    setSelectedSpecialLectureId(lecture.id);
+    setStartDate(lecture.startDate);
+    setEndDate(lecture.endDate);
+    // Auto-fill fee: use package price if multi-subject, or sum of all subjects
+    if (lecture.isMultiSubject && lecture.fullPackagePrice) {
+      setRegularFee(String(lecture.fullPackagePrice));
+    } else if (lecture.subjects.length === 1) {
+      setRegularFee(String(lecture.subjects[0].price));
+    } else {
+      setRegularFee("");
+    }
+  }
+
+  const selectedSpecialLecture = initialSpecialLectures.find((l) => l.id === selectedSpecialLectureId) ?? null;
+
+  function validateStep1(): string | null {
+    if (!selectedStudent) return "학생을 선택하세요.";
+    return null;
+  }
+
+  function validateStep2(): string | null {
+    if (courseType === "COMPREHENSIVE") {
+      if (!selectedProductId) return "상품을 선택하세요.";
+      if (!selectedCohortId) return "기수를 선택하세요.";
+      if (!startDate) return "시작일을 입력하세요.";
+    } else if (courseType === "SPECIAL_LECTURE") {
+      if (!selectedSpecialLectureId) return "특강을 선택하세요.";
+      if (!startDate) return "시작일을 입력하세요.";
+    }
+    return null;
+  }
+
+  function validateStep3(): string | null {
+    if (!regularFee || Number(regularFee) < 0) return "수강료를 입력하세요.";
+    if (Number(discountAmount) < 0 || Number(discountAmount) > 500000) return "할인 금액은 0~50만원 이내이어야 합니다.";
+    if (finalFee < 0) return "최종 수강료가 0 미만이 될 수 없습니다.";
+    return null;
+  }
+
+  function goToStep2() {
+    const err = validateStep1();
+    if (err) {
+      setErrorMessage(err);
+      return;
+    }
+    setErrorMessage(null);
+    setStep(2);
+  }
+
+  function goToStep3() {
+    const err = validateStep2();
+    if (err) {
+      setErrorMessage(err);
+      return;
+    }
+    setErrorMessage(null);
+    setStep(3);
+  }
+
+  function handleSubmit() {
+    const err = validateStep3();
+    if (err) {
+      setErrorMessage(err);
+      return;
+    }
+    setErrorMessage(null);
+
+    startTransition(async () => {
+      try {
+        await requestJson("/api/enrollments", {
+          method: "POST",
+          body: JSON.stringify({
+            examNumber: selectedStudent!.examNumber,
+            courseType,
+            productId: courseType === "COMPREHENSIVE" ? selectedProductId : undefined,
+            cohortId: courseType === "COMPREHENSIVE" ? selectedCohortId : undefined,
+            specialLectureId: courseType === "SPECIAL_LECTURE" ? selectedSpecialLectureId : undefined,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+            regularFee: Number(regularFee),
+            discountAmount: Number(discountAmount) || 0,
+            finalFee,
+            enrollSource: enrollSource || undefined,
+            isRe,
+            extraData: selectedDiscountTypes.length > 0 ? { discountTypes: selectedDiscountTypes } : undefined,
+          }),
+        });
+        router.push("/admin/enrollments");
+        router.refresh();
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "등록에 실패했습니다.");
+      }
+    });
+  }
+
+  const stepLabels: Record<Step, string> = {
+    1: "학생 선택",
+    2: "수강 정보",
+    3: "수강료 확인",
+  };
+
+  return (
+    <div className="max-w-2xl space-y-8">
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {([1, 2, 3] as Step[]).map((s) => (
+          <div key={s} className="flex items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition ${
+                step === s
+                  ? "bg-ember text-white"
+                  : step > s
+                    ? "bg-forest text-white"
+                    : "border border-ink/10 bg-white text-slate"
+              }`}
+            >
+              {step > s ? "✓" : s}
+            </div>
+            <span
+              className={`text-sm font-medium ${step === s ? "text-ink" : "text-slate"}`}
+            >
+              {stepLabels[s]}
+            </span>
+            {s < 3 ? <span className="mx-1 text-ink/20">›</span> : null}
+          </div>
+        ))}
+      </div>
+
+      {/* Error message */}
+      {errorMessage ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {/* ── Step 1: 학생 선택 ── */}
+      {step === 1 ? (
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6 space-y-5">
+          <h2 className="text-lg font-semibold text-ink">학생 선택</h2>
+
+          {/* Selected student card */}
+          {selectedStudent ? (
+            <div className="rounded-[20px] border border-forest/20 bg-forest/10 p-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="font-semibold text-ink">{selectedStudent.name}</div>
+                <div className="mt-1 text-sm text-slate">
+                  수험번호: {selectedStudent.examNumber}
+                </div>
+                {selectedStudent.phone ? (
+                  <div className="text-sm text-slate">연락처: {selectedStudent.phone}</div>
+                ) : null}
+                {!selectedStudent.isActive ? (
+                  <span className="mt-1 inline-flex rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-xs text-red-700">
+                    비활성 학생
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="text-xs text-slate underline hover:text-ink"
+              >
+                변경
+              </button>
+            </div>
+          ) : null}
+
+          {/* Search */}
+          {!selectedStudent ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-ink">
+                이름 또는 수험번호로 검색
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSearchStudents();
+                  }}
+                  placeholder="예: 홍길동 또는 2026001"
+                  className="flex-1 rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+                />
+                <button
+                  type="button"
+                  disabled={isPending || isSearching || !studentSearch.trim()}
+                  onClick={handleSearchStudents}
+                  className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSearching ? "검색 중..." : "검색"}
+                </button>
+              </div>
+
+              {/* Search results */}
+              {searchResults.length > 0 ? (
+                <div className="rounded-[20px] border border-ink/10 overflow-hidden">
+                  {searchResults.map((student) => (
+                    <button
+                      key={student.examNumber}
+                      type="button"
+                      onClick={() => handleSelectStudent(student)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-mist/50 transition border-b border-ink/5 last:border-0"
+                    >
+                      <div>
+                        <div className="font-medium text-ink">{student.name}</div>
+                        <div className="text-xs text-slate">
+                          {student.examNumber}
+                          {student.phone ? ` · ${student.phone}` : ""}
+                        </div>
+                      </div>
+                      {!student.isActive ? (
+                        <span className="text-xs text-red-500">비활성</span>
+                      ) : (
+                        <span className="text-xs text-slate">선택 →</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {searchResults.length === 0 && studentSearch && !isSearching ? (
+                <p className="text-xs text-slate">검색 버튼을 눌러 학생을 찾아보세요.</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              disabled={!selectedStudent || isPending}
+              onClick={goToStep2}
+              className="rounded-full bg-ember px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              다음 단계 →
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Step 2: 수강 정보 ── */}
+      {step === 2 ? (
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6 space-y-6">
+          <h2 className="text-lg font-semibold text-ink">수강 정보</h2>
+
+          {/* Selected student summary */}
+          {selectedStudent ? (
+            <div className="rounded-[20px] bg-mist px-4 py-3 text-sm text-slate">
+              학생:{" "}
+              <span className="font-semibold text-ink">
+                {selectedStudent.name}
+              </span>{" "}
+              ({selectedStudent.examNumber})
+            </div>
+          ) : null}
+
+          {/* CourseType radio */}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-3">
+              수강 유형 <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3">
+              {(["COMPREHENSIVE", "SPECIAL_LECTURE"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setCourseType(type)}
+                  className={`flex-1 rounded-[20px] border p-4 text-left transition ${
+                    courseType === type
+                      ? "border-ember bg-ember/5"
+                      : "border-ink/10 hover:border-ink/20"
+                  }`}
+                >
+                  <div
+                    className={`font-semibold ${courseType === type ? "text-ember" : "text-ink"}`}
+                  >
+                    {type === "COMPREHENSIVE" ? "종합반" : "특강 단과"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate">
+                    {type === "COMPREHENSIVE"
+                      ? "기수별 종합반 수강 등록"
+                      : "단일 특강 수강 등록"}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* COMPREHENSIVE options */}
+          {courseType === "COMPREHENSIVE" ? (
+            <>
+              {/* Product selector */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-3">
+                  상품 선택 <span className="text-red-500">*</span>
+                </label>
+                {initialProducts.filter((p) => p.isActive).length === 0 ? (
+                  <p className="text-sm text-slate">등록된 상품이 없습니다.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {initialProducts
+                      .filter((p) => p.isActive)
+                      .map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => handleProductSelect(product)}
+                          className={`rounded-[20px] border p-4 text-left transition card-lift ${
+                            selectedProductId === product.id
+                              ? "border-ember bg-ember/5"
+                              : "border-ink/10 hover:border-ink/20"
+                          }`}
+                        >
+                          <div
+                            className={`font-semibold ${selectedProductId === product.id ? "text-ember" : "text-ink"}`}
+                          >
+                            {product.name}
+                          </div>
+                          <div className="mt-1 text-xs text-slate">
+                            {EXAM_CATEGORY_LABEL[product.examCategory]} ·{" "}
+                            {product.durationMonths}개월
+                          </div>
+                          <div className="mt-2 font-medium text-ink tabular-nums">
+                            {product.salePrice.toLocaleString()}원
+                            {product.regularPrice !== product.salePrice ? (
+                              <span className="ml-2 text-xs text-slate line-through">
+                                {product.regularPrice.toLocaleString()}원
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Cohort selector */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-3">
+                  기수 선택 <span className="text-red-500">*</span>
+                </label>
+                {filteredCohorts.length === 0 ? (
+                  <p className="text-sm text-slate">
+                    {selectedProduct
+                      ? `${EXAM_CATEGORY_LABEL[selectedProduct.examCategory]} 기수가 없습니다.`
+                      : "활성 기수가 없습니다."}
+                  </p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {filteredCohorts.map((cohort) => (
+                      <button
+                        key={cohort.id}
+                        type="button"
+                        onClick={() => handleCohortSelect(cohort)}
+                        className={`rounded-[20px] border p-4 text-left transition card-lift ${
+                          selectedCohortId === cohort.id
+                            ? "border-forest bg-forest/5"
+                            : "border-ink/10 hover:border-ink/20"
+                        }`}
+                      >
+                        <div
+                          className={`font-semibold ${selectedCohortId === cohort.id ? "text-forest" : "text-ink"}`}
+                        >
+                          {cohort.name}
+                        </div>
+                        <div className="mt-1 text-xs text-slate">
+                          {EXAM_CATEGORY_LABEL[cohort.examCategory]}
+                        </div>
+                        <div className="mt-1 text-xs text-slate tabular-nums">
+                          {formatDate(cohort.startDate)} ~ {formatDate(cohort.endDate)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Date overrides */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    시작일 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">종료일</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+                  />
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {/* SPECIAL_LECTURE selector */}
+          {courseType === "SPECIAL_LECTURE" ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-3">
+                  특강 선택 <span className="text-red-500">*</span>
+                </label>
+                {initialSpecialLectures.length === 0 ? (
+                  <p className="text-sm text-slate">
+                    활성 특강이 없습니다.{" "}
+                    <a href="/admin/settings/special-lectures" className="text-forest underline">
+                      특강 등록하기
+                    </a>
+                  </p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {initialSpecialLectures.map((lecture) => (
+                      <button
+                        key={lecture.id}
+                        type="button"
+                        onClick={() => handleSpecialLectureSelect(lecture)}
+                        className={`rounded-[20px] border p-4 text-left transition card-lift ${
+                          selectedSpecialLectureId === lecture.id
+                            ? "border-ember bg-ember/5"
+                            : "border-ink/10 hover:border-ink/20"
+                        }`}
+                      >
+                        <div className={`font-semibold ${selectedSpecialLectureId === lecture.id ? "text-ember" : "text-ink"}`}>
+                          {lecture.name}
+                        </div>
+                        <div className="mt-1 text-xs text-slate">
+                          {lecture.startDate} ~ {lecture.endDate}
+                        </div>
+                        {lecture.subjects.length > 0 && (
+                          <div className="mt-2 space-y-0.5">
+                            {lecture.subjects.map((s) => (
+                              <div key={s.id} className="text-xs text-slate">
+                                {s.subjectName} · {s.instructorName} · {s.price.toLocaleString()}원
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedSpecialLecture && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">시작일 *</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">종료일</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {/* enrollSource */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">등록 경로</label>
+            <select
+              value={enrollSource}
+              onChange={(e) => setEnrollSource(e.target.value as EnrollSource | "")}
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+            >
+              <option value="">선택 안 함</option>
+              {ENROLL_SOURCE_VALUES.map((src) => (
+                <option key={src} value={src}>
+                  {ENROLL_SOURCE_LABEL[src]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* isRe */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isRe}
+              onChange={(e) => setIsRe(e.target.checked)}
+              className="h-4 w-4 rounded border-ink/20 accent-ember"
+            />
+            <span className="text-sm text-ink">재수강</span>
+          </label>
+
+          <div className="flex justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMessage(null);
+                setStep(1);
+              }}
+              className="rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ink/30"
+            >
+              ← 이전
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={goToStep3}
+              className="rounded-full bg-ember px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              다음 단계 →
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Step 3: 수강료 확인 ── */}
+      {step === 3 ? (
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6 space-y-6">
+          <h2 className="text-lg font-semibold text-ink">수강료 확인</h2>
+
+          {/* Summary */}
+          <div className="rounded-[20px] bg-mist p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate">학생</span>
+              <span className="font-medium text-ink">
+                {selectedStudent?.name} ({selectedStudent?.examNumber})
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate">수강 유형</span>
+              <span className="font-medium text-ink">{courseType === "COMPREHENSIVE" ? "종합반" : "특강 단과"}</span>
+            </div>
+            {courseType === "COMPREHENSIVE" && selectedCohort ? (
+              <div className="flex justify-between">
+                <span className="text-slate">기수</span>
+                <span className="font-medium text-ink">{selectedCohort.name}</span>
+              </div>
+            ) : null}
+            {courseType === "COMPREHENSIVE" && selectedProduct ? (
+              <div className="flex justify-between">
+                <span className="text-slate">상품</span>
+                <span className="font-medium text-ink">{selectedProduct.name}</span>
+              </div>
+            ) : null}
+            {courseType === "SPECIAL_LECTURE" && selectedSpecialLecture ? (
+              <div className="flex justify-between">
+                <span className="text-slate">특강</span>
+                <span className="font-medium text-ink">{selectedSpecialLecture.name}</span>
+              </div>
+            ) : null}
+            {startDate ? (
+              <div className="flex justify-between">
+                <span className="text-slate">기간</span>
+                <span className="font-medium text-ink tabular-nums">
+                  {startDate}
+                  {endDate ? ` ~ ${endDate}` : ""}
+                </span>
+              </div>
+            ) : null}
+            {enrollSource ? (
+              <div className="flex justify-between">
+                <span className="text-slate">등록 경로</span>
+                <span className="font-medium text-ink">
+                  {ENROLL_SOURCE_LABEL[enrollSource as EnrollSource]}
+                </span>
+              </div>
+            ) : null}
+            {isRe ? (
+              <div className="flex justify-between">
+                <span className="text-slate">재수강</span>
+                <span className="font-medium text-ink">예</span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Fee inputs */}
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                수강료 (원) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={regularFee}
+                onChange={(e) => setRegularFee(e.target.value)}
+                placeholder="예: 500000"
+                className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-ink/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                할인 유형 <span className="text-xs text-slate font-normal">(최대 2개, 한도 50만원)</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: "SIMULTANEOUS", label: "동시수강", sub: "−5만" },
+                  { key: "SIBLING", label: "형제", sub: "−10만" },
+                  { key: "POLICE_ADMIN", label: "경찰행정학과", sub: "−10만" },
+                  { key: "FAMILY", label: "직계가족", sub: "−10만" },
+                  { key: "RETURNING_30", label: "종합반재수강", sub: "−30%" },
+                  { key: "RETURNING_50", label: "이론반재수강", sub: "−50%" },
+                  { key: "ONLINE", label: "인강생혜택", sub: "인강금액×50%" },
+                  { key: "TRANSFER", label: "타학원환승", sub: "결제금액×30%" },
+                  { key: "ADMIN_MANUAL", label: "직접입력", sub: "" },
+                ] as const).map(({ key, label, sub }) => {
+                  const selected = selectedDiscountTypes.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDiscountTypes((prev) => {
+                          if (prev.includes(key)) return prev.filter((t) => t !== key);
+                          if (prev.length >= 2) return prev;
+                          return [...prev, key];
+                        });
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        selected
+                          ? "border-forest bg-forest text-white"
+                          : "border-ink/10 bg-white text-ink hover:border-forest/40"
+                      }`}
+                    >
+                      {label}
+                      {sub && <span className={`ml-1 ${selected ? "opacity-80" : "text-slate"}`}>{sub}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {(selectedDiscountTypes.includes("ONLINE") || selectedDiscountTypes.includes("TRANSFER")) && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs text-slate">
+                    {selectedDiscountTypes.includes("ONLINE") ? "인강 결제금액" : "타학원 결제금액"} (원)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={discountBaseInput}
+                    onChange={(e) => setDiscountBaseInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm outline-none focus:border-ink/30"
+                  />
+                </div>
+              )}
+              {selectedDiscountTypes.includes("ADMIN_MANUAL") && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs text-slate">할인 금액 직접 입력 (원)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={manualDiscountInput}
+                    onChange={(e) => setManualDiscountInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm outline-none focus:border-ink/30"
+                  />
+                </div>
+              )}
+              {Number(discountAmount) > 0 && (
+                <p className="mt-1.5 text-sm font-semibold text-forest">
+                  적용 할인: {Number(discountAmount).toLocaleString()}원
+                  {Number(discountAmount) >= 500000 && <span className="ml-1 text-xs text-ember font-normal">(50만원 한도 적용)</span>}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Final fee display */}
+          <div className="rounded-[20px] border border-ember/20 bg-ember/5 px-5 py-4 flex items-center justify-between">
+            <span className="text-sm font-medium text-ember">최종 수강료</span>
+            <span className="text-2xl font-bold text-ember tabular-nums">
+              {finalFee.toLocaleString()}원
+            </span>
+          </div>
+
+          <div className="flex justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMessage(null);
+                setStep(2);
+              }}
+              className="rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ink/30"
+            >
+              ← 이전
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleSubmit}
+              className="rounded-full bg-ember px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPending ? "등록 중..." : "수강 등록 완료"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

@@ -3,29 +3,51 @@ import { notFound, redirect } from "next/navigation";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext, roleAtLeast } from "@/lib/auth";
 import { getStudentHistory } from "@/lib/students/service";
-import { getStudentCumulativeAnalysis, getStudentDetailAnalysis } from "@/lib/analytics/analysis";
+import { getStudentCumulativeAnalysis, getStudentDetailAnalysis, getStudentCounselingBriefing } from "@/lib/analytics/analysis";
 import { getCounselingProfile } from "@/lib/counseling/service";
 import { getStudentTimeline } from "@/lib/students/timeline";
 import { StudentScoreHistoryManager } from "@/components/students/student-score-history-manager";
 import { StudentCumulativeAnalysis } from "@/components/students/student-cumulative-analysis";
 import { StudentTimeline } from "@/components/students/student-timeline";
 import { CounselingPanel } from "@/components/counseling/counseling-panel";
+import {
+  StudentEnrollmentsPanel,
+  type StudentEnrollmentRow,
+} from "@/components/students/student-enrollments-panel";
+import {
+  StudentPaymentsPanel,
+  type StudentPaymentRow,
+} from "@/components/students/student-payments-panel";
+import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { BarComparisonChart, RadarComparisonChart, TrendLineChart } from "@/components/analytics/charts";
 import { SubjectScoreHeatmap } from "@/components/analytics/subject-score-heatmap";
+import { CounselingBriefingCard } from "@/components/students/counseling-briefing-card";
+import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
+import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["history", "cumulative", "analysis", "timeline", "counseling"] as const;
+const TABS = [
+  "history",
+  "cumulative",
+  "analysis",
+  "timeline",
+  "counseling",
+  "enrollments",
+  "payments",
+] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   history: "성적 이력",
   cumulative: "누적 분석",
   analysis: "기간별 분석",
-  timeline: "\uD0C0\uC784\uB77C\uC778",
+  timeline: "타임라인",
   counseling: "면담",
+  enrollments: "수업",
+  payments: "수납",
 };
 
 type PageProps = {
@@ -53,23 +75,107 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   let analysisData = null;
   let timelineData = null;
   let counselingProfile = null;
+  let briefingData = null;
+  let studentEnrollments: StudentEnrollmentRow[] | null = null;
+  let studentPayments: StudentPaymentRow[] | null = null;
 
   if (tab === "cumulative") {
     cumulativeData = await getStudentCumulativeAnalysis(params.examNumber);
   } else if (tab === "analysis") {
     const periodId = Number(readParam(searchParams, "periodId")) || undefined;
-    analysisData = await getStudentDetailAnalysis({ examNumber: params.examNumber, periodId });
+    const recent = Number(readParam(searchParams, "recent")) || undefined;
+    analysisData = await getStudentDetailAnalysis({ examNumber: params.examNumber, periodId, recent });
   } else if (tab === "timeline") {
     if (!canEdit) redirect(`/admin/students/${params.examNumber}?tab=history`);
     timelineData = await getStudentTimeline({ examNumber: params.examNumber });
   } else if (tab === "counseling") {
     if (!canEdit) redirect(`/admin/students/${params.examNumber}?tab=history`);
-    counselingProfile = await getCounselingProfile(params.examNumber);
+    [counselingProfile, briefingData] = await Promise.all([
+      getCounselingProfile(params.examNumber),
+      getStudentCounselingBriefing(params.examNumber),
+    ]);
+  } else if (tab === "enrollments") {
+    const rows = await getPrisma().courseEnrollment.findMany({
+      where: { examNumber: params.examNumber },
+      include: {
+        cohort: { select: { name: true, examCategory: true } },
+        product: { select: { name: true } },
+        specialLecture: { select: { name: true } },
+        staff: { select: { name: true } },
+        leaveRecords: { orderBy: { leaveDate: "desc" } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    studentEnrollments = rows.map((e) => ({
+      id: e.id,
+      courseType: e.courseType,
+      startDate: e.startDate.toISOString(),
+      endDate: e.endDate ? e.endDate.toISOString() : null,
+      regularFee: e.regularFee,
+      discountAmount: e.discountAmount,
+      finalFee: e.finalFee,
+      status: e.status,
+      isRe: e.isRe,
+      createdAt: e.createdAt.toISOString(),
+      cohort: e.cohort
+        ? { name: e.cohort.name, examCategory: e.cohort.examCategory as string }
+        : null,
+      product: e.product,
+      specialLecture: e.specialLecture,
+      staff: e.staff,
+      leaveRecords: e.leaveRecords.map((l) => ({
+        id: l.id,
+        leaveDate: l.leaveDate.toISOString(),
+        returnDate: l.returnDate ? l.returnDate.toISOString() : null,
+        reason: l.reason,
+      })),
+    }));
+  } else if (tab === "payments") {
+    const rows = await getPrisma().payment.findMany({
+      where: { examNumber: params.examNumber },
+      include: {
+        items: true,
+        processor: { select: { name: true } },
+        refunds: { select: { amount: true, refundType: true, processedAt: true } },
+      },
+      orderBy: { processedAt: "desc" },
+    });
+    studentPayments = rows.map((p) => ({
+      id: p.id,
+      category: p.category,
+      method: p.method,
+      status: p.status,
+      grossAmount: p.grossAmount,
+      discountAmount: p.discountAmount,
+      couponAmount: p.couponAmount,
+      pointAmount: p.pointAmount,
+      netAmount: p.netAmount,
+      note: p.note,
+      processedAt: p.processedAt.toISOString(),
+      processor: p.processor,
+      items: p.items.map((item) => ({
+        id: item.id,
+        itemName: item.itemName,
+        itemType: item.itemType,
+        amount: item.amount,
+        quantity: item.quantity,
+      })),
+      refunds: p.refunds.map((r) => ({
+        amount: r.amount,
+        refundType: r.refundType as string,
+        processedAt: r.processedAt.toISOString(),
+      })),
+    }));
   }
 
-  const visibleTabs: Tab[] = canEdit
-    ? ["history", "cumulative", "analysis", "timeline", "counseling"]
-    : ["history", "cumulative", "analysis"];
+  const canViewPayments = roleAtLeast(context.adminUser.role, AdminRole.COUNSELOR);
+  const visibleTabs: Tab[] = [
+    "history",
+    "cumulative",
+    "analysis",
+    ...(canEdit ? (["timeline", "counseling"] as Tab[]) : []),
+    ...(canViewPayments ? (["enrollments", "payments"] as Tab[]) : []),
+  ];
 
   return (
     <div className="p-8 sm:p-10">
@@ -115,33 +221,52 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
       <div className="mt-6">
         {/* 성적 이력 */}
         {tab === "history" && (
-          <StudentScoreHistoryManager
-            canEdit={canEdit}
-            initialStudent={{
-              examNumber: student.examNumber,
-              name: student.name,
-              className: student.className,
-              generation: student.generation,
-              examType: student.examType,
-              currentStatus: student.currentStatus,
-              scores: student.scores.map((score) => ({
-                id: score.id,
-                rawScore: score.rawScore,
-                oxScore: score.oxScore,
-                finalScore: score.finalScore,
+          <div className="space-y-6">
+            <AbsenceRiskBanner
+              scores={student.scores.map((score) => ({
                 attendType: score.attendType,
-                note: score.note,
-                sourceType: score.sourceType,
+                session: { examDate: score.session.examDate.toISOString() },
+              }))}
+            />
+            <StudentAttendanceCalendar
+              scores={student.scores.map((score) => ({
+                attendType: score.attendType,
                 session: {
-                  id: score.session.id,
-                  week: score.session.week,
-                  subject: score.session.subject,
                   examDate: score.session.examDate.toISOString(),
-                  period: { name: score.session.period.name },
+                  subject: score.session.subject,
+                  week: score.session.week,
+                  finalScore: score.finalScore,
                 },
-              })),
-            }}
-          />
+              }))}
+            />
+            <StudentScoreHistoryManager
+              canEdit={canEdit}
+              initialStudent={{
+                examNumber: student.examNumber,
+                name: student.name,
+                className: student.className,
+                generation: student.generation,
+                examType: student.examType,
+                currentStatus: student.currentStatus,
+                scores: student.scores.map((score) => ({
+                  id: score.id,
+                  rawScore: score.rawScore,
+                  oxScore: score.oxScore,
+                  finalScore: score.finalScore,
+                  attendType: score.attendType,
+                  note: score.note,
+                  sourceType: score.sourceType,
+                  session: {
+                    id: score.session.id,
+                    week: score.session.week,
+                    subject: score.session.subject,
+                    examDate: score.session.examDate.toISOString(),
+                    period: { name: score.session.period.name },
+                  },
+                })),
+              }}
+            />
+          </div>
         )}
 
         {/* 누적 분석 */}
@@ -177,11 +302,21 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                     </option>
                   ))}
                 </select>
+                <select
+                  name="recent"
+                  defaultValue={analysisData.recentCount ? String(analysisData.recentCount) : ""}
+                  className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+                >
+                  <option value="">전체 회차</option>
+                  <option value="5">최근 5회</option>
+                  <option value="10">최근 10회</option>
+                  <option value="20">최근 20회</option>
+                </select>
                 <button
                   type="submit"
                   className="inline-flex items-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
                 >
-                  기간 변경
+                  적용
                 </button>
               </form>
 
@@ -269,6 +404,65 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
                   <SubjectScoreHeatmap data={analysisData.subjectHeatmap} />
 
+                  {analysisData.monthlyBreakdown.length > 0 && (
+                    <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+                      <h2 className="text-xl font-semibold">월별 성적 요약</h2>
+                      <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
+                        <table className="min-w-full divide-y divide-ink/10 text-sm">
+                          <thead className="bg-mist/80 text-left">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">월</th>
+                              <th className="px-4 py-3 font-semibold">응시/전체</th>
+                              <th className="px-4 py-3 font-semibold">개인 평균</th>
+                              <th className="px-4 py-3 font-semibold">전체 평균</th>
+                              <th className="px-4 py-3 font-semibold">석차(%)</th>
+                              <th className="px-4 py-3 font-semibold">무단결시</th>
+                              <th className="px-4 py-3 font-semibold">전월 대비</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-ink/10">
+                            {analysisData.monthlyBreakdown.map((row) => (
+                              <tr key={`${row.year}-${row.month}`}>
+                                <td className="px-4 py-3 font-medium">{row.monthLabel}</td>
+                                <td className="px-4 py-3">
+                                  {row.attendedCount}/{row.sessionCount}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {row.studentAverage !== null ? row.studentAverage.toFixed(1) : "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {row.cohortAverage !== null ? row.cohortAverage.toFixed(1) : "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {row.studentRank !== null ? `상위 ${row.studentRank.toFixed(1)}%` : "-"}
+                                </td>
+                                <td className="px-4 py-3">{row.absentCount}회</td>
+                                <td className="px-4 py-3">
+                                  {row.changeFromPrevMonth === null ? (
+                                    "-"
+                                  ) : (
+                                    <span
+                                      className={
+                                        row.changeFromPrevMonth > 0
+                                          ? "font-semibold text-forest"
+                                          : row.changeFromPrevMonth < 0
+                                            ? "font-semibold text-ember"
+                                            : "text-slate"
+                                      }
+                                    >
+                                      {row.changeFromPrevMonth > 0 ? "+" : ""}
+                                      {row.changeFromPrevMonth.toFixed(1)}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  )}
+
                   <section className="rounded-[28px] border border-ink/10 bg-white p-6">
                     <h2 className="text-xl font-semibold">오답 상위 문항</h2>
                     <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
@@ -322,20 +516,39 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
         )}
 
         {tab === "counseling" && counselingProfile && (
-          <CounselingPanel
-            examNumber={counselingProfile.student.examNumber}
-            defaultCounselorName={context.adminUser.name}
-            targetScores={counselingProfile.student.targetScores}
-            subjects={EXAM_TYPE_SUBJECTS[counselingProfile.student.examType]}
-            records={counselingProfile.counselingRecords.map((record) => ({
-              id: record.id,
-              examNumber: record.examNumber,
-              counselorName: record.counselorName,
-              content: record.content,
-              recommendation: record.recommendation,
-              counseledAt: record.counseledAt.toISOString(),
-              nextSchedule: record.nextSchedule ? record.nextSchedule.toISOString() : null,
-            }))}
+          <div className="space-y-6">
+            {briefingData && <CounselingBriefingCard briefing={briefingData} />}
+            <CounselingPanel
+              examNumber={counselingProfile.student.examNumber}
+              defaultCounselorName={context.adminUser.name}
+              targetScores={counselingProfile.student.targetScores}
+              subjects={EXAM_TYPE_SUBJECTS[counselingProfile.student.examType]}
+              records={counselingProfile.counselingRecords.map((record) => ({
+                id: record.id,
+                examNumber: record.examNumber,
+                counselorName: record.counselorName,
+                content: record.content,
+                recommendation: record.recommendation,
+                counseledAt: record.counseledAt.toISOString(),
+                nextSchedule: record.nextSchedule ? record.nextSchedule.toISOString() : null,
+              }))}
+            />
+          </div>
+        )}
+
+        {/* 수업 탭 */}
+        {tab === "enrollments" && (
+          <StudentEnrollmentsPanel
+            examNumber={params.examNumber}
+            enrollments={studentEnrollments ?? []}
+          />
+        )}
+
+        {/* 수납 탭 */}
+        {tab === "payments" && (
+          <StudentPaymentsPanel
+            examNumber={params.examNumber}
+            payments={studentPayments ?? []}
           />
         )}
       </div>

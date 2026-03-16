@@ -1,0 +1,517 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { PaymentCategory, PaymentMethod } from "@prisma/client";
+import { PAYMENT_CATEGORY_LABEL, PAYMENT_METHOD_LABEL, PAYMENT_CATEGORY_COLOR } from "@/lib/constants";
+import { formatDateTime } from "@/lib/format";
+
+type CategoryStat = { count: number; gross: number };
+type MethodStat = { count: number; amount: number };
+
+type DailySummary = {
+  tuition: CategoryStat;
+  facility: CategoryStat;
+  textbook: CategoryStat;
+  material: CategoryStat;
+  singleCourse: CategoryStat;
+  penalty: CategoryStat;
+  etc: CategoryStat;
+  totalCount: number;
+  grossTotal: number;
+  refundTotal: number;
+  netTotal: number;
+};
+
+type DailyMethods = {
+  cash: MethodStat;
+  card: MethodStat;
+  transfer: MethodStat;
+};
+
+type SettlementRecord = {
+  id: string;
+  date: string;
+  cashAmount: number;
+  cardAmount: number;
+  transferAmount: number;
+  grossTotal: number;
+  refundTotal: number;
+  netTotal: number;
+  cashActual: number | null;
+  cashDiff: number | null;
+  closedAt: string | null;
+  closedBy: string | null;
+};
+
+type RecentPayment = {
+  id: string;
+  examNumber: string | null;
+  category: PaymentCategory;
+  method: PaymentMethod;
+  grossAmount: number;
+  netAmount: number;
+  note: string | null;
+  processedAt: string;
+  student: { name: string; examNumber: string } | null;
+  processor: { name: string };
+  items: { itemName: string; quantity: number }[];
+  refunds: { amount: number }[];
+};
+
+type DailyData = {
+  date: string;
+  summary: DailySummary;
+  methods: DailyMethods;
+  settlement: SettlementRecord | null;
+  recentPayments: RecentPayment[];
+};
+
+type Props = {
+  initialData: DailyData;
+};
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store",
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error ?? "요청에 실패했습니다.");
+  return payload as T;
+}
+
+function formatAmt(amount: number): string {
+  return amount.toLocaleString() + "원";
+}
+
+function addDays(dateStr: string, delta: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function todayStr(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function formatKoreanDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${weekdays[d.getDay()]})`;
+}
+
+const CATEGORY_ROWS: Array<{
+  key: keyof DailySummary;
+  label: string;
+}> = [
+  { key: "tuition", label: "수강료" },
+  { key: "facility", label: "시설비" },
+  { key: "textbook", label: "교재" },
+  { key: "material", label: "교구·소모품" },
+  { key: "singleCourse", label: "단과 POS" },
+  { key: "penalty", label: "위약금" },
+  { key: "etc", label: "기타" },
+];
+
+export function DailySettlementView({ initialData }: Props) {
+  const [data, setData] = useState<DailyData>(initialData);
+  const [currentDate, setCurrentDate] = useState(initialData.date);
+  const [cashActualInput, setCashActualInput] = useState(
+    initialData.settlement?.cashActual != null
+      ? String(initialData.settlement.cashActual)
+      : "",
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  async function fetchDate(date: string) {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    startTransition(async () => {
+      try {
+        const result = await requestJson<DailyData>(
+          `/api/settlements/daily?date=${date}`,
+        );
+        setData(result);
+        setCurrentDate(date);
+        setCashActualInput(
+          result.settlement?.cashActual != null
+            ? String(result.settlement.cashActual)
+            : "",
+        );
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "조회 실패");
+      }
+    });
+  }
+
+  async function handleClose() {
+    const parsed = parseInt(cashActualInput.replace(/,/g, ""), 10);
+    if (isNaN(parsed) || parsed < 0) {
+      setErrorMessage("현금 실제액을 올바르게 입력하세요.");
+      return;
+    }
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    startTransition(async () => {
+      try {
+        await requestJson("/api/settlements/daily", {
+          method: "POST",
+          body: JSON.stringify({ date: currentDate, cashActual: parsed }),
+        });
+        setSuccessMessage("마감 처리가 완료되었습니다.");
+        const refreshed = await requestJson<DailyData>(
+          `/api/settlements/daily?date=${currentDate}`,
+        );
+        setData(refreshed);
+        setCashActualInput(
+          refreshed.settlement?.cashActual != null
+            ? String(refreshed.settlement.cashActual)
+            : "",
+        );
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "마감 처리 실패");
+      }
+    });
+  }
+
+  const today = todayStr();
+  const { summary, methods, settlement, recentPayments } = data;
+
+  const visibleRows = CATEGORY_ROWS.filter(
+    (row) => (summary[row.key] as CategoryStat).count > 0,
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Date Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fetchDate(addDays(currentDate, -1))}
+            disabled={isPending}
+            className="rounded-full border border-ink/10 bg-white px-3 py-1.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink disabled:opacity-50"
+          >
+            ◀ 전날
+          </button>
+          <span className="px-3 text-base font-semibold text-ink">
+            {formatKoreanDate(currentDate)}
+          </span>
+          <button
+            type="button"
+            onClick={() => fetchDate(addDays(currentDate, 1))}
+            disabled={isPending || currentDate >= today}
+            className="rounded-full border border-ink/10 bg-white px-3 py-1.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink disabled:opacity-50"
+          >
+            다음날 ▶
+          </button>
+          {currentDate !== today && (
+            <button
+              type="button"
+              onClick={() => fetchDate(today)}
+              disabled={isPending}
+              className="rounded-full bg-forest px-3 py-1.5 text-xs font-medium text-white transition hover:bg-forest/90 disabled:opacity-50"
+            >
+              오늘
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {settlement?.closedAt ? (
+            <span className="rounded-full border border-forest/30 bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest">
+              마감 완료 · {new Date(settlement.closedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isPending}
+            className="rounded-full bg-ember px-4 py-1.5 text-sm font-medium text-white transition hover:bg-ember/90 disabled:opacity-50"
+          >
+            {isPending ? "처리 중..." : settlement?.closedAt ? "재마감" : "마감 처리"}
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      {errorMessage ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      ) : null}
+      {successMessage ? (
+        <div className="rounded-2xl border border-forest/30 bg-forest/10 px-4 py-3 text-sm text-forest">
+          {successMessage}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Category Summary */}
+        <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">
+          <div className="border-b border-ink/10 px-6 py-4">
+            <h2 className="text-sm font-semibold text-ink">수납 집계</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink/5 bg-mist/50">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate">유형</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate">건수</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate">금액</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {visibleRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-sm text-slate">
+                      수납 내역이 없습니다.
+                    </td>
+                  </tr>
+                ) : null}
+                {visibleRows.map((row) => {
+                  const stat = summary[row.key] as CategoryStat;
+                  return (
+                    <tr key={row.key} className="hover:bg-mist/20 transition">
+                      <td className="px-6 py-3 font-medium text-ink">{row.label}</td>
+                      <td className="px-6 py-3 text-right tabular-nums text-slate">
+                        {stat.count.toLocaleString()}건
+                      </td>
+                      <td className="px-6 py-3 text-right tabular-nums font-medium text-ink">
+                        {formatAmt(stat.gross)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-ink/10 bg-mist/30">
+                  <td className="px-6 py-3 font-semibold text-ink">수납 소계</td>
+                  <td className="px-6 py-3 text-right tabular-nums font-semibold text-ink">
+                    {summary.totalCount.toLocaleString()}건
+                  </td>
+                  <td className="px-6 py-3 text-right tabular-nums font-semibold text-ink">
+                    {formatAmt(summary.grossTotal)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        {/* Method + Net Summary */}
+        <div className="space-y-4">
+          {/* Method Breakdown */}
+          <div className="rounded-[28px] border border-ink/10 bg-white p-6 space-y-3">
+            <h2 className="text-sm font-semibold text-ink">결제 수단별</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate">현금</span>
+                <span className="tabular-nums text-sm font-medium text-ink">
+                  {formatAmt(methods.cash.amount)}
+                  <span className="ml-2 text-xs text-slate">({methods.cash.count}건)</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate">카드</span>
+                <span className="tabular-nums text-sm font-medium text-ink">
+                  {formatAmt(methods.card.amount)}
+                  <span className="ml-2 text-xs text-slate">({methods.card.count}건)</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate">계좌이체</span>
+                <span className="tabular-nums text-sm font-medium text-ink">
+                  {formatAmt(methods.transfer.amount)}
+                  <span className="ml-2 text-xs text-slate">({methods.transfer.count}건)</span>
+                </span>
+              </div>
+              <div className="border-t border-ink/10 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">수납 합계</span>
+                  <span className="tabular-nums text-sm font-semibold text-ink">
+                    {formatAmt(summary.grossTotal)}
+                  </span>
+                </div>
+                {summary.refundTotal > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-red-600">환불 합계</span>
+                    <span className="tabular-nums text-sm font-medium text-red-600">
+                      -{formatAmt(summary.refundTotal)}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between border-t border-ink/10 pt-2 mt-2">
+                  <span className="text-base font-bold text-forest">실수입</span>
+                  <span className="tabular-nums text-base font-bold text-forest">
+                    {formatAmt(summary.netTotal)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Cash Verification */}
+          <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <h2 className="mb-3 text-sm font-semibold text-ink">현금 시재 확인</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate">시스템 현금</span>
+                <span className="tabular-nums font-medium text-ink">
+                  {formatAmt(methods.cash.amount)}
+                </span>
+              </div>
+              {settlement?.cashActual != null ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate">실제 현금</span>
+                    <span className="tabular-nums font-medium text-ink">
+                      {formatAmt(settlement.cashActual)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm border-t border-ink/10 pt-2">
+                    <span className="text-slate">차이</span>
+                    <span
+                      className={`tabular-nums font-semibold ${
+                        (settlement.cashDiff ?? 0) === 0
+                          ? "text-forest"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {(settlement.cashDiff ?? 0) >= 0 ? "+" : ""}
+                      {formatAmt(settlement.cashDiff ?? 0)}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="number"
+                  value={cashActualInput}
+                  onChange={(e) => setCashActualInput(e.target.value)}
+                  placeholder="실제 금액 입력"
+                  className="flex-1 rounded-2xl border border-ink/10 px-4 py-2 text-sm outline-none focus:border-ember/50 tabular-nums"
+                  min={0}
+                />
+                <span className="text-sm text-slate">원</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Payments */}
+      <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">
+        <div className="border-b border-ink/10 px-6 py-4">
+          <h2 className="text-sm font-semibold text-ink">
+            최근 수납 내역 (최대 20건)
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-ink/10 text-sm">
+            <thead>
+              <tr className="bg-mist/50">
+                {["시간", "학생", "유형", "수단", "내역", "금액", "처리자"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium text-slate whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate whitespace-nowrap">
+                  실납부
+                </th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y divide-ink/10 ${isPending ? "opacity-50" : ""}`}>
+              {recentPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate">
+                    수납 내역이 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+              {recentPayments.map((payment) => {
+                const itemLabel =
+                  payment.items.length === 0
+                    ? "-"
+                    : payment.items.length === 1
+                      ? payment.items[0].quantity > 1
+                        ? `${payment.items[0].itemName} ×${payment.items[0].quantity}`
+                        : payment.items[0].itemName
+                      : `${payment.items[0].itemName} 외 ${payment.items.length - 1}건`;
+
+                return (
+                  <tr key={payment.id} className="hover:bg-mist/20 transition">
+                    <td className="px-4 py-3 text-xs text-slate whitespace-nowrap">
+                      {new Date(payment.processedAt).toLocaleTimeString("ko-KR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-4 py-3">
+                      {payment.student ? (
+                        <div>
+                          <div className="font-medium text-ink">{payment.student.name}</div>
+                          {payment.examNumber ? (
+                            <div className="mt-0.5 text-xs text-slate">{payment.examNumber}</div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate">비회원</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${PAYMENT_CATEGORY_COLOR[payment.category]}`}
+                      >
+                        {PAYMENT_CATEGORY_LABEL[payment.category]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                          payment.method === "CASH"
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : payment.method === "TRANSFER"
+                              ? "border-sky-200 bg-sky-50 text-sky-800"
+                              : payment.method === "CARD"
+                                ? "border-purple-200 bg-purple-50 text-purple-800"
+                                : "border-ink/20 bg-ink/5 text-slate"
+                        }`}
+                      >
+                        {PAYMENT_METHOD_LABEL[payment.method]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate max-w-[140px] truncate">
+                      {itemLabel}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-sm text-ink whitespace-nowrap">
+                      {payment.grossAmount.toLocaleString()}원
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate whitespace-nowrap">
+                      {payment.processor.name}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-sm font-semibold text-forest whitespace-nowrap">
+                      {payment.netAmount.toLocaleString()}원
+                      {payment.refunds.length > 0 ? (
+                        <div className="mt-0.5 text-xs font-normal text-red-600">
+                          -{payment.refunds.reduce((s, r) => s + r.amount, 0).toLocaleString()}원 환불
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

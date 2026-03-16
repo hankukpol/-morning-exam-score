@@ -15,6 +15,12 @@ export type NotificationMessageInput = {
   examDateLabel?: string | null;
   missingScoreCount?: number | null;
   periodName?: string | null;
+  // P1-9 event notifications
+  courseName?: string | null;
+  enrollmentPeriod?: string | null;
+  paymentAmount?: string | null;
+  paymentMethod?: string | null;
+  refundAmount?: string | null;
 };
 
 export type NotificationTemplateSummary = {
@@ -144,6 +150,47 @@ const DEFAULT_TEMPLATE_DEFINITIONS: Record<NotificationType, NotificationTemplat
     },
     envKey: "SOLAPI_TEMPLATE_SCORE_DEADLINE",
   },
+  ENROLLMENT_COMPLETE: {
+    label: "수강 등록 완료",
+    description: "수강 등록이 완료되었을 때 학생에게 발송하는 알림.",
+    content:
+      "[한국경찰학원] {studentName}님, 수강 등록이 완료되었습니다.\n\n강좌명: {courseName}\n수강기간: {enrollmentPeriod}\n\n문의: 053-241-0112",
+    variables: ["studentName", "courseName", "enrollmentPeriod"],
+    sampleValues: {
+      name: "홍길동",
+      studentName: "홍길동",
+      courseName: "27년 1차 대비 종합반 52기",
+      enrollmentPeriod: "2026-01-03 ~ 2026-12-31",
+    },
+    envKey: "SOLAPI_TEMPLATE_ENROLLMENT_COMPLETE",
+  },
+  PAYMENT_COMPLETE: {
+    label: "수납 완료",
+    description: "수납이 완료되었을 때 학생에게 발송하는 알림.",
+    content:
+      "[한국경찰학원] {studentName}님, 수납이 완료되었습니다.\n\n납부금액: {paymentAmount}원\n결제수단: {paymentMethod}\n\n문의: 053-241-0112",
+    variables: ["studentName", "paymentAmount", "paymentMethod"],
+    sampleValues: {
+      name: "홍길동",
+      studentName: "홍길동",
+      paymentAmount: "400,000",
+      paymentMethod: "현금",
+    },
+    envKey: "SOLAPI_TEMPLATE_PAYMENT_COMPLETE",
+  },
+  REFUND_COMPLETE: {
+    label: "환불 처리 완료",
+    description: "환불이 완료되었을 때 학생에게 발송하는 알림.",
+    content:
+      "[한국경찰학원] {studentName}님, 환불 처리가 완료되었습니다.\n\n환불금액: {refundAmount}원\n\n문의: 053-241-0112",
+    variables: ["studentName", "refundAmount"],
+    sampleValues: {
+      name: "홍길동",
+      studentName: "홍길동",
+      refundAmount: "200,000",
+    },
+    envKey: "SOLAPI_TEMPLATE_REFUND_COMPLETE",
+  },
 };
 
 export function notificationTypeFromStatus(status: StudentStatus) {
@@ -185,6 +232,11 @@ export function buildNotificationTemplateValues(input: NotificationMessageInput)
   const examDateLabel = input.examDateLabel?.trim() ?? "";
   const missingScoreCount = stringifyNumber(input.missingScoreCount);
   const periodName = input.periodName?.trim() ?? "";
+  const courseName = input.courseName?.trim() ?? "";
+  const enrollmentPeriod = input.enrollmentPeriod?.trim() ?? "";
+  const paymentAmount = input.paymentAmount?.trim() ?? "";
+  const paymentMethod = input.paymentMethod?.trim() ?? "";
+  const refundAmount = input.refundAmount?.trim() ?? "";
 
   return {
     name: studentName,
@@ -201,6 +253,11 @@ export function buildNotificationTemplateValues(input: NotificationMessageInput)
     examDateLabel,
     missingScoreCount,
     periodName,
+    courseName,
+    enrollmentPeriod,
+    paymentAmount,
+    paymentMethod,
+    refundAmount,
   } satisfies Record<string, string>;
 }
 

@@ -14,7 +14,12 @@ const ADMIN_CONTEXT_QUERY_RETRY_COUNT = 2;
 const LOCAL_ROLE_LEVEL: Record<AdminRole, number> = {
   VIEWER: 0,
   TEACHER: 1,
-  SUPER_ADMIN: 2,
+  COUNSELOR: 2,
+  ACADEMIC_ADMIN: 3,
+  MANAGER: 4,
+  DEPUTY_DIRECTOR: 5,
+  DIRECTOR: 6,
+  SUPER_ADMIN: 7,
 };
 
 type AuthenticatedUser = {

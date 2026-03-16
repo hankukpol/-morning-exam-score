@@ -5,23 +5,47 @@ import {
   AdminMemoStatus,
   AbsenceCategory,
   AttendType,
+  AttendSource,
+  ParseMatchStatus,
   ExamType,
   NoticeTargetType,
   NotificationType,
   ScoreSource,
   StudentType,
   Subject,
+  ExamCategory,
+  CourseType,
+  EnrollmentStatus,
+  EnrollSource,
+  PaymentCategory,
+  PaymentMethod,
+  PaymentStatus,
+  LockerZone,
+  LockerStatus,
+  RentalStatus,
+  BookingStatus,
+  PassType,
 } from "@prisma/client";
 
 export const ROLE_LEVEL: Record<AdminRole, number> = {
   VIEWER: 0,
   TEACHER: 1,
-  SUPER_ADMIN: 2,
+  COUNSELOR: 2,
+  ACADEMIC_ADMIN: 3,
+  MANAGER: 4,
+  DEPUTY_DIRECTOR: 5,
+  DIRECTOR: 6,
+  SUPER_ADMIN: 7,
 };
 
 export const ROLE_LABEL: Record<AdminRole, string> = {
   VIEWER: "조회 전용",
   TEACHER: "강사",
+  COUNSELOR: "상담",
+  ACADEMIC_ADMIN: "교무행정",
+  MANAGER: "실장",
+  DEPUTY_DIRECTOR: "부원장",
+  DIRECTOR: "원장",
   SUPER_ADMIN: "최고 관리자",
 };
 
@@ -107,7 +131,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   ABSENCE_NOTE: "사유서",
   POINT: "포인트 지급",
   NOTICE: "일반 공지",
-  SCORE_DEADLINE: "성적 입력 마감",};
+  SCORE_DEADLINE: "성적 입력 마감",
+  ENROLLMENT_COMPLETE: "수강 등록 완료",
+  PAYMENT_COMPLETE: "수납 완료",
+  REFUND_COMPLETE: "환불 완료",
+};
 
 export const NOTICE_TARGET_LABEL: Record<NoticeTargetType, string> = {
   ALL: "전체",
@@ -171,6 +199,62 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.VIEWER,
     group: "메인",
   },  {
+    href: "/admin/enrollments",
+    label: "수강 관리",
+    description: "수강 등록, 상태 변경, 퇴원, 휴원 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/enrollments/new",
+    label: "수강 등록",
+    description: "신규 수강 등록 (종합반 / 특강 단과)",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/payments",
+    label: "수납 이력",
+    description: "수납 처리 내역 조회 및 검색",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/payments/new",
+    label: "수납 등록",
+    description: "현금·이체 수납 등록 (수강료·교재·시설비)",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/settlements/daily",
+    label: "일계표",
+    description: "일별 수납 집계 및 현금 시재 마감 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/settlements/monthly",
+    label: "월계표",
+    description: "월별 수납 집계 및 일별 수납 추이 조회",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/payments/links",
+    label: "결제 링크",
+    description: "온라인 결제 링크 생성·관리 (카카오톡·문자 전송용)",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/settlements/instructors",
+    label: "강사 정산",
+    description: "특강 강사별 수강료 배분 및 정산 현황",
+    minRole: AdminRole.MANAGER,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/periods",
     label: "시험 등록",
     description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",
@@ -195,6 +279,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/students/merge",
     label: "학생 병합",
     description: "중복 등록된 학생 계정의 연결 데이터를 하나로 병합",
+    minRole: AdminRole.TEACHER,
+    group: "학사 관리",
+  },
+  {
+    href: "/admin/classrooms",
+    label: "담임반 관리",
+    description: "담임반 학생 편성, 카카오톡 출석 파싱, 일별 출결 기록",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
   },
@@ -259,6 +350,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "경고·탈락 판정",
     description: "주 3회 및 월 8회 기준 자동 판정",
     minRole: AdminRole.VIEWER,
+    group: "판정 관리",
+  },
+  {
+    href: "/admin/graduates",
+    label: "합격자 관리",
+    description: "필기합격·최종합격 등록 및 합격자 성적 기록 관리",
+    minRole: AdminRole.TEACHER,
     group: "판정 관리",
   },
   {
@@ -338,7 +436,156 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
   },
+  {
+    href: "/admin/settings/courses",
+    label: "강좌 마스터",
+    description: "종합반·단과·특강 강좌 등록 및 수강료 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/textbooks",
+    label: "교재 관리",
+    description: "교재 정보 및 재고 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/comprehensive-products",
+    label: "종합반 상품",
+    description: "수험 유형별 수강 기간·수강료 상품 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/cohorts",
+    label: "기수 관리",
+    description: "수험 유형별 기수(期數) 등록 및 기간 설정",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/staff",
+    label: "직원 관리",
+    description: "직원 계정 권한 역할 및 연락처 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/instructors",
+    label: "강사 관리",
+    description: "강사 정보 및 정산 계좌 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/special-lectures",
+    label: "특강 단과",
+    description: "특강·단과 강좌 등록, 과목별 강사·수강료·배분율 설정",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/point-policies",
+    label: "포인트 정책",
+    description: "포인트 지급 제도 템플릿 관리",
+    minRole: AdminRole.ACADEMIC_ADMIN,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/academy",
+    label: "학원 기본정보",
+    description: "학원명, 원장, 사업자번호 등 기본 정보 설정",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/civil-exams",
+    label: "공무원 시험 일정",
+    description: "공채·경채 시험 일정 등록 및 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/study-rooms",
+    label: "스터디룸 설정",
+    description: "스터디룸 목록 등록 및 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/lockers",
+    label: "사물함 초기 설정",
+    description: "사물함 구역별 일괄 생성 및 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/payment-policies",
+    label: "할인 코드 관리",
+    description: "추천인·입소·캠페인 할인 코드 발급 및 관리",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/facilities/lockers",
+    label: "사물함 관리",
+    description: "사물함 배정, 대여 기록, 현황 조회",
+    minRole: AdminRole.ACADEMIC_ADMIN,
+    group: "시설 관리",
+  },
+  {
+    href: "/admin/facilities/study-rooms",
+    label: "스터디룸 예약",
+    description: "스터디룸 예약 배정 및 관리",
+    minRole: AdminRole.ACADEMIC_ADMIN,
+    group: "시설 관리",
+  },
 ];
+
+export const PAYMENT_CATEGORY_LABEL: Record<PaymentCategory, string> = {
+  TUITION: "수강료",
+  FACILITY: "시설비",
+  TEXTBOOK: "교재",
+  MATERIAL: "교구·소모품",
+  SINGLE_COURSE: "단과 POS",
+  PENALTY: "위약금",
+  ETC: "기타",
+};
+
+export const PAYMENT_CATEGORY_COLOR: Record<PaymentCategory, string> = {
+  TUITION: "border-forest/30 bg-forest/10 text-forest",
+  FACILITY: "border-sky-200 bg-sky-50 text-sky-800",
+  TEXTBOOK: "border-amber-200 bg-amber-50 text-amber-800",
+  MATERIAL: "border-purple-200 bg-purple-50 text-purple-800",
+  SINGLE_COURSE: "border-ember/30 bg-ember/10 text-ember",
+  PENALTY: "border-red-200 bg-red-50 text-red-700",
+  ETC: "border-ink/20 bg-ink/5 text-slate",
+};
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: "현금",
+  CARD: "카드",
+  TRANSFER: "계좌이체",
+  POINT: "포인트",
+  MIXED: "혼합",
+};
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  PENDING: "처리 중",
+  APPROVED: "완납",
+  PARTIAL_REFUNDED: "부분 환불",
+  FULLY_REFUNDED: "전액 환불",
+  CANCELLED: "취소",
+};
+
+export const PAYMENT_STATUS_COLOR: Record<PaymentStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  APPROVED: "border-forest/30 bg-forest/10 text-forest",
+  PARTIAL_REFUNDED: "border-orange-200 bg-orange-50 text-orange-700",
+  FULLY_REFUNDED: "border-red-200 bg-red-50 text-red-700",
+  CANCELLED: "border-ink/20 bg-ink/5 text-slate",
+};
 
 export const STUDENT_MIGRATION_FIELDS = [
   { key: "examNumber", label: "수험번호", required: true },
@@ -366,11 +613,115 @@ export const STUDENT_PASTE_FIELDS = [
 export type StudentPasteFieldKey =
   (typeof STUDENT_PASTE_FIELDS)[number]["key"];
 
+export const EXAM_CATEGORY_LABEL: Record<ExamCategory, string> = {
+  GONGCHAE: "공채",
+  GYEONGCHAE: "경채",
+  SOGANG: "소방",
+  CUSTOM: "기타",
+};
+
+export const COURSE_TYPE_LABEL: Record<CourseType, string> = {
+  COMPREHENSIVE: "종합반",
+  SPECIAL_LECTURE: "특강 단과",
+};
+
+export const ENROLLMENT_STATUS_LABEL: Record<EnrollmentStatus, string> = {
+  PENDING: "신청",
+  ACTIVE: "수강 중",
+  WAITING: "대기",
+  SUSPENDED: "휴원",
+  COMPLETED: "수강 완료",
+  WITHDRAWN: "퇴원",
+  CANCELLED: "취소",
+};
+
+export const ENROLLMENT_STATUS_COLOR: Record<EnrollmentStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  ACTIVE: "border-forest/30 bg-forest/10 text-forest",
+  WAITING: "border-sky-200 bg-sky-50 text-sky-800",
+  SUSPENDED: "border-purple-200 bg-purple-50 text-purple-800",
+  COMPLETED: "border-ink/20 bg-ink/5 text-ink",
+  WITHDRAWN: "border-red-200 bg-red-50 text-red-700",
+  CANCELLED: "border-ink/20 bg-ink/5 text-slate",
+};
+
+export const ENROLL_SOURCE_LABEL: Record<EnrollSource, string> = {
+  VISIT: "방문",
+  PHONE: "전화",
+  ONLINE: "온라인",
+  REFERRAL: "소개",
+  SNS: "SNS",
+  OTHER: "기타",
+};
+
 export const DUPLICATE_STRATEGY_LABEL = {
   UPDATE: "업데이트",
   SKIP: "건너뛰기",
   OVERWRITE: "덮어쓰기",
 } as const;
+
+export const ATTEND_SOURCE_LABEL: Record<AttendSource, string> = {
+  KAKAO_PARSE: "카카오톡 파싱",
+  MANUAL: "수기 입력",
+  IMPORT: "일괄 가져오기",
+};
+
+export const PARSE_MATCH_STATUS_LABEL: Record<ParseMatchStatus, string> = {
+  MATCHED: "매칭 성공",
+  UNMATCHED: "매칭 실패",
+  AMBIGUOUS: "동명이인",
+};
+
+export const LOCKER_ZONE_LABEL: Record<LockerZone, string> = {
+  CLASS_ROOM: "1강의실 방향",
+  JIDEOK_LEFT: "지덕 좌",
+  JIDEOK_RIGHT: "지덕 우",
+};
+
+export const LOCKER_STATUS_LABEL: Record<LockerStatus, string> = {
+  AVAILABLE: "사용 가능",
+  IN_USE: "사용 중",
+  RESERVED: "예약됨",
+  BROKEN: "고장",
+  BLOCKED: "사용 불가",
+};
+
+export const LOCKER_STATUS_COLOR: Record<LockerStatus, string> = {
+  AVAILABLE: "bg-forest/10 border-forest/30 text-forest",
+  IN_USE: "bg-ember/10 border-ember/30 text-ember",
+  RESERVED: "bg-amber-50 border-amber-200 text-amber-800",
+  BROKEN: "bg-red-50 border-red-200 text-red-700",
+  BLOCKED: "bg-ink/5 border-ink/20 text-slate",
+};
+
+export const RENTAL_STATUS_LABEL: Record<RentalStatus, string> = {
+  ACTIVE: "대여 중",
+  RETURNED: "반납 완료",
+  EXPIRED: "기간 만료",
+  CANCELLED: "취소",
+};
+
+export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
+  CONFIRMED: "확정",
+  CANCELLED: "취소",
+  NOSHOW: "노쇼",
+};
+
+export const PASS_TYPE_LABEL: Record<PassType, string> = {
+  WRITTEN_PASS: "필기합격",
+  FINAL_PASS: "최종합격",
+  APPOINTED: "임용",
+  WRITTEN_FAIL: "필기불합격",
+  FINAL_FAIL: "최종불합격",
+};
+
+export const PASS_TYPE_COLOR: Record<PassType, string> = {
+  WRITTEN_PASS: "bg-sky-50 text-sky-700 border-sky-200",
+  FINAL_PASS: "bg-forest/10 text-forest border-forest/20",
+  APPOINTED: "bg-amber-50 text-amber-700 border-amber-200",
+  WRITTEN_FAIL: "bg-ink/5 text-slate border-ink/10",
+  FINAL_FAIL: "bg-red-50 text-red-600 border-red-200",
+};
 
 
 

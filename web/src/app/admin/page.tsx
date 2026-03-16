@@ -13,12 +13,20 @@ import {
   getServerErrorLogMessage,
 } from "@/lib/error-display";
 import { formatDate } from "@/lib/format";
+import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const context = await requireAdminContext(AdminRole.VIEWER);
-  const [summaryResult, inboxResult] = await Promise.all([
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [summaryResult, inboxResult, enrollmentKpi] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -27,6 +35,27 @@ export default async function AdminDashboardPage() {
     })
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
+    getPrisma()
+      .$transaction([
+        getPrisma().courseEnrollment.count({ where: { status: "ACTIVE" } }),
+        getPrisma().courseEnrollment.count({ where: { status: "WAITING" } }),
+        getPrisma().courseEnrollment.count({ where: { createdAt: { gte: weekAgo } } }),
+        getPrisma().payment.count({
+          where: { processedAt: { gte: todayStart, lte: todayEnd } },
+        }),
+        getPrisma().payment.aggregate({
+          where: { processedAt: { gte: todayStart, lte: todayEnd } },
+          _sum: { netAmount: true },
+        }),
+      ])
+      .then(([activeCount, waitingCount, newThisWeek, todayCount, todayAgg]) => ({
+        activeCount,
+        waitingCount,
+        newThisWeek,
+        todayCount,
+        todayNet: todayAgg._sum.netAmount ?? 0,
+      }))
+      .catch(() => null),
   ]);
 
   if (!summaryResult.ok) {
@@ -156,6 +185,12 @@ export default async function AdminDashboardPage() {
       : null,
     { href: "/admin/students", title: "학생 목록", description: "학생 조회, 등록, 수정" },
     { href: "/admin/export", title: "내보내기", description: "성적과 학생 데이터 xlsx 다운로드" },
+    context.adminUser.role !== AdminRole.VIEWER
+      ? { href: "/admin/settings/courses", title: "강좌 마스터", description: "강좌 생성, 수정, 기수 관리" }
+      : null,
+    context.adminUser.role !== AdminRole.VIEWER
+      ? { href: "/admin/settings/textbooks", title: "교재 관리", description: "교재 등록, 재고 조정" }
+      : null,
   ].filter((item): item is { href: string; title: string; description: string } => item !== null);
 
   const fallbackAttentionLinks = [
@@ -337,6 +372,75 @@ export default async function AdminDashboardPage() {
             })}
           </div>
         )}
+      </section>
+
+      <section className="rounded-[28px] border border-ink/10 bg-mist/60 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">수강관리 현황</h2>
+            <p className="mt-1 text-xs text-slate">오늘 기준 실시간 수강·수납 현황</p>
+          </div>
+          <Link
+            href="/admin/enrollments"
+            className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20"
+          >
+            수강 목록 열기
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/admin/enrollments"
+            className="card-lift rounded-[20px] border border-forest/20 bg-white p-5 transition hover:shadow-md"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">총 수강생</p>
+            <p className="count-animated mt-2 text-4xl font-bold text-forest">
+              {enrollmentKpi ? enrollmentKpi.activeCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">현재 수강 중인 전체 학생</p>
+          </Link>
+          <Link
+            href="/admin/payments"
+            className="card-lift rounded-[20px] border border-ember/20 bg-white p-5 transition hover:shadow-md"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">오늘 수납</p>
+            <p className="count-animated mt-2 text-4xl font-bold text-ember">
+              {enrollmentKpi ? enrollmentKpi.todayCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">
+              {enrollmentKpi
+                ? `합계 ${enrollmentKpi.todayNet.toLocaleString()}원`
+                : "오늘 수납 건수"}
+            </p>
+          </Link>
+          <Link
+            href="/admin/enrollments"
+            className={`card-lift rounded-[20px] border bg-white p-5 transition hover:shadow-md ${
+              enrollmentKpi && enrollmentKpi.waitingCount > 0
+                ? "border-amber-200"
+                : "border-ink/10"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">대기자</p>
+            <p
+              className={`count-animated mt-2 text-4xl font-bold ${
+                enrollmentKpi && enrollmentKpi.waitingCount > 0 ? "text-amber-600" : "text-ink"
+              }`}
+            >
+              {enrollmentKpi ? enrollmentKpi.waitingCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">등록 대기 중인 학생 수</p>
+          </Link>
+          <Link
+            href="/admin/enrollments"
+            className="card-lift rounded-[20px] border border-ink/10 bg-white p-5 transition hover:shadow-md"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">이번 주 신규</p>
+            <p className="count-animated mt-2 text-4xl font-bold text-ink">
+              {enrollmentKpi ? enrollmentKpi.newThisWeek.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">최근 7일 신규 수강 등록</p>
+          </Link>
+        </div>
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
