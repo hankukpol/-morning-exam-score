@@ -557,6 +557,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "시스템 도구",
   },
   {
+    href: "/admin/settings/system",
+    label: "시스템 설정",
+    description: "운영 시간, 알림 채널, 수납 환불 정책 통합 관리",
+    minRole: AdminRole.SUPER_ADMIN,
+    group: "설정",
+  },
+  {
     href: "/admin/settings/accounts",
     label: "관리자 계정",
     description: "Supabase Auth 연동 계정 관리",
@@ -718,8 +725,15 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "시설 관리",
   },
   {
+    href: "/admin/textbooks",
+    label: "교재 판매 현황",
+    description: "교재별 판매 통계, 재고 현황 조회 및 판매 등록",
+    minRole: AdminRole.COUNSELOR,
+    group: "시설 관리",
+  },
+  {
     href: "/admin/facilities/textbooks",
-    label: "교재 판매",
+    label: "교재 현장 판매",
     description: "교재 현장 판매 등록 및 오늘 판매 내역 조회",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",

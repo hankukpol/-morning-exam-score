@@ -1517,6 +1517,16 @@ model GraduateScoreSnapshot {
 
 // ─── Phase 11: 시스템 설정 ────────────────────────────────────────────────────
 
+// 시스템 전체 설정 (운영 시간, 알림, 수납 정책 등) — 단일 행 JSON 저장
+model SystemConfig {
+  id        String   @id @default("singleton")
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.Uuid
+
+  @@map("system_config")
+}
+
 model AcademySettings {
   id            Int      @id @default(1) // 단일 행 보장
   name          String   @default("")

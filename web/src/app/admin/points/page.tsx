@@ -1,129 +1,117 @@
-import { AdminRole } from "@prisma/client";
-import { PointManager } from "@/components/points/point-manager";
-import { formatMonthLabel } from "@/lib/analytics/presentation";
-import { getPointManagementData } from "@/lib/analytics/service";
-import {
-  getAnalyticsContext,
-  getDefaultMonthOption,
-  getMonthOptions,
-  readStringParam,
-} from "@/lib/analytics/ui";
+import { AdminRole, PointType } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
-import { EXAM_TYPE_LABEL } from "@/lib/constants";
+import { getPrisma } from "@/lib/prisma";
+import { PointsDashboard } from "./points-manager";
 
 export const dynamic = "force-dynamic";
 
-type PageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+const POINT_TYPE_LABEL: Record<PointType, string> = {
+  PERFECT_ATTENDANCE: "개근",
+  SCORE_EXCELLENCE: "성적 우수",
+  ESSAY_EXCELLENCE: "논술 우수",
+  MANUAL: "수동 지급",
 };
 
-export default async function AdminPointsPage({ searchParams }: PageProps) {
-  const [, { periods, selectedPeriod, examType }] = await Promise.all([
-    requireAdminContext(AdminRole.TEACHER),
-    getAnalyticsContext(searchParams),
-  ]);
-  const monthOptions = getMonthOptions(selectedPeriod, examType);
-  const requestedMonthKey = readStringParam(searchParams, "monthKey");
-  const selectedMonth =
-    monthOptions.find((option) => `${option.year}-${option.month}` === requestedMonthKey) ??
-    getDefaultMonthOption(monthOptions);
-  const data =
-    selectedPeriod && selectedMonth
-      ? await getPointManagementData(
-          selectedPeriod.id,
-          examType,
-          selectedMonth.year,
-          selectedMonth.month,
-        )
-      : null;
+export type PointLogRow = {
+  id: number;
+  examNumber: string;
+  studentName: string;
+  studentMobile: string | null;
+  type: PointType;
+  amount: number;
+  reason: string;
+  grantedAt: string;
+  grantedBy: string | null;
+};
+
+export type PointsKpi = {
+  totalIssued: number;
+  thisMonthIssued: number;
+  totalBalance: number;
+  beneficiaryCount: number;
+};
+
+export default async function AdminPointsPage() {
+  await requireAdminContext(AdminRole.COUNSELOR);
+
+  const prisma = getPrisma();
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [totalIssuedAgg, thisMonthIssuedAgg, totalBalanceAgg, beneficiaryGroups, recentLogs] =
+    await Promise.all([
+      prisma.pointLog.aggregate({
+        where: { amount: { gt: 0 } },
+        _sum: { amount: true },
+      }),
+      prisma.pointLog.aggregate({
+        where: { amount: { gt: 0 }, grantedAt: { gte: startOfMonth } },
+        _sum: { amount: true },
+      }),
+      prisma.pointLog.aggregate({ _sum: { amount: true } }),
+      prisma.pointLog.groupBy({
+        by: ["examNumber"],
+        where: { amount: { gt: 0 } },
+        _count: true,
+      }),
+      prisma.pointLog.findMany({
+        orderBy: { grantedAt: "desc" },
+        take: 10,
+        include: {
+          student: { select: { name: true, phone: true } },
+        },
+      }),
+    ]);
+
+  const kpi: PointsKpi = {
+    totalIssued: totalIssuedAgg._sum.amount ?? 0,
+    thisMonthIssued: thisMonthIssuedAgg._sum.amount ?? 0,
+    totalBalance: totalBalanceAgg._sum.amount ?? 0,
+    beneficiaryCount: beneficiaryGroups.length,
+  };
+
+  const logs: PointLogRow[] = recentLogs.map((log) => ({
+    id: log.id,
+    examNumber: log.examNumber,
+    studentName: log.student.name,
+    studentMobile: log.student.phone,
+    type: log.type,
+    amount: log.amount,
+    reason: log.reason,
+    grantedAt: log.grantedAt.toISOString(),
+    grantedBy: log.grantedBy,
+  }));
 
   return (
     <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-11 Points
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+            Points
+          </div>
+          <h1 className="mt-5 text-3xl font-semibold">포인트 현황</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+            전체 포인트 발행 현황과 최근 지급 이력을 확인하고, 수동으로 포인트를 지급합니다.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href="/admin/points/attendance"
+            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-mist"
+          >
+            개근 포인트 관리
+          </Link>
+          <Link
+            href="/admin/points/manage"
+            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-mist"
+          >
+            포인트 직접 관리
+          </Link>
+        </div>
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">포인트 관리</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        월별 개근 장학 자동 대상자와 성적 우수 수동 지급을 같은 화면에서 처리합니다.
-      </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
-        <div>
-          <label className="mb-2 block text-sm font-medium">시험 기간</label>
-          <select
-            name="periodId"
-            defaultValue={selectedPeriod?.id ? String(selectedPeriod.id) : ""}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            {periods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">직렬</label>
-          <select
-            name="examType"
-            defaultValue={examType}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            <option value="GONGCHAE">{EXAM_TYPE_LABEL.GONGCHAE}</option>
-            <option value="GYEONGCHAE">{EXAM_TYPE_LABEL.GYEONGCHAE}</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">대상 월</label>
-          <select
-            name="monthKey"
-            defaultValue={selectedMonth ? `${selectedMonth.year}-${selectedMonth.month}` : ""}
-            className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-          >
-            {monthOptions.map((option) => (
-              <option key={`${option.year}-${option.month}`} value={`${option.year}-${option.month}`}>
-                {formatMonthLabel(option.year, option.month)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest"
-          >
-            조회
-          </button>
-        </div>
-      </form>
-
-      {!selectedPeriod || !selectedMonth || !data ? (
-        <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-          포인트를 계산할 수 있는 회차가 없습니다.
-        </div>
-      ) : (
-        <div className="mt-8">
-          <PointManager
-            filters={{
-              periodId: selectedPeriod.id,
-              examType,
-              year: selectedMonth.year,
-              month: selectedMonth.month,
-            }}
-            candidates={data.candidates}
-            logs={data.logs.map((log) => ({
-              id: log.id,
-              examNumber: log.examNumber,
-              studentName: log.student.name,
-              type: log.type,
-              amount: log.amount,
-              reason: log.reason,
-              grantedAt: log.grantedAt.toISOString(),
-              grantedBy: log.grantedBy,
-            }))}
-          />
-        </div>
-      )}
+      <PointsDashboard kpi={kpi} initialLogs={logs} pointTypeLabelMap={POINT_TYPE_LABEL} />
     </div>
   );
 }
