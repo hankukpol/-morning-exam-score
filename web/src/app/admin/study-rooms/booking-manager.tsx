@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BookingStatus } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { BOOKING_STATUS_LABEL } from "@/lib/constants";
@@ -293,7 +294,12 @@ export function BookingManager({ initialRooms, initialBookings, todayStr }: Prop
                       </span>
                     </div>
                     <div>
-                      <p className="font-semibold text-ink">{room.name}</p>
+                      <Link
+                        href={`/admin/study-rooms/${room.id}`}
+                        className="font-semibold text-ink hover:text-forest transition-colors"
+                      >
+                        {room.name}
+                      </Link>
                       <p className="text-xs text-slate">
                         최대 {room.capacity}명
                         {room.description ? ` · ${room.description}` : ""}

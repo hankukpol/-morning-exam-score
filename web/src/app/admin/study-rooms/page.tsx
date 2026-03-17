@@ -1,4 +1,5 @@
 import { AdminRole } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { BookingManager } from "./booking-manager";
@@ -92,9 +93,10 @@ export default async function StudyRoomsPage() {
               (b) => b.roomId === room.id && b.status === "CONFIRMED",
             ).length;
             return (
-              <div
+              <Link
                 key={room.id}
-                className={`rounded-[20px] border px-4 py-3 text-sm ${
+                href={`/admin/study-rooms/${room.id}`}
+                className={`rounded-[20px] border px-4 py-3 text-sm transition-shadow hover:shadow-md ${
                   count > 0
                     ? "border-ember/30 bg-ember/5"
                     : "border-forest/20 bg-forest/5"
@@ -109,7 +111,7 @@ export default async function StudyRoomsPage() {
                     <span className="text-forest">여유</span>
                   )}
                 </p>
-              </div>
+              </Link>
             );
           })}
         </div>
