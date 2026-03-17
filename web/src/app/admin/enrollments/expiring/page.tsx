@@ -105,6 +105,8 @@ function ExpiringPageContent() {
   const [counts, setCounts] = useState<Counts>({ within7days: 0, within14days: 0, within30days: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -151,8 +153,39 @@ function ExpiringPageContent() {
     router.push(`/admin/enrollments/expiring?days=${e.target.value}`);
   }
 
-  function handleNotifyAll() {
-    alert("준비 중입니다.");
+  async function handleNotifyAll() {
+    if (enrollments.length === 0) return;
+    if (!window.confirm(`${enrollments.length}명에게 재등록 안내 알림을 발송합니다. 계속하시겠습니까?`)) return;
+
+    setNotifying(true);
+    setNotifyResult(null);
+
+    try {
+      const response = await fetch("/api/enrollments/expiring/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentIds: enrollments.map((e) => e.id) }),
+      });
+
+      const json = (await response.json()) as {
+        data?: { sent: number; failed: number; total: number };
+        error?: string;
+      };
+
+      if (!response.ok || json.error) {
+        throw new Error(json.error ?? "알림 발송에 실패했습니다.");
+      }
+
+      setNotifyResult({
+        sent: json.data?.sent ?? 0,
+        failed: json.data?.failed ?? 0,
+      });
+    } catch (err) {
+      setNotifyResult({ sent: 0, failed: -1 });
+      console.error("[handleNotifyAll]", err);
+    } finally {
+      setNotifying(false);
+    }
   }
 
   return (
@@ -168,13 +201,25 @@ function ExpiringPageContent() {
             곧 수강 기간이 만료되는 학생 목록입니다. 재등록 안내를 진행하세요.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleNotifyAll}
-          className="shrink-0 rounded-xl border border-ember/30 bg-ember/10 px-4 py-2.5 text-sm font-semibold text-ember hover:bg-ember/20 transition-colors"
-        >
-          전체 알림 발송
-        </button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={handleNotifyAll}
+            disabled={notifying || enrollments.length === 0}
+            className="rounded-xl border border-ember/30 bg-ember/10 px-4 py-2.5 text-sm font-semibold text-ember hover:bg-ember/20 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {notifying ? "발송 중..." : "전체 알림 발송"}
+          </button>
+          {notifyResult !== null && (
+            <p className={`text-xs font-medium ${notifyResult.failed === -1 ? "text-red-600" : notifyResult.failed > 0 ? "text-amber-700" : "text-forest"}`}>
+              {notifyResult.failed === -1
+                ? "알림 발송 중 오류가 발생했습니다."
+                : notifyResult.failed > 0
+                ? `발송 완료: ${notifyResult.sent}명 성공 / ${notifyResult.failed}명 실패`
+                : `${notifyResult.sent}명에게 알림을 발송했습니다.`}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}

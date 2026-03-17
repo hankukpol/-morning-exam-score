@@ -28,21 +28,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     data: { printedAt: new Date() },
   });
 
-  // AuditLog 기록 (선택)
-  try {
-    await prisma.auditLog.create({
-      data: {
-        adminId: auth.context.adminUser.id,
-        action: "CONTRACT_PRINT",
-        targetType: "CourseContract",
-        targetId: existing.id,
-        after: { enrollmentId, printedAt: updated.printedAt?.toISOString() ?? null },
-        ipAddress: request.headers.get("x-forwarded-for"),
-      },
-    });
-  } catch {
-    // auditLog 실패해도 print 성공으로 처리
-  }
+  await prisma.auditLog.create({
+    data: {
+      adminId: auth.context.adminUser.id,
+      action: "CONTRACT_PRINT",
+      targetType: "CourseContract",
+      targetId: existing.id,
+      after: { enrollmentId },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    },
+  });
 
   return NextResponse.json({ data: { printedAt: updated.printedAt } });
 }

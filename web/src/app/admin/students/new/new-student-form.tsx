@@ -20,6 +20,7 @@ type FormState = {
   examNumber: string;
   name: string;
   phone: string;
+  birthDate: string;
   examType: ExamType;
   studentType: StudentType;
   generation: string;
@@ -34,6 +35,7 @@ function createEmptyForm(): FormState {
     examNumber: "",
     name: "",
     phone: "",
+    birthDate: "",
     examType: "GONGCHAE",
     studentType: "NEW",
     generation: "",
@@ -86,6 +88,7 @@ export function NewStudentForm() {
             examNumber: trimmedExamNumber,
             name: trimmedName,
             phone: trimmedPhone,
+            birthDate: form.birthDate.trim() ? new Date(form.birthDate).toISOString() : null,
             examType: form.examType,
             studentType: form.studentType,
             generation: form.generation.trim() || null,
@@ -174,6 +177,18 @@ export function NewStudentForm() {
               placeholder="010-0000-0000"
               disabled={isPending}
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm placeholder:text-slate/50 focus:border-ember/40 focus:outline-none focus:ring-2 focus:ring-ember/10 disabled:bg-mist"
+            />
+          </div>
+
+          {/* 생년월일 */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">생년월일</label>
+            <input
+              type="date"
+              value={form.birthDate}
+              onChange={(e) => patch("birthDate", e.target.value)}
+              disabled={isPending}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm focus:border-ember/40 focus:outline-none focus:ring-2 focus:ring-ember/10 disabled:bg-mist"
             />
           </div>
         </div>

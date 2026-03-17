@@ -306,7 +306,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
             </span>
           ) : (
             <span className="text-[10px] font-medium bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">
-              초안
+              미출력
             </span>
           )}
         </Link>

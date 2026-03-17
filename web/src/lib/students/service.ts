@@ -35,6 +35,7 @@ export type StudentFormInput = {
   examNumber: string;
   name: string;
   phone?: string | null;
+  birthDate?: Date | null;
   generation?: number | null;
   className?: string | null;
   examType: ExamType;
@@ -302,6 +303,7 @@ function studentData(input: StudentFormInput) {
     examNumber: input.examNumber,
     name: input.name,
     phone: input.phone ?? null,
+    birthDate: input.birthDate ?? null,
     generation: input.generation ?? null,
     className: input.className ?? null,
     examType: input.examType,
@@ -635,8 +637,10 @@ export function parseStudentForm(raw: Record<string, unknown>) {
 
   const generationRaw = String(raw.generation ?? "").trim();
   const registeredAtRaw = String(raw.registeredAt ?? "").trim();
+  const birthDateRaw = String(raw.birthDate ?? "").trim();
   const generation = generationRaw ? Number(generationRaw) : null;
   const registeredAt = registeredAtRaw ? new Date(registeredAtRaw) : null;
+  const birthDate = birthDateRaw ? new Date(birthDateRaw) : null;
   const examType = String(raw.examType ?? "").trim() as ExamType;
   const studentType = String(raw.studentType ?? "").trim() as StudentType;
 
@@ -646,6 +650,10 @@ export function parseStudentForm(raw: Record<string, unknown>) {
 
   if (registeredAt && Number.isNaN(registeredAt.getTime())) {
     throw new Error("등록일 형식이 올바르지 않습니다.");
+  }
+
+  if (birthDate && Number.isNaN(birthDate.getTime())) {
+    throw new Error("생년월일 형식이 올바르지 않습니다.");
   }
 
   if (!EXAM_TYPE_VALUES.includes(examType)) {
@@ -660,6 +668,7 @@ export function parseStudentForm(raw: Record<string, unknown>) {
     examNumber,
     name,
     phone,
+    birthDate,
     generation,
     className: String(raw.className ?? "").trim() || null,
     examType,

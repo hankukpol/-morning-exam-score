@@ -29,16 +29,15 @@ function calcDurationMonths(start: Date, end: Date | null): string {
   return months > 0 ? `${months}개월` : "1개월 미만";
 }
 
-export default async function EnrollmentContractPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+type PageProps = { params: Promise<{ id: string }> };
+
+export default async function EnrollmentContractPage({ params }: PageProps) {
+  const { id } = await params;
   const { adminUser } = await requireAdminContext(AdminRole.COUNSELOR);
 
   const prisma = getPrisma();
   const enrollment = await prisma.courseEnrollment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       student: true,
       cohort: { select: { name: true } },
@@ -51,7 +50,7 @@ export default async function EnrollmentContractPage({
   // 분할납부 일정 별도 조회 (Payment → Installment)
   const installments = enrollment
     ? await prisma.installment.findMany({
-        where: { payment: { enrollmentId: params.id } },
+        where: { payment: { enrollmentId: id } },
         orderBy: { dueDate: "asc" },
       })
     : [];
@@ -60,7 +59,7 @@ export default async function EnrollmentContractPage({
 
   // 계약서 DB 레코드 조회 — 없으면 자동 생성
   let contractRecord = await prisma.courseContract.findUnique({
-    where: { enrollmentId: params.id },
+    where: { enrollmentId: id },
   });
 
   if (!contractRecord) {
@@ -71,7 +70,7 @@ export default async function EnrollmentContractPage({
       "강좌";
     contractRecord = await prisma.courseContract.create({
       data: {
-        enrollmentId: params.id,
+        enrollmentId: id,
         items: [{ label: courseName, amount: enrollment.finalFee }],
         staffId: adminUser.id,
       },
@@ -127,7 +126,7 @@ export default async function EnrollmentContractPage({
       {/* Toolbar */}
       <div className="no-print flex items-center justify-between gap-4 border-b bg-white px-6 py-4">
         <a
-          href={`/admin/enrollments/${params.id}`}
+          href={`/admin/enrollments/${id}`}
           className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm text-gray-600 transition hover:border-gray-400"
         >
           ← 수강 상세
@@ -138,7 +137,7 @@ export default async function EnrollmentContractPage({
       </div>
 
       {/* 편집 패널 */}
-      <ContractEditor enrollmentId={params.id} initial={contractData} />
+      <ContractEditor enrollmentId={id} initial={contractData} />
 
       {/* Contract */}
       <div className="flex justify-center p-8">
@@ -193,7 +192,7 @@ export default async function EnrollmentContractPage({
             />
           </Section>
 
-          {/* 수강료 — items 기반 */}
+          {/* 수강료 — items 기반 (tbody#contract-fee-tbody 를 인쇄 전 ContractEditor 가 교체) */}
           <Section title="수강료">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -202,7 +201,7 @@ export default async function EnrollmentContractPage({
                   <th className="border border-gray-200 px-3 py-1.5 text-right w-36">금액</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="contract-fee-tbody">
                 {printItems.map((item, i) => (
                   <tr key={i}>
                     <td className="border border-gray-200 px-3 py-1.5">{item.label}</td>
@@ -249,12 +248,17 @@ export default async function EnrollmentContractPage({
             )}
           </Section>
 
-          {/* 특약사항 */}
-          {contractData.note && (
+          {/* 특약사항 — id="contract-note-section" 으로 ContractEditor 가 동적 업데이트 */}
+          <div
+            id="contract-note-section"
+            style={{ display: contractData.note ? undefined : "none" }}
+          >
             <Section title="특약사항">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{contractData.note}</p>
+              <p id="contract-note-text" className="text-sm text-gray-700 whitespace-pre-wrap">
+                {contractData.note ?? ""}
+              </p>
             </Section>
-          )}
+          </div>
 
           {/* 환불 규정 */}
           <Section title="환불 규정 (학원의 설립·운영 및 과외교습에 관한 법률 제18조)">
