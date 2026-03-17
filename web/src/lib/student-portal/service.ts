@@ -45,21 +45,21 @@ function subjectOptionsForExamType(examType: ExamType, subjects: Subject[]) {
 
 export async function lookupStudentPortalStudent(input: {
   examNumber: string;
-  name: string;
+  birthDate: string; // YYMMDD 형식 6자리
 }) {
   if (!hasDatabaseConfig()) {
     throw new Error("학생 포털은 데이터베이스 연결 후 사용할 수 있습니다.");
   }
 
   const examNumber = input.examNumber.trim();
-  const name = input.name.trim();
+  const birthDate = input.birthDate.trim().replace(/\D/g, "");
 
   if (!examNumber) {
     throw new Error("수험번호를 입력해 주세요.");
   }
 
-  if (!name) {
-    throw new Error("이름을 입력해 주세요.");
+  if (!birthDate || birthDate.length !== 6) {
+    throw new Error("생년월일 6자리를 입력해 주세요. (예: 901231)");
   }
 
   const student = await getPrisma().student.findUnique({
@@ -71,11 +71,28 @@ export async function lookupStudentPortalStudent(input: {
       name: true,
       examType: true,
       isActive: true,
+      birthDate: true,
     },
   });
 
-  if (!student || !student.isActive || normalizeName(student.name) !== normalizeName(name)) {
-    throw new Error("수험번호와 이름이 일치하는 학생을 찾지 못했습니다.");
+  if (!student || !student.isActive) {
+    throw new Error("수험번호 또는 생년월일이 일치하지 않습니다.");
+  }
+
+  // birthDate가 DB에 없으면 로그인 불가
+  if (!student.birthDate) {
+    throw new Error("수험번호 또는 생년월일이 일치하지 않습니다.");
+  }
+
+  // YYMMDD 형식으로 비교 (DB의 DateTime → YY/MM/DD 추출)
+  const d = student.birthDate;
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const storedYYMMDD = `${yy}${mm}${dd}`;
+
+  if (storedYYMMDD !== birthDate) {
+    throw new Error("수험번호 또는 생년월일이 일치하지 않습니다.");
   }
 
   return student;

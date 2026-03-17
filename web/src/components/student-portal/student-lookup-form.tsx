@@ -21,7 +21,7 @@ export function StudentLookupForm({
   redirectPath = "/student",
 }: StudentLookupFormProps) {
   const [examNumber, setExamNumber] = useState(currentStudent?.examNumber ?? "");
-  const [name, setName] = useState(currentStudent?.name ?? "");
+  const [birthDate, setBirthDate] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,7 +54,7 @@ export function StudentLookupForm({
           method: "POST",
           body: JSON.stringify({
             examNumber,
-            name,
+            birthDate,
           }),
         });
 
@@ -94,7 +94,7 @@ export function StudentLookupForm({
         <div>
           <h2 className="text-xl font-semibold">학생 로그인</h2>
           <p className="mt-3 text-sm leading-7 text-slate">
-            수험번호와 이름으로 본인 포털에 로그인합니다.
+            수험번호와 생년월일 6자리로 본인 포털에 로그인합니다.
           </p>
         </div>
         {currentStudent ? (
@@ -124,9 +124,11 @@ export function StudentLookupForm({
           className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
         />
         <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="이름"
+          value={birthDate}
+          onChange={(event) => setBirthDate(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="생년월일 6자리 (예: 901231)"
+          inputMode="numeric"
+          maxLength={6}
           className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
         />
       </div>

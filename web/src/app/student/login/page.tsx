@@ -65,7 +65,7 @@ export default async function StudentLoginPage({ searchParams }: PageProps) {
               학생 로그인
             </div>
             <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">
-              수험번호와 이름으로 본인 포털에 로그인합니다.
+              수험번호와 생년월일로 본인 포털에 로그인합니다.
             </h1>
             <p className="mt-5 max-w-3xl text-sm leading-8 text-slate sm:text-base">
               로그인 후 성적, 오답 노트, 공지사항을 본인 기준으로 계속 조회할 수 있습니다.

@@ -12,6 +12,7 @@ model Student {
   examNumber          String        @id
   name                String
   phone               String?
+  birthDate           DateTime?
   generation          Int?
   className           String?
   examType            ExamType

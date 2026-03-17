@@ -10,12 +10,12 @@ import { lookupStudentPortalStudent } from "@/lib/student-portal/service";
 
 type RequestBody = {
   examNumber?: string;
-  name?: string;
+  birthDate?: string;
 };
 
 const LOOKUP_FAILURE_DELAY_MS = 800;
 const STUDENT_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
-const INVALID_CREDENTIALS_MESSAGE = "수험번호 또는 이름이 일치하지 않습니다.";
+const INVALID_CREDENTIALS_MESSAGE = "수험번호 또는 생년월일이 일치하지 않습니다.";
 
 function createRateLimitResponse(retryAfterSeconds: number) {
   return NextResponse.json(
@@ -42,23 +42,23 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
     identifier = String(body.examNumber ?? "").trim() || null;
-    const name = String(body.name ?? "").trim();
+    const birthDate = String(body.birthDate ?? "").trim();
     const rateLimit = getStudentLookupRateLimitStatus({ ipAddress, identifier });
 
     if (!rateLimit.ok) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
     }
 
-    if (!identifier || !name) {
+    if (!identifier || !birthDate) {
       return NextResponse.json(
-        { error: "수험번호와 이름을 입력해주세요." },
+        { error: "수험번호와 생년월일을 입력해주세요." },
         { status: 400 },
       );
     }
 
     const student = await lookupStudentPortalStudent({
       examNumber: identifier,
-      name,
+      birthDate,
     });
     const token = await signStudentJwt(student.examNumber);
     const response = NextResponse.json({
