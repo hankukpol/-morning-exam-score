@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { GraduateDetailClient } from "./graduate-detail-client";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -99,14 +100,13 @@ export default async function GraduateDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <div className="mb-6 flex items-center gap-2 text-sm text-slate">
-        <Link href="/admin/graduates" className="hover:text-forest transition-colors">
-          합격자 관리
-        </Link>
-        <span>/</span>
-        <span className="text-ink">{record.student.name}</span>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "판정 관리", href: "/admin/graduates" },
+          { label: "합격자 관리", href: "/admin/graduates" },
+          { label: record.student.name },
+        ]}
+      />
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">

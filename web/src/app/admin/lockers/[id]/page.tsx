@@ -5,6 +5,7 @@ import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { LockerDetailClient } from "./locker-detail-client";
 import { LOCKER_ZONE_LABEL } from "@/lib/constants";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,13 @@ export default async function LockerDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
+      <Breadcrumbs
+        items={[
+          { label: "시설 관리", href: "/admin/lockers" },
+          { label: "사물함", href: "/admin/lockers" },
+          { label: `${zoneName} ${locker.lockerNumber}번` },
+        ]}
+      />
       <Link href="/admin/lockers" className="text-sm text-slate hover:text-ink">
         ← 사물함 현황
       </Link>

@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { PaymentLinkDetailClient } from "./payment-link-detail-client";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -95,14 +96,13 @@ export default async function PaymentLinkDetailPage({
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate">
-        <Link href="/admin/payments/links" className="transition hover:text-ember">
-          결제 링크 관리
-        </Link>
-        <span>/</span>
-        <span className="text-ink">상세</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "수강 관리", href: "/admin/payment-links" },
+          { label: "결제 링크", href: "/admin/payment-links" },
+          { label: `링크 #${String(link.id).slice(-6)}` },
+        ]}
+      />
 
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
         수납 관리

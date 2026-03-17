@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { PaymentDetail, type PaymentDetailData } from "./payment-detail";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -47,14 +48,13 @@ export default async function PaymentDetailPage({
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <nav className="mb-4 flex items-center gap-2 text-xs text-slate">
-        <Link href="/admin/payments" className="hover:text-ink transition-colors">
-          수납 관리
-        </Link>
-        <span>/</span>
-        <span className="text-ink">수납 상세</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "수강 관리", href: "/admin/payments" },
+          { label: "수납 이력", href: "/admin/payments" },
+          { label: `#${id.slice(-6)}` },
+        ]}
+      />
 
       {/* Badge + header */}
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">

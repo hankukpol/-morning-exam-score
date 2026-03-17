@@ -28,6 +28,8 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
   const subjectFilter = typeof sp.subject === "string" ? sp.subject : "";
   const dateFrom = typeof sp.dateFrom === "string" ? sp.dateFrom : "";
   const dateTo = typeof sp.dateTo === "string" ? sp.dateTo : "";
+  const periodFilter = typeof sp.period === "string" ? sp.period : "";
+  const groupByPeriod = sp.groupByPeriod !== "0"; // default on
 
   // Build where clause
   const where: {
@@ -35,6 +37,7 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
     examType?: ExamType;
     subject?: Subject;
     examDate?: { gte?: Date; lte?: Date };
+    periodId?: number;
   } = {};
 
   if (examTypeFilter === "GONGCHAE") {
@@ -45,6 +48,13 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
 
   if (subjectFilter && Object.values(Subject).includes(subjectFilter as Subject)) {
     where.subject = subjectFilter as Subject;
+  }
+
+  if (periodFilter) {
+    const parsedPeriodId = parseInt(periodFilter, 10);
+    if (!isNaN(parsedPeriodId)) {
+      where.periodId = parsedPeriodId;
+    }
   }
 
   const dateRange: { gte?: Date; lte?: Date } = {};
@@ -65,6 +75,12 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
   if (Object.keys(dateRange).length > 0) {
     where.examDate = dateRange;
   }
+
+  // Fetch periods for filter dropdown
+  const periods = await getPrisma().examPeriod.findMany({
+    orderBy: [{ startDate: "desc" }],
+    select: { id: true, name: true, isActive: true },
+  });
 
   const sessions = await getPrisma().examSession.findMany({
     where,
@@ -93,7 +109,37 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
     (s) => !s.isCancelled && s._count.scores === 0,
   ).length;
 
-  const hasFilter = !!(examTypeFilter || subjectFilter || dateFrom || dateTo);
+  const hasFilter = !!(examTypeFilter || subjectFilter || dateFrom || dateTo || periodFilter);
+
+  // Group sessions by period
+  type PeriodGroup = {
+    id: number;
+    name: string;
+    isActive: boolean;
+    sessions: typeof sessions;
+    lockedCount: number;
+    missingCount: number;
+  };
+
+  const periodGroupMap = new Map<number, PeriodGroup>();
+  for (const session of sessions) {
+    const pid = session.period.id;
+    if (!periodGroupMap.has(pid)) {
+      periodGroupMap.set(pid, {
+        id: pid,
+        name: session.period.name,
+        isActive: session.period.isActive,
+        sessions: [],
+        lockedCount: 0,
+        missingCount: 0,
+      });
+    }
+    const group = periodGroupMap.get(pid)!;
+    group.sessions.push(session);
+    if (session.isLocked && !session.isCancelled) group.lockedCount++;
+    if (!session.isCancelled && session._count.scores === 0) group.missingCount++;
+  }
+  const periodGroups = Array.from(periodGroupMap.values());
 
   return (
     <div className="p-8 sm:p-10">
@@ -175,7 +221,27 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
           필터
         </h2>
         <form method="GET" className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {/* 기수 */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate" htmlFor="period">
+                기수
+              </label>
+              <select
+                id="period"
+                name="period"
+                defaultValue={periodFilter}
+                className="rounded-xl border border-ink/10 bg-mist px-3 py-2 text-sm text-ink focus:border-ember/40 focus:outline-none focus:ring-2 focus:ring-ember/20"
+              >
+                <option value="">전체 기수</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.isActive ? " (현재)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* 직렬 */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate" htmlFor="examType">
@@ -242,6 +308,20 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
             </div>
           </div>
 
+          {/* 기수별 그룹화 토글 */}
+          <div className="mt-4 flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate select-none">
+              <input
+                type="checkbox"
+                name="groupByPeriod"
+                value="1"
+                defaultChecked={groupByPeriod}
+                className="h-4 w-4 rounded border-ink/20 accent-ember"
+              />
+              기수별 그룹화
+            </label>
+          </div>
+
           <div className="mt-4 flex items-center gap-3">
             <button
               type="submit"
@@ -261,7 +341,7 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
         </form>
       </section>
 
-      {/* ── 세션 목록 테이블 ─────────────────────────────────────────── */}
+      {/* ── 세션 목록 ────────────────────────────────────────────────── */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate">
@@ -274,146 +354,54 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
           <div className="rounded-[28px] border border-dashed border-ink/10 p-10 text-center text-sm text-slate">
             {hasFilter ? "검색 조건에 맞는 세션이 없습니다." : "등록된 세션이 없습니다."}
           </div>
+        ) : groupByPeriod ? (
+          /* ── 기수별 그룹 뷰 ───────────────────────────────────────── */
+          <div className="space-y-6">
+            {periodGroups.map((group) => (
+              <div key={group.id}>
+                {/* 기수 섹션 헤더 */}
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-ink">{group.name}</h3>
+                    {group.isActive && (
+                      <span className="rounded-full bg-forest/10 px-2 py-0.5 text-[10px] font-semibold text-forest">
+                        현재 기수
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate">
+                    <span className="rounded-full bg-ink/5 px-2.5 py-1 font-semibold">
+                      총 {group.sessions.length}세션
+                    </span>
+                    {group.missingCount > 0 && (
+                      <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+                        미입력 {group.missingCount}
+                      </span>
+                    )}
+                    {group.lockedCount > 0 && (
+                      <span className="rounded-full bg-ink/5 px-2.5 py-1 font-semibold text-slate">
+                        잠금 {group.lockedCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 border-b border-ink/10" />
+                </div>
+
+                {/* 기수별 테이블 */}
+                <SessionTable sessions={group.sessions} />
+              </div>
+            ))}
+            {sessions.length === 200 && (
+              <p className="rounded-[20px] border border-ink/10 bg-white px-6 py-3 text-xs text-slate">
+                최대 200건이 표시됩니다. 필터를 사용해 범위를 좁혀주세요.
+              </p>
+            )}
+          </div>
         ) : (
+          /* ── 단순 테이블 뷰 ─────────────────────────────────────── */
           <div className="rounded-[28px] border border-ink/10 bg-white shadow-panel">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[740px] text-sm">
-                <thead>
-                  <tr className="border-b border-ink/10">
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      날짜
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      기수
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      직렬
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      주차
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      과목
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      응시자 수
-                    </th>
-                    <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      상태
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate">
-                      관리
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink/5">
-                  {sessions.map((session) => {
-                    const subjectLabel =
-                      session.displaySubjectName?.trim() ||
-                      SUBJECT_LABEL[session.subject as Subject] ||
-                      session.subject;
-
-                    return (
-                      <tr
-                        key={session.id}
-                        className={`transition hover:bg-mist/60 ${
-                          session.isCancelled ? "opacity-50" : ""
-                        }`}
-                      >
-                        <td className="px-6 py-3 text-slate">
-                          {formatDate(session.examDate)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1 text-sm text-ink">
-                            {session.period.name}
-                            {session.period.isActive && (
-                              <span className="rounded-full bg-forest/10 px-1.5 py-0.5 text-[10px] font-semibold text-forest">
-                                현재
-                              </span>
-                            )}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                              session.examType === "GONGCHAE"
-                                ? "border-forest/30 bg-forest/10 text-forest"
-                                : "border-ember/30 bg-ember/10 text-ember"
-                            }`}
-                          >
-                            {EXAM_TYPE_LABEL[session.examType as ExamType] ?? session.examType}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-xs font-semibold text-slate">
-                            {session.week}주
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-ink">
-                          {subjectLabel}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {session._count.scores > 0 ? (
-                            <span className="font-mono font-semibold text-ink">
-                              {session._count.scores}명
-                            </span>
-                          ) : session.isCancelled ? (
-                            <span className="text-ink/30">—</span>
-                          ) : (
-                            <span className="font-semibold text-amber-600">미입력</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {session.isCancelled && (
-                              <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                                취소
-                              </span>
-                            )}
-                            {!session.isCancelled && (
-                              <SessionLockToggle
-                                sessionId={session.id}
-                                isLocked={session.isLocked}
-                              />
-                            )}
-                            {!session.isCancelled && !session.isLocked && (
-                              <span className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-2 py-0.5 text-[10px] font-semibold text-forest">
-                                활성
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Link
-                              href={`/admin/scores/sessions/${session.id}`}
-                              className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ink/40 hover:text-ink"
-                            >
-                              상세
-                            </Link>
-                            {!session.isCancelled &&
-                              (session._count.scores === 0 ? (
-                                <Link
-                                  href={`/admin/scores/input?sessionId=${session.id}`}
-                                  className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/20"
-                                >
-                                  입력
-                                </Link>
-                              ) : (
-                                <Link
-                                  href={`/admin/scores/edit?sessionId=${session.id}`}
-                                  className="inline-flex items-center rounded-full border border-forest/30 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/10"
-                                >
-                                  수정
-                                </Link>
-                              ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <SessionTableInner sessions={sessions} />
             </div>
             {sessions.length === 200 && (
               <p className="border-t border-ink/10 px-6 py-3 text-xs text-slate">
@@ -424,5 +412,183 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
         )}
       </section>
     </div>
+  );
+}
+
+// ── 공유 타입 ─────────────────────────────────────────────────────────────
+type SessionRow = {
+  id: number;
+  examType: ExamType;
+  week: number;
+  subject: Subject;
+  displaySubjectName: string | null;
+  examDate: Date;
+  isCancelled: boolean;
+  isLocked: boolean;
+  period: { id: number; name: string; isActive: boolean };
+  _count: { scores: number };
+};
+
+// ── 그룹 뷰용 래퍼 (카드 스타일) ─────────────────────────────────────────
+function SessionTable({ sessions }: { sessions: SessionRow[] }) {
+  return (
+    <div className="rounded-[28px] border border-ink/10 bg-white shadow-panel">
+      <div className="overflow-x-auto">
+        <SessionTableInner sessions={sessions} showPeriod={false} />
+      </div>
+    </div>
+  );
+}
+
+// ── 실제 테이블 렌더러 ────────────────────────────────────────────────────
+function SessionTableInner({
+  sessions,
+  showPeriod = true,
+}: {
+  sessions: SessionRow[];
+  showPeriod?: boolean;
+}) {
+  return (
+    <table className="w-full min-w-[740px] text-sm">
+      <thead>
+        <tr className="border-b border-ink/10">
+          <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            날짜
+          </th>
+          {showPeriod && (
+            <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+              기수
+            </th>
+          )}
+          <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            직렬
+          </th>
+          <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            주차
+          </th>
+          <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            과목
+          </th>
+          <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            응시자 수
+          </th>
+          <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            상태
+          </th>
+          <th className="px-4 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate">
+            관리
+          </th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-ink/5">
+        {sessions.map((session) => {
+          const subjectLabel =
+            session.displaySubjectName?.trim() ||
+            SUBJECT_LABEL[session.subject as Subject] ||
+            session.subject;
+
+          return (
+            <tr
+              key={session.id}
+              className={`transition hover:bg-mist/60 ${
+                session.isCancelled ? "opacity-50" : ""
+              }`}
+            >
+              <td className="px-6 py-3 text-slate">
+                {formatDate(session.examDate)}
+              </td>
+              {showPeriod && (
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center gap-1 text-sm text-ink">
+                    {session.period.name}
+                    {session.period.isActive && (
+                      <span className="rounded-full bg-forest/10 px-1.5 py-0.5 text-[10px] font-semibold text-forest">
+                        현재
+                      </span>
+                    )}
+                  </span>
+                </td>
+              )}
+              <td className="px-4 py-3">
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    session.examType === "GONGCHAE"
+                      ? "border-forest/30 bg-forest/10 text-forest"
+                      : "border-ember/30 bg-ember/10 text-ember"
+                  }`}
+                >
+                  {EXAM_TYPE_LABEL[session.examType as ExamType] ?? session.examType}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-xs font-semibold text-slate">
+                  {session.week}주
+                </span>
+              </td>
+              <td className="px-4 py-3 font-medium text-ink">
+                {subjectLabel}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {session._count.scores > 0 ? (
+                  <span className="font-mono font-semibold text-ink">
+                    {session._count.scores}명
+                  </span>
+                ) : session.isCancelled ? (
+                  <span className="text-ink/30">—</span>
+                ) : (
+                  <span className="font-semibold text-amber-600">미입력</span>
+                )}
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {session.isCancelled && (
+                    <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                      취소
+                    </span>
+                  )}
+                  {!session.isCancelled && (
+                    <SessionLockToggle
+                      sessionId={session.id}
+                      isLocked={session.isLocked}
+                    />
+                  )}
+                  {!session.isCancelled && !session.isLocked && (
+                    <span className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-2 py-0.5 text-[10px] font-semibold text-forest">
+                      활성
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <div className="flex items-center justify-end gap-1.5">
+                  <Link
+                    href={`/admin/scores/sessions/${session.id}`}
+                    className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ink/40 hover:text-ink"
+                  >
+                    상세
+                  </Link>
+                  {!session.isCancelled &&
+                    (session._count.scores === 0 ? (
+                      <Link
+                        href={`/admin/scores/input?sessionId=${session.id}`}
+                        className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/20"
+                      >
+                        입력
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/admin/scores/edit?sessionId=${session.id}`}
+                        className="inline-flex items-center rounded-full border border-forest/30 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/10"
+                      >
+                        수정
+                      </Link>
+                    ))}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

@@ -4,6 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { SpecialLectureDetailClient } from "./special-lecture-detail-client";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +122,13 @@ export default async function SpecialLectureDetailPage({
 
   return (
     <div className="p-8 sm:p-10">
+      <Breadcrumbs
+        items={[
+          { label: "수강 관리", href: "/admin/special-lectures" },
+          { label: "특강 수강 현황", href: "/admin/special-lectures" },
+          { label: lecture.name },
+        ]}
+      />
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
         특강 단과
       </div>

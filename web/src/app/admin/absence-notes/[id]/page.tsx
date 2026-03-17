@@ -6,6 +6,7 @@ import { ABSENCE_CATEGORY_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -83,14 +84,13 @@ export default async function AbsenceNoteDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate">
-        <Link href="/admin/absence-notes" className="transition hover:text-ink">
-          사유서 관리
-        </Link>
-        <span>/</span>
-        <span className="font-medium text-ink">사유서 상세</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "학사 관리", href: "/admin/absence-notes" },
+          { label: "사유서 관리", href: "/admin/absence-notes" },
+          { label: `사유서 #${note.id}` },
+        ]}
+      />
 
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4">

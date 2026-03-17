@@ -34,6 +34,7 @@ import { CounselingBriefingCard } from "@/components/students/counseling-briefin
 import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 import { ConsentToggle } from "./consent-toggle";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -292,6 +293,13 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
   return (
     <div className="p-8 sm:p-10">
+      <Breadcrumbs
+        items={[
+          { label: "학사 관리", href: "/admin/students" },
+          { label: "전체 명단", href: "/admin/students" },
+          { label: `${student.name} (${student.examNumber})` },
+        ]}
+      />
       {/* 헤더 */}
       <div>
         <Link href="/admin/students" className="text-sm text-slate transition hover:text-ember">

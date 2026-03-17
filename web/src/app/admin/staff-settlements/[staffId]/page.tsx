@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { StaffDetailClient } from "./staff-detail-client";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -95,13 +96,13 @@ export default async function StaffSettlementDetailPage({
   if (!adminUserId) {
     return (
       <div className="p-8 sm:p-10">
-        <nav className="mb-6 flex items-center gap-2 text-sm text-slate">
-          <Link href="/admin/staff-settlements" className="hover:text-forest transition-colors">
-            직원 정산
-          </Link>
-          <span>/</span>
-          <span className="text-ink font-medium">{staff.name}</span>
-        </nav>
+        <Breadcrumbs
+          items={[
+            { label: "보고서", href: "/admin/staff-settlements" },
+            { label: "강사 정산", href: "/admin/staff-settlements" },
+            { label: staff.name },
+          ]}
+        />
         <div className="rounded-[28px] border border-ink/10 bg-white p-8 text-center shadow-sm">
           <p className="text-slate">
             이 직원은 관리자 계정과 연동되어 있지 않아 정산 데이터가 없습니다.
@@ -228,14 +229,13 @@ export default async function StaffSettlementDetailPage({
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-2 text-sm text-slate">
-        <Link href="/admin/staff-settlements" className="hover:text-forest transition-colors">
-          직원 정산
-        </Link>
-        <span>/</span>
-        <span className="text-ink font-medium">{staff.name}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "보고서", href: "/admin/staff-settlements" },
+          { label: "강사 정산", href: "/admin/staff-settlements" },
+          { label: staff.name },
+        ]}
+      />
 
       {/* Header */}
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">

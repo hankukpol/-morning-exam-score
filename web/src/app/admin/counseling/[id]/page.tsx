@@ -4,6 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { CounselingActions } from "./counseling-actions";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -67,14 +68,13 @@ export default async function CounselingRecordDetailPage({ params }: PageProps) 
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs text-slate">
-        <Link href="/admin/counseling" className="transition hover:text-ember">
-          상담 관리
-        </Link>
-        <span>/</span>
-        <span className="text-ink">상담 기록 상세</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "학사 관리", href: "/admin/counseling" },
+          { label: "학생 면담", href: "/admin/counseling" },
+          { label: `${record.student.name} 면담` },
+        ]}
+      />
 
       {/* Header */}
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">

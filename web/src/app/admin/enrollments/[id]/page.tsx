@@ -4,6 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { EnrollmentDetailClient } from "./enrollment-detail-client";
+import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -120,8 +121,21 @@ export default async function EnrollmentDetailPage({
     })),
   };
 
+  const courseName =
+    enrollment.cohort?.name ??
+    enrollment.product?.name ??
+    enrollment.specialLecture?.name ??
+    "수강 상세";
+
   return (
     <div className="p-8 sm:p-10">
+      <Breadcrumbs
+        items={[
+          { label: "수강 관리", href: "/admin/enrollments" },
+          { label: "수강 목록", href: "/admin/enrollments" },
+          { label: `${enrollment.student.name} - ${courseName}` },
+        ]}
+      />
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         수강 관리
       </div>
