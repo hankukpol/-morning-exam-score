@@ -413,6 +413,17 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-purple-600 bg-purple-50",
               },
               {
+                href: "/student/payment-history",
+                label: "납부이력",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z" clipRule="evenodd" />
+                    <path d="M3 13.5A2.5 2.5 0 0 1 .5 11V9h.757a3.498 3.498 0 0 0 6.486 0h4.514a3.498 3.498 0 0 0 6.486 0H19v2a2.5 2.5 0 0 1-2.5 2.5h-13Z" />
+                  </svg>
+                ),
+                color: "text-green-700 bg-green-50",
+              },
+              {
                 href: "/student/wrong-notes",
                 label: "오답노트",
                 icon: (

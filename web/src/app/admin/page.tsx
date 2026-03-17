@@ -60,7 +60,7 @@ export default async function AdminDashboardPage() {
     return days;
   })().catch(() => [] as { label: string; dateStr: string; amount: number; count: number }[]);
 
-  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams, extraKpi] = await Promise.all([
+  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams, extraKpi, pendingRefundCount] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -148,6 +148,10 @@ export default async function AdminDashboardPage() {
         activePaymentLinkCount,
       }))
       .catch(() => null),
+    // 결재 대기: PENDING 상태 환불 건수
+    getPrisma()
+      .refund.count({ where: { status: "PENDING" } })
+      .catch(() => 0),
   ]);
 
   // 최근 활동 피드 (병렬 페치)
@@ -306,6 +310,17 @@ export default async function AdminDashboardPage() {
           : "border-ink/10 bg-white",
       valueColor: summary.missingScoredSessionCount > 0 ? "text-ember" : "text-ink",
     },
+    {
+      label: "결재 대기",
+      value: `${pendingRefundCount}`,
+      sub: "승인 대기 중인 환불 요청",
+      href: "/admin/approvals",
+      color:
+        pendingRefundCount > 0
+          ? "border-amber-300 bg-amber-50/50"
+          : "border-ink/10 bg-white",
+      valueColor: pendingRefundCount > 0 ? "text-amber-700" : "text-ink",
+    },
   ];
 
   const quickLinks = [
@@ -423,7 +438,7 @@ export default async function AdminDashboardPage() {
         currentAdminRole={context.adminUser.role}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpiCards.map((card) => (
           <Link
             key={card.label}

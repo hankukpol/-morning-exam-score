@@ -3,6 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
 
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const auth = await requireApiAdmin(AdminRole.MANAGER);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const instructor = await getPrisma().instructor.findUnique({
+    where: { id: params.id },
+  });
+
+  if (!instructor) {
+    return NextResponse.json({ error: "강사를 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  return NextResponse.json({ instructor });
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },

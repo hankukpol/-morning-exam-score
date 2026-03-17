@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ExamType, ProspectSource, ProspectStage } from "@prisma/client";
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
@@ -391,7 +392,14 @@ export function ProspectManager({ initialProspects }: ProspectManagerProps) {
               ) : null}
               {filteredProspects.map((record) => (
                 <tr key={record.id} className="transition hover:bg-mist/30">
-                  <td className="px-4 py-3 font-semibold text-ink">{record.name}</td>
+                  <td className="px-4 py-3 font-semibold text-ink">
+                    <Link
+                      href={`/admin/prospects/${record.id}`}
+                      className="transition hover:text-ember hover:underline"
+                    >
+                      {record.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 tabular-nums text-slate">
                     {record.phone ?? "-"}
                   </td>

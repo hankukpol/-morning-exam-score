@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CourseType,
   EnrollmentStatus,
+  LinkStatus,
   PaymentMethod,
   PaymentStatus,
   RefundStatus,
@@ -114,8 +115,9 @@ async function fetchEnrollmentData(examNumber: string) {
     enrollments.find((e) => e.status === EnrollmentStatus.ACTIVE) ??
     enrollments[0];
 
-  // Fetch payments + contract in parallel
-  const [payments, contract] = await Promise.all([
+  // Fetch payments + contract + active payment links in parallel
+  const now = new Date();
+  const [payments, contract, activePaymentLinks] = await Promise.all([
     prisma.payment.findMany({
       where: { examNumber },
       orderBy: [{ processedAt: "desc" }],
@@ -143,12 +145,29 @@ async function fetchEnrollmentData(examNumber: string) {
       where: { enrollmentId: primary.id },
       select: { issuedAt: true, printedAt: true },
     }),
+    prisma.paymentLink.findMany({
+      where: {
+        examNumber,
+        status: LinkStatus.ACTIVE,
+        expiresAt: { gt: now },
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        id: true,
+        token: true,
+        title: true,
+        finalAmount: true,
+        expiresAt: true,
+        note: true,
+      },
+    }),
   ]);
 
   return {
     primary,
     allEnrollments: enrollments,
     payments,
+    activePaymentLinks,
     contract: contract
       ? {
           issuedAt: contract.issuedAt,
@@ -375,6 +394,80 @@ export default async function StudentEnrollmentPage() {
               </p>
             </div>
           </div>
+        )}
+
+        {/* ── 미납 결제 링크 ── */}
+        {result && result.activePaymentLinks.length > 0 && (
+          <section className="rounded-[28px] border border-ember/20 bg-ember/5 p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-ember/15 text-ember">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path fillRule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z" clipRule="evenodd" />
+                  <path d="M3 13.5A2.5 2.5 0 0 1 .5 11V9h.757a3.498 3.498 0 0 0 6.486 0h4.514a3.498 3.498 0 0 0 6.486 0H19v2a2.5 2.5 0 0 1-2.5 2.5h-13Z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-ember">미납 결제 링크</h2>
+                <p className="text-xs text-ember/70">담당 직원이 발송한 결제 링크입니다. 기한 내 납부해 주세요.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {result.activePaymentLinks.map((link) => {
+                const msLeft = new Date(link.expiresAt).getTime() - Date.now();
+                const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
+                const daysLeft = Math.floor(hoursLeft / 24);
+                const expiryLabel =
+                  msLeft <= 0
+                    ? "만료됨"
+                    : daysLeft >= 2
+                    ? `${daysLeft}일 후 만료`
+                    : daysLeft === 1
+                    ? "내일 만료"
+                    : hoursLeft > 0
+                    ? `${hoursLeft}시간 후 만료`
+                    : "곧 만료";
+                const expiryUrgent = daysLeft < 2 && msLeft > 0;
+
+                return (
+                  <div
+                    key={link.id}
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-ember/20 bg-white px-5 py-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-ink">{link.title}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span className="text-lg font-bold text-ember">
+                          {link.finalAmount.toLocaleString("ko-KR")}원
+                        </span>
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                            expiryUrgent
+                              ? "border-red-200 bg-red-50 text-red-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {expiryLabel}
+                        </span>
+                      </div>
+                      {link.note && (
+                        <p className="mt-1 text-xs text-slate">{link.note}</p>
+                      )}
+                    </div>
+                    <Link
+                      href={`/pay/${link.token}`}
+                      className="inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90"
+                    >
+                      결제하기
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                        <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
+                      </svg>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         {/* ── 수강증 QR 카드 ── */}

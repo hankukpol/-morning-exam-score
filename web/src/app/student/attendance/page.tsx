@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { AttendanceSection } from "@/components/student-portal/attendance-section";
@@ -127,10 +128,21 @@ export default async function StudentAttendancePage({ searchParams }: PageProps)
                 월별 캘린더, 출석률, 연속 출석 스트릭을 한 화면에서 확인할 수 있습니다.
               </p>
             </div>
-            <div
-              className={`inline-flex rounded-full border px-4 py-3 text-sm font-semibold ${STATUS_BADGE_CLASS[data.summary.currentStatus]}`}
-            >
-              {STATUS_LABEL[data.summary.currentStatus]}
+            <div className="flex flex-col items-end gap-2">
+              <div
+                className={`inline-flex rounded-full border px-4 py-3 text-sm font-semibold ${STATUS_BADGE_CLASS[data.summary.currentStatus]}`}
+              >
+                {STATUS_LABEL[data.summary.currentStatus]}
+              </div>
+              <Link
+                href="/student/absence-notes"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ember/30 bg-ember/5 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+                </svg>
+                결석확인서 제출
+              </Link>
             </div>
           </div>
         </section>

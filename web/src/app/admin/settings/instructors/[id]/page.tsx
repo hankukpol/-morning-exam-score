@@ -71,13 +71,21 @@ export default async function InstructorDetailPage({ params }: PageProps) {
           <h1 className="text-3xl font-semibold">{instructor.name}</h1>
           <p className="mt-1 text-sm text-slate">{instructor.subject}</p>
         </div>
-        <span
-          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-            instructor.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {instructor.isActive ? "재직중" : "퇴직"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+              instructor.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {instructor.isActive ? "재직중" : "퇴직"}
+          </span>
+          <Link
+            href={`/admin/settings/instructors/${id}/edit`}
+            className="inline-flex items-center rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            수정
+          </Link>
+        </div>
       </div>
 
       {/* Profile card */}
