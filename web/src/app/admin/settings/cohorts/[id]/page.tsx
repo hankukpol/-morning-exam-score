@@ -5,6 +5,7 @@ import { requireAdminContext } from "@/lib/auth";
 import { EXAM_CATEGORY_LABEL } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
 import { CohortDetailClient } from "./cohort-detail-client";
+import { CohortEditPanel } from "./cohort-edit-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,20 @@ export default async function CohortDetailPage({ params }: PageProps) {
           </Link>
         </div>
       </div>
+
+      {/* Edit panel */}
+      <CohortEditPanel
+        cohort={{
+          id: cohort.id,
+          name: cohort.name,
+          examCategory: cohort.examCategory,
+          startDate: cohort.startDate,
+          endDate: cohort.endDate,
+          targetExamYear: cohort.targetExamYear,
+          isActive: cohort.isActive,
+          maxCapacity: cohort.maxCapacity,
+        }}
+      />
 
       {/* Client-side detail (tabs, end date edit) */}
       <CohortDetailClient cohort={cohort} />

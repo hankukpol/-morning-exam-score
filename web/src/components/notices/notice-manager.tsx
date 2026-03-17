@@ -1,6 +1,7 @@
 "use client";
 
 import { NoticeTargetType } from "@prisma/client";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
@@ -495,7 +496,14 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                       </span>
                     )}
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold">{notice.title}</h3>
+                  <h3 className="mt-4 text-xl font-semibold">
+                    <Link
+                      href={`/admin/notices/${notice.id}`}
+                      className="hover:text-forest hover:underline"
+                    >
+                      {notice.title}
+                    </Link>
+                  </h3>
                   <p className="mt-2 text-xs text-slate">
                     {`\uC791\uC131 ${formatDateTime(notice.createdAt)} / \uC218\uC815 ${formatDateTime(notice.updatedAt)}${
                       notice.publishedAt ? ` / \uAC8C\uC2DC ${formatDateTime(notice.publishedAt)}` : ""
@@ -504,6 +512,12 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/notices/${notice.id}`}
+                    className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-forest/30 hover:text-forest"
+                  >
+                    상세
+                  </Link>
                   <button
                     type="button"
                     onClick={() => startEdit(notice)}

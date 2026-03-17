@@ -1,8 +1,8 @@
 "use client";
 
 import { ExamType, ProspectSource, ProspectStage } from "@prisma/client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useEffect, useCallback } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ActionModal } from "@/components/ui/action-modal";
 import type { ProspectRow } from "./page";
 
@@ -34,6 +34,33 @@ const STAGE_BADGE_CLASS: Record<ProspectStage, string> = {
   REGISTERED: "bg-forest/10 text-forest border-forest/20",
   DROPPED: "bg-red-50 text-red-700 border-red-200",
 };
+
+// Next stage to advance to (quick-convert button)
+const NEXT_STAGE: Partial<Record<ProspectStage, ProspectStage>> = {
+  INQUIRY: ProspectStage.VISITING,
+  VISITING: ProspectStage.DECIDING,
+  DECIDING: ProspectStage.REGISTERED,
+};
+
+const NEXT_STAGE_LABEL: Partial<Record<ProspectStage, string>> = {
+  INQUIRY: "내방상담",
+  VISITING: "검토중",
+  DECIDING: "등록완료",
+};
+
+// Months for picker
+function buildMonthOptions(): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = [];
+  const now = new Date();
+  // Show 6 months back + current + 1 future
+  for (let delta = -6; delta <= 1; delta++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + delta, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+    opts.push({ value, label });
+  }
+  return opts;
+}
 
 type FormState = {
   name: string;
@@ -80,48 +107,84 @@ function formatDate(dateStr: string) {
 
 interface Props {
   initialProspects: ProspectRow[];
+  initialMonth: string;
 }
 
-export function ProspectManager({ initialProspects }: Props) {
+export function ProspectManager({ initialProspects, initialMonth }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const [prospects, setProspects] = useState<ProspectRow[]>(initialProspects);
 
-  // Filter state
+  // Month filter (URL-synced)
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+
+  // Stage / source / search filters (client-side)
   const [filterStage, setFilterStage] = useState<ProspectStage | "ALL">("ALL");
   const [filterSource, setFilterSource] = useState<ProspectSource | "ALL">("ALL");
   const [search, setSearch] = useState("");
 
-  // Modal state: each modal has its own boolean
+  // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<ProspectRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProspectRow | null>(null);
+  const [quickConvertTarget, setQuickConvertTarget] = useState<{
+    row: ProspectRow;
+    nextStage: ProspectStage;
+  } | null>(null);
 
   // Form state
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Computed stats
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const thisMonthProspects = prospects.filter((p) => new Date(p.createdAt) >= monthStart);
-  const thisMonthRegistered = thisMonthProspects.filter((p) => p.stage === ProspectStage.REGISTERED).length;
-  const conversionRate =
-    thisMonthProspects.length > 0
-      ? Math.round((thisMonthRegistered / thisMonthProspects.length) * 100)
-      : 0;
+  // Auto-dismiss success message after 3 seconds
+  useEffect(() => {
+    if (!successMessage) return;
+    const t = setTimeout(() => setSuccessMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [successMessage]);
 
+  // Month change: update URL
+  const handleMonthChange = useCallback(
+    (month: string) => {
+      setSelectedMonth(month);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("month", month);
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams],
+  );
+
+  // Parse selectedMonth for filtering
+  const [filterYear, filterMonthNum] = selectedMonth.split("-").map(Number);
+  const monthStart = new Date(filterYear, filterMonthNum - 1, 1);
+  const monthEnd = new Date(filterYear, filterMonthNum, 1);
+
+  // Prospects within the selected month (by visitedAt)
+  const monthProspects = prospects.filter((p) => {
+    const d = new Date(p.visitedAt);
+    return d >= monthStart && d < monthEnd;
+  });
+
+  // Stage counts (for month)
   const stageCounts = (Object.keys(STAGE_LABELS) as ProspectStage[]).reduce(
     (acc, s) => {
-      acc[s] = prospects.filter((p) => p.stage === s).length;
+      acc[s] = monthProspects.filter((p) => p.stage === s).length;
       return acc;
     },
     {} as Record<ProspectStage, number>,
   );
 
-  // Filtered list
+  // Monthly KPI
+  const monthTotal = monthProspects.length;
+  const monthRegistered = monthProspects.filter((p) => p.stage === ProspectStage.REGISTERED).length;
+  const conversionRate = monthTotal > 0 ? Math.round((monthRegistered / monthTotal) * 100) : 0;
+
+  // Full filtered list (all months when not filtering by source/stage/search, but month filter affects stage-count badges)
+  // Table shows all prospects, filtered by stage/source/search across all months
   const filteredProspects = prospects.filter((p) => {
     if (filterStage !== "ALL" && p.stage !== filterStage) return false;
     if (filterSource !== "ALL" && p.source !== filterSource) return false;
@@ -129,8 +192,9 @@ export function ProspectManager({ initialProspects }: Props) {
       const q = search.toLowerCase();
       if (
         !p.name.toLowerCase().includes(q) &&
-        !(p.phone ?? "").includes(q)
-      ) return false;
+        !(p.phone ?? "").toLowerCase().includes(q)
+      )
+        return false;
     }
     return true;
   });
@@ -142,7 +206,6 @@ export function ProspectManager({ initialProspects }: Props) {
   function openAdd() {
     setForm({ ...DEFAULT_FORM, visitedAt: todayIso() });
     setErrorMessage(null);
-    setSuccessMessage(null);
     setShowAddModal(true);
   }
 
@@ -157,7 +220,6 @@ export function ProspectManager({ initialProspects }: Props) {
       visitedAt: record.visitedAt.slice(0, 10),
     });
     setErrorMessage(null);
-    setSuccessMessage(null);
     setEditTarget(record);
   }
 
@@ -169,6 +231,18 @@ export function ProspectManager({ initialProspects }: Props) {
   function closeEdit() {
     setEditTarget(null);
     setErrorMessage(null);
+  }
+
+  // Patch helper
+  async function patchProspect(
+    id: string,
+    body: Record<string, unknown>,
+  ): Promise<ProspectRow> {
+    const result = await requestJson<{ data: { prospect: ProspectRow } }>(
+      `/api/prospects/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    );
+    return result.data.prospect;
   }
 
   function handleAdd() {
@@ -211,23 +285,17 @@ export function ProspectManager({ initialProspects }: Props) {
     }
     startTransition(async () => {
       try {
-        const result = await requestJson<{ data: { prospect: ProspectRow } }>(
-          `/api/prospects/${editTarget.id}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              name: form.name.trim(),
-              phone: form.phone.trim() || null,
-              examType: form.examType || null,
-              source: form.source,
-              stage: form.stage,
-              note: form.note.trim() || null,
-              visitedAt: form.visitedAt,
-            }),
-          },
-        );
+        const updated = await patchProspect(editTarget.id, {
+          name: form.name.trim(),
+          phone: form.phone.trim() || null,
+          examType: form.examType || null,
+          source: form.source,
+          stage: form.stage,
+          note: form.note.trim() || null,
+          visitedAt: form.visitedAt,
+        });
         setProspects((prev) =>
-          prev.map((p) => (p.id === editTarget.id ? result.data.prospect : p)),
+          prev.map((p) => (p.id === editTarget.id ? updated : p)),
         );
         setSuccessMessage("상담 방문자 정보를 수정했습니다.");
         closeEdit();
@@ -256,38 +324,82 @@ export function ProspectManager({ initialProspects }: Props) {
     });
   }
 
+  function handleQuickConvert() {
+    if (!quickConvertTarget) return;
+    const { row, nextStage } = quickConvertTarget;
+    startTransition(async () => {
+      try {
+        const updated = await patchProspect(row.id, { stage: nextStage });
+        setProspects((prev) =>
+          prev.map((p) => (p.id === row.id ? updated : p)),
+        );
+        setSuccessMessage(
+          `"${row.name}" 단계를 ${STAGE_LABELS[nextStage]}으로 변경했습니다.`,
+        );
+        setQuickConvertTarget(null);
+        router.refresh();
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "단계 변경 실패");
+        setQuickConvertTarget(null);
+      }
+    });
+  }
+
+  const monthOptions = buildMonthOptions();
+
   return (
     <div className="space-y-6">
-      {/* Monthly conversion stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">이번 달 방문자</p>
-          <p className="mt-3 text-3xl font-semibold">
-            {thisMonthProspects.length}
-            <span className="ml-1 text-base font-normal text-slate">명</span>
-          </p>
-          <p className="mt-2 text-xs text-slate">이번 달 신규 상담 방문자</p>
-        </article>
-        <article className="rounded-[28px] border border-forest/20 bg-forest/10 p-6">
-          <p className="text-sm text-slate">이번 달 등록완료</p>
-          <p className="mt-3 text-3xl font-semibold text-forest">
-            {thisMonthRegistered}
-            <span className="ml-1 text-base font-normal text-slate">명</span>
-          </p>
-          <p className="mt-2 text-xs text-slate">REGISTERED 단계 전환</p>
-        </article>
-        <article className="rounded-[28px] border border-ember/20 bg-ember/10 p-6">
-          <p className="text-sm text-slate">이번 달 전환율</p>
-          <p className="mt-3 text-3xl font-semibold text-ember">
-            {conversionRate}
-            <span className="ml-1 text-base font-normal text-slate">%</span>
-          </p>
-          <p className="mt-2 text-xs text-slate">등록완료 / 이번 달 방문자</p>
-        </article>
+      {/* Month selector + monthly conversion stats */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Month picker */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-ink">월별 조회</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => handleMonthChange(e.target.value)}
+            className="rounded-2xl border border-ink/20 px-3 py-2 text-sm outline-none focus:border-forest"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Monthly KPI badges */}
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-4 py-1.5 text-sm">
+            <span className="text-slate">이번달 방문</span>
+            <span className="font-bold text-ink">{monthTotal}건</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/10 px-4 py-1.5 text-sm">
+            <span className="text-slate">전환율</span>
+            <span className="font-bold text-forest">{conversionRate}%</span>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-ember/20 bg-ember/10 px-4 py-1.5 text-sm">
+            <span className="text-slate">등록전환</span>
+            <span className="font-bold text-ember">{monthRegistered}명</span>
+          </div>
+        </div>
       </div>
 
-      {/* Stage summary badges */}
+      {/* Stage summary badges (based on selected month) */}
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setFilterStage("ALL")}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            filterStage === "ALL"
+              ? "border-ink/40 bg-ink text-white"
+              : "border-ink/10 bg-white text-slate hover:border-ink/20"
+          }`}
+        >
+          전체
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ink/10 px-1 text-xs">
+            {prospects.length}
+          </span>
+        </button>
         {(Object.keys(STAGE_LABELS) as ProspectStage[]).map((s) => (
           <button
             key={s}
@@ -315,7 +427,7 @@ export function ProspectManager({ initialProspects }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="이름·연락처 검색"
-            className="rounded-[12px] border border-ink/20 px-4 py-2 text-sm outline-none focus:border-forest w-44"
+            className="w-44 rounded-[12px] border border-ink/20 px-4 py-2 text-sm outline-none focus:border-forest"
           />
           <div className="flex gap-1">
             <button
@@ -361,97 +473,148 @@ export function ProspectManager({ initialProspects }: Props) {
           {successMessage}
         </div>
       )}
-      {errorMessage && !showAddModal && !editTarget && (
+      {errorMessage && !showAddModal && !editTarget && !quickConvertTarget && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-[28px] border border-ink/10 bg-white">
+      <div className="overflow-hidden rounded-[28px] border border-ink/10 bg-white shadow-panel">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-ink/10 text-sm">
             <thead>
               <tr>
-                {["이름", "연락처", "관심 시험", "방문경로", "단계", "방문일", "메모", "담당자", "작업"].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase text-slate"
-                    >
-                      {header}
-                    </th>
-                  ),
-                )}
+                {[
+                  "이름",
+                  "연락처",
+                  "관심 시험",
+                  "방문경로",
+                  "단계",
+                  "방문일",
+                  "메모",
+                  "담당자",
+                  "작업",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase text-slate"
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10">
               {filteredProspects.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-10 text-center text-sm text-slate"
+                  >
                     조건에 맞는 상담 방문자가 없습니다.
                   </td>
                 </tr>
               ) : null}
-              {filteredProspects.map((record) => (
-                <tr key={record.id} className="transition hover:bg-mist/30">
-                  <td className="px-4 py-3 font-semibold text-ink">{record.name}</td>
-                  <td className="px-4 py-3 tabular-nums text-slate">
-                    {record.phone ?? "-"}
-                  </td>
-                  <td className="px-4 py-3 text-slate">
-                    {record.examType
-                      ? EXAM_TYPE_LABELS[record.examType as ExamType]
-                      : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-slate">
-                    {SOURCE_LABELS[record.source as ProspectSource]}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                        STAGE_BADGE_CLASS[record.stage as ProspectStage]
-                      }`}
-                    >
-                      {STAGE_LABELS[record.stage as ProspectStage]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate whitespace-nowrap">
-                    {formatDate(record.visitedAt)}
-                  </td>
-                  <td className="max-w-[160px] truncate px-4 py-3 text-xs text-slate">
-                    {record.note ?? "-"}
-                  </td>
-                  <td className="px-4 py-3 text-slate">
-                    {record.staff?.name ?? "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(record)}
-                        disabled={isPending}
-                        className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+              {filteredProspects.map((record) => {
+                const nextStage = NEXT_STAGE[record.stage as ProspectStage];
+                const nextLabel = NEXT_STAGE_LABEL[record.stage as ProspectStage];
+                return (
+                  <tr key={record.id} className="transition hover:bg-mist/30">
+                    <td className="px-4 py-3 font-semibold text-ink">
+                      {record.name}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate">
+                      {record.phone ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate">
+                      {record.examType
+                        ? EXAM_TYPE_LABELS[record.examType as ExamType]
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate">
+                      {SOURCE_LABELS[record.source as ProspectSource]}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                          STAGE_BADGE_CLASS[record.stage as ProspectStage]
+                        }`}
                       >
-                        수정
-                      </button>
-                      {record.stage === "REGISTERED" ? (
-                        <a
-                          href={`/admin/enrollments/new`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20"
+                        {STAGE_LABELS[record.stage as ProspectStage]}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate">
+                      {formatDate(record.visitedAt)}
+                    </td>
+                    <td className="max-w-[160px] truncate px-4 py-3 text-xs text-slate">
+                      {record.note ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-slate">
+                      {record.staff?.name ?? "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {/* Quick stage advance button */}
+                        {nextStage && nextLabel ? (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() =>
+                              setQuickConvertTarget({
+                                row: record,
+                                nextStage,
+                              })
+                            }
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              nextStage === ProspectStage.REGISTERED
+                                ? "border-forest/30 bg-forest/10 text-forest hover:bg-forest/20"
+                                : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            }`}
+                          >
+                            → {nextLabel}
+                          </button>
+                        ) : null}
+
+                        {/* If already REGISTERED, link to enrollment */}
+                        {record.stage === ProspectStage.REGISTERED ? (
+                          <a
+                            href="/admin/enrollments/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-2.5 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20"
+                          >
+                            수강등록
+                          </a>
+                        ) : null}
+
+                        {/* Edit button */}
+                        <button
+                          type="button"
+                          onClick={() => openEdit(record)}
+                          disabled={isPending}
+                          className="inline-flex items-center rounded-full border border-ink/10 px-2.5 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          수강등록
-                        </a>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          수정
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {/* Table footer: count */}
+        {filteredProspects.length > 0 && (
+          <div className="border-t border-ink/10 px-5 py-3 text-xs text-slate">
+            총 {filteredProspects.length}건
+            {filterStage !== "ALL" || filterSource !== "ALL" || search
+              ? " (필터 적용)"
+              : ""}
+          </div>
+        )}
       </div>
 
       {/* Add Modal */}
@@ -505,6 +668,43 @@ export function ProspectManager({ initialProspects }: Props) {
           )}
         </div>
       </ActionModal>
+
+      {/* Quick Convert Confirm Modal */}
+      <ActionModal
+        open={!!quickConvertTarget}
+        badgeLabel="단계 변경"
+        badgeTone="default"
+        title="상담 단계 변경"
+        description={
+          quickConvertTarget
+            ? `"${quickConvertTarget.row.name}" 단계를 ${STAGE_LABELS[quickConvertTarget.row.stage as ProspectStage]}에서 ${STAGE_LABELS[quickConvertTarget.nextStage]}으로 변경합니다.`
+            : ""
+        }
+        details={
+          quickConvertTarget
+            ? [
+                `현재 단계: ${STAGE_LABELS[quickConvertTarget.row.stage as ProspectStage]}`,
+                `변경 후: ${STAGE_LABELS[quickConvertTarget.nextStage]}`,
+              ]
+            : []
+        }
+        confirmTone={
+          quickConvertTarget?.nextStage === ProspectStage.REGISTERED
+            ? "default"
+            : "default"
+        }
+        confirmLabel={
+          isPending
+            ? "변경 중..."
+            : quickConvertTarget
+              ? `${STAGE_LABELS[quickConvertTarget.nextStage]}으로 변경`
+              : "변경"
+        }
+        cancelLabel="취소"
+        isPending={isPending}
+        onClose={() => setQuickConvertTarget(null)}
+        onConfirm={handleQuickConvert}
+      />
 
       {/* Delete Confirm Modal */}
       <ActionModal
@@ -586,7 +786,9 @@ function ProspectForm({
           <label className="mb-1.5 block text-sm font-medium">관심 시험</label>
           <select
             value={form.examType}
-            onChange={(e) => setField("examType", e.target.value as ExamType | "")}
+            onChange={(e) =>
+              setField("examType", e.target.value as ExamType | "")
+            }
             className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-forest"
           >
             <option value="">선택 안 함</option>
@@ -603,7 +805,9 @@ function ProspectForm({
           </label>
           <select
             value={form.source}
-            onChange={(e) => setField("source", e.target.value as ProspectSource)}
+            onChange={(e) =>
+              setField("source", e.target.value as ProspectSource)
+            }
             className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm outline-none focus:border-forest"
           >
             {(Object.keys(SOURCE_LABELS) as ProspectSource[]).map((s) => (

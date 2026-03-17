@@ -84,7 +84,7 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
     setSaveError(null);
     startSaving(async () => {
       try {
-        const res = await fetch(`/api/cohorts/${cohort.id}`, {
+        const res = await fetch(`/api/settings/cohorts/${cohort.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endDate: endDateInput }),

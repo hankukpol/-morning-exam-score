@@ -74,6 +74,13 @@ function normalizeNoticeInput(input: NoticeInput) {
   };
 }
 
+export async function getNotice(noticeId: number): Promise<NoticeWithPin | null> {
+  const row = await getPrisma().notice.findUnique({ where: { id: noticeId } });
+  if (!row) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { ...row, isPinned: (row as any).isPinned ?? false } as NoticeWithPin;
+}
+
 export async function listNotices(filters: NoticeFilters = {}): Promise<NoticeWithPin[]> {
   const rows = await getPrisma().notice.findMany({
     where: {

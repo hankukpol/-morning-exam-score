@@ -1,7 +1,7 @@
 import { AdminRole, NoticeTargetType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { deleteNotice, updateNotice } from "@/lib/notices/service";
+import { deleteNotice, getNotice, updateNotice } from "@/lib/notices/service";
 
 type RouteContext = {
   params: {
@@ -23,6 +23,29 @@ function parseNoticeId(value: string) {
   }
 
   return noticeId;
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireApiAdmin(AdminRole.VIEWER);
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  try {
+    const notice = await getNotice(parseNoticeId(context.params.id));
+
+    if (!notice) {
+      return NextResponse.json({ error: "Notice not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ notice });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to fetch notice." },
+      { status: 400 },
+    );
+  }
 }
 
 export async function PUT(request: Request, context: RouteContext) {

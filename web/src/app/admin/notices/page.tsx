@@ -1,4 +1,5 @@
 ﻿import { AdminRole, NoticeTargetType } from "@prisma/client";
+import Link from "next/link";
 import { NoticeManager } from "@/components/notices/notice-manager";
 import { requireAdminContext } from "@/lib/auth";
 import { listNotices } from "@/lib/notices/service";
@@ -54,8 +55,16 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        F-19 Student Notices
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+          F-19 Student Notices
+        </div>
+        <Link
+          href="/admin/notices/new"
+          className="inline-flex items-center rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/80"
+        >
+          + 새 공지 작성
+        </Link>
       </div>
       <h1 className="mt-5 text-3xl font-semibold">학생 공지</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">

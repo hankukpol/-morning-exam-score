@@ -1,4 +1,4 @@
-import { AdminRole } from "@prisma/client";
+import { AdminRole, ProspectStage } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { ProspectManager } from "./prospect-manager";
@@ -21,17 +21,40 @@ export type ProspectRow = {
   staff: { name: string } | null;
 };
 
-export default async function ProspectsPage() {
+interface PageProps {
+  searchParams: { month?: string };
+}
+
+export default async function ProspectsPage({ searchParams }: PageProps) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
-  const prospects = await getPrisma().consultationProspect.findMany({
-    orderBy: { visitedAt: "desc" },
-    include: {
-      staff: { select: { name: true } },
-    },
-  });
+  // Determine month filter: default to current month
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const selectedMonth = searchParams.month ?? defaultMonth;
 
-  const rows: ProspectRow[] = prospects.map((p) => ({
+  // Parse month range for KPI
+  const [yearStr, monthStr] = selectedMonth.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1; // 0-based
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 1);
+
+  // Load all prospects for the selected month (for KPI) + all for list
+  const [allProspects, monthProspects] = await Promise.all([
+    getPrisma().consultationProspect.findMany({
+      orderBy: { visitedAt: "desc" },
+      include: { staff: { select: { name: true } } },
+    }),
+    getPrisma().consultationProspect.findMany({
+      where: {
+        visitedAt: { gte: monthStart, lt: monthEnd },
+      },
+      select: { stage: true },
+    }),
+  ]);
+
+  const rows: ProspectRow[] = allProspects.map((p) => ({
     id: p.id,
     name: p.name,
     phone: p.phone ?? null,
@@ -47,12 +70,18 @@ export default async function ProspectsPage() {
     staff: p.staff,
   }));
 
-  // Summary stats
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const thisMonthRows = rows.filter((r) => new Date(r.createdAt) >= monthStart);
-  const registered = rows.filter((r) => r.stage === "REGISTERED").length;
-  const notConverted = rows.filter((r) => r.stage !== "REGISTERED" && r.stage !== "DROPPED").length;
+  // KPI: based on selected month's visitedAt
+  const monthTotal = monthProspects.length;
+  const monthRegistered = monthProspects.filter((p) => p.stage === ProspectStage.REGISTERED).length;
+  const conversionRate = monthTotal > 0 ? Math.round((monthRegistered / monthTotal) * 100) : 0;
+
+  // "대기 상담": INQUIRY + VISITING + DECIDING (not yet converted or dropped)
+  const pendingStages: string[] = [
+    ProspectStage.INQUIRY,
+    ProspectStage.VISITING,
+    ProspectStage.DECIDING,
+  ];
+  const pendingCount = allProspects.filter((p) => pendingStages.includes(p.stage)).length;
 
   return (
     <div className="p-8 sm:p-10">
@@ -64,40 +93,54 @@ export default async function ProspectsPage() {
         미등록 예비 원생의 상담 기록을 관리합니다. 등록 완료 후 수강 연결은 수강 등록 메뉴에서 처리하세요.
       </p>
 
-      {/* Summary cards */}
+      {/* KPI cards */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-[28px] border border-ink/10 bg-white p-5">
-          <p className="text-xs font-semibold text-slate">전체 방문자</p>
-          <p className="mt-1 text-3xl font-bold">
-            {rows.length}
-            <span className="ml-1 text-sm font-normal text-slate">명</span>
+        {/* 이번달 상담 건수 */}
+        <div className="rounded-[28px] border border-ink/10 bg-white p-5 shadow-panel">
+          <p className="text-xs font-semibold text-slate">이번달 상담</p>
+          <p className="mt-3 text-3xl font-bold">
+            {monthTotal}
+            <span className="ml-1 text-sm font-normal text-slate">건</span>
           </p>
+          <p className="mt-1.5 text-xs text-slate">{selectedMonth} 방문 기준</p>
         </div>
-        <div className="rounded-[28px] border border-forest/20 bg-forest/10 p-5">
-          <p className="text-xs font-semibold text-forest">등록 완료</p>
-          <p className="mt-1 text-3xl font-bold text-forest">
-            {registered}
-            <span className="ml-1 text-sm font-normal text-slate">명</span>
+
+        {/* 전환율 */}
+        <div className="rounded-[28px] border border-forest/20 bg-forest/10 p-5 shadow-panel">
+          <p className="text-xs font-semibold text-forest">전환율</p>
+          <p className="mt-3 text-3xl font-bold text-forest">
+            {conversionRate}
+            <span className="ml-1 text-sm font-normal text-slate">%</span>
           </p>
+          <p className="mt-1.5 text-xs text-slate">등록 / 이번달 상담</p>
         </div>
-        <div className="rounded-[28px] border border-ember/20 bg-ember/10 p-5">
-          <p className="text-xs font-semibold text-ember">상담 진행 중</p>
-          <p className="mt-1 text-3xl font-bold text-ember">
-            {notConverted}
+
+        {/* 이번달 등록전환 */}
+        <div className="rounded-[28px] border border-ember/20 bg-ember/10 p-5 shadow-panel">
+          <p className="text-xs font-semibold text-ember">이번달 등록전환</p>
+          <p className="mt-3 text-3xl font-bold text-ember">
+            {monthRegistered}
             <span className="ml-1 text-sm font-normal text-slate">명</span>
           </p>
+          <p className="mt-1.5 text-xs text-slate">REGISTERED 전환 수</p>
         </div>
-        <div className="rounded-[28px] border border-ink/10 bg-mist p-5">
-          <p className="text-xs font-semibold text-slate">이번 달 신규</p>
-          <p className="mt-1 text-3xl font-bold">
-            {thisMonthRows.length}
+
+        {/* 대기 상담 */}
+        <div className="rounded-[28px] border border-ink/10 bg-mist p-5 shadow-panel">
+          <p className="text-xs font-semibold text-slate">대기 상담</p>
+          <p className="mt-3 text-3xl font-bold">
+            {pendingCount}
             <span className="ml-1 text-sm font-normal text-slate">명</span>
           </p>
+          <p className="mt-1.5 text-xs text-slate">문의·내방·검토 중</p>
         </div>
       </div>
 
       <div className="mt-8">
-        <ProspectManager initialProspects={rows} />
+        <ProspectManager
+          initialProspects={rows}
+          initialMonth={selectedMonth}
+        />
       </div>
     </div>
   );
