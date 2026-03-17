@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPrisma } from "@/lib/prisma";
+import { PayButton } from "./PayButton";
 
 export const dynamic = "force-dynamic";
 
@@ -202,30 +203,12 @@ export default async function PayPage({ params }: { params: { token: string } })
                 </a>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <p className="text-xs font-medium text-amber-800">
-                    온라인 결제 기능은 준비 중입니다.
-                  </p>
-                  <p className="mt-1 text-xs text-amber-700">
-                    결제를 원하시면 학원에 직접 방문하시거나 전화해 주세요.
-                  </p>
-                </div>
-                <a
-                  href="tel:053-241-0112"
-                  className="block w-full rounded-full bg-ember px-5 py-3.5 text-center text-base font-semibold text-white transition hover:bg-ember/90 active:scale-95"
-                >
-                  053-241-0112 전화하기
-                </a>
-                <a
-                  href="https://map.naver.com/v5/search/%EB%8C%80%EA%B5%AC%EA%B4%91%EC%97%AD%EC%8B%9C+%EC%A4%91%EA%B5%AC+%EC%A4%91%EC%95%99%EB%8C%80%EB%A1%9C+390"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full rounded-full border border-ink/15 px-5 py-3 text-center text-sm font-medium text-ink transition hover:border-ink/30"
-                >
-                  학원 위치 보기
-                </a>
-              </div>
+              <PayButton
+                linkId={link.id}
+                token={token}
+                orderName={link.title}
+                finalAmount={link.finalAmount}
+              />
             )}
           </div>
         </div>

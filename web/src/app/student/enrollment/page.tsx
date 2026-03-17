@@ -114,32 +114,48 @@ async function fetchEnrollmentData(examNumber: string) {
     enrollments.find((e) => e.status === EnrollmentStatus.ACTIVE) ??
     enrollments[0];
 
-  // Fetch payments linked to this student
-  const payments = await prisma.payment.findMany({
-    where: { examNumber },
-    orderBy: [{ processedAt: "desc" }],
-    include: {
-      items: {
-        select: { id: true, itemName: true, unitPrice: true, quantity: true, amount: true },
-      },
-      installments: {
-        orderBy: [{ seq: "asc" }],
-        select: { id: true, seq: true, amount: true, dueDate: true, paidAt: true },
-      },
-      refunds: {
-        orderBy: [{ processedAt: "desc" }],
-        select: {
-          id: true,
-          amount: true,
-          reason: true,
-          status: true,
-          processedAt: true,
+  // Fetch payments + contract in parallel
+  const [payments, contract] = await Promise.all([
+    prisma.payment.findMany({
+      where: { examNumber },
+      orderBy: [{ processedAt: "desc" }],
+      include: {
+        items: {
+          select: { id: true, itemName: true, unitPrice: true, quantity: true, amount: true },
+        },
+        installments: {
+          orderBy: [{ seq: "asc" }],
+          select: { id: true, seq: true, amount: true, dueDate: true, paidAt: true },
+        },
+        refunds: {
+          orderBy: [{ processedAt: "desc" }],
+          select: {
+            id: true,
+            amount: true,
+            reason: true,
+            status: true,
+            processedAt: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.courseContract.findUnique({
+      where: { enrollmentId: primary.id },
+      select: { issuedAt: true, printedAt: true },
+    }),
+  ]);
 
-  return { primary, allEnrollments: enrollments, payments };
+  return {
+    primary,
+    allEnrollments: enrollments,
+    payments,
+    contract: contract
+      ? {
+          issuedAt: contract.issuedAt,
+          printedAt: contract.printedAt,
+        }
+      : null,
+  };
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
@@ -249,6 +265,18 @@ export default async function StudentEnrollmentPage() {
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 성적 카드 보기
+              </Link>
+              <Link
+                href="/student/payment-history"
+                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                납부 이력 전체 보기
+              </Link>
+              <Link
+                href="/student/documents"
+                className="inline-flex items-center rounded-full border border-forest/30 bg-forest/5 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-forest/10"
+              >
+                수강확인서 출력
               </Link>
             </div>
           </div>
@@ -577,6 +605,21 @@ export default async function StudentEnrollmentPage() {
                         {formatDateWithWeekday(result.primary.createdAt)}
                       </dd>
                     </div>
+                    {result.contract && (
+                      <div className="flex items-start justify-between gap-4 px-5 py-4">
+                        <dt className="min-w-[120px] font-medium text-slate">계약서 서명</dt>
+                        <dd className="text-right">
+                          <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+                            서명 완료 · {formatDateWithWeekday(result.contract.issuedAt)}
+                          </span>
+                          {result.contract.printedAt && (
+                            <p className="mt-1 text-xs text-slate">
+                              출력일: {formatDate(result.contract.printedAt)}
+                            </p>
+                          )}
+                        </dd>
+                      </div>
+                    )}
                     <div className="flex items-start justify-between gap-4 px-5 py-4">
                       <dt className="min-w-[120px] font-medium text-slate">수강 시작일</dt>
                       <dd className="text-right font-semibold">
