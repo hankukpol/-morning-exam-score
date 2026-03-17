@@ -45,17 +45,25 @@ export function SettingsClient({ student }: Props) {
   const [notificationConsent, setNotificationConsent] = useState(
     student.notificationConsent,
   );
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [notifSaveStatus, setNotifSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  // Phone editing state
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(student.mobile ?? "");
+  const [currentMobile, setCurrentMobile] = useState(student.mobile);
+  const [phoneSaveStatus, setPhoneSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   const [isPending, startTransition] = useTransition();
 
   const handleNotificationToggle = () => {
     const next = !notificationConsent;
     setNotificationConsent(next);
-    setSaveStatus("saving");
+    setNotifSaveStatus("saving");
 
     startTransition(async () => {
       try {
-        const res = await fetch("/api/student/settings", {
+        const res = await fetch("/api/student/profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ notificationConsent: next }),
@@ -63,14 +71,57 @@ export function SettingsClient({ student }: Props) {
 
         if (!res.ok) {
           setNotificationConsent(!next);
-          setSaveStatus("error");
+          setNotifSaveStatus("error");
         } else {
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus("idle"), 2000);
+          setNotifSaveStatus("saved");
+          setTimeout(() => setNotifSaveStatus("idle"), 2000);
         }
       } catch {
         setNotificationConsent(!next);
-        setSaveStatus("error");
+        setNotifSaveStatus("error");
+      }
+    });
+  };
+
+  const handlePhoneEdit = () => {
+    setPhoneInput(currentMobile ?? "");
+    setPhoneError(null);
+    setPhoneSaveStatus("idle");
+    setIsEditingPhone(true);
+  };
+
+  const handlePhoneCancel = () => {
+    setIsEditingPhone(false);
+    setPhoneError(null);
+    setPhoneSaveStatus("idle");
+  };
+
+  const handlePhoneSave = () => {
+    setPhoneError(null);
+    setPhoneSaveStatus("saving");
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/student/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneInput }),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok) {
+          setPhoneError(json.error ?? "저장에 실패했습니다.");
+          setPhoneSaveStatus("error");
+        } else {
+          setCurrentMobile(json.data?.mobile ?? phoneInput);
+          setPhoneSaveStatus("saved");
+          setIsEditingPhone(false);
+          setTimeout(() => setPhoneSaveStatus("idle"), 2000);
+        }
+      } catch {
+        setPhoneError("저장에 실패했습니다. 다시 시도해 주세요.");
+        setPhoneSaveStatus("error");
       }
     });
   };
@@ -104,15 +155,56 @@ export function SettingsClient({ student }: Props) {
           </div>
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <dt className="min-w-[100px] font-medium text-slate">연락처</dt>
-            <dd className="flex items-center gap-3">
-              <span className="font-semibold">
-                {formatMobile(student.mobile)}
-              </span>
-              <span className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs text-slate">
-                변경은 창구 문의
-              </span>
+            <dd className="flex flex-1 items-center justify-end gap-3">
+              {isEditingPhone ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    type="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder="010-0000-0000"
+                    className="min-w-0 flex-1 rounded-2xl border border-ink/20 px-3 py-1.5 text-sm outline-none focus:border-ember/50"
+                    disabled={isPending}
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePhoneSave}
+                    disabled={isPending}
+                    className="shrink-0 rounded-full bg-ember px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-ember/90 disabled:opacity-50"
+                  >
+                    {phoneSaveStatus === "saving" ? "저장 중..." : "저장"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePhoneCancel}
+                    disabled={isPending}
+                    className="shrink-0 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30 disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span className="font-semibold">
+                    {formatMobile(currentMobile)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePhoneEdit}
+                    className="rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs text-slate transition hover:border-ember/30 hover:text-ember"
+                  >
+                    수정
+                  </button>
+                </>
+              )}
             </dd>
           </div>
+          {isEditingPhone && phoneError && (
+            <div className="px-5 pb-3 text-xs text-red-600">{phoneError}</div>
+          )}
+          {!isEditingPhone && phoneSaveStatus === "saved" && (
+            <div className="px-5 pb-3 text-xs text-forest">연락처가 저장되었습니다.</div>
+          )}
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <dt className="min-w-[100px] font-medium text-slate">직렬</dt>
             <dd className="font-semibold">
@@ -140,7 +232,7 @@ export function SettingsClient({ student }: Props) {
         </dl>
 
         <div className="mt-4 rounded-[20px] border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs leading-6 text-amber-700">
-          연락처 변경이 필요하시면 학원 창구(053-241-0112)로 문의해 주세요.
+          이름·학번·직렬 변경이 필요하시면 학원 창구(053-241-0112)로 문의해 주세요.
         </div>
       </section>
 
@@ -225,13 +317,13 @@ export function SettingsClient({ student }: Props) {
           </p>
         )}
 
-        {saveStatus === "saving" && (
+        {notifSaveStatus === "saving" && (
           <p className="mt-3 text-xs text-slate">저장 중...</p>
         )}
-        {saveStatus === "saved" && (
+        {notifSaveStatus === "saved" && (
           <p className="mt-3 text-xs text-forest">저장되었습니다.</p>
         )}
-        {saveStatus === "error" && (
+        {notifSaveStatus === "error" && (
           <p className="mt-3 text-xs text-red-600">저장에 실패했습니다. 다시 시도해 주세요.</p>
         )}
       </section>

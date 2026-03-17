@@ -95,12 +95,20 @@ export default async function TextbookDetailPage({ params }: PageProps) {
             )}
           </div>
         </div>
-        <Link
-          href="/admin/textbooks"
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"
-        >
-          ← 목록으로
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/admin/textbooks/${textbookId}/edit`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
+          >
+            수정
+          </Link>
+          <Link
+            href="/admin/textbooks"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"
+          >
+            ← 목록으로
+          </Link>
+        </div>
       </div>
 
       {/* Info card */}
