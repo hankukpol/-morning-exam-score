@@ -9,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function EnrollmentsPage() {
-  await requireAdminContext(AdminRole.COUNSELOR);
+  const ctx = await requireAdminContext(AdminRole.COUNSELOR);
 
   const enrollments = await getPrisma().courseEnrollment.findMany({
     include: {
@@ -33,7 +33,10 @@ export default async function EnrollmentsPage() {
         진행합니다.
       </p>
       <div className="mt-8">
-        <EnrollmentList initialEnrollments={enrollments as unknown as EnrollmentWithRelations[]} />
+        <EnrollmentList
+          initialEnrollments={enrollments as unknown as EnrollmentWithRelations[]}
+          adminRole={ctx.adminUser.role}
+        />
       </div>
     </div>
   );

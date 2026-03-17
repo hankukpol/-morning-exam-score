@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { CourseType, EnrollmentStatus, EnrollSource, ExamCategory } from "@prisma/client";
+import { AdminRole, CourseType, EnrollmentStatus, EnrollSource, ExamCategory } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
@@ -35,6 +35,8 @@ export type EnrollmentWithRelations = {
 
 type Props = {
   initialEnrollments: EnrollmentWithRelations[];
+  /** Caller's admin role — used to gate bulk-complete button */
+  adminRole?: AdminRole;
 };
 
 const STATUS_FILTERS: Array<{ value: EnrollmentStatus | "ALL"; label: string }> = [
@@ -94,7 +96,24 @@ function CourseName({ enrollment }: { enrollment: EnrollmentWithRelations }) {
   return <span className="text-slate">-</span>;
 }
 
-export function EnrollmentList({ initialEnrollments }: Props) {
+// AdminRole hierarchy values (higher = more permissions)
+const ROLE_ORDER: Record<AdminRole, number> = {
+  VIEWER: 0,
+  TEACHER: 1,
+  COUNSELOR: 2,
+  ACADEMIC_ADMIN: 3,
+  MANAGER: 4,
+  DEPUTY_DIRECTOR: 5,
+  DIRECTOR: 6,
+  SUPER_ADMIN: 7,
+};
+
+function roleAtLeast(role: AdminRole | undefined, min: AdminRole): boolean {
+  if (!role) return false;
+  return (ROLE_ORDER[role] ?? -1) >= (ROLE_ORDER[min] ?? 999);
+}
+
+export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
   const [enrollments, setEnrollments] = useState<EnrollmentWithRelations[]>(initialEnrollments);
   const [filterStatus, setFilterStatus] = useState<EnrollmentStatus | "ALL">("ALL");
   const [filterCourseType, setFilterCourseType] = useState<CourseType | "ALL">("ALL");
@@ -104,15 +123,96 @@ export function EnrollmentList({ initialEnrollments }: Props) {
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
 
-  const filtered = enrollments.filter((e) => {
-    if (filterStatus !== "ALL" && e.status !== filterStatus) return false;
-    if (filterCourseType !== "ALL" && e.courseType !== filterCourseType) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      if (!e.student.name.toLowerCase().includes(q) && !e.examNumber.includes(q)) return false;
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const canBulkComplete = roleAtLeast(adminRole, AdminRole.DIRECTOR);
+
+  const filteredIds = new Set(
+    enrollments
+      .filter((e) => {
+        if (filterStatus !== "ALL" && e.status !== filterStatus) return false;
+        if (filterCourseType !== "ALL" && e.courseType !== filterCourseType) return false;
+        if (search.trim()) {
+          const q = search.trim().toLowerCase();
+          if (!e.student.name.toLowerCase().includes(q) && !e.examNumber.includes(q)) return false;
+        }
+        return true;
+      })
+      .map((e) => e.id),
+  );
+
+  const allFilteredSelected =
+    filteredIds.size > 0 && [...filteredIds].every((id) => selectedIds.has(id));
+  const someFilteredSelected = [...filteredIds].some((id) => selectedIds.has(id)) && !allFilteredSelected;
+
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filteredIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  }
+
+  function handleBulkComplete() {
+    const ids = [...selectedIds].filter((id) => filteredIds.has(id));
+    if (ids.length === 0) {
+      setErrorMessage("완료 처리할 수강을 선택해주세요.");
+      return;
     }
-    return true;
-  });
+
+    confirmModal.openModal({
+      badgeLabel: "선택 완료처리",
+      badgeTone: "default",
+      title: `수강 완료 처리 (${ids.length}건)`,
+      description: "선택한 수강 내역을 완료(수료) 처리합니다. 수강 중 또는 휴원 상태인 경우에만 완료 처리됩니다.",
+      details: [
+        `선택 건수: ${ids.length}건`,
+        "대기·취소·퇴원·이미 완료된 항목은 자동으로 건너뜁니다.",
+      ],
+      cancelLabel: "취소",
+      confirmLabel: "완료 처리",
+      confirmTone: "default",
+      onConfirm: () => {
+        confirmModal.closeModal();
+        setSuccessMessage(null);
+        setErrorMessage(null);
+
+        startTransition(async () => {
+          try {
+            const res = await requestJson<{ updatedCount: number; skippedIds: string[] }>(
+              "/api/enrollments/bulk",
+              { method: "POST", body: JSON.stringify({ action: "complete", ids }) },
+            );
+            setEnrollments((prev) =>
+              prev.map((e) => (ids.includes(e.id) && ["ACTIVE", "SUSPENDED"].includes(e.status))
+                ? { ...e, status: "COMPLETED" as EnrollmentStatus }
+                : e,
+              ),
+            );
+            setSelectedIds(new Set());
+            const skipped = res.skippedIds.length;
+            setSuccessMessage(
+              `${res.updatedCount}건을 완료 처리했습니다.` +
+              (skipped > 0 ? ` (${skipped}건 건너뜀)` : ""),
+            );
+          } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "완료 처리에 실패했습니다.");
+          }
+        });
+      },
+    });
+  }
+
+  const filtered = enrollments.filter((e) => filteredIds.has(e.id));
 
   function handleStatusChange(enrollment: EnrollmentWithRelations, newStatus: EnrollmentStatus) {
     setSuccessMessage(null);
@@ -134,6 +234,13 @@ export function EnrollmentList({ initialEnrollments }: Props) {
         setErrorMessage(error instanceof Error ? error.message : "상태 변경에 실패했습니다.");
       }
     });
+  }
+
+  function handleExport() {
+    const params = new URLSearchParams();
+    if (filterStatus !== "ALL") params.set("status", filterStatus);
+    if (filterCourseType !== "ALL") params.set("courseType", filterCourseType);
+    window.open(`/api/enrollments/ledger/export?${params.toString()}`, "_blank");
   }
 
   function handleWithdraw(enrollment: EnrollmentWithRelations) {
@@ -213,7 +320,18 @@ export function EnrollmentList({ initialEnrollments }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Bulk complete button — DIRECTOR+ only */}
+          {canBulkComplete && selectedIds.size > 0 && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleBulkComplete}
+              className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition hover:border-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              선택 완료처리 ({selectedIds.size}건)
+            </button>
+          )}
           {/* Search */}
           <input
             type="text"
@@ -222,6 +340,13 @@ export function EnrollmentList({ initialEnrollments }: Props) {
             placeholder="이름 또는 수험번호 검색"
             className="rounded-full border border-ink/10 px-4 py-2 text-sm outline-none focus:border-ink/30 w-52"
           />
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-full border border-forest/30 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/10"
+          >
+            Excel 내보내기
+          </button>
           <Link
             href="/admin/enrollments/new"
             className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
@@ -250,6 +375,18 @@ export function EnrollmentList({ initialEnrollments }: Props) {
           <table className="min-w-full divide-y divide-ink/10 text-sm">
             <thead>
               <tr>
+                {canBulkComplete && (
+                  <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      ref={(el) => { if (el) el.indeterminate = someFilteredSelected; }}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                      className="accent-ember"
+                      aria-label="전체 선택"
+                    />
+                  </th>
+                )}
                 {[
                   "학생",
                   "수강 유형",
@@ -272,7 +409,7 @@ export function EnrollmentList({ initialEnrollments }: Props) {
             <tbody className="divide-y divide-ink/10">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate">
+                  <td colSpan={canBulkComplete ? 9 : 8} className="px-4 py-10 text-center text-sm text-slate">
                     조건에 맞는 수강 내역이 없습니다.
                   </td>
                 </tr>
@@ -287,6 +424,18 @@ export function EnrollmentList({ initialEnrollments }: Props) {
                     key={enrollment.id}
                     className={`hover:bg-mist/30 transition ${isPending ? "opacity-60" : ""}`}
                   >
+                    {/* 선택 체크박스 (DIRECTOR+ 전용) */}
+                    {canBulkComplete && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(enrollment.id)}
+                          onChange={(e) => toggleSelect(enrollment.id, e.target.checked)}
+                          className="accent-ember"
+                          aria-label={`${enrollment.student.name} 선택`}
+                        />
+                      </td>
+                    )}
                     {/* 학생 */}
                     <td className="px-4 py-3">
                       <div className="font-medium text-ink">{enrollment.student.name}</div>

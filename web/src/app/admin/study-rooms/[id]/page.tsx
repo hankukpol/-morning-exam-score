@@ -54,6 +54,76 @@ export default async function StudyRoomDetailPage({
   const noshowBookings = allBookings.filter((b) => b.status === "NOSHOW").length;
   const uniqueStudents = new Set(allBookings.map((b) => b.examNumber)).size;
 
+  // ── Monthly stats ─────────────────────────────────────────────────────────
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const monthlyBookingsRaw = await getPrisma().studyRoomBooking.findMany({
+    where: {
+      roomId: id,
+      bookingDate: { gte: monthStart, lte: monthEnd },
+    },
+    select: {
+      status: true,
+      examNumber: true,
+      startTime: true,
+      endTime: true,
+      student: { select: { name: true } },
+    },
+  });
+
+  const monthlyConfirmed = monthlyBookingsRaw.filter((b) => b.status === "CONFIRMED");
+  const monthlyTotal = monthlyBookingsRaw.length;
+
+  // Top 3 bookers this month (by confirmed booking count)
+  const bookerMap = new Map<string, { name: string; count: number }>();
+  for (const b of monthlyBookingsRaw) {
+    if (b.status !== "CONFIRMED") continue;
+    const entry = bookerMap.get(b.examNumber);
+    if (entry) {
+      entry.count += 1;
+    } else {
+      bookerMap.set(b.examNumber, { name: b.student.name, count: 1 });
+    }
+  }
+  const topBookers = Array.from(bookerMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 3)
+    .map(([examNumber, { name, count }]) => ({ examNumber, name, count }));
+
+  // Utilization rate: booked confirmed hours / available hours this month
+  // Available hours = operating hours per day * working days in month
+  // Operating hours: 09:00~21:00 weekdays (12h), 09:00~18:00 weekends (9h)
+  const daysInMonth = monthEnd.getDate();
+  let availableHours = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(now.getFullYear(), now.getMonth(), d).getDay();
+    availableHours += dayOfWeek === 0 || dayOfWeek === 6 ? 9 : 12;
+  }
+
+  // Confirmed booked hours this month
+  let bookedHours = 0;
+  for (const b of monthlyConfirmed) {
+    const [sh, sm] = b.startTime.split(":").map(Number);
+    const [eh, em] = b.endTime.split(":").map(Number);
+    const hours = (eh * 60 + em - (sh * 60 + sm)) / 60;
+    if (hours > 0) bookedHours += hours;
+  }
+
+  const utilizationRate =
+    availableHours > 0 ? Math.round((bookedHours / availableHours) * 100) : 0;
+
+  const monthlyStats = {
+    monthLabel: `${now.getFullYear()}년 ${now.getMonth() + 1}월`,
+    totalBookings: monthlyTotal,
+    confirmedBookings: monthlyConfirmed.length,
+    bookedHours: Math.round(bookedHours * 10) / 10,
+    availableHours,
+    utilizationRate,
+    topBookers,
+  };
+
   // ── Serialize dates ────────────────────────────────────────────────────────
   const serializedRoom = {
     id: room.id,
@@ -128,6 +198,7 @@ export default async function StudyRoomDetailPage({
             noshowBookings,
             uniqueStudents,
           }}
+          monthlyStats={monthlyStats}
         />
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   LOCKER_STATUS_COLOR,
 } from "@/lib/constants";
 import type { LockerWithRental } from "./page";
+import { LockerAssignModal, type LockerAssignTarget } from "./locker-assign-modal";
 
 interface Props {
   initialLockers: LockerWithRental[];
@@ -79,6 +80,9 @@ export function LockerGrid({ initialLockers }: Props) {
   const [returnOpen, setReturnOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Quick-assign modal state (opens directly when AVAILABLE locker is clicked)
+  const [quickAssignTarget, setQuickAssignTarget] = useState<LockerAssignTarget | null>(null);
 
   // Rent form
   const [studentQuery, setStudentQuery] = useState("");
@@ -332,8 +336,18 @@ export function LockerGrid({ initialLockers }: Props) {
                       <button
                         key={locker.id}
                         onClick={() => {
-                          setSelected(locker);
-                          setError(null);
+                          // AVAILABLE lockers open the quick-assign modal directly
+                          if (locker.status === "AVAILABLE") {
+                            setSelected(null);
+                            setQuickAssignTarget({
+                              id: locker.id,
+                              lockerNumber: locker.lockerNumber,
+                              zone: locker.zone,
+                            });
+                          } else {
+                            setSelected(locker);
+                            setError(null);
+                          }
                         }}
                         className={`relative flex h-10 w-10 flex-col items-center justify-center rounded-[8px] border text-[10px] font-medium transition-all ${colorClass} ${
                           selected?.id === locker.id
@@ -343,7 +357,9 @@ export function LockerGrid({ initialLockers }: Props) {
                         title={
                           rental
                             ? `${rental.student.name} (${rental.student.examNumber})`
-                            : locker.lockerNumber
+                            : locker.status === "AVAILABLE"
+                              ? `${locker.lockerNumber}번 — 클릭하여 빠른 배정`
+                              : locker.lockerNumber
                         }
                       >
                         <span className="leading-none">{locker.lockerNumber}</span>
@@ -702,6 +718,16 @@ export function LockerGrid({ initialLockers }: Props) {
           ))}
         </div>
       </ActionModal>
+
+      {/* Quick-assign Modal — opens directly when an AVAILABLE locker is clicked */}
+      <LockerAssignModal
+        locker={quickAssignTarget}
+        onClose={() => setQuickAssignTarget(null)}
+        onSuccess={() => {
+          setQuickAssignTarget(null);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

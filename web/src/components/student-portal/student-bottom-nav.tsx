@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, ClipboardList, House, ShieldCheck } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, House, LockKeyhole, ShieldCheck } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -30,6 +30,11 @@ const NAV_ITEMS = [
     label: "시험일정",
     icon: ClipboardList,
   },
+  {
+    href: "/student/locker",
+    label: "사물함",
+    icon: LockKeyhole,
+  },
 ] as const;
 
 export function StudentBottomNav() {
@@ -37,7 +42,7 @@ export function StudentBottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-2 rounded-[24px] border border-ink/10 bg-mist/80 p-2 shadow-panel">
+      <div className="mx-auto grid max-w-md grid-cols-6 gap-1 rounded-[24px] border border-ink/10 bg-mist/80 p-2 shadow-panel">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive =

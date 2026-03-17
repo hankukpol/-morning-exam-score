@@ -25,8 +25,14 @@ const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
   FIXED: "정액(원)",
 };
 
+type CodeStat = {
+  usageCount: number;
+  totalDiscountAmount: number;
+};
+
 type DiscountCodeManagerProps = {
   initialCodes: DiscountCodeRecord[];
+  codeStats?: Record<number, CodeStat>;
 };
 
 const CODE_TYPE_LABELS: Record<CodeType, string> = {
@@ -90,7 +96,7 @@ function formatDiscount(record: DiscountCodeRecord) {
   return `${record.discountValue.toLocaleString()}원`;
 }
 
-export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) {
+export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCodeManagerProps) {
   const [codes, setCodes] = useState<DiscountCodeRecord[]>(initialCodes);
   const [filterType, setFilterType] = useState<CodeType | "ALL">("ALL");
   const [filterDiscountType, setFilterDiscountType] = useState<DiscountType | "ALL">("ALL");
@@ -338,7 +344,7 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
         <table className="min-w-full divide-y divide-ink/10 text-sm">
           <thead>
             <tr>
-              {["코드", "유형", "할인 방식", "할인", "사용 횟수", "유효 기간", "상태", "발급자", "액션"].map(
+              {["코드", "유형", "할인 방식", "할인", "사용 횟수", "총 할인액", "유효 기간", "상태", "발급자", "액션"].map(
                 (header) => (
                   <th
                     key={header}
@@ -353,7 +359,7 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
           <tbody className="divide-y divide-ink/10">
             {filteredCodes.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate">
+                <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate">
                   조건에 맞는 할인 코드가 없습니다.
                 </td>
               </tr>
@@ -369,6 +375,9 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
                       return until >= now && until <= sevenDays;
                     })()
                   : false;
+              const stat = codeStats[record.id];
+              const statUsageCount = stat?.usageCount ?? 0;
+              const statTotalDiscount = stat?.totalDiscountAmount ?? 0;
               return (
                 <tr key={record.id} className="transition hover:bg-mist/30">
                   <td className="px-4 py-3">
@@ -401,9 +410,18 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
                       href={`/admin/settings/discount-codes/${record.id}`}
                       className="underline-offset-2 hover:underline hover:text-ember"
                     >
-                      {record.usageCount}
+                      {statUsageCount}
                       {record.maxUsage != null ? ` / ${record.maxUsage}` : " / 무제한"}
                     </a>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {statTotalDiscount > 0 ? (
+                      <span className="font-medium text-ember">
+                        {statTotalDiscount.toLocaleString()}원
+                      </span>
+                    ) : (
+                      <span className="text-slate">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate">
                     <div>{formatDate(record.validFrom)}</div>

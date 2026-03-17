@@ -15,7 +15,7 @@ export default async function DiscountCodesSettingsPage() {
   const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   sevenDaysLater.setHours(23, 59, 59, 999);
 
-  const [codes, monthlyUsages, totalDiscountResult] = await Promise.all([
+  const [codes, monthlyUsages, allUsages] = await Promise.all([
     prisma.discountCode.findMany({
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
       include: { staff: { select: { name: true } } },
@@ -23,15 +23,34 @@ export default async function DiscountCodesSettingsPage() {
     prisma.discountCodeUsage.count({
       where: { usedAt: { gte: startOfMonth } },
     }),
+    // Fetch all usages with payment discount amounts for per-code stats
     prisma.discountCodeUsage.findMany({
-      include: {
+      select: {
+        codeId: true,
+        usedAt: true,
         payment: { select: { discountAmount: true } },
       },
     }),
   ]);
 
+  // Build per-code stats: { codeId -> { usageCount, totalDiscountAmount } }
+  const codeStatsMap = new Map<number, { usageCount: number; totalDiscountAmount: number }>();
+  for (const u of allUsages) {
+    const prev = codeStatsMap.get(u.codeId) ?? { usageCount: 0, totalDiscountAmount: 0 };
+    codeStatsMap.set(u.codeId, {
+      usageCount: prev.usageCount + 1,
+      totalDiscountAmount: prev.totalDiscountAmount + (u.payment?.discountAmount ?? 0),
+    });
+  }
+
+  // Build monthly stats per code
+  const monthlyCodeStatsMap = new Map<number, number>();
+  for (const u of allUsages.filter((u) => u.usedAt >= startOfMonth)) {
+    monthlyCodeStatsMap.set(u.codeId, (monthlyCodeStatsMap.get(u.codeId) ?? 0) + 1);
+  }
+
   const activeCount = codes.filter((c) => c.isActive).length;
-  const totalDiscountAmount = totalDiscountResult.reduce(
+  const totalDiscountAmount = allUsages.reduce(
     (sum, u) => sum + (u.payment?.discountAmount ?? 0),
     0,
   );
@@ -42,6 +61,12 @@ export default async function DiscountCodesSettingsPage() {
     until.setHours(23, 59, 59, 999);
     return until >= now && until <= sevenDaysLater;
   });
+
+  // Convert codeStatsMap to plain object for client serialization
+  const codeStats: Record<number, { usageCount: number; totalDiscountAmount: number }> = {};
+  for (const [id, stats] of codeStatsMap.entries()) {
+    codeStats[id] = stats;
+  }
 
   const kpi = {
     activeCount,
@@ -107,7 +132,7 @@ export default async function DiscountCodesSettingsPage() {
       )}
 
       <div className="mt-6">
-        <DiscountCodeManager initialCodes={codes as any} />
+        <DiscountCodeManager initialCodes={codes as any} codeStats={codeStats} />
       </div>
     </div>
   );

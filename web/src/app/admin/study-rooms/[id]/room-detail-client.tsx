@@ -8,6 +8,16 @@ import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface MonthlyStats {
+  monthLabel: string;
+  totalBookings: number;
+  confirmedBookings: number;
+  bookedHours: number;
+  availableHours: number;
+  utilizationRate: number;
+  topBookers: Array<{ examNumber: string; name: string; count: number }>;
+}
+
 export interface RoomDetailProps {
   room: {
     id: string;
@@ -27,6 +37,7 @@ export interface RoomDetailProps {
     noshowBookings: number;
     uniqueStudents: number;
   };
+  monthlyStats: MonthlyStats;
 }
 
 export interface BookingRowDetail {
@@ -132,7 +143,7 @@ function ToggleActiveButton({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function RoomDetailClient({ room, recentBookings, stats }: RoomDetailProps) {
+export function RoomDetailClient({ room, recentBookings, stats, monthlyStats }: RoomDetailProps) {
   return (
     <div className="space-y-8">
       {/* ── Room info card ──────────────────────────────────────────────── */}
@@ -205,13 +216,98 @@ export function RoomDetailClient({ room, recentBookings, stats }: RoomDetailProp
         </div>
       </div>
 
-      {/* ── Statistics card ─────────────────────────────────────────────── */}
+      {/* ── All-time statistics ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <StatCard label="총 예약" value={stats.totalBookings} unit="건" />
         <StatCard label="확정" value={stats.confirmedBookings} unit="건" color="forest" />
         <StatCard label="취소" value={stats.cancelledBookings} unit="건" />
         <StatCard label="노쇼" value={stats.noshowBookings} unit="건" color="red" />
         <StatCard label="이용 학생" value={stats.uniqueStudents} unit="명" />
+      </div>
+
+      {/* ── Monthly statistics ───────────────────────────────────────────── */}
+      <div className="rounded-[28px] border border-ink/10 bg-white shadow-panel">
+        <div className="border-b border-ink/10 px-8 py-5">
+          <h2 className="text-base font-semibold text-ink">
+            이달 통계{" "}
+            <span className="ml-2 text-sm font-normal text-slate">{monthlyStats.monthLabel}</span>
+          </h2>
+        </div>
+        <div className="px-8 py-6 space-y-6">
+          {/* KPI row */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-[16px] border border-ink/10 bg-mist/40 px-5 py-4">
+              <p className="text-xs font-medium text-slate">이달 예약</p>
+              <p className="mt-1 text-2xl font-bold text-ink">
+                {monthlyStats.totalBookings}
+                <span className="ml-1 text-sm font-normal text-slate">건</span>
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-forest/20 bg-forest/5 px-5 py-4">
+              <p className="text-xs font-medium text-slate">확정</p>
+              <p className="mt-1 text-2xl font-bold text-forest">
+                {monthlyStats.confirmedBookings}
+                <span className="ml-1 text-sm font-normal text-slate">건</span>
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-ink/10 bg-mist/40 px-5 py-4">
+              <p className="text-xs font-medium text-slate">예약 시간</p>
+              <p className="mt-1 text-2xl font-bold text-ink">
+                {monthlyStats.bookedHours}
+                <span className="ml-1 text-sm font-normal text-slate">h</span>
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-ember/20 bg-ember/5 px-5 py-4">
+              <p className="text-xs font-medium text-slate">이용률</p>
+              <p className="mt-1 text-2xl font-bold text-ember">
+                {monthlyStats.utilizationRate}
+                <span className="ml-1 text-sm font-normal text-slate">%</span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate">
+                {monthlyStats.availableHours}h 기준
+              </p>
+            </div>
+          </div>
+
+          {/* Top bookers */}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-ink">이달 TOP 3 이용 학생</h3>
+            {monthlyStats.topBookers.length === 0 ? (
+              <p className="text-sm text-slate">이달 확정 예약이 없습니다.</p>
+            ) : (
+              <ol className="space-y-2">
+                {monthlyStats.topBookers.map((booker, idx) => (
+                  <li
+                    key={booker.examNumber}
+                    className="flex items-center gap-3 rounded-[12px] border border-ink/10 bg-mist/30 px-4 py-3"
+                  >
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        idx === 0
+                          ? "bg-amber-400 text-white"
+                          : idx === 1
+                            ? "bg-slate/30 text-ink"
+                            : "bg-orange-200 text-orange-800"
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
+                    <Link
+                      href={`/admin/students/${booker.examNumber}`}
+                      className="text-sm font-medium text-forest hover:underline"
+                    >
+                      {booker.name}
+                    </Link>
+                    <span className="text-xs text-slate">{booker.examNumber}</span>
+                    <span className="ml-auto text-sm font-semibold text-ink">
+                      {booker.count}건
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Recent bookings ──────────────────────────────────────────────── */}
