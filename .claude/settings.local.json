@@ -36,7 +36,40 @@
       "Bash(DATABASE_URL=\"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10\" DIRECT_URL=\"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" npx prisma db execute --file prisma/migrations/add_textbook_sales.sql --url \"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\")",
       "Bash(npx prisma db execute --file prisma/migrations/add_textbook_sales.sql --url \"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\")",
       "Bash(DATABASE_URL=\"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10\" DIRECT_URL=\"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" npx prisma generate)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(npm run db:push)",
+      "Bash(npm run db:push:force)",
+      "Bash(git add web/src/app/api/points/adjust/route.ts web/src/app/api/points/student web/src/app/admin/points/manage web/src/lib/constants.ts)",
+      "Bash(git add web/scripts/db-push.cjs web/package.json)",
+      "Bash(xargs -I {} dirname {})",
+      "Bash(xargs basename -a)",
+      "Bash(xargs grep -l \"settlement\\\\|Settlement\")",
+      "Bash(npx prisma db execute --url \"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" --file prisma/migrations/add_course_contracts.sql)",
+      "Bash(git add web/prisma/schema.prisma web/prisma/migrations/add_course_contracts.sql web/src/app/api/contracts web/src/app/admin/enrollments/[id]/contract web/src/app/admin/enrollments/[id]/page.tsx web/src/app/admin/enrollments/[id]/enrollment-detail-client.tsx)",
+      "Bash(ls -la \"d:\\\\앱 프로그램\\\\아침모의고사 성적,출결관리\\\\web\\\\src\\\\app\\\\api\\\\settings\\\\civil-exams\"\" 2>/dev/null || echo \"civil-exams dir not found \")",
+      "Read(//d/앱 프로그램/아침모의고사 성적,출결관리/**)",
+      "Bash(git add web/src/app/admin/settings/discount-codes web/src/app/admin/payments/unpaid web/src/app/admin/enrollments/ledger web/src/lib/constants.ts)",
+      "Bash(xargs grep -l \"card\\\\|카드\\\\|CARD\")",
+      "Bash(ls -la \"d:\\\\앱 프로그램\\\\아침모의고사 성적,출결관리\\\\web\\\\src\\\\app\\\\api\\\\settlements\\\\instructors\"\" 2>/dev/null || echo \"instructors subdir does not exist \")",
+      "Bash(npx prisma db execute --url \"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" --file prisma/migrations/add_consultation_prospects.sql)",
+      "Bash(git add web/prisma/schema.prisma web/prisma/migrations/add_refund_status.sql web/src/app/api/settlements/instructors/[instructorId]/ web/src/app/api/settlements/instructors/route.ts web/src/components/settlements/instructor-settlement-view.tsx web/src/app/admin/settlements/instructors/page.tsx web/src/app/api/payments/[id]/refund/ web/src/app/admin/payments/refunds/ web/src/app/admin/payments/[id]/ web/src/app/api/settlements/daily/ web/src/components/settlements/daily-settlement-view.tsx web/src/app/admin/enrollments/[id]/ web/src/lib/constants.ts web/public/sw.js web/public/worker-vlZb5JNO_wzR-FJ1GHHM_.js)",
+      "Bash(git add web/public/worker-O_9jDa4jRVRfEu10tF09H.js)",
+      "Bash(git add web/src/app/admin/settlements/monthly/ web/src/components/settlements/monthly-settlement-view.tsx web/src/app/api/settlements/monthly/export/ web/src/app/admin/payments/installments/ web/src/app/api/payments/installments/ web/src/app/api/payments/remind/ web/src/app/admin/payments/unpaid/ web/src/app/admin/analytics/enrollments/ web/src/app/api/analytics/enrollments/ web/src/app/admin/payments/refunds/ web/src/app/admin/enrollments/)",
+      "Bash(git add web/src/app/admin/enrollments/ledger/ web/src/app/admin/students/ web/src/app/api/enrollments/ web/src/app/api/payments/ web/src/app/api/settings/discount-codes/ web/src/components/enrollments/enrollment-form.tsx web/src/lib/constants.ts)",
+      "Bash(git add web/src/app/admin/counseling/stats/ web/src/app/admin/enrollments/cohorts/ web/src/app/admin/reports/ web/src/app/api/counseling/stats/ web/src/app/api/reports/ web/src/lib/constants.ts)",
+      "Bash(git add web/src/app/admin/payments/*/receipt/ web/src/app/student/enrollment/ web/src/app/admin/students/stats/ web/src/app/api/students/stats/)",
+      "Bash(git add web/src/app/admin/lockers/ web/src/app/admin/study-rooms/ web/src/app/admin/audit-logs/ web/src/app/api/audit-logs/ web/src/lib/constants.ts)",
+      "Bash(ls src/app/admin/students/*/)",
+      "Bash(grep -n \"tab\\\\|Tab\\\\|href.*examNumber\\\\|attendance\\\\|leave\\\\|휴원\" src/app/admin/students/[examNumber]/page.tsx)",
+      "Bash(grep -n \"TABS\\\\|const TABS\" src/app/admin/students/[examNumber]/page.tsx)",
+      "Bash(grep -n \"leave\\\\|Leave\\\\|휴원\" src/app/admin/enrollments/[id]/page.tsx)",
+      "Bash(grep -n \"leave\\\\|Leave\\\\|휴원\\\\|leaveRecord\\\\|ADD.*leave\\\\|button\\\\|modal\\\\|create\" src/app/admin/enrollments/[id]/enrollment-detail-client.tsx)",
+      "Bash(grep -n \"notificationConsent\\\\|consentedAt\\\\|consent\\\\|email\\\\|mobile\\\\|memo\\\\|birthDate\" src/app/admin/students/[examNumber]/page.tsx)",
+      "Bash(npx prisma db execute --url \"postgresql://postgres.psfsprodoedjjngldyzr:hankukpol_0112%5E%5E@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" --file prisma/migrations/approval_rules.sql)",
+      "Bash(git add web/src/app/admin/students/[examNumber]/documents/ web/src/app/admin/students/[examNumber]/consent-toggle.tsx web/src/app/admin/students/[examNumber]/page.tsx web/src/app/api/students/[examNumber]/route.ts web/src/app/admin/settings/approval-rules/ web/src/app/api/settings/approval-rules/ web/prisma/schema.prisma web/prisma/migrations/approval_rules.sql web/src/lib/constants.ts)",
+      "Bash(git add web/src/app/admin/enrollments/expiring/ web/src/app/api/enrollments/expiring/ web/src/app/student/page.tsx web/src/app/admin/enrollments/[id]/textbooks/ web/src/app/api/enrollments/[id]/textbooks/ web/src/components/enrollments/enrollment-form.tsx web/src/lib/constants.ts)",
+      "Bash(git add -u)",
+      "Bash(git add web/src/)"
     ],
     "additionalDirectories": [
       "D:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\settings\\cohorts",
@@ -54,7 +87,8 @@
       "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\admin\\enrollments\\[id]",
       "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\payment-links",
       "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\special-lectures\\[id]\\subjects",
-      "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\textbooks\\[id]"
+      "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\textbooks\\[id]",
+      "d:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\points\\student"
     ]
   }
 }

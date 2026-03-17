@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
-import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import type { StudyRoomRow } from "./page";
 
 type Props = {
@@ -32,16 +31,16 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const createModal = useActionModalState();
-  const editModal = useActionModalState();
-  const deleteModal = useActionModalState();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function openCreate() {
     const maxSort = rooms.length > 0 ? Math.max(...rooms.map((r) => r.sortOrder)) + 1 : 0;
     setForm({ ...EMPTY_FORM, sortOrder: String(maxSort) });
     setError(null);
-    createModal.open();
+    setIsCreateModalOpen(true);
   }
 
   function openEdit(room: StudyRoomRow) {
@@ -54,12 +53,12 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
       sortOrder: String(room.sortOrder),
     });
     setError(null);
-    editModal.open();
+    setIsEditModalOpen(true);
   }
 
   function openDelete(id: string) {
     setDeletingId(id);
-    deleteModal.open();
+    setIsDeleteModalOpen(true);
   }
 
   function handleCreate() {
@@ -80,7 +79,7 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
         return;
       }
       setRooms((prev) => [...prev, { ...data.room, bookingCount: 0 }]);
-      createModal.close();
+      setIsCreateModalOpen(false);
     });
   }
 
@@ -109,7 +108,7 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
           r.id === editingId ? { ...r, ...data.room } : r,
         ),
       );
-      editModal.close();
+      setIsEditModalOpen(false);
     });
   }
 
@@ -124,7 +123,7 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
       const res = await fetch(`/api/study-rooms/${deletingId}`, { method: "DELETE" });
       if (!res.ok) return;
       setRooms((prev) => prev.filter((r) => r.id !== deletingId));
-      deleteModal.close();
+      setIsDeleteModalOpen(false);
     });
   }
 
@@ -208,47 +207,52 @@ export function StudyRoomSettingsManager({ initialRooms }: Props) {
 
       {/* 추가 모달 */}
       <ActionModal
-        isOpen={createModal.isOpen}
-        onClose={createModal.close}
+        open={isCreateModalOpen}
+        badgeLabel="스터디룸 관리"
         title="스터디룸 추가"
+        description="새 스터디룸을 등록합니다."
         confirmLabel="추가"
+        cancelLabel="취소"
+        onClose={() => setIsCreateModalOpen(false)}
         onConfirm={handleCreate}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <RoomFormFields form={form} onChange={setForm} error={error} />
       </ActionModal>
 
       {/* 수정 모달 */}
       <ActionModal
-        isOpen={editModal.isOpen}
-        onClose={editModal.close}
+        open={isEditModalOpen}
+        badgeLabel="스터디룸 관리"
         title="스터디룸 수정"
+        description="스터디룸 정보를 수정합니다."
         confirmLabel="저장"
+        cancelLabel="취소"
+        onClose={() => setIsEditModalOpen(false)}
         onConfirm={handleEdit}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <RoomFormFields form={form} onChange={setForm} error={error} showActiveToggle showSortOrder />
       </ActionModal>
 
       {/* 삭제 확인 모달 */}
       <ActionModal
-        isOpen={deleteModal.isOpen}
-        onClose={deleteModal.close}
+        open={isDeleteModalOpen}
+        badgeLabel="스터디룸 관리"
         title="스터디룸 삭제"
+        description="이 스터디룸을 삭제하시겠습니까? 예약 이력이 없는 경우에만 삭제됩니다."
         confirmLabel="삭제"
-        confirmVariant="danger"
+        cancelLabel="취소"
+        confirmTone="danger"
+        onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
-        isLoading={isPending}
+        isPending={isPending}
       >
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
-        ) : (
-          <p className="text-sm text-slate">
-            이 스터디룸을 삭제하시겠습니까? 예약 이력이 없는 경우에만 삭제됩니다.
-          </p>
-        )}
+        ) : null}
       </ActionModal>
     </>
   );

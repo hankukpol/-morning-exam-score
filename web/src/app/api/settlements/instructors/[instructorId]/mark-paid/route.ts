@@ -72,7 +72,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     await prisma.auditLog.create({
       data: {
-        adminId: auth.admin.id,
+        adminId: auth.context.adminUser.id,
         action: "INSTRUCTOR_SETTLEMENT_PAID",
         targetType: "SpecialLectureSettlement",
         targetId: record.id,

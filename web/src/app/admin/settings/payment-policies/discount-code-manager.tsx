@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
-import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import type { DiscountCodeRow } from "./page";
 
 type Props = {
@@ -64,15 +63,15 @@ export function DiscountCodeManager({ initialCodes }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const createModal = useActionModalState();
-  const editModal = useActionModalState();
-  const deleteModal = useActionModalState();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   function openCreate() {
     setForm(EMPTY_FORM);
     setError(null);
-    createModal.open();
+    setIsCreateModalOpen(true);
   }
 
   function openEdit(row: DiscountCodeRow) {
@@ -88,12 +87,12 @@ export function DiscountCodeManager({ initialCodes }: Props) {
       isActive: row.isActive,
     });
     setError(null);
-    editModal.open();
+    setIsEditModalOpen(true);
   }
 
   function openDelete(id: number) {
     setDeletingId(id);
-    deleteModal.open();
+    setIsDeleteModalOpen(true);
   }
 
   function buildPayload(f: CodeForm) {
@@ -132,7 +131,7 @@ export function DiscountCodeManager({ initialCodes }: Props) {
         },
         ...prev,
       ]);
-      createModal.close();
+      setIsCreateModalOpen(false);
     });
   }
 
@@ -164,7 +163,7 @@ export function DiscountCodeManager({ initialCodes }: Props) {
             : r,
         ),
       );
-      editModal.close();
+      setIsEditModalOpen(false);
     });
   }
 
@@ -175,11 +174,11 @@ export function DiscountCodeManager({ initialCodes }: Props) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "삭제 실패");
-        deleteModal.close();
+        setIsDeleteModalOpen(false);
         return;
       }
       setCodes((prev) => prev.filter((r) => r.id !== deletingId));
-      deleteModal.close();
+      setIsDeleteModalOpen(false);
     });
   }
 
@@ -280,42 +279,47 @@ export function DiscountCodeManager({ initialCodes }: Props) {
 
       {/* 코드 발급 모달 */}
       <ActionModal
-        isOpen={createModal.isOpen}
-        onClose={createModal.close}
+        open={isCreateModalOpen}
+        badgeLabel="할인 코드"
         title="할인 코드 발급"
+        description="새 할인 코드를 발급합니다."
         confirmLabel="발급"
+        cancelLabel="취소"
+        onClose={() => setIsCreateModalOpen(false)}
         onConfirm={handleCreate}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <CodeFormFields form={form} onChange={setForm} error={error} />
       </ActionModal>
 
       {/* 코드 수정 모달 */}
       <ActionModal
-        isOpen={editModal.isOpen}
-        onClose={editModal.close}
+        open={isEditModalOpen}
+        badgeLabel="할인 코드"
         title="할인 코드 수정"
+        description="할인 코드 정보를 수정합니다."
         confirmLabel="저장"
+        cancelLabel="취소"
+        onClose={() => setIsEditModalOpen(false)}
         onConfirm={handleEdit}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <CodeFormFields form={form} onChange={setForm} error={error} showActiveToggle />
       </ActionModal>
 
       {/* 삭제 확인 모달 */}
       <ActionModal
-        isOpen={deleteModal.isOpen}
-        onClose={deleteModal.close}
+        open={isDeleteModalOpen}
+        badgeLabel="할인 코드"
         title="할인 코드 삭제"
+        description="이 할인 코드를 삭제하시겠습니까? 한 번도 사용되지 않은 코드만 삭제 가능합니다."
         confirmLabel="삭제"
-        confirmVariant="danger"
+        cancelLabel="취소"
+        confirmTone="danger"
+        onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
-        isLoading={isPending}
-      >
-        <p className="text-sm text-slate">
-          이 할인 코드를 삭제하시겠습니까? 한 번도 사용되지 않은 코드만 삭제 가능합니다.
-        </p>
-      </ActionModal>
+        isPending={isPending}
+      />
     </>
   );
 }

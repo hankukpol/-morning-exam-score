@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         validFrom: new Date(validFrom),
         validUntil: validUntil ? new Date(validUntil) : null,
         isActive: isActive !== false,
-        staffId: auth.admin.id,
+        staffId: auth.context.adminUser.id,
       },
       include: { staff: { select: { name: true } } },
     });

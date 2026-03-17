@@ -31,7 +31,7 @@ export async function POST(request: Request, context: RouteContext) {
           enrollmentId: id,
           leaveDate: new Date(leaveDate),
           reason: reason?.trim() || null,
-          approvedBy: auth.admin.id,
+          approvedBy: auth.context.adminUser.id,
         },
       });
 
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: RouteContext) {
 
       await tx.auditLog.create({
         data: {
-          adminId: auth.admin.id,
+          adminId: auth.context.adminUser.id,
           action: "ENROLLMENT_LEAVE",
           targetType: "courseEnrollment",
           targetId: id,
@@ -105,7 +105,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
       await tx.auditLog.create({
         data: {
-          adminId: auth.admin.id,
+          adminId: auth.context.adminUser.id,
           action: "ENROLLMENT_RETURN",
           targetType: "courseEnrollment",
           targetId: id,

@@ -8,31 +8,34 @@ import type { StaffRow } from "./page";
 
 const ROLE_LABEL: Record<AdminRole, string> = {
   SUPER_ADMIN: "최고 관리자",
-  MANAGER: "원장",
+  DIRECTOR: "원장",
+  DEPUTY_DIRECTOR: "부원장",
+  MANAGER: "실장",
   ACADEMIC_ADMIN: "교무주임",
   COUNSELOR: "상담원",
   TEACHER: "강사",
-  STAFF: "직원",
   VIEWER: "조회자",
 };
 
 const ROLE_COLOR: Record<AdminRole, string> = {
   SUPER_ADMIN: "bg-red-50 text-red-700 border-red-200",
+  DIRECTOR: "bg-amber-50 text-amber-700 border-amber-200",
+  DEPUTY_DIRECTOR: "bg-amber-50 text-amber-600 border-amber-200",
   MANAGER: "bg-amber-50 text-amber-700 border-amber-200",
   ACADEMIC_ADMIN: "bg-forest/10 text-forest border-forest/20",
   COUNSELOR: "bg-sky-50 text-sky-700 border-sky-200",
   TEACHER: "bg-violet-50 text-violet-700 border-violet-200",
-  STAFF: "bg-ink/5 text-slate border-ink/10",
   VIEWER: "bg-ink/5 text-slate border-ink/10",
 };
 
 const ROLES: AdminRole[] = [
   AdminRole.SUPER_ADMIN,
+  AdminRole.DIRECTOR,
+  AdminRole.DEPUTY_DIRECTOR,
   AdminRole.MANAGER,
   AdminRole.ACADEMIC_ADMIN,
   AdminRole.COUNSELOR,
   AdminRole.TEACHER,
-  AdminRole.STAFF,
   AdminRole.VIEWER,
 ];
 
@@ -48,7 +51,7 @@ const EMPTY_FORM: StaffForm = {
   name: "",
   email: "",
   phone: "",
-  role: AdminRole.STAFF,
+  role: AdminRole.VIEWER,
   isActive: true,
 };
 

@@ -256,12 +256,15 @@ export function PaymentLinkManager({ initialLinks, courses }: Props) {
 
       {/* Create modal */}
       <ActionModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
+        open={createOpen}
+        badgeLabel="결제 링크"
         title="결제 링크 생성"
+        description="학생에게 전송할 결제 링크를 생성합니다."
         confirmLabel="링크 생성"
+        cancelLabel="취소"
+        onClose={() => setCreateOpen(false)}
         onConfirm={handleCreate}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <div className="space-y-4">
           {error && (
@@ -390,13 +393,16 @@ export function PaymentLinkManager({ initialLinks, courses }: Props) {
 
       {/* Disable confirm modal */}
       <ActionModal
-        isOpen={disableOpen}
-        onClose={() => setDisableOpen(false)}
+        open={disableOpen}
+        badgeLabel="결제 링크"
         title="결제 링크 비활성화"
+        description="이 결제 링크를 비활성화합니다."
         confirmLabel="비활성화"
-        confirmVariant="danger"
+        cancelLabel="취소"
+        confirmTone="danger"
+        onClose={() => setDisableOpen(false)}
         onConfirm={handleDisable}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <p className="text-sm text-slate">
           <span className="font-semibold text-ink">{targetLink?.title}</span> 링크를

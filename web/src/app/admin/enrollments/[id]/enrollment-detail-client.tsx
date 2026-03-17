@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
-import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import {
   COURSE_TYPE_LABEL,
   ENROLLMENT_STATUS_LABEL,
@@ -25,11 +24,11 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const leaveModal = useActionModalState();
-  const returnModal = useActionModalState();
-  const withdrawModal = useActionModalState();
-  const cancelModal = useActionModalState();
-  const completeModal = useActionModalState();
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [leaveDate, setLeaveDate] = useState(today);
   const [leaveReason, setLeaveReason] = useState("");
   const [statusChangeReason, setStatusChangeReason] = useState("");
@@ -60,14 +59,14 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
     setLeaveDate(today);
     setLeaveReason("");
     setError(null);
-    leaveModal.open();
+    setIsLeaveModalOpen(true);
   }
 
   function openReturn(leaveId: string) {
     setActiveLeaveId(leaveId);
     setReturnDate(today);
     setError(null);
-    returnModal.open();
+    setIsReturnModalOpen(true);
   }
 
   function handleLeave() {
@@ -88,7 +87,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         status: "SUSPENDED",
         leaveRecords: [data.leaveRecord, ...prev.leaveRecords],
       }));
-      leaveModal.close();
+      setIsLeaveModalOpen(false);
     });
   }
 
@@ -113,11 +112,11 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           l.id === activeLeaveId ? data.leaveRecord : l,
         ),
       }));
-      returnModal.close();
+      setIsReturnModalOpen(false);
     });
   }
 
-  async function handleStatusChange(status: string, modal: ReturnType<typeof useActionModalState>) {
+  async function handleStatusChange(status: string, closeModal: () => void) {
     setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/enrollments/${enrollment.id}`, {
@@ -132,7 +131,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
       }
       setEnrollment((prev) => ({ ...prev, status: data.enrollment.status }));
       setStatusChangeReason("");
-      modal.close();
+      closeModal();
     });
   }
 
@@ -258,7 +257,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         {(enrollment.status === "ACTIVE" || enrollment.status === "SUSPENDED") && (
           <button
             type="button"
-            onClick={() => { setStatusChangeReason(""); setError(null); completeModal.open(); }}
+            onClick={() => { setStatusChangeReason(""); setError(null); setIsCompleteModalOpen(true); }}
             disabled={isPending}
             className="inline-flex items-center rounded-full border border-sky-200 px-4 py-2 text-sm font-semibold text-sky-700 transition hover:border-sky-400 disabled:opacity-50"
           >
@@ -268,7 +267,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         {(enrollment.status === "ACTIVE" || enrollment.status === "SUSPENDED" || enrollment.status === "PENDING") && (
           <button
             type="button"
-            onClick={() => { setStatusChangeReason(""); setError(null); withdrawModal.open(); }}
+            onClick={() => { setStatusChangeReason(""); setError(null); setIsWithdrawModalOpen(true); }}
             disabled={isPending}
             className="inline-flex items-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:border-red-400 disabled:opacity-50"
           >
@@ -278,7 +277,7 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         {enrollment.status === "PENDING" && (
           <button
             type="button"
-            onClick={() => { setStatusChangeReason(""); setError(null); cancelModal.open(); }}
+            onClick={() => { setStatusChangeReason(""); setError(null); setIsCancelModalOpen(true); }}
             disabled={isPending}
             className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-slate transition hover:border-ink/30 disabled:opacity-50"
           >
@@ -356,12 +355,15 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
 
       {/* 휴원 처리 모달 */}
       <ActionModal
-        isOpen={leaveModal.isOpen}
-        onClose={leaveModal.close}
+        open={isLeaveModalOpen}
+        badgeLabel="수강 관리"
         title="휴원 처리"
+        description="수강 상태를 휴원으로 변경합니다."
         confirmLabel="휴원 처리"
+        cancelLabel="취소"
+        onClose={() => setIsLeaveModalOpen(false)}
         onConfirm={handleLeave}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <div className="space-y-4">
           {error && (
@@ -396,12 +398,15 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
 
       {/* 복귀 처리 모달 */}
       <ActionModal
-        isOpen={returnModal.isOpen}
-        onClose={returnModal.close}
+        open={isReturnModalOpen}
+        badgeLabel="수강 관리"
         title="복귀 처리"
+        description="수강 상태를 수강 중으로 변경합니다."
         confirmLabel="복귀 처리"
+        cancelLabel="취소"
+        onClose={() => setIsReturnModalOpen(false)}
         onConfirm={handleReturn}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <div className="space-y-4">
           {error && (
@@ -426,12 +431,15 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
 
       {/* 수료 처리 모달 */}
       <ActionModal
-        isOpen={completeModal.isOpen}
-        onClose={completeModal.close}
+        open={isCompleteModalOpen}
+        badgeLabel="수강 관리"
         title="수료 처리"
+        description="수강 상태를 수료로 변경합니다."
         confirmLabel="수료 처리"
-        onConfirm={() => handleStatusChange("COMPLETED", completeModal)}
-        isLoading={isPending}
+        cancelLabel="취소"
+        onClose={() => setIsCompleteModalOpen(false)}
+        onConfirm={() => handleStatusChange("COMPLETED", () => setIsCompleteModalOpen(false))}
+        isPending={isPending}
       >
         <div className="space-y-3">
           {error && (
@@ -445,13 +453,16 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
 
       {/* 퇴원 처리 모달 */}
       <ActionModal
-        isOpen={withdrawModal.isOpen}
-        onClose={withdrawModal.close}
+        open={isWithdrawModalOpen}
+        badgeLabel="수강 관리"
         title="퇴원 처리"
+        description="수강 상태를 퇴원으로 변경합니다."
         confirmLabel="퇴원 처리"
-        confirmVariant="danger"
-        onConfirm={() => handleStatusChange("WITHDRAWN", withdrawModal)}
-        isLoading={isPending}
+        cancelLabel="취소"
+        confirmTone="danger"
+        onClose={() => setIsWithdrawModalOpen(false)}
+        onConfirm={() => handleStatusChange("WITHDRAWN", () => setIsWithdrawModalOpen(false))}
+        isPending={isPending}
       >
         <div className="space-y-3">
           {error && (
@@ -465,13 +476,16 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
 
       {/* 취소 모달 */}
       <ActionModal
-        isOpen={cancelModal.isOpen}
-        onClose={cancelModal.close}
+        open={isCancelModalOpen}
+        badgeLabel="수강 관리"
         title="수강 취소"
+        description="수강 신청을 취소합니다."
         confirmLabel="취소 처리"
-        confirmVariant="danger"
-        onConfirm={() => handleStatusChange("CANCELLED", cancelModal)}
-        isLoading={isPending}
+        cancelLabel="닫기"
+        confirmTone="danger"
+        onClose={() => setIsCancelModalOpen(false)}
+        onConfirm={() => handleStatusChange("CANCELLED", () => setIsCancelModalOpen(false))}
+        isPending={isPending}
       >
         <div className="space-y-3">
           {error && (

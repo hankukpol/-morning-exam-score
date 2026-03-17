@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       // Validate student exists
       const student = await tx.student.findUnique({
         where: { examNumber: cleanExamNumber },
-        select: { id: true, name: true, examNumber: true },
+        select: { name: true, examNumber: true },
       });
       if (!student) throw new Error(`학생을 찾을 수 없습니다: ${cleanExamNumber}`);
 

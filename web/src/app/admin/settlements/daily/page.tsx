@@ -95,6 +95,9 @@ export default async function DailySettlementPage() {
           ...settlement,
           date: settlement.date.toISOString(),
           closedAt: settlement.closedAt?.toISOString() ?? null,
+          closedByName: null,
+          reopenedAt: settlement.reopenedAt?.toISOString() ?? null,
+          reopenedByName: null,
           cashActual: settlement.cashActual ?? null,
           cashDiff: settlement.cashDiff ?? null,
         }

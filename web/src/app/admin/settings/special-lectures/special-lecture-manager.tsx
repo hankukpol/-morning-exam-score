@@ -429,7 +429,7 @@ export function SpecialLectureManager({ initialRows, instructors }: Props) {
         isPending={isPending}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        confirmVariant="danger"
+        confirmTone="danger"
       />
 
       {/* Subject Modal */}

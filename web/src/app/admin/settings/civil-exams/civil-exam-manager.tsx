@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
-import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import type { CivilExamRow } from "./page";
 
 type Props = {
@@ -48,15 +47,15 @@ export function CivilExamManager({ initialExams }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const createModal = useActionModalState();
-  const editModal = useActionModalState();
-  const deleteModal = useActionModalState();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   function openCreate() {
     setForm(EMPTY_FORM);
     setError(null);
-    createModal.open();
+    setIsCreateModalOpen(true);
   }
 
   function openEdit(exam: CivilExamRow) {
@@ -72,12 +71,12 @@ export function CivilExamManager({ initialExams }: Props) {
       isActive: exam.isActive,
     });
     setError(null);
-    editModal.open();
+    setIsEditModalOpen(true);
   }
 
   function openDelete(id: number) {
     setDeletingId(id);
-    deleteModal.open();
+    setIsDeleteModalOpen(true);
   }
 
   function handleCreate() {
@@ -112,7 +111,7 @@ export function CivilExamManager({ initialExams }: Props) {
         },
         ...prev,
       ]);
-      createModal.close();
+      setIsCreateModalOpen(false);
     });
   }
 
@@ -153,7 +152,7 @@ export function CivilExamManager({ initialExams }: Props) {
             : e,
         ),
       );
-      editModal.close();
+      setIsEditModalOpen(false);
     });
   }
 
@@ -163,7 +162,7 @@ export function CivilExamManager({ initialExams }: Props) {
       const res = await fetch(`/api/settings/civil-exams/${deletingId}`, { method: "DELETE" });
       if (!res.ok) return;
       setExams((prev) => prev.filter((e) => e.id !== deletingId));
-      deleteModal.close();
+      setIsDeleteModalOpen(false);
     });
   }
 
@@ -259,40 +258,47 @@ export function CivilExamManager({ initialExams }: Props) {
 
       {/* 시험 추가 모달 */}
       <ActionModal
-        isOpen={createModal.isOpen}
-        onClose={createModal.close}
+        open={isCreateModalOpen}
+        badgeLabel="시험 관리"
         title="시험 일정 추가"
+        description="새 시험 일정을 등록합니다."
         confirmLabel="추가"
+        cancelLabel="취소"
+        onClose={() => setIsCreateModalOpen(false)}
         onConfirm={handleCreate}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <ExamFormFields form={form} onChange={setForm} error={error} />
       </ActionModal>
 
       {/* 시험 수정 모달 */}
       <ActionModal
-        isOpen={editModal.isOpen}
-        onClose={editModal.close}
+        open={isEditModalOpen}
+        badgeLabel="시험 관리"
         title="시험 일정 수정"
+        description="시험 일정 정보를 수정합니다."
         confirmLabel="저장"
+        cancelLabel="취소"
+        onClose={() => setIsEditModalOpen(false)}
         onConfirm={handleEdit}
-        isLoading={isPending}
+        isPending={isPending}
       >
         <ExamFormFields form={form} onChange={setForm} error={error} showActiveToggle />
       </ActionModal>
 
       {/* 삭제 확인 모달 */}
       <ActionModal
-        isOpen={deleteModal.isOpen}
-        onClose={deleteModal.close}
+        open={isDeleteModalOpen}
+        badgeLabel="시험 관리"
         title="시험 일정 삭제"
+        description="이 시험 일정을 삭제하시겠습니까?"
         confirmLabel="삭제"
-        confirmVariant="danger"
+        cancelLabel="취소"
+        confirmTone="danger"
+        onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
-        isLoading={isPending}
-      >
-        <p className="text-sm text-slate">이 시험 일정을 삭제하시겠습니까?</p>
-      </ActionModal>
+        isPending={isPending}
+      />
     </>
   );
 }

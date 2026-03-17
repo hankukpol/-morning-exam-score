@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const student = await prisma.student.findUnique({
       where: { examNumber: cleanExamNumber },
-      select: { id: true, name: true, examNumber: true, mobile: true },
+      select: { name: true, examNumber: true, phone: true },
     });
     if (!student) {
       return NextResponse.json({ error: `학생을 찾을 수 없습니다: ${cleanExamNumber}` }, { status: 404 });
@@ -38,7 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
       }),
       prisma.pointLog.findMany({
         where: { examNumber: cleanExamNumber },
-        orderBy: { createdAt: "desc" },
+        orderBy: { grantedAt: "desc" },
         take: 50,
       }),
     ]);

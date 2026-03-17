@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         enrolledMonths: enrolledMonths ? Number(enrolledMonths) : null,
         testimony: testimony?.trim() || null,
         isPublic: Boolean(isPublic),
-        staffId: auth.adminId,
+        staffId: auth.context.adminUser.id,
         note: note?.trim() || null,
       },
       include: {

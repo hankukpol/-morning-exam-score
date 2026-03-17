@@ -283,7 +283,7 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
         description="현장 교재 판매를 등록합니다. 재고가 자동으로 차감됩니다."
         cancelLabel="취소"
         confirmLabel={isPending ? "등록 중..." : "판매 등록"}
-        confirmTone="primary"
+        confirmTone="default"
         isPending={isPending}
         onClose={handleClose}
         onConfirm={handleConfirm}
