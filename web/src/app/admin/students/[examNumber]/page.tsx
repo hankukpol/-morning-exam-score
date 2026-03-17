@@ -27,6 +27,7 @@ import { SubjectScoreHeatmap } from "@/components/analytics/subject-score-heatma
 import { CounselingBriefingCard } from "@/components/students/counseling-briefing-card";
 import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
+import { ConsentToggle } from "./consent-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -266,6 +267,56 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                 },
               }))}
             />
+            {/* 개인정보 동의 현황 */}
+            <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+              <h2 className="text-base font-semibold text-ink">개인정보 동의 현황</h2>
+              <div className="mt-4 space-y-4">
+                {/* 필수 동의 */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-ink">개인정보 수집·이용 동의</p>
+                    <p className="mt-0.5 text-xs text-slate">필수 동의</p>
+                  </div>
+                  <div className="text-right">
+                    {student.registeredAt ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+                        ✓ 동의 완료 ({formatDate(student.registeredAt)})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        ⚠ 미동의 (등록 시 서명 필요)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 마케팅 SMS 동의 */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-ink">마케팅 SMS 수신 동의</p>
+                    <p className="mt-0.5 text-xs text-slate">선택 동의</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {student.notificationConsent ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+                        ✓ 동의{student.consentedAt ? ` (${formatDate(student.consentedAt)})` : ""}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        ☐ 미동의
+                      </span>
+                    )}
+                    {canEdit && (
+                      <ConsentToggle
+                        examNumber={student.examNumber}
+                        currentConsent={student.notificationConsent}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <StudentScoreHistoryManager
               canEdit={canEdit}
               initialStudent={{

@@ -7,6 +7,7 @@ import {
   reactivateStudent,
   updateStudent,
 } from "@/lib/students/service";
+import { getPrisma } from "@/lib/prisma";
 
 type RouteContext = {
   params: {
@@ -48,6 +49,31 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   try {
+    // Parse body to determine operation (consent update vs reactivation)
+    let body: Record<string, unknown> = {};
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      // Empty body → treat as reactivation (legacy behaviour)
+    }
+
+    if ("notificationConsent" in body) {
+      // Consent update
+      const consent = body.notificationConsent;
+      if (typeof consent !== "boolean") {
+        return NextResponse.json({ error: "notificationConsent must be boolean" }, { status: 400 });
+      }
+      const student = await getPrisma().student.update({
+        where: { examNumber: params.examNumber },
+        data: {
+          notificationConsent: consent,
+          consentedAt: consent ? new Date() : undefined,
+        },
+      });
+      return NextResponse.json({ student });
+    }
+
+    // Default: reactivation
     const student = await reactivateStudent({
       adminId: auth.context.adminUser.id,
       examNumber: params.examNumber,
@@ -57,7 +83,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ student });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "재활성화에 실패했습니다." },
+      { error: error instanceof Error ? error.message : "처리에 실패했습니다." },
       { status: 400 },
     );
   }

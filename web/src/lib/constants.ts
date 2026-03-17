@@ -584,6 +584,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "설정",
   },
   {
+    href: "/admin/settings/approval-rules",
+    label: "승인 라인",
+    description: "환불·할인·현금 지급 승인 기준 금액 설정",
+    minRole: AdminRole.DIRECTOR,
+    group: "설정",
+  },
+  {
     href: "/admin/lockers",
     label: "사물함",
     description: "구역별 사물함 현황 조회, 배정·반납 처리",

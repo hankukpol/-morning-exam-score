@@ -1493,6 +1493,10 @@ model AcademySettings {
   bankAccount   String   @default("")
   bankHolder    String   @default("")
   websiteUrl    String   @default("")
+  // 승인 라인 설정 (단위: 원)
+  refundApprovalThreshold   Int @default(200000) // 환불 승인 기준 (원장 승인)
+  discountApprovalThreshold Int @default(50000)  // 할인 승인 기준 (교무 이상 승인)
+  cashApprovalThreshold     Int @default(100000) // 현금 지급 승인 기준 (원장 승인)
   updatedAt     DateTime @updatedAt
 
   @@map("academy_settings")
