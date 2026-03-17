@@ -465,6 +465,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "시스템 도구",
   },
   {
+    href: "/admin/audit-logs",
+    label: "감사 로그",
+    description: "모든 중요 작업의 기록 조회 및 필터링",
+    minRole: AdminRole.MANAGER,
+    group: "시스템 도구",
+  },
+  {
     href: "/admin/settings/accounts",
     label: "관리자 계정",
     description: "Supabase Auth 연동 계정 관리",
@@ -577,6 +584,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "설정",
   },
   {
+    href: "/admin/lockers",
+    label: "사물함",
+    description: "구역별 사물함 현황 조회, 배정·반납 처리",
+    minRole: AdminRole.TEACHER,
+    group: "시설 관리",
+  },
+  {
     href: "/admin/facilities/lockers",
     label: "사물함 관리",
     description: "사물함 배정, 대여 기록, 현황 조회",
@@ -584,10 +598,10 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "시설 관리",
   },
   {
-    href: "/admin/facilities/study-rooms",
-    label: "스터디룸 예약",
-    description: "스터디룸 예약 배정 및 관리",
-    minRole: AdminRole.ACADEMIC_ADMIN,
+    href: "/admin/study-rooms",
+    label: "스터디룸 관리",
+    description: "날짜별 스터디룸 예약 현황 및 직원 배정",
+    minRole: AdminRole.TEACHER,
     group: "시설 관리",
   },
   {
