@@ -43,6 +43,7 @@ export type EnrollmentDetailData = {
   specialLectureName: string | null;
   staffName: string;
   leaveRecords: LeaveRecordRow[];
+  contractExists: boolean;
   contractPrintedAt: string | null;
   auditLogs: AuditLogRow[];
 };
@@ -105,6 +106,7 @@ export default async function EnrollmentDetailPage({
       returnDate: l.returnDate ? l.returnDate.toISOString() : null,
       reason: l.reason,
     })),
+    contractExists: contract !== null,
     contractPrintedAt: contract?.printedAt ? contract.printedAt.toISOString() : null,
     auditLogs: auditLogs.map((log) => ({
       id: log.id,

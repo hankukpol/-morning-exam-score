@@ -218,13 +218,17 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-slate transition hover:border-ink/30"
         >
           수강계약서
-          {enrollment.contractPrintedAt ? (
+          {!enrollment.contractExists ? (
+            <span className="text-[10px] font-medium bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">
+              미발행
+            </span>
+          ) : enrollment.contractPrintedAt ? (
             <span className="text-[10px] font-medium bg-[#1F4D3A]/10 text-[#1F4D3A] px-1.5 py-0.5 rounded-full">
-              출력완료
+              발행완료 ({new Date(enrollment.contractPrintedAt).toLocaleDateString("ko-KR")})
             </span>
           ) : (
             <span className="text-[10px] font-medium bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full">
-              미출력
+              초안
             </span>
           )}
         </Link>
