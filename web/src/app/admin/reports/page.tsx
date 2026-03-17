@@ -20,19 +20,19 @@ export default async function ReportsPage() {
   const [monthlyPayments, ytdPayments, activeEnrollments] = await Promise.all([
     getPrisma().payment.aggregate({
       where: { status: "APPROVED", createdAt: { gte: monthStart, lt: monthEnd } },
-      _sum: { amount: true },
-    }).catch(() => ({ _sum: { amount: 0 } })),
+      _sum: { netAmount: true },
+    }).catch(() => ({ _sum: { netAmount: 0 } })),
     getPrisma().payment.aggregate({
       where: { status: "APPROVED", createdAt: { gte: yearStart } },
-      _sum: { amount: true },
-    }).catch(() => ({ _sum: { amount: 0 } })),
+      _sum: { netAmount: true },
+    }).catch(() => ({ _sum: { netAmount: 0 } })),
     getPrisma().courseEnrollment.count({
       where: { status: "ACTIVE" },
     }).catch(() => 0),
   ]);
 
-  const monthlyTotal = monthlyPayments._sum.amount ?? 0;
-  const ytdTotal = ytdPayments._sum.amount ?? 0;
+  const monthlyTotal = monthlyPayments._sum?.netAmount ?? 0;
+  const ytdTotal = ytdPayments._sum?.netAmount ?? 0;
 
   function formatKRW(n: number) {
     if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억원`;

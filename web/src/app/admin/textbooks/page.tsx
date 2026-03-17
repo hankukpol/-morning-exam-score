@@ -36,12 +36,14 @@ export default async function TextbookSalesPage() {
     prisma.textbookSale.groupBy({
       by: ["textbookId"],
       where: { soldAt: { gte: monthStart, lte: monthEnd } },
-      _count: { id: true },
+      _count: { _all: true },
       _sum: { quantity: true, totalPrice: true },
+      orderBy: { textbookId: "asc" },
     }),
     prisma.textbookSale.groupBy({
       by: ["textbookId"],
       _sum: { quantity: true, totalPrice: true },
+      orderBy: { textbookId: "asc" },
     }),
   ]);
 
@@ -49,9 +51,9 @@ export default async function TextbookSalesPage() {
     monthlySales.map((s) => [
       s.textbookId,
       {
-        count: s._count.id,
-        qty: s._sum.quantity ?? 0,
-        amount: s._sum.totalPrice ?? 0,
+        count: (s._count as { _all?: number } | undefined)?._all ?? 0,
+        qty: s._sum?.quantity ?? 0,
+        amount: s._sum?.totalPrice ?? 0,
       },
     ]),
   );
@@ -60,8 +62,8 @@ export default async function TextbookSalesPage() {
     allTimeSales.map((s) => [
       s.textbookId,
       {
-        qty: s._sum.quantity ?? 0,
-        amount: s._sum.totalPrice ?? 0,
+        qty: s._sum?.quantity ?? 0,
+        amount: s._sum?.totalPrice ?? 0,
       },
     ]),
   );
@@ -89,8 +91,8 @@ export default async function TextbookSalesPage() {
   // KPI
   const totalCount = textbooks.length;
   const activeCount = textbooks.filter((t) => t.isActive).length;
-  const monthSaleTotal = monthlySales.reduce((s, r) => s + (r._count.id ?? 0), 0);
-  const monthAmountTotal = monthlySales.reduce((s, r) => s + (r._sum.totalPrice ?? 0), 0);
+  const monthSaleTotal = monthlySales.reduce((s, r) => s + ((r._count as { _all?: number } | undefined)?._all ?? 0), 0);
+  const monthAmountTotal = monthlySales.reduce((s, r) => s + (r._sum?.totalPrice ?? 0), 0);
   const lowStockCount = textbooks.filter((t) => t.stock <= 5 && t.isActive).length;
 
   const yearLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
@@ -116,7 +118,7 @@ export default async function TextbookSalesPage() {
           <p className="text-xs font-medium text-slate">{yearLabel} 판매 건수</p>
           <p className="mt-2 text-3xl font-bold text-ink">{monthSaleTotal}건</p>
           <p className="mt-1 text-xs text-slate">
-            {monthlySales.reduce((s, r) => s + (r._sum.quantity ?? 0), 0)}권
+            {monthlySales.reduce((s, r) => s + (r._sum?.quantity ?? 0), 0)}권
           </p>
         </div>
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
