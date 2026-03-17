@@ -1,13 +1,13 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
-import { ScoreInputWorkbench } from "@/components/scores/score-input-workbench";
+import { BulkImportForm } from "@/components/scores/bulk-import-form";
 import { requireAdminContext } from "@/lib/auth";
 import { filterSessionsByEnabledExamTypes } from "@/lib/periods/exam-types";
 import { listPeriods } from "@/lib/periods/service";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminScoreInputPage() {
+export default async function AdminScoreBulkImportPage() {
   const [, periods] = await Promise.all([
     requireAdminContext(AdminRole.TEACHER),
     listPeriods(),
@@ -17,32 +17,33 @@ export default async function AdminScoreInputPage() {
     <div className="p-8 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-            F-03 Score Input
+          <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
+            F-03c Bulk Import
           </div>
-          <h1 className="mt-5 text-3xl font-semibold">성적 입력</h1>
+          <h1 className="mt-5 text-3xl font-semibold">성적 일괄 입력</h1>
           <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-            오프라인 XLS, 온라인 HTML-XLS, 직접 붙여넣기 세 가지 입력 방식을 같은 회차 선택 흐름으로 통합했습니다.
+            CSV 파일로 여러 학생의 성적을 한 번에 입력합니다.{" "}
+            형식: <code className="rounded bg-ink/5 px-1.5 py-0.5 text-xs font-mono">학번,이름,원점수[,응시유형]</code>
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
           <Link
-            href="/admin/scores/bulk-import"
-            className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
-          >
-            CSV 일괄 입력
-          </Link>
-          <Link
-            href="/admin/periods"
+            href="/admin/scores/input"
             className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
           >
-            시험 기간 관리
+            성적 입력 화면
+          </Link>
+          <Link
+            href="/admin/scores/edit"
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            성적 수정
           </Link>
         </div>
       </div>
 
       <div className="mt-8">
-        <ScoreInputWorkbench
+        <BulkImportForm
           periods={periods.map((period) => ({
             id: period.id,
             name: period.name,
@@ -55,10 +56,7 @@ export default async function AdminScoreInputPage() {
               displaySubjectName: session.displaySubjectName ?? null,
               examDate: session.examDate.toISOString(),
               isCancelled: session.isCancelled,
-              cancelReason: session.cancelReason ?? null,
               isLocked: session.isLocked,
-              lockedAt: session.lockedAt?.toISOString() ?? null,
-              lockedBy: session.lockedBy ?? null,
             })),
           }))}
         />

@@ -14,6 +14,7 @@ type NoticeRecord = {
   title: string;
   content: string;
   targetType: NoticeTargetType;
+  isPinned: boolean;
   isPublished: boolean;
   publishedAt: string | null;
   createdAt: string;
@@ -49,6 +50,10 @@ function sortNotices(notices: NoticeRecord[]) {
   return [...notices].sort((left, right) => {
     if (left.isPublished !== right.isPublished) {
       return Number(right.isPublished) - Number(left.isPublished);
+    }
+
+    if (left.isPinned !== right.isPinned) {
+      return Number(right.isPinned) - Number(left.isPinned);
     }
 
     const leftTime = new Date(left.publishedAt ?? left.createdAt).getTime();
@@ -174,6 +179,37 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
   function setMessage(nextNotice: string | null, nextError: string | null) {
     setNoticeMessage(nextNotice);
     setErrorMessage(nextError);
+  }
+
+  function togglePin(notice: NoticeRecord) {
+    setMessage(null, null);
+
+    startTransition(async () => {
+      try {
+        const payload = await requestJson<{ notice: NoticeRecord }>(
+          `/api/notices/${notice.id}/pin`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ isPinned: !notice.isPinned }),
+          },
+        );
+
+        setNotices((current) => upsertNotice(current, payload.notice, filters));
+        setNoticeMessage(
+          payload.notice.isPinned
+            ? "\uACF5\uC9C0\uB97C \uC0C1\uB2E8\uC5D0 \uACE0\uC815\uD588\uC2B5\uB2C8\uB2E4."
+            : "\uACF5\uC9C0 \uACE0\uC815\uC744 \uD574\uC81C\uD588\uC2B5\uB2C8\uB2E4.",
+        );
+        setErrorMessage(null);
+      } catch (error) {
+        setNoticeMessage(null);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "\uACE0\uC815 \uC0C1\uD0DC \uBCC0\uACBD\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+        );
+      }
+    });
   }
 
   function saveNotice() {
@@ -453,6 +489,11 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     >
                       {notice.isPublished ? "\uAC8C\uC2DC\uB428" : "\uC784\uC2DC\uC800\uC7A5"}
                     </span>
+                    {notice.isPinned && (
+                      <span className="inline-flex rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
+                        \uACE0\uC815
+                      </span>
+                    )}
                   </div>
                   <h3 className="mt-4 text-xl font-semibold">{notice.title}</h3>
                   <p className="mt-2 text-xs text-slate">
@@ -469,6 +510,18 @@ export function NoticeManager({ initialNotices, filters }: NoticeManagerProps) {
                     className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
                   >
                     \uC218\uC815
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => togglePin(notice)}
+                    disabled={isPending}
+                    className={`inline-flex items-center rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                      notice.isPinned
+                        ? "border-ember/30 bg-ember/5 text-ember hover:bg-ember/10"
+                        : "border-ink/10 hover:border-ember/30 hover:text-ember"
+                    }`}
+                  >
+                    {notice.isPinned ? "\uACE0\uC815 \uD574\uC81C" : "\uACE0\uC815"}
                   </button>
                   <button
                     type="button"

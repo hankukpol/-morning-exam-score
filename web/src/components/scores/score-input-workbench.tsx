@@ -20,6 +20,7 @@ import type {
   ScoreResolutionInput,
 } from "@/lib/scores/service";
 import type { ScoreDistributionSummary } from "@/lib/scores/distribution";
+import { ScoreProgressPanel } from "@/components/scores/score-progress-panel";
 
 const KO_MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const KO_DAYS = ["일","월","화","수","목","금","토"];
@@ -1225,6 +1226,7 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
           </div>
         </div>
       </section>
+      <ScoreProgressPanel sessionId={selectedSessionId} />
       {notice ? <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">{notice}</div> : null}
       {errorMessage ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
       {selectedSessionLocked ? (
@@ -1233,12 +1235,20 @@ export function ScoreInputWorkbench({ periods }: ScoreInputWorkbenchProps) {
         </div>
       ) : null}
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((tab) => (
-            <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key ? "bg-ink text-white" : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"}`}>
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key ? "bg-ink text-white" : "border border-ink/10 text-ink hover:border-ember/30 hover:text-ember"}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <Link
+            href="/admin/scores/bulk-import"
+            className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
+          >
+            CSV 일괄 입력
+          </Link>
         </div>
         {activeTab === "offline" ? (
           <div className="mt-6 space-y-6">

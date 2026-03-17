@@ -108,6 +108,7 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
             title: notice.title,
             content: notice.content,
             targetType: notice.targetType,
+            isPinned: notice.isPinned,
             isPublished: notice.isPublished,
             publishedAt: notice.publishedAt?.toISOString() ?? null,
             createdAt: notice.createdAt.toISOString(),
