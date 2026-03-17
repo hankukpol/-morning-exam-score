@@ -276,6 +276,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/enrollments/expiring",
+    label: "만료 예정",
+    description: "곧 수강 기간이 만료되는 학생 목록",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/settlements/instructors",
     label: "강사 정산",
     description: "특강 강사별 수강료 배분 및 정산 현황",

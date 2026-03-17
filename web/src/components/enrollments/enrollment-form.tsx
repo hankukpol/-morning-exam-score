@@ -317,7 +317,7 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
 
     startTransition(async () => {
       try {
-        await requestJson("/api/enrollments", {
+        const result = await requestJson<{ enrollment: { id: string } }>("/api/enrollments", {
           method: "POST",
           body: JSON.stringify({
             examNumber: selectedStudent!.examNumber,
@@ -344,7 +344,8 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
                 : undefined,
           }),
         });
-        router.push("/admin/enrollments");
+        const newEnrollmentId = result.enrollment.id;
+        router.push(`/admin/enrollments/${newEnrollmentId}/textbooks`);
         router.refresh();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "등록에 실패했습니다.");

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Subject } from "@prisma/client";
+import { CourseType, Subject } from "@prisma/client";
 import {
   BarComparisonChart,
   RadarComparisonChart,
@@ -13,7 +13,8 @@ import {
 } from "@/lib/analytics/presentation";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateWithWeekday } from "@/lib/format";
+import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalPageData } from "@/lib/student-portal/service";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,60 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
     );
   }
 
+  const activeEnrollment = await getPrisma().courseEnrollment.findFirst({
+    where: {
+      examNumber: data.student.examNumber,
+      status: "ACTIVE",
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      cohort: { select: { name: true } },
+      product: { select: { name: true } },
+      specialLecture: { select: { name: true } },
+    },
+  });
+
+  function getEnrollmentCourseName(
+    enrollment: typeof activeEnrollment,
+  ): string {
+    if (!enrollment) return "";
+    if (enrollment.courseType === CourseType.SPECIAL_LECTURE) {
+      return enrollment.specialLecture?.name ?? "특강";
+    }
+    return enrollment.cohort?.name ?? enrollment.product?.name ?? "종합반";
+  }
+
+  function computeDDay(endDate: Date | null): string {
+    if (!endDate) return "";
+    const now = new Date();
+    const diff = Math.ceil(
+      (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (diff < 0) return "만료됨";
+    if (diff === 0) return "D-Day";
+    return `D-${diff}`;
+  }
+
+  const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
+    PENDING: "대기 중",
+    ACTIVE: "수강 중",
+    WAITING: "대기자",
+    SUSPENDED: "휴원",
+    COMPLETED: "수료",
+    WITHDRAWN: "자퇴",
+    CANCELLED: "취소",
+  };
+
+  const ENROLLMENT_STATUS_BADGE: Record<string, string> = {
+    PENDING: "border-amber-200 bg-amber-50 text-amber-700",
+    ACTIVE: "border-forest/20 bg-forest/10 text-forest",
+    WAITING: "border-amber-200 bg-amber-50 text-amber-700",
+    SUSPENDED: "border-slate/20 bg-slate/10 text-slate",
+    COMPLETED: "border-ink/10 bg-mist text-ink",
+    WITHDRAWN: "border-red-200 bg-red-50 text-red-700",
+    CANCELLED: "border-red-200 bg-red-50 text-red-700",
+  };
+
   const wrongNoteQuestionIds = new Set(data.wrongNoteQuestionIds);
   const classLabel = data.student.className ?? "반 정보 없음";
   const generationLabel = data.student.generation ? `${data.student.generation}기` : "기수 미지정";
@@ -231,6 +286,61 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
           >
             오답 노트
           </Link>
+        </section>
+
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold">내 수강 정보</h2>
+            <Link
+              href="/student/enrollment"
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              상세 보기
+            </Link>
+          </div>
+
+          {activeEnrollment ? (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                <p className="text-sm text-slate">강좌명</p>
+                <p className="mt-3 text-base font-semibold leading-snug">
+                  {getEnrollmentCourseName(activeEnrollment)}
+                </p>
+              </article>
+              <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                <p className="text-sm text-slate">수강 상태</p>
+                <p className="mt-3">
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${ENROLLMENT_STATUS_BADGE[activeEnrollment.status] ?? "border-ink/10 bg-mist text-ink"}`}
+                  >
+                    {ENROLLMENT_STATUS_LABEL[activeEnrollment.status] ?? activeEnrollment.status}
+                  </span>
+                </p>
+              </article>
+              <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                <p className="text-sm text-slate">수강 기간</p>
+                <p className="mt-3 text-sm font-semibold">
+                  {formatDateWithWeekday(activeEnrollment.startDate)}
+                  {activeEnrollment.endDate
+                    ? ` ~ ${formatDateWithWeekday(activeEnrollment.endDate)}`
+                    : ""}
+                </p>
+              </article>
+              <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                <p className="text-sm text-slate">남은 기간</p>
+                <p className="mt-3 text-xl font-semibold">
+                  {activeEnrollment.endDate
+                    ? computeDDay(activeEnrollment.endDate)
+                    : "-"}
+                </p>
+              </article>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 p-6 text-sm text-slate">
+              현재 등록된 강좌가 없습니다.{" "}
+              <span className="text-ink">문의: 053-241-0112</span>
+            </div>
+          )}
         </section>
 
         <form className="grid gap-4 rounded-[28px] border border-ink/10 bg-white p-5 sm:grid-cols-2 xl:grid-cols-5 sm:p-6">
