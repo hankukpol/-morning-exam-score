@@ -6,9 +6,10 @@ import {
   PaymentStatus,
   RefundStatus,
 } from "@prisma/client";
+import QRCode from "qrcode";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { hasDatabaseConfig } from "@/lib/env";
-import { formatDateWithWeekday } from "@/lib/format";
+import { formatDate, formatDateWithWeekday } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 
@@ -69,6 +70,17 @@ const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
 
 function formatAmount(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function generateQrDataUrl(examNumber: string): Promise<string> {
+  return QRCode.toDataURL(`STUDENT:${examNumber}`, {
+    width: 180,
+    margin: 1,
+    errorCorrectionLevel: "M",
+    color: { dark: "#1F4D3A", light: "#FFFFFF" },
+  });
 }
 
 // ─── Data fetching ──────────────────────────────────────────────────────────────
@@ -185,7 +197,28 @@ export default async function StudentEnrollmentPage() {
     );
   }
 
-  const result = await fetchEnrollmentData(viewer.examNumber);
+  const [result, qrDataUrl] = await Promise.all([
+    fetchEnrollmentData(viewer.examNumber),
+    generateQrDataUrl(viewer.examNumber),
+  ]);
+
+  // Compute next upcoming unpaid installment across all payments
+  const nextInstallment = result?.payments
+    .flatMap((p) => p.installments.filter((inst) => inst.paidAt === null))
+    .sort((a, b) => {
+      const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return da - db;
+    })[0] ?? null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextDueDaysLeft = nextInstallment?.dueDate
+    ? Math.ceil(
+        (new Date(nextInstallment.dueDate).setHours(0, 0, 0, 0) - today.getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
 
   return (
     <main className="min-h-screen bg-mist px-4 py-6 text-ink sm:px-6 lg:px-8">
@@ -261,6 +294,146 @@ export default async function StudentEnrollmentPage() {
             </div>
           )}
         </section>
+
+        {/* ── 다음 분납 알림 배너 ── */}
+        {nextInstallment && (
+          <div
+            className={`flex items-start gap-4 rounded-[24px] border px-5 py-4 ${
+              nextDueDaysLeft !== null && nextDueDaysLeft <= 3
+                ? "border-red-200 bg-red-50"
+                : nextDueDaysLeft !== null && nextDueDaysLeft <= 7
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-forest/20 bg-forest/5"
+            }`}
+          >
+            <div
+              className={`mt-0.5 flex-shrink-0 ${
+                nextDueDaysLeft !== null && nextDueDaysLeft <= 3
+                  ? "text-red-600"
+                  : nextDueDaysLeft !== null && nextDueDaysLeft <= 7
+                    ? "text-amber-600"
+                    : "text-forest"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1 text-sm">
+              <p
+                className={`font-semibold ${
+                  nextDueDaysLeft !== null && nextDueDaysLeft <= 3
+                    ? "text-red-700"
+                    : nextDueDaysLeft !== null && nextDueDaysLeft <= 7
+                      ? "text-amber-700"
+                      : "text-forest"
+                }`}
+              >
+                다음 분납 예정
+                {nextDueDaysLeft !== null && (
+                  <span className="ml-2">
+                    {nextDueDaysLeft === 0
+                      ? "(오늘 마감)"
+                      : nextDueDaysLeft < 0
+                        ? `(${Math.abs(nextDueDaysLeft)}일 경과)`
+                        : `(${nextDueDaysLeft}일 후)`}
+                  </span>
+                )}
+              </p>
+              <p className="mt-0.5 text-slate">
+                {formatDate(nextInstallment.dueDate)}까지{" "}
+                <strong>{formatAmount(nextInstallment.amount)}</strong>{" "}
+                납부 예정 ({nextInstallment.seq}회차)
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── 수강증 QR 카드 ── */}
+        {result && (
+          <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-forest">
+                  Enrollment Card
+                </p>
+                <h2 className="mt-1 text-xl font-semibold">모바일 수강증</h2>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+              {/* QR 코드 */}
+              <div className="flex-shrink-0 rounded-[20px] border border-ink/10 bg-mist p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt={`${viewer.name} 수강증 QR`}
+                  width={140}
+                  height={140}
+                  className="block"
+                />
+                <p className="mt-2 text-center text-[11px] text-slate">수강증 확인용 QR</p>
+              </div>
+
+              {/* 카드 정보 */}
+              <div className="flex-1 min-w-0">
+                <div className="overflow-hidden rounded-[20px] border border-forest/20 bg-forest/5">
+                  {/* 카드 헤더 */}
+                  <div className="bg-forest px-5 py-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">
+                      한국경찰학원
+                    </p>
+                    <p className="mt-0.5 text-lg font-bold text-white">수 강 증</p>
+                  </div>
+                  {/* 카드 바디 */}
+                  <dl className="divide-y divide-forest/10 px-5 text-sm">
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      <dt className="text-slate">이름</dt>
+                      <dd className="font-bold text-ink">{viewer.name}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      <dt className="text-slate">학번</dt>
+                      <dd className="font-semibold text-ember">{viewer.examNumber}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      <dt className="text-slate">과정</dt>
+                      <dd className="max-w-[160px] text-right font-semibold leading-snug text-ink">
+                        {COURSE_TYPE_LABEL[result.primary.courseType]}
+                        {result.primary.product
+                          ? ` · ${result.primary.product.name}`
+                          : result.primary.specialLecture
+                            ? ` · ${result.primary.specialLecture.name}`
+                            : ""}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      <dt className="text-slate">상태</dt>
+                      <dd>
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${ENROLLMENT_STATUS_COLOR[result.primary.status]}`}
+                        >
+                          {ENROLLMENT_STATUS_LABEL[result.primary.status]}
+                        </span>
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      <dt className="text-slate">수강 기간</dt>
+                      <dd className="text-right text-xs font-semibold text-ink">
+                        {formatDate(result.primary.startDate)}
+                        {result.primary.endDate
+                          ? ` ~ ${formatDate(result.primary.endDate)}`
+                          : ""}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="px-5 py-3 text-center text-[10px] text-slate/60">
+                    본 수강증은 본인만 사용 가능합니다
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {result && (
           <>

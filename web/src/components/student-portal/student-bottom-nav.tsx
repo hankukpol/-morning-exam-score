@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, ClipboardPlus, House, ShieldCheck } from "lucide-react";
+import { BarChart3, Bell, House, Settings, ShieldCheck } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -26,9 +26,9 @@ const NAV_ITEMS = [
     icon: Bell,
   },
   {
-    href: "/student/absence-notes",
-    label: "사유서",
-    icon: ClipboardPlus,
+    href: "/student/settings",
+    label: "설정",
+    icon: Settings,
   },
 ] as const;
 

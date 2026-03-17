@@ -452,6 +452,20 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "결과 분석",
   },
   {
+    href: "/admin/results/distribution",
+    label: "성적 분포 분석",
+    description: "기간·회차별 점수 구간 분포, 평균·중앙값·표준편차 분석",
+    minRole: AdminRole.TEACHER,
+    group: "결과 분석",
+  },
+  {
+    href: "/admin/results/comparison",
+    label: "학생 성적 비교",
+    description: "최대 5명의 주차별 성적 추이를 같은 차트에서 비교",
+    minRole: AdminRole.TEACHER,
+    group: "결과 분석",
+  },
+  {
     href: "/admin/dropout",
     label: "경고·탈락 판정",
     description: "주 3회 및 월 8회 기준 자동 판정",
@@ -666,6 +680,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "승인 라인",
     description: "환불·할인·현금 지급 승인 기준 금액 설정",
     minRole: AdminRole.DIRECTOR,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/audit-logs",
+    label: "직원 감사 로그",
+    description: "전체 관리자 작업 이력 조회 및 직원별 활동 필터링",
+    minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
   },
   {

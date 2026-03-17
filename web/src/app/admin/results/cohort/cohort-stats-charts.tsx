@@ -394,6 +394,34 @@ export function Top10Table({ students }: { students: TopStudent[] }) {
   );
 }
 
+// ─── Quick-link buttons ────────────────────────────────────────────────────────
+
+function AnalysisLinks() {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <Link
+        href="/admin/results/distribution"
+        className="inline-flex items-center gap-1.5 rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-xs font-semibold text-ember transition hover:bg-ember/20"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        성적 분포 분석
+      </Link>
+      <Link
+        href="/admin/results/comparison"
+        className="inline-flex items-center gap-1.5 rounded-full border border-forest/30 bg-forest/10 px-4 py-2 text-xs font-semibold text-forest transition hover:bg-forest/20"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        학생 성적 비교
+      </Link>
+    </div>
+  );
+}
+
 // ─── Main export (composed view) ──────────────────────────────────────────────
 
 type CohortStatsChartsProps = {
@@ -405,7 +433,10 @@ export default function CohortStatsCharts({ cohorts, selectedCohort }: CohortSta
   if (selectedCohort) {
     return (
       <div className="mt-8 space-y-6">
-        <CohortKpiCards cohort={selectedCohort} />
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <CohortKpiCards cohort={selectedCohort} />
+        </div>
+        <AnalysisLinks />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <ScoreDistributionChart data={selectedCohort.scoreDistribution} />
@@ -418,7 +449,8 @@ export default function CohortStatsCharts({ cohorts, selectedCohort }: CohortSta
   }
 
   return (
-    <div className="mt-8">
+    <div className="mt-8 space-y-6">
+      <AnalysisLinks />
       <AllCohortsCharts cohorts={cohorts} />
     </div>
   );

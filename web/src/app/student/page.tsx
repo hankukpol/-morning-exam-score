@@ -312,44 +312,209 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
           }}
         />
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Link
-            href="/student/scores"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            성적 카드
-          </Link>
-          <Link
-            href="/student/attendance"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            출결 현황
-          </Link>
-          <Link
-            href="/student/notices"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            공지사항
-          </Link>
-          <Link
-            href="/student/absence-notes"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            사유서
-          </Link>
-          <Link
-            href="/student/points"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            포인트
-          </Link>
-          <Link
-            href="/student/wrong-notes"
-            className="rounded-[24px] border border-ink/10 bg-white px-5 py-4 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            오답 노트
-          </Link>
+        {/* ── 빠른 메뉴 아이콘 그리드 ── */}
+        <section className="rounded-[28px] border border-ink/10 bg-white p-4">
+          <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate">
+            메뉴
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              {
+                href: "/student/scores",
+                label: "성적조회",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 3 0v-13A1.5 1.5 0 0 0 15.5 2ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9a1.5 1.5 0 0 0 3 0v-9A1.5 1.5 0 0 0 9.5 6ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5a1.5 1.5 0 0 0 3 0v-5A1.5 1.5 0 0 0 3.5 10Z" />
+                  </svg>
+                ),
+                color: "text-forest bg-forest/10",
+              },
+              {
+                href: "/student/attendance",
+                label: "출결확인",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M16.403 12.652a3 3 0 0 0 0-5.304 3 3 0 0 0-3.75-3.751 3 3 0 0 0-5.305 0 3 3 0 0 0-3.751 3.75 3 3 0 0 0 0 5.305 3 3 0 0 0 3.75 3.751 3 3 0 0 0 5.305 0 3 3 0 0 0 3.751-3.75Zm-2.546-4.46a.75.75 0 0 0-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-sky-600 bg-sky-50",
+              },
+              {
+                href: "/student/notices",
+                label: "공지사항",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M4.214 3.227a.75.75 0 0 0-1.156-.956 8.97 8.97 0 0 0-1.856 3.826.75.75 0 1 0 1.466.316 7.47 7.47 0 0 1 1.546-3.186ZM16.942 2.271a.75.75 0 0 0-1.157.956 7.47 7.47 0 0 1 1.547 3.186.75.75 0 1 0 1.466-.316 8.971 8.971 0 0 0-1.856-3.826ZM10 4a.75.75 0 0 1 .75.75v2.5h2a.75.75 0 0 1 0 1.5h-2v.625c0 .55-.151 1.066-.414 1.51l1.696 1.695a.75.75 0 0 1-1.06 1.06l-1.696-1.695A3.737 3.737 0 0 1 7 11.875V8.75H5a.75.75 0 0 1 0-1.5h2v-2.5A.75.75 0 0 1 10 4Z" />
+                    <path d="M10 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                  </svg>
+                ),
+                color: "text-amber-600 bg-amber-50",
+              },
+              {
+                href: "/student/points",
+                label: "포인트",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M10.75 10.818v2.614A3.13 3.13 0 0 0 11.888 13c.482-.315.612-.648.612-.875 0-.227-.13-.56-.612-.875a3.13 3.13 0 0 0-1.138-.432ZM8.33 8.62c.053.055.115.11.18.161.195.145.438.27.72.364V6.704a2.24 2.24 0 0 0-.84.274c-.423.277-.88.85-.88 1.22 0 .37.1.523.32.594.075.025.151.038.228.038l.272-.27ZM10 1a9 9 0 1 0 0 18A9 9 0 0 0 10 1ZM9.25 6.75a.75.75 0 0 1 1.5 0v.317c.909.204 1.75.86 1.75 1.933 0 1.24-.999 1.976-2.066 2.157l.316 1.474a.75.75 0 1 1-1.461.314L9 11.24c-.909-.204-1.75-.86-1.75-1.933a.75.75 0 0 1 1.5 0c0 .077.04.227.227.411.13.129.315.244.523.325V8.3a2.24 2.24 0 0 0-.723-.364C8.3 7.788 7.5 7.306 7.5 6.307c0-.998.86-1.752 1.75-2.054V4a.75.75 0 0 1 1.5 0v.253c.909.204 1.75.86 1.75 1.933 0 .29-.06.561-.169.806a.75.75 0 1 1-1.378-.596c.005-.012.047-.21.047-.21a.75.75 0 0 0-1.5 0v.316c.207.078.39.192.52.321Z" />
+                  </svg>
+                ),
+                color: "text-ember bg-ember/10",
+              },
+              {
+                href: "/student/enrollment",
+                label: "수강증",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H7Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-purple-600 bg-purple-50",
+              },
+              {
+                href: "/student/wrong-notes",
+                label: "오답노트",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M10.75 16.82A7.462 7.462 0 0 1 10 17c-.314 0-.62-.025-.92-.073l-.637-2.235a7.547 7.547 0 0 1-1.08-.44l-2.165.865A7.516 7.516 0 0 1 3.928 13.5l1.006-2.056a7.535 7.535 0 0 1-.35-1.091L2.5 9.57v-.135a7.496 7.496 0 0 1 .5-2.659l2.164.865a7.543 7.543 0 0 1 1.08-.44l.637-2.235c.3-.048.609-.073.919-.073a7.5 7.5 0 0 1 1.33.118l.67 2.344a7.5 7.5 0 0 1 1.08.44l2.165-.865A7.516 7.516 0 0 1 16.072 8.5l-1.006 2.056a7.532 7.532 0 0 1 .35 1.091l2.084.783v.135c0 .32-.023.634-.07.94l-2.164-.865a7.547 7.547 0 0 1-1.08.44l-.636 2.235ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
+                  </svg>
+                ),
+                color: "text-rose-600 bg-rose-50",
+              },
+              {
+                href: "/student/absence-notes",
+                label: "결석신청",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M6 3.75A2.75 2.75 0 0 1 8.75 1h2.5A2.75 2.75 0 0 1 14 3.75v.443c.572.055 1.14.122 1.706.2C17.053 4.582 18 5.75 18 7.07v3.469c0 1.126-.694 2.191-1.83 2.54-1.952.599-4.024.921-6.17.921s-4.219-.322-6.17-.921C2.694 12.73 2 11.665 2 10.539V7.07c0-1.321.947-2.489 2.294-2.676A41.047 41.047 0 0 1 6 4.193V3.75Zm6.5 0v.325a41.622 41.622 0 0 0-5 0V3.75c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25ZM10 10a1 1 0 0 0-1 1v.01a1 1 0 0 0 2 0V11a1 1 0 0 0-1-1Z" clipRule="evenodd" />
+                    <path d="M3 15.055v-.684c.126.053.255.1.39.142 2.092.642 4.313.987 6.61.987 2.297 0 4.518-.345 6.61-.987.135-.041.264-.089.39-.142v.684c0 1.347-.985 2.53-2.363 2.686a41.454 41.454 0 0 1-9.274 0C3.985 17.585 3 16.402 3 15.055Z" />
+                  </svg>
+                ),
+                color: "text-slate bg-slate/10",
+              },
+              {
+                href: "/student/settings",
+                label: "설정",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-ink bg-ink/10",
+              },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center gap-2 rounded-[20px] border border-transparent px-2 py-3 text-center transition hover:border-ink/10 hover:bg-mist"
+              >
+                <span className={`flex h-12 w-12 items-center justify-center rounded-[18px] ${item.color}`}>
+                  {item.icon}
+                </span>
+                <span className="text-[11px] font-semibold leading-tight text-ink">
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+          </div>
         </section>
+
+        {/* ── 최근 성적 요약 카드 ── */}
+        {data.dailyAnalysis.length > 0 && (() => {
+          const latestDate = data.dailyAnalysis[0]?.examDate;
+          const latestSessions = data.dailyAnalysis.filter(
+            (s) => s.examDate && latestDate &&
+              new Date(s.examDate).toDateString() === new Date(latestDate).toDateString()
+          );
+          const totalScore = latestSessions.reduce(
+            (sum, s) => sum + (s.searchedStudent?.score ?? 0),
+            0,
+          );
+          const subjectCount = latestSessions.filter(
+            (s) => s.searchedStudent?.score != null,
+          ).length;
+          const avgScore = subjectCount > 0 ? totalScore / subjectCount : null;
+
+          return (
+            <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                    Latest Score
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold">최근 성적 요약</h2>
+                </div>
+                <Link
+                  href="/student/scores"
+                  className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                >
+                  전체 성적 보기
+                </Link>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-xs text-slate">시험일</p>
+                  <p className="mt-2 text-base font-semibold">
+                    {latestDate ? formatDate(latestDate) : "-"}
+                  </p>
+                </article>
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-xs text-slate">평균 점수</p>
+                  <p className="mt-2 text-xl font-bold text-ember">
+                    {avgScore != null ? formatScore(avgScore) : "-"}
+                  </p>
+                </article>
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-xs text-slate">응시 과목</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {subjectCount}과목
+                  </p>
+                </article>
+                <article className="rounded-[24px] border border-ember/10 bg-ember/5 p-4">
+                  <p className="text-xs text-slate">내 석차 (최고)</p>
+                  <p className="mt-2 text-xl font-semibold text-ember">
+                    {latestSessions
+                      .filter((s) => s.searchedStudent?.rank != null)
+                      .sort(
+                        (a, b) =>
+                          (a.searchedStudent?.rank ?? 9999) -
+                          (b.searchedStudent?.rank ?? 9999),
+                      )[0]?.searchedStudent?.rank != null
+                      ? `${latestSessions
+                          .filter((s) => s.searchedStudent?.rank != null)
+                          .sort(
+                            (a, b) =>
+                              (a.searchedStudent?.rank ?? 9999) -
+                              (b.searchedStudent?.rank ?? 9999),
+                          )[0]?.searchedStudent?.rank}등`
+                      : "-"}
+                  </p>
+                </article>
+              </div>
+
+              {latestSessions.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {latestSessions.map((s) => (
+                    <div
+                      key={s.sessionId}
+                      className="flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-1.5 text-xs"
+                    >
+                      <span className="font-semibold">{SUBJECT_LABEL[s.subject]}</span>
+                      <span className="text-slate">
+                        {formatScore(s.searchedStudent?.score)}점
+                      </span>
+                      {s.searchedStudent?.rank != null && (
+                        <span className="text-ember font-medium">
+                          {s.searchedStudent.rank}등
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         <section className="rounded-[28px] border border-ink/10 bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
