@@ -110,12 +110,37 @@ export default async function CohortDetailPage({ params }: PageProps) {
           <h1 className="text-3xl font-semibold text-ink">{cohort.name}</h1>
           <p className="mt-1 text-sm text-slate">{examCategoryLabel}</p>
         </div>
-        <Link
-          href="/admin/cohorts/waitlist"
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
-        >
-          전체 대기자 관리 &rarr;
-        </Link>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link
+            href={`/admin/settings/cohorts/${cohort.id}/roster`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 rounded-[20px] border border-ink/20 px-4 py-2 text-sm text-slate transition hover:border-ink/40"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            명단 인쇄
+          </Link>
+          <Link
+            href="/admin/cohorts/waitlist"
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
+          >
+            전체 대기자 관리 &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Client-side detail (tabs, end date edit) */}

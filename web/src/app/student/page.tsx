@@ -465,6 +465,16 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-teal-600 bg-teal-50",
               },
               {
+                href: "/student/documents",
+                label: "증명서",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13ZM13.25 9a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-1.5 0V9.75a.75.75 0 0 1 .75-.75ZM6 12.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75ZM6.75 15a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" />
+                  </svg>
+                ),
+                color: "text-indigo-600 bg-indigo-50",
+              },
+              {
                 href: "/student/settings",
                 label: "설정",
                 icon: (

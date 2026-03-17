@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminRole, ExamType } from "@prisma/client";
+import { DashboardActivityFeed } from "@/app/admin/dashboard-activity-feed";
 import { DashboardInboxPanel } from "@/components/dashboard/dashboard-inbox-panel";
 import { TodayTodosPanel } from "@/components/dashboard/today-todos-panel";
 import { WeeklyPaymentChart } from "@/components/dashboard/weekly-payment-chart";
@@ -123,6 +124,50 @@ export default async function AdminDashboardPage() {
           writtenDate: true,
           interviewDate: true,
           resultDate: true,
+        },
+      })
+      .catch(() => [] as never[]),
+  ]);
+
+  // 최근 활동 피드 (병렬 페치)
+  const [recentEnrollments, recentPayments, recentAttendance] = await Promise.all([
+    getPrisma()
+      .courseEnrollment.findMany({
+        take: 3,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          createdAt: true,
+          student: { select: { name: true, examNumber: true } },
+          cohort: { select: { name: true } },
+          specialLecture: { select: { name: true } },
+        },
+      })
+      .catch(() => [] as never[]),
+    getPrisma()
+      .payment.findMany({
+        take: 3,
+        orderBy: { createdAt: "desc" },
+        where: { status: "APPROVED" },
+        select: {
+          id: true,
+          createdAt: true,
+          netAmount: true,
+          method: true,
+          examNumber: true,
+          student: { select: { name: true } },
+        },
+      })
+      .catch(() => [] as never[]),
+    getPrisma()
+      .classroomAttendanceLog.findMany({
+        take: 4,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          createdAt: true,
+          attendType: true,
+          student: { select: { name: true, examNumber: true } },
         },
       })
       .catch(() => [] as never[]),
@@ -689,6 +734,15 @@ export default async function AdminDashboardPage() {
           </div>
         )}
       </section>
+
+      {/* 최근 활동 피드 */}
+      <DashboardActivityFeed
+        data={{
+          recentEnrollments,
+          recentPayments,
+          recentAttendance,
+        }}
+      />
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-lg font-semibold">바로가기</h2>
