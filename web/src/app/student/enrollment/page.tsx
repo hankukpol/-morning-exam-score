@@ -264,6 +264,92 @@ export default async function StudentEnrollmentPage() {
 
         {result && (
           <>
+            {/* ── Payment summary ── */}
+            {(() => {
+              const approvedPayments = result.payments.filter(
+                (p) => p.status === PaymentStatus.APPROVED || p.status === PaymentStatus.PARTIAL_REFUNDED
+              );
+              const totalPaid = approvedPayments.reduce((sum, p) => sum + p.netAmount, 0);
+              const lastPayment = approvedPayments[0]; // already ordered desc
+              const unpaidInstallments = result.payments.flatMap((p) =>
+                p.installments.filter((inst) => inst.paidAt === null)
+              );
+              const outstandingTotal = unpaidInstallments.reduce(
+                (sum, inst) => sum + inst.amount,
+                0
+              );
+              return (
+                <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+                  <h2 className="text-xl font-semibold">수납 현황 요약</h2>
+
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                      <p className="text-sm text-slate">총 납부 금액</p>
+                      <p className="mt-3 text-2xl font-bold text-forest">
+                        {formatAmount(totalPaid)}
+                      </p>
+                    </article>
+                    <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                      <p className="text-sm text-slate">잔여 납부 예정</p>
+                      <p
+                        className={`mt-3 text-2xl font-bold ${outstandingTotal > 0 ? "text-amber-600" : "text-forest"}`}
+                      >
+                        {formatAmount(outstandingTotal)}
+                      </p>
+                    </article>
+                    <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                      <p className="text-sm text-slate">최근 납부일</p>
+                      <p className="mt-3 text-xl font-semibold">
+                        {lastPayment
+                          ? formatDateWithWeekday(lastPayment.processedAt)
+                          : "—"}
+                      </p>
+                    </article>
+                  </div>
+
+                  {unpaidInstallments.length > 0 ? (
+                    <div className="mt-5">
+                      <p className="text-sm font-semibold text-slate">미납 분할납부</p>
+                      <div className="mt-3 overflow-hidden rounded-[24px] border border-ink/10">
+                        <table className="min-w-full divide-y divide-ink/10 text-sm">
+                          <thead className="bg-mist/80 text-left">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">회차</th>
+                              <th className="px-4 py-3 font-semibold">납부 예정일</th>
+                              <th className="px-4 py-3 font-semibold">금액</th>
+                              <th className="px-4 py-3 font-semibold">상태</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-ink/10">
+                            {unpaidInstallments.map((inst) => (
+                              <tr key={inst.id}>
+                                <td className="px-4 py-3 font-medium">{inst.seq}회차</td>
+                                <td className="px-4 py-3">
+                                  {formatDateWithWeekday(inst.dueDate)}
+                                </td>
+                                <td className="px-4 py-3 font-semibold">
+                                  {formatAmount(inst.amount)}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                                    미납
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-[24px] border border-forest/20 bg-forest/5 px-5 py-4 text-sm font-medium text-forest">
+                      미납 분할납부 없음
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
             {/* ── Enrollment detail ── */}
             <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
               <h2 className="text-xl font-semibold">수강 등록 상세</h2>

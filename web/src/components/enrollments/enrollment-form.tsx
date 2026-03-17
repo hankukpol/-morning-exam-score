@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ExamCategory, EnrollSource } from "@prisma/client";
 import {
   ENROLL_SOURCE_LABEL,
@@ -61,6 +61,7 @@ type Props = {
   initialProducts: ProductRecord[];
   initialCohorts: CohortRecord[];
   initialSpecialLectures?: SpecialLectureRecord[];
+  initialExamNumber?: string;
 };
 
 const ENROLL_SOURCE_VALUES = Object.values(EnrollSource);
@@ -78,7 +79,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 type Step = 1 | 2 | 3;
 
-export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecialLectures = [] }: Props) {
+export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecialLectures = [], initialExamNumber }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [isPending, startTransition] = useTransition();
@@ -89,6 +90,22 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
   const [searchResults, setSearchResults] = useState<StudentResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentResult | null>(null);
+
+  // Pre-fill student when initialExamNumber is provided (갱신 등록)
+  useEffect(() => {
+    if (!initialExamNumber) return;
+    setIsSearching(true);
+    fetch(`/api/students?search=${encodeURIComponent(initialExamNumber)}&limit=1`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { students?: StudentResult[] }) => {
+        const found = data.students?.[0];
+        if (found && found.examNumber === initialExamNumber) {
+          setSelectedStudent(found);
+        }
+      })
+      .catch(() => {/* silent – user can search manually */})
+      .finally(() => setIsSearching(false));
+  }, [initialExamNumber]);
 
   // Step 2 – 수강 정보
   const [courseType, setCourseType] = useState<"COMPREHENSIVE" | "SPECIAL_LECTURE">(

@@ -26,7 +26,9 @@ export default async function AdminDashboardPage() {
   todayEnd.setHours(23, 59, 59, 999);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const [summaryResult, inboxResult, enrollmentKpi] = await Promise.all([
+  const in7Days = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -54,6 +56,24 @@ export default async function AdminDashboardPage() {
         newThisWeek,
         todayCount,
         todayNet: todayAgg._sum.netAmount ?? 0,
+      }))
+      .catch(() => null),
+    getPrisma()
+      .$transaction([
+        getPrisma().courseEnrollment.count({
+          where: { status: "ACTIVE", endDate: { gte: todayStart, lte: in7Days } },
+        }),
+        getPrisma().installment.count({
+          where: { paidAt: null, dueDate: { lt: todayStart } },
+        }),
+        getPrisma().courseEnrollment.count({
+          where: { createdAt: { gte: todayStart } },
+        }),
+      ])
+      .then(([expiringCount, overdueInstallments, todayNewEnrollments]) => ({
+        expiringCount,
+        overdueInstallments,
+        todayNewEnrollments,
       }))
       .catch(() => null),
   ]);
@@ -439,6 +459,85 @@ export default async function AdminDashboardPage() {
               {enrollmentKpi ? enrollmentKpi.newThisWeek.toLocaleString() : "—"}
             </p>
             <p className="mt-2 text-xs text-slate">최근 7일 신규 수강 등록</p>
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">오늘 처리 필요</h2>
+            <p className="mt-1 text-xs text-slate">만료 예정·미납·신규 등록 현황</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          {/* 만료 예정 수강생 */}
+          <Link
+            href="/admin/enrollments/expiring?days=7"
+            className={`card-lift rounded-[20px] border p-5 transition hover:shadow-md ${
+              urgentKpi && urgentKpi.expiringCount > 0
+                ? "border-red-200 bg-red-50"
+                : "border-forest/20 bg-forest/5"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+              만료 예정 수강생
+            </p>
+            <p
+              className={`count-animated mt-2 text-4xl font-bold ${
+                urgentKpi && urgentKpi.expiringCount > 0 ? "text-red-700" : "text-forest"
+              }`}
+            >
+              {urgentKpi ? urgentKpi.expiringCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">
+              {urgentKpi && urgentKpi.expiringCount > 0
+                ? "7일 이내 수강 만료 예정"
+                : "7일 이내 만료 없음"}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-slate underline">목록 보기 →</p>
+          </Link>
+
+          {/* 미납 분할납부 */}
+          <Link
+            href="/admin/payments/unpaid"
+            className={`card-lift rounded-[20px] border p-5 transition hover:shadow-md ${
+              urgentKpi && urgentKpi.overdueInstallments > 0
+                ? "border-red-200 bg-red-50"
+                : "border-ink/10 bg-white"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+              미납 분할납부
+            </p>
+            <p
+              className={`count-animated mt-2 text-4xl font-bold ${
+                urgentKpi && urgentKpi.overdueInstallments > 0 ? "text-red-700" : "text-ink"
+              }`}
+            >
+              {urgentKpi ? urgentKpi.overdueInstallments.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">
+              {urgentKpi && urgentKpi.overdueInstallments > 0
+                ? "납부 기한 초과 미납 건"
+                : "미납 분할납부 없음"}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-slate underline">미납 목록 →</p>
+          </Link>
+
+          {/* 오늘 신규 등록 */}
+          <Link
+            href="/admin/enrollments"
+            className="card-lift rounded-[20px] border border-forest/20 bg-forest/5 p-5 transition hover:shadow-md"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+              오늘 신규 등록
+            </p>
+            <p className="count-animated mt-2 text-4xl font-bold text-forest">
+              {urgentKpi ? urgentKpi.todayNewEnrollments.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">오늘 새로 등록된 수강 건수</p>
+            <p className="mt-3 text-xs font-semibold text-slate underline">전체 목록 →</p>
           </Link>
         </div>
       </section>

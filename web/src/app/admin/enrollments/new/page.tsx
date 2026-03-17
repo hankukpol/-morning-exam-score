@@ -5,7 +5,11 @@ import { EnrollmentForm } from "@/components/enrollments/enrollment-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewEnrollmentPage() {
+export default async function NewEnrollmentPage({
+  searchParams,
+}: {
+  searchParams: { examNumber?: string; renew?: string };
+}) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
   const [products, cohorts, specialLectures] = await Promise.all([
@@ -42,6 +46,7 @@ export default async function NewEnrollmentPage() {
         <EnrollmentForm
           initialProducts={products as any}
           initialCohorts={cohorts as any}
+          initialExamNumber={searchParams.examNumber}
           initialSpecialLectures={specialLectures.map((l) => ({
             id: l.id,
             name: l.name,

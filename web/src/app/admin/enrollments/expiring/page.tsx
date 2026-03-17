@@ -270,6 +270,9 @@ function ExpiringPageContent() {
                   <th className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wider text-slate">
                     상태
                   </th>
+                  <th className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wider text-slate">
+                    갱신
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -320,6 +323,14 @@ function ExpiringPageContent() {
                         <span className="rounded-full border border-forest/30 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
                           수강 중
                         </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <Link
+                          href={`/admin/enrollments/new?examNumber=${enrollment.student.examNumber}&renew=${enrollment.id}`}
+                          className="text-sm font-semibold text-ember hover:text-ember/80"
+                        >
+                          갱신 등록
+                        </Link>
                       </td>
                     </tr>
                   );
