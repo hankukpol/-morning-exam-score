@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { EXAM_CATEGORY_LABEL } from "@/lib/constants";
 
 type ExamCategory = "GONGCHAE" | "GYEONGCHAE" | "SOGANG" | "CUSTOM";
@@ -28,7 +29,6 @@ export function CohortEditPanel({ cohort }: Props) {
   const [open, setOpen] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Form state — initialised from prop on open
   const [name, setName] = useState(cohort.name);
@@ -55,14 +55,12 @@ export function CohortEditPanel({ cohort }: Props) {
     setIsActive(cohort.isActive);
     setMaxCapacity(cohort.maxCapacity != null ? String(cohort.maxCapacity) : "");
     setSaveError(null);
-    setSaveSuccess(false);
     setOpen(true);
   }
 
   function handleCancel() {
     setOpen(false);
     setSaveError(null);
-    setSaveSuccess(false);
   }
 
   function handleSave() {
@@ -79,7 +77,6 @@ export function CohortEditPanel({ cohort }: Props) {
       return;
     }
     setSaveError(null);
-    setSaveSuccess(false);
 
     startSaving(async () => {
       try {
@@ -102,7 +99,7 @@ export function CohortEditPanel({ cohort }: Props) {
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error ?? "수정 실패");
 
-        setSaveSuccess(true);
+        toast.success("저장되었습니다.");
         setOpen(false);
         router.refresh();
       } catch (err) {
@@ -114,33 +111,28 @@ export function CohortEditPanel({ cohort }: Props) {
   return (
     <div className="mt-4">
       {!open ? (
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleOpen}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40 hover:bg-mist"
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40 hover:bg-mist"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            기수 정보 수정
-          </button>
-          {saveSuccess && (
-            <span className="text-xs font-medium text-forest">저장되었습니다.</span>
-          )}
-        </div>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          기수 정보 수정
+        </button>
       ) : (
         <div className="rounded-[28px] border border-ink/10 bg-white shadow-panel">
           {/* Panel header */}

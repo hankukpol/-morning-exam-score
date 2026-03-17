@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import type { LockerStatus, RentalStatus, RentalFeeUnit } from "@prisma/client";
 
 type Props = {
@@ -83,12 +84,9 @@ export function LockerDetailClient({
   const [status, setStatus] = useState<LockerStatus>(locker.status);
   const [note, setNote] = useState(locker.note ?? "");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch(`/api/lockers/${locker.id}`, {
         method: "PATCH",
@@ -97,13 +95,12 @@ export function LockerDetailClient({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };
-        setError(data.error ?? "저장 실패");
+        toast.error(data.error ?? "저장 실패");
       } else {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+        toast.success("저장되었습니다.");
       }
     } catch {
-      setError("네트워크 오류");
+      toast.error("네트워크 오류");
     } finally {
       setSaving(false);
     }
@@ -144,7 +141,7 @@ export function LockerDetailClient({
             />
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4">
           <button
             onClick={handleSave}
             disabled={saving}
@@ -152,12 +149,6 @@ export function LockerDetailClient({
           >
             {saving ? "저장 중..." : "저장"}
           </button>
-          {saved && (
-            <span className="text-sm text-green-600">저장됨</span>
-          )}
-          {error && (
-            <span className="text-sm text-red-600">{error}</span>
-          )}
         </div>
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { toDateInputValue } from "@/lib/format";
 
 export type CounselingRecordDetail = {
@@ -58,17 +59,12 @@ export function CounselingActions({ record: initialRecord }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [record, setRecord] = useState(initialRecord);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   function handleSave() {
     if (!formRef.current) return;
     const formData = new FormData(formRef.current);
-
-    setNotice(null);
-    setErrorMessage(null);
 
     startTransition(async () => {
       try {
@@ -101,20 +97,15 @@ export function CounselingActions({ record: initialRecord }: Props) {
             : null,
         });
         setIsEditing(false);
-        setNotice("면담 기록을 수정했습니다.");
+        toast.success("면담 기록을 수정했습니다.");
         router.refresh();
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "수정에 실패했습니다.",
-        );
+        toast.error(error instanceof Error ? error.message : "수정에 실패했습니다.");
       }
     });
   }
 
   function handleDelete() {
-    setNotice(null);
-    setErrorMessage(null);
-
     startTransition(async () => {
       try {
         await requestJson(`/api/counseling/${record.id}`, {
@@ -124,27 +115,13 @@ export function CounselingActions({ record: initialRecord }: Props) {
         router.refresh();
       } catch (error) {
         setShowDeleteConfirm(false);
-        setErrorMessage(
-          error instanceof Error ? error.message : "삭제에 실패했습니다.",
-        );
+        toast.error(error instanceof Error ? error.message : "삭제에 실패했습니다.");
       }
     });
   }
 
   return (
     <div className="space-y-6">
-      {/* Notices */}
-      {notice ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {notice}
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
       {/* Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
@@ -163,8 +140,6 @@ export function CounselingActions({ record: initialRecord }: Props) {
                 type="button"
                 onClick={() => {
                   setIsEditing(false);
-                  setNotice(null);
-                  setErrorMessage(null);
                 }}
                 disabled={isPending}
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
@@ -177,8 +152,6 @@ export function CounselingActions({ record: initialRecord }: Props) {
               type="button"
               onClick={() => {
                 setIsEditing(true);
-                setNotice(null);
-                setErrorMessage(null);
               }}
               className="inline-flex items-center rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
             >

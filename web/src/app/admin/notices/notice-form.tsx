@@ -3,6 +3,7 @@
 import { NoticeTargetType } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 type NoticeFormProps = {
@@ -31,11 +32,8 @@ export function NoticeForm({ noticeId, defaultValues }: NoticeFormProps) {
     defaultValues?.targetType ?? NoticeTargetType.ALL,
   );
   const [isPinned, setIsPinned] = useState(defaultValues?.isPinned ?? false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleSubmit() {
-    setErrorMessage(null);
-
     startTransition(async () => {
       try {
         const url = noticeId ? `/api/notices/${noticeId}` : "/api/notices";
@@ -57,21 +55,13 @@ export function NoticeForm({ noticeId, defaultValues }: NoticeFormProps) {
         router.push("/admin/notices");
         router.refresh();
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "저장에 실패했습니다.",
-        );
+        toast.error(error instanceof Error ? error.message : "저장에 실패했습니다.");
       }
     });
   }
 
   return (
     <div className="rounded-[28px] border border-ink/10 bg-white p-6 sm:p-8">
-      {errorMessage ? (
-        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
       <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
         <div>
           <label className="mb-2 block text-sm font-medium">대상</label>

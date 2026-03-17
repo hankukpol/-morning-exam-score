@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TargetType = "examNumber" | "phone";
@@ -60,7 +61,6 @@ export function ManualNotificationForm() {
   // Send state
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<SendResult | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
   // ─── Student lookup ─────────────────────────────────────────────────────
@@ -116,10 +116,9 @@ export function ManualNotificationForm() {
     setShowConfirm(false);
     const err = validate();
     if (err) {
-      setErrorMessage(err);
+      toast.error(err);
       return;
     }
-    setErrorMessage(null);
     setIsSending(true);
     setSendResult(null);
 
@@ -153,7 +152,7 @@ export function ManualNotificationForm() {
       const json = (await res.json()) as { error?: string } & Partial<SendResult>;
 
       if (!res.ok || json.error) {
-        setErrorMessage(json.error ?? "발송에 실패했습니다.");
+        toast.error(json.error ?? "발송에 실패했습니다.");
         return;
       }
 
@@ -168,7 +167,7 @@ export function ManualNotificationForm() {
       setPhoneInput("");
       setLookup(null);
     } catch {
-      setErrorMessage("네트워크 오류가 발생했습니다.");
+      toast.error("네트워크 오류가 발생했습니다.");
     } finally {
       setIsSending(false);
     }
@@ -207,20 +206,6 @@ export function ManualNotificationForm() {
             type="button"
             onClick={() => setSendResult(null)}
             className="mt-4 text-sm text-slate underline hover:text-ink"
-          >
-            닫기
-          </button>
-        </div>
-      )}
-
-      {/* ─── Error Banner ───────────────────────────────────────────────────── */}
-      {errorMessage && (
-        <div className="rounded-[28px] border border-red-200 bg-red-50 px-6 py-4">
-          <p className="text-sm font-medium text-red-700">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="mt-1 text-xs text-red-500 underline"
           >
             닫기
           </button>
@@ -420,10 +405,9 @@ export function ManualNotificationForm() {
               onClick={() => {
                 const err = validate();
                 if (err) {
-                  setErrorMessage(err);
+                  toast.error(err);
                   return;
                 }
-                setErrorMessage(null);
                 setShowConfirm(true);
               }}
               disabled={isSending}

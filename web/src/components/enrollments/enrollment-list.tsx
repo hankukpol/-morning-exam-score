@@ -13,6 +13,8 @@ import {
   EXAM_CATEGORY_LABEL,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
+import { FilterPresetBar } from "@/components/ui/filter-preset-bar";
+import { useFilterPresets } from "@/hooks/use-filter-presets";
 
 export type EnrollmentWithRelations = {
   id: string;
@@ -122,6 +124,19 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
+
+  const { presets, savePreset, deletePreset } = useFilterPresets("enrollments-filter-presets");
+
+  const currentFilters: Record<string, string> = {};
+  if (filterStatus !== "ALL") currentFilters.status = filterStatus;
+  if (filterCourseType !== "ALL") currentFilters.courseType = filterCourseType;
+  if (search.trim()) currentFilters.search = search.trim();
+
+  function applyPresetFilters(filters: Record<string, string>) {
+    setFilterStatus((filters.status as EnrollmentStatus) ?? "ALL");
+    setFilterCourseType((filters.courseType as CourseType) ?? "ALL");
+    setSearch(filters.search ?? "");
+  }
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -356,6 +371,15 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
           </Link>
         </div>
       </div>
+
+      {/* Filter Presets */}
+      <FilterPresetBar
+        presets={presets}
+        currentFilters={currentFilters}
+        onApply={applyPresetFilters}
+        onSave={savePreset}
+        onDelete={deletePreset}
+      />
 
       {/* Messages */}
       {successMessage ? (

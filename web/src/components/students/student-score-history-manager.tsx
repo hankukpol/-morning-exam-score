@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { AttendType, StudentStatus, Subject } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { DeltaBadge } from "@/components/ui/delta-badge";
@@ -160,8 +161,6 @@ export function StudentScoreHistoryManager({
   const [student, setStudent] = useState(initialStudent);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, EditDraft>>({});
-  const [notice, setNotice] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [activeAction, setActiveAction] = useState<{
     type: "save" | "delete";
@@ -216,8 +215,6 @@ export function StudentScoreHistoryManager({
     }
 
     setEditingId(score.id);
-    setNotice(null);
-    setErrorMessage(null);
     setSavedScoreId(null);
     setDrafts((current) => ({
       ...current,
@@ -270,12 +267,10 @@ export function StudentScoreHistoryManager({
         window.setTimeout(() => {
           setEditingId((current) => (current === scoreId ? null : current));
         }, 1200);
-        setNotice("출결/성적을 수정했고, 경고·탈락 상태를 다시 계산했습니다.");
-        setErrorMessage(null);
+        toast.success("출결/성적을 수정했고, 경고·탈락 상태를 다시 계산했습니다.");
       } catch (error) {
         setActiveAction(null);
-        setNotice(null);
-        setErrorMessage(
+        toast.error(
           error instanceof Error ? error.message : "출결/성적 수정에 실패했습니다.",
         );
       }
@@ -306,12 +301,10 @@ export function StudentScoreHistoryManager({
             await refreshStudent();
             setActiveAction(null);
             setEditingId((current) => (current === scoreId ? null : current));
-            setNotice("성적을 삭제했고, 경고·탈락 상태를 다시 계산했습니다.");
-            setErrorMessage(null);
+            toast.success("성적을 삭제했고, 경고·탈락 상태를 다시 계산했습니다.");
           } catch (error) {
             setActiveAction(null);
-            setNotice(null);
-            setErrorMessage(
+            toast.error(
               error instanceof Error ? error.message : "성적 삭제에 실패했습니다.",
             );
           }
@@ -367,17 +360,6 @@ export function StudentScoreHistoryManager({
           ) : null}
         </div>
       </div>
-
-      {notice ? (
-        <div className="mt-6 rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {notice}
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <article className="rounded-[24px] border border-ink/10 bg-white p-5">

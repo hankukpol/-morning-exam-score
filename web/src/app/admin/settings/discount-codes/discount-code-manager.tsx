@@ -2,6 +2,7 @@
 
 import { CodeType, DiscountType } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 
@@ -106,7 +107,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
   const [editingUsageCount, setEditingUsageCount] = useState(0);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
 
@@ -127,7 +127,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
     setEditingUsageCount(0);
     setForm(DEFAULT_FORM);
     setErrorMessage(null);
-    setSuccessMessage(null);
     setIsFormOpen(true);
   }
 
@@ -145,7 +144,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
       isActive: record.isActive,
     });
     setErrorMessage(null);
-    setSuccessMessage(null);
     setIsFormOpen(true);
   }
 
@@ -159,7 +157,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
 
   function handleSave() {
     setErrorMessage(null);
-    setSuccessMessage(null);
 
     startTransition(async () => {
       try {
@@ -182,14 +179,14 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
           setCodes((prev) =>
             prev.map((c) => (c.id === editingId ? result.code : c)),
           );
-          setSuccessMessage("할인 코드를 수정했습니다.");
+          toast.success("할인 코드를 수정했습니다.");
         } else {
           const result = await requestJson<{ code: DiscountCodeRecord }>(
             "/api/settings/discount-codes",
             { method: "POST", body: JSON.stringify(body) },
           );
           setCodes((prev) => [result.code, ...prev]);
-          setSuccessMessage("할인 코드를 추가했습니다.");
+          toast.success("할인 코드를 추가했습니다.");
         }
 
         closeForm();
@@ -218,8 +215,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
-        setSuccessMessage(null);
-        setErrorMessage(null);
 
         startTransition(async () => {
           try {
@@ -228,9 +223,9 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
               { method: "DELETE" },
             );
             setCodes((prev) => prev.filter((c) => c.id !== record.id));
-            setSuccessMessage("할인 코드를 삭제했습니다.");
+            toast.success("할인 코드를 삭제했습니다.");
           } catch (error) {
-            setErrorMessage(
+            toast.error(
               error instanceof Error ? error.message : "삭제에 실패했습니다.",
             );
           }
@@ -326,18 +321,6 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
           <span>생성</span>
         </button>
       </div>
-
-      {/* Messages */}
-      {successMessage ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {successMessage}
-        </div>
-      ) : null}
-      {errorMessage && !isFormOpen ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
 
       {/* Table */}
       <div className="overflow-hidden rounded-[28px] border border-ink/10 bg-white">

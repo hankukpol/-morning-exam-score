@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 type SessionInfo = {
   id: string;
@@ -48,16 +49,21 @@ export function CheckInClient({ token, sessionInfo, studentInfo }: Props) {
       const json = (await res.json()) as { data?: CheckInResult; error?: string };
 
       if (!res.ok || !json.data) {
-        setErrorMessage(json.error ?? "출석 처리 중 오류가 발생했습니다.");
+        const msg = json.error ?? "출석 처리 중 오류가 발생했습니다.";
+        setErrorMessage(msg);
         setState("error");
+        toast.error(msg);
         return;
       }
 
       setResult(json.data);
       setState("success");
+      toast.success("출석이 완료되었습니다.");
     } catch {
-      setErrorMessage("네트워크 오류가 발생했습니다. 다시 시도해 주세요.");
+      const msg = "네트워크 오류가 발생했습니다. 다시 시도해 주세요.";
+      setErrorMessage(msg);
       setState("error");
+      toast.error(msg);
     }
   }
 

@@ -2,7 +2,8 @@
 
 import { AbsenceStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { toast } from "sonner";
 
 type Props = {
   noteId: number;
@@ -12,13 +13,8 @@ type Props = {
 export function AbsenceNoteActions({ noteId, status }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   function handleAction(action: "approve" | "reject" | "revert") {
-    setActionError(null);
-    setActionSuccess(null);
-
     startTransition(async () => {
       try {
         const res = await fetch(`/api/absence-notes/${noteId}`, {
@@ -38,10 +34,10 @@ export function AbsenceNoteActions({ noteId, status }: Props) {
           reject: "반려 처리되었습니다.",
           revert: "승인이 취소되어 대기 상태로 되돌렸습니다.",
         };
-        setActionSuccess(successMessages[action]);
+        toast.success(successMessages[action]);
         router.refresh();
       } catch (e: unknown) {
-        setActionError(e instanceof Error ? e.message : "처리에 실패했습니다.");
+        toast.error(e instanceof Error ? e.message : "처리에 실패했습니다.");
       }
     });
   }
@@ -49,17 +45,6 @@ export function AbsenceNoteActions({ noteId, status }: Props) {
   return (
     <section className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">
       <h2 className="text-base font-semibold text-ink">처리 액션</h2>
-
-      {actionSuccess && (
-        <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {actionSuccess}
-        </div>
-      )}
-      {actionError && (
-        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {actionError}
-        </div>
-      )}
 
       <div className="mt-5">
         {status === AbsenceStatus.PENDING && (

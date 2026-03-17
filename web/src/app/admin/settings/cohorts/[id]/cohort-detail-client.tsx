@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { EXAM_CATEGORY_LABEL, ENROLLMENT_STATUS_COLOR, ENROLLMENT_STATUS_LABEL } from "@/lib/constants";
 
 type EnrollmentStatus =
@@ -62,7 +63,6 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
   const [isEditingEndDate, setIsEditingEndDate] = useState<boolean>(false);
   const [endDateInput, setEndDateInput] = useState<string>(initialCohort.endDate.slice(0, 10));
   const [isSaving, startSaving] = useTransition();
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const currentTabConfig = TAB_CONFIG.find((t) => t.key === activeTab)!;
   const filteredEnrollments = cohort.enrollments.filter((e) =>
@@ -81,7 +81,6 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
 
   function handleSaveEndDate() {
     if (!endDateInput) return;
-    setSaveError(null);
     startSaving(async () => {
       try {
         const res = await fetch(`/api/settings/cohorts/${cohort.id}`, {
@@ -99,7 +98,7 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
         setIsEditingEndDate(false);
         router.refresh();
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : "수정 실패");
+        toast.error(err instanceof Error ? err.message : "수정 실패");
       }
     });
   }
@@ -146,7 +145,6 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
                     onClick={() => {
                       setIsEditingEndDate(false);
                       setEndDateInput(cohort.endDate.slice(0, 10));
-                      setSaveError(null);
                     }}
                     className="rounded border border-ink/10 px-2 py-0.5 text-xs text-slate hover:bg-mist"
                   >
@@ -167,7 +165,6 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
               )}
             </p>
           </div>
-          {saveError && <p className="mt-1 text-xs text-red-600">{saveError}</p>}
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate">목표시험연도</p>
@@ -366,10 +363,8 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
 function WaitlistPromoteInline({ enrollmentId }: { enrollmentId: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   function handlePromote() {
-    setError(null);
     startTransition(async () => {
       try {
         const res = await fetch(`/api/enrollments/${enrollmentId}/promote`, {
@@ -381,22 +376,19 @@ function WaitlistPromoteInline({ enrollmentId }: { enrollmentId: string }) {
         if (!res.ok) throw new Error(payload.error ?? "수강 확정 실패");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "수강 확정 실패");
+        toast.error(err instanceof Error ? err.message : "수강 확정 실패");
       }
     });
   }
 
   return (
-    <div className="flex flex-col items-start gap-1">
-      <button
-        type="button"
-        onClick={handlePromote}
-        disabled={isPending}
-        className="inline-flex items-center rounded-full bg-forest px-3 py-1 text-xs font-semibold text-white transition hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isPending ? "처리 중..." : "수강 확정"}
-      </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={handlePromote}
+      disabled={isPending}
+      className="inline-flex items-center rounded-full bg-forest px-3 py-1 text-xs font-semibold text-white transition hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {isPending ? "처리 중..." : "수강 확정"}
+    </button>
   );
 }

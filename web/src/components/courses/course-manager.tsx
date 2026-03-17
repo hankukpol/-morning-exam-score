@@ -2,6 +2,7 @@
 
 import { CourseCategory, CourseStatus, ExamType } from "@prisma/client";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 
@@ -102,7 +103,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
 
@@ -120,7 +120,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
     setEditingId(null);
     setForm(DEFAULT_FORM);
     setErrorMessage(null);
-    setSuccessMessage(null);
     setIsFormOpen(true);
   }
 
@@ -140,7 +139,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
       editStatus: course.status,
     });
     setErrorMessage(null);
-    setSuccessMessage(null);
     setIsFormOpen(true);
   }
 
@@ -153,7 +151,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
 
   function handleSave() {
     setErrorMessage(null);
-    setSuccessMessage(null);
 
     startTransition(async () => {
       try {
@@ -179,14 +176,14 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
           setCourses((prev) =>
             prev.map((c) => (c.id === editingId ? result.course : c)),
           );
-          setSuccessMessage("강좌를 수정했습니다.");
+          toast.success("강좌를 수정했습니다.");
         } else {
           const result = await requestJson<{ course: CourseRecord }>("/api/courses", {
             method: "POST",
             body: JSON.stringify(body),
           });
           setCourses((prev) => [result.course, ...prev]);
-          setSuccessMessage("강좌를 추가했습니다.");
+          toast.success("강좌를 추가했습니다.");
         }
 
         closeForm();
@@ -215,8 +212,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
       confirmTone: "danger",
       onConfirm: () => {
         confirmModal.closeModal();
-        setSuccessMessage(null);
-        setErrorMessage(null);
 
         startTransition(async () => {
           try {
@@ -224,9 +219,9 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
               method: "DELETE",
             });
             setCourses((prev) => prev.filter((c) => c.id !== course.id));
-            setSuccessMessage("강좌를 삭제했습니다.");
+            toast.success("강좌를 삭제했습니다.");
           } catch (error) {
-            setErrorMessage(
+            toast.error(
               error instanceof Error ? error.message : "삭제에 실패했습니다.",
             );
           }
@@ -297,18 +292,6 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
           <span>새 강좌 추가</span>
         </button>
       </div>
-
-      {/* Messages */}
-      {successMessage ? (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          {successMessage}
-        </div>
-      ) : null}
-      {errorMessage && !isFormOpen ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
 
       {/* Table */}
       <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">

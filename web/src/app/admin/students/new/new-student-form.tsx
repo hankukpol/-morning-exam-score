@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { ExamType, StudentType } from "@prisma/client";
 import { EXAM_TYPE_LABEL, STUDENT_TYPE_LABEL } from "@/lib/constants";
 import { todayDateInputValue } from "@/lib/format";
+import { toast } from "sonner";
 
 const EXAM_TYPE_OPTIONS: Array<{ value: ExamType; label: string }> = [
   { value: "GONGCHAE", label: EXAM_TYPE_LABEL["GONGCHAE"] },
@@ -50,7 +51,6 @@ export function NewStudentForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<FormState>(createEmptyForm);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function patch(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -62,21 +62,19 @@ export function NewStudentForm() {
     const trimmedExamNumber = form.examNumber.trim();
 
     if (!trimmedExamNumber) {
-      setErrorMessage("학번을 입력해 주세요.");
+      toast.error("학번을 입력해 주세요.");
       return;
     }
 
     if (!trimmedName) {
-      setErrorMessage("이름을 입력해 주세요.");
+      toast.error("이름을 입력해 주세요.");
       return;
     }
 
     if (!trimmedPhone) {
-      setErrorMessage("연락처를 입력해 주세요.");
+      toast.error("연락처를 입력해 주세요.");
       return;
     }
-
-    setErrorMessage(null);
 
     startTransition(async () => {
       try {
@@ -116,21 +114,13 @@ export function NewStudentForm() {
         }
         router.refresh();
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "수강생 등록에 실패했습니다.",
-        );
+        toast.error(error instanceof Error ? error.message : "수강생 등록에 실패했습니다.");
       }
     });
   }
 
   return (
     <div className="rounded-[28px] border border-ink/10 bg-white p-6 sm:p-8">
-      {errorMessage ? (
-        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
       {/* 기본 정보 */}
       <section>
         <h2 className="mb-4 text-base font-semibold text-forest">기본 정보</h2>

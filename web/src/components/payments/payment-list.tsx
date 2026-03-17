@@ -11,6 +11,8 @@ import {
   PAYMENT_STATUS_COLOR,
 } from "@/lib/constants";
 import { formatDateTime, todayDateInputValue } from "@/lib/format";
+import { FilterPresetBar } from "@/components/ui/filter-preset-bar";
+import { useFilterPresets } from "@/hooks/use-filter-presets";
 
 export type PaymentItemSnapshot = {
   id: string;
@@ -88,6 +90,23 @@ export function PaymentList({ initialPayments }: Props) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { presets, savePreset, deletePreset } = useFilterPresets("payments-filter-presets");
+
+  const currentFilters: Record<string, string> = {};
+  if (filterCategory !== "ALL") currentFilters.category = filterCategory;
+  if (filterMethod !== "ALL") currentFilters.method = filterMethod;
+  if (fromDate) currentFilters.fromDate = fromDate;
+  if (toDate) currentFilters.toDate = toDate;
+  if (search.trim()) currentFilters.search = search.trim();
+
+  function applyPresetFilters(filters: Record<string, string>) {
+    setFilterCategory((filters.category as PaymentCategory) ?? "ALL");
+    setFilterMethod((filters.method as PaymentMethod) ?? "ALL");
+    setFromDate(filters.fromDate ?? today);
+    setToDate(filters.toDate ?? today);
+    setSearch(filters.search ?? "");
+  }
 
   async function fetchPayments() {
     setLoading(true);
@@ -210,6 +229,15 @@ export function PaymentList({ initialPayments }: Props) {
           </Link>
         </div>
       </div>
+
+      {/* Filter Presets */}
+      <FilterPresetBar
+        presets={presets}
+        currentFilters={currentFilters}
+        onApply={applyPresetFilters}
+        onSave={savePreset}
+        onDelete={deletePreset}
+      />
 
       {/* Error */}
       {errorMessage ? (
