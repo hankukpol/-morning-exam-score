@@ -29,6 +29,8 @@ export type StudentFilters = {
   limit?: number;
   page?: number;
   pageSize?: number;
+  sort?: 'name' | 'examNumber' | 'registeredAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 export type StudentFormInput = {
@@ -125,13 +127,21 @@ export async function listStudentsPage(filters: StudentFilters) {
   const pageSize = Math.min(Math.max(filters.pageSize ?? 30, 1), 100);
   const requestedPage = Math.max(filters.page ?? 1, 1);
   const where = buildStudentListWhere(filters);
+  const { sort, sortDir } = filters;
+
+  const orderBy: Prisma.StudentOrderByWithRelationInput[] =
+    sort === 'name'
+      ? [{ name: sortDir ?? 'asc' }]
+      : sort === 'examNumber'
+        ? [{ examNumber: sortDir ?? 'asc' }]
+        : [{ registeredAt: sortDir === 'asc' ? 'asc' : 'desc' }];
 
   const totalCount = await prisma.student.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const page = Math.min(requestedPage, totalPages);
   const students = await prisma.student.findMany({
     where,
-    orderBy: [{ isActive: "desc" }, { generation: "desc" }, { examNumber: "asc" }],
+    orderBy,
     skip: (page - 1) * pageSize,
     take: pageSize,
     include: {

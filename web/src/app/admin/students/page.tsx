@@ -13,6 +13,8 @@ type StudentsPageProps = {
     activeOnly?: string;
     page?: string;
     pageSize?: string;
+    sort?: string;
+    sortDir?: string;
   };
 };
 
@@ -23,6 +25,13 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
   const activeOnly = searchParams?.activeOnly !== "false";
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const pageSize = Math.min(Math.max(Number(searchParams?.pageSize ?? "30") || 30, 1), 100);
+  const sortRaw = searchParams?.sort;
+  const sort =
+    sortRaw === "name" || sortRaw === "examNumber" || sortRaw === "registeredAt"
+      ? sortRaw
+      : undefined;
+  const sortDirRaw = searchParams?.sortDir;
+  const sortDir = sortDirRaw === "asc" || sortDirRaw === "desc" ? sortDirRaw : undefined;
   const [, result] = await Promise.all([
     requireAdminContext(AdminRole.TEACHER),
     listStudentsPage({
@@ -32,6 +41,8 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
       activeOnly,
       page,
       pageSize,
+      sort,
+      sortDir,
     }),
   ]);
 
@@ -58,6 +69,8 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
             page: result.page,
             pageSize: result.pageSize,
             totalCount: result.totalCount,
+            sort: sort ?? "",
+            sortDir: sortDir ?? "",
           }}
         />
       </div>

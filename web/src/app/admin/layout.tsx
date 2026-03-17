@@ -6,6 +6,7 @@ import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference
 import { ADMIN_NAV_ITEMS, ROLE_LABEL } from "@/lib/constants";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { MobileNavWrapper } from "@/components/admin/mobile-nav-wrapper";
+import { SidebarCollapseToggle } from "@/components/admin/sidebar-collapse-toggle";
 import { TopModuleNav } from "@/components/admin/top-module-nav";
 import {
   getDisplayErrorDetails,
@@ -150,6 +151,8 @@ export default async function AdminLayout({
             </div>
           </aside>
         </MobileNavWrapper>
+
+        <SidebarCollapseToggle />
 
         <main
           id="main-content"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ExamType, StudentType } from "@prisma/client";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
@@ -44,6 +44,8 @@ type Filters = {
   page: number;
   pageSize: number;
   totalCount: number;
+  sort: string;
+  sortDir: string;
 };
 
 type StudentManagerProps = {
@@ -104,8 +106,41 @@ function buildDraft(student: StudentRow): StudentFormState {
   };
 }
 
+function SortableHeader({
+  column,
+  label,
+  currentSort,
+  currentDir,
+  onSort,
+}: {
+  column: string;
+  label: string;
+  currentSort: string;
+  currentDir: string;
+  onSort: (col: string, dir: string) => void;
+}) {
+  const isActive = currentSort === column;
+  const nextDir = isActive && currentDir === "asc" ? "desc" : "asc";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(column, nextDir)}
+      className="flex items-center gap-1 font-semibold hover:text-ember transition-colors"
+    >
+      {label}
+      {isActive ? (
+        <span className="text-ember">{currentDir === "asc" ? "↑" : "↓"}</span>
+      ) : (
+        <span className="text-gray-300">↕</span>
+      )}
+    </button>
+  );
+}
+
 export function StudentManager({ students, filters }: StudentManagerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [createForm, setCreateForm] = useState<StudentFormState>(() => createEmptyForm(filters.examType));
   const [editingExamNumber, setEditingExamNumber] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, StudentFormState>>({});
@@ -189,7 +224,23 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       params.set("activeOnly", "false");
     }
 
+    if (filters.sort) {
+      params.set("sort", filters.sort);
+    }
+
+    if (filters.sortDir) {
+      params.set("sortDir", filters.sortDir);
+    }
+
     router.push(`/admin/students?${params.toString()}`);
+  }
+
+  function handleSort(col: string, dir: string) {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("sort", col);
+    params.set("sortDir", dir);
+    params.set("page", "1");
+    router.push(`?${params.toString()}`);
   }
 
   async function requestJson<T = Record<string, unknown>>(url: string, init?: RequestInit) {
@@ -675,14 +726,39 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     ariaLabel="현재 페이지 수강생 전체 선택"
                   />
                 </th>
-                <th className="px-4 py-3 font-semibold">수험번호</th>
-                <th className="px-4 py-3 font-semibold">이름</th>
+                <th className="px-4 py-3 font-semibold">
+                  <SortableHeader
+                    column="examNumber"
+                    label="수험번호"
+                    currentSort={filters.sort}
+                    currentDir={filters.sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="px-4 py-3 font-semibold">
+                  <SortableHeader
+                    column="name"
+                    label="이름"
+                    currentSort={filters.sort}
+                    currentDir={filters.sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="px-4 py-3 font-semibold">연락처</th>
                 <th className="px-4 py-3 font-semibold">기수</th>
                 <th className="px-4 py-3 font-semibold">반</th>
                 <th className="px-4 py-3 font-semibold">구분</th>
                 <th className="px-4 py-3 font-semibold">포털 접근</th>
                 <th className="px-4 py-3 font-semibold">성적 수</th>
+                <th className="px-4 py-3 font-semibold">
+                  <SortableHeader
+                    column="registeredAt"
+                    label="등록일"
+                    currentSort={filters.sort}
+                    currentDir={filters.sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="px-4 py-3 font-semibold">동작</th>
               </tr>
             </thead>
@@ -789,6 +865,15 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3">{student._count.scores}</td>
+                    <td className="px-4 py-3 text-sm text-slate">
+                      {student.registeredAt
+                        ? new Date(student.registeredAt).toLocaleDateString("ko-KR", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                          })
+                        : "-"}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Link
@@ -954,7 +1039,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               })}
               {filters.totalCount === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate">
                     조건에 맞는 수강생이 없습니다.
                   </td>
                 </tr>

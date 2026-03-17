@@ -8,6 +8,7 @@ type Props = { children: React.ReactNode };
 export function MobileNavWrapper({ children }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
 
   // Close nav on route change
   useEffect(() => {
@@ -21,6 +22,22 @@ export function MobileNavWrapper({ children }: Props) {
     }
     window.addEventListener("toggle-sidebar", handleToggle);
     return () => window.removeEventListener("toggle-sidebar", handleToggle);
+  }, []);
+
+  // Init desktop collapse state from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("admin-sidebar-collapsed");
+    if (stored === "true") setDesktopCollapsed(true);
+  }, []);
+
+  // Listen for desktop collapse change event
+  useEffect(() => {
+    function handleCollapse(e: Event) {
+      const ce = e as CustomEvent<{ collapsed: boolean }>;
+      setDesktopCollapsed(ce.detail.collapsed);
+    }
+    window.addEventListener("sidebar-collapse-change", handleCollapse);
+    return () => window.removeEventListener("sidebar-collapse-change", handleCollapse);
   }, []);
 
   return (
@@ -37,7 +54,7 @@ export function MobileNavWrapper({ children }: Props) {
       <div
         className={`fixed top-14 bottom-0 left-0 z-50 flex w-56 flex-col transition-transform duration-200 ease-in-out lg:static lg:top-auto lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        } ${desktopCollapsed ? "lg:hidden" : ""}`}
       >
         {children}
       </div>
