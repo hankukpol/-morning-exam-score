@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -432,6 +433,9 @@ export default async function AuditLogsPage({ searchParams }: PageProps) {
                   <th className="px-5 py-4 font-semibold text-slate">
                     상세 내용
                   </th>
+                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
+                    상세
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -494,6 +498,16 @@ export default async function AuditLogsPage({ searchParams }: PageProps) {
                         <p className="break-words text-xs leading-relaxed text-slate">
                           {truncateDetails(details)}
                         </p>
+                      </td>
+
+                      {/* 상세 링크 */}
+                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
+                        <Link
+                          href={`/admin/audit-logs/${log.id}`}
+                          className="inline-flex items-center rounded-full border border-ink/20 bg-white px-3 py-1 text-xs font-medium text-slate transition hover:border-ink/40 hover:text-ink"
+                        >
+                          상세 →
+                        </Link>
                       </td>
                     </tr>
                   );

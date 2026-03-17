@@ -3,6 +3,8 @@ import Link from "next/link";
 import { StudentBottomNav } from "@/components/student-portal/student-bottom-nav";
 import { StudentLogoutButton } from "@/components/student-portal/student-logout-button";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
+import { hasDatabaseConfig } from "@/lib/env";
+import { getPrisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: {
@@ -11,12 +13,26 @@ export const metadata: Metadata = {
   },
 };
 
+async function getPointBalance(examNumber: string): Promise<number> {
+  try {
+    const result = await getPrisma().pointLog.aggregate({
+      where: { examNumber },
+      _sum: { amount: true },
+    });
+    return result._sum.amount ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default async function StudentLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const viewer = await getStudentPortalViewer();
+  const pointBalance =
+    viewer && hasDatabaseConfig() ? await getPointBalance(viewer.examNumber) : null;
 
   return (
     <div className="min-h-screen bg-mist text-ink">
@@ -42,7 +58,22 @@ export default async function StudentLayout({
             </div>
 
             {viewer ? (
-              <StudentLogoutButton className="inline-flex min-h-12 items-center justify-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60" />
+              <div className="flex flex-col items-end gap-2">
+                {pointBalance !== null && (
+                  <Link
+                    href="/student/points"
+                    className="inline-flex items-center gap-1 rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/20"
+                    title="내 포인트"
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v2m0 8v2M8 12h8" />
+                    </svg>
+                    {pointBalance.toLocaleString()}P
+                  </Link>
+                )}
+                <StudentLogoutButton className="inline-flex min-h-10 items-center justify-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60" />
+              </div>
             ) : (
               <Link
                 href="/student/login"

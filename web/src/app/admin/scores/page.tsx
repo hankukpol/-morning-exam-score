@@ -583,6 +583,12 @@ export default async function ScoresHubPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/admin/scores/sessions/${row.id}`}
+                            className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ink/40 hover:text-ink"
+                          >
+                            상세
+                          </Link>
                           {row.totalScores === 0 ? (
                             <Link
                               href={`/admin/scores/input?sessionId=${row.id}`}
