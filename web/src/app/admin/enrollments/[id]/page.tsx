@@ -38,6 +38,7 @@ export type EnrollmentDetailData = {
   createdAt: string;
   studentName: string;
   studentPhone: string | null;
+  cohortId: string | null;
   cohortName: string | null;
   productName: string | null;
   specialLectureName: string | null;
@@ -96,6 +97,7 @@ export default async function EnrollmentDetailPage({
     createdAt: enrollment.createdAt.toISOString(),
     studentName: enrollment.student.name,
     studentPhone: enrollment.student.phone,
+    cohortId: enrollment.cohortId ?? null,
     cohortName: enrollment.cohort?.name ?? null,
     productName: enrollment.product?.name ?? null,
     specialLectureName: enrollment.specialLecture?.name ?? null,

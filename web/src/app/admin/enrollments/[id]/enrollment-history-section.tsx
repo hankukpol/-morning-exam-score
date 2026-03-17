@@ -10,6 +10,7 @@ const ACTION_LABEL: Record<string, string> = {
   ENROLLMENT_RETURN: "복귀 처리",
   ENROLLMENT_STATUS_CHANGE: "상태 변경",
   ENROLLMENT_FEE_UPDATE: "수강료 수정",
+  ENROLLMENT_CLASS_CHANGE: "반/기수 변경",
   CONTRACT_PRINT: "계약서 출력",
   PROMOTE_WAITLIST: "대기자 승격",
 };
@@ -38,6 +39,10 @@ function formatMetadata(before: unknown, after: unknown): string | null {
       const fromLabel = STATUS_LABEL[b.status as string] ?? String(b.status);
       const toLabel = STATUS_LABEL[a.status as string] ?? String(a.status);
       parts.push(`상태: ${fromLabel} → ${toLabel}`);
+    }
+    // Cohort / class change
+    if (b.cohortName !== undefined && a.cohortName !== undefined && b.cohortName !== a.cohortName) {
+      parts.push(`기수: ${String(b.cohortName ?? "미배정")} → ${String(a.cohortName ?? "미배정")}`);
     }
     // Fee change
     if (b.finalFee !== undefined && a.finalFee !== undefined && b.finalFee !== a.finalFee) {

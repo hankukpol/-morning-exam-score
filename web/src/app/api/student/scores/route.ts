@@ -1,7 +1,7 @@
 import { Subject } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentPortalStudent } from "@/lib/student-portal/api";
-import { getStudentPortalScoresData } from "@/student-portal-api-data";
+import { getStudentPortalScoresData, getStudentPortalScoreSessionDetail } from "@/student-portal-api-data";
 
 function parsePeriodId(value: string | null) {
   if (!value) {
@@ -138,6 +138,23 @@ export async function GET(request: NextRequest) {
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // ?dateKey=YYYY-MM-DD → 회차 상세 반환
+  const dateKeyParam = request.nextUrl.searchParams.get("dateKey");
+  if (dateKeyParam !== null) {
+    const dateKey = parseDate(dateKeyParam);
+    if (!dateKey) {
+      return NextResponse.json({ error: "Invalid dateKey format." }, { status: 400 });
+    }
+    const detail = await getStudentPortalScoreSessionDetail({
+      examNumber: auth.student.examNumber,
+      dateKey,
+    });
+    if (!detail) {
+      return NextResponse.json({ error: "No scores found for this date." }, { status: 404 });
+    }
+    return NextResponse.json({ data: detail });
   }
 
   try {

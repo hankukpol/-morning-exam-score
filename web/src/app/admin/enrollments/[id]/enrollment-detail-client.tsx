@@ -13,6 +13,14 @@ import { formatDate } from "@/lib/format";
 import type { EnrollmentDetailData, LeaveRecordRow } from "./page";
 import { EnrollmentHistorySection } from "./enrollment-history-section";
 
+type CohortOption = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  activeCount: number;
+};
+
 type Props = {
   enrollment: EnrollmentDetailData;
 };
@@ -24,16 +32,22 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState<boolean>(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState<boolean>(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState<boolean>(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState<boolean>(false);
+  const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState<boolean>(false);
   const [leaveDate, setLeaveDate] = useState(today);
   const [leaveReason, setLeaveReason] = useState("");
   const [statusChangeReason, setStatusChangeReason] = useState("");
   const [returnDate, setReturnDate] = useState(today);
   const [activeLeaveId, setActiveLeaveId] = useState<string | null>(null);
+  // 반 변경 상태
+  const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
+  const [cohortOptionsLoading, setCohortOptionsLoading] = useState<boolean>(false);
+  const [selectedCohortId, setSelectedCohortId] = useState<string>("");
+  const [changeClassReason, setChangeClassReason] = useState<string>("");
 
   const courseName =
     enrollment.cohortName ??
@@ -113,6 +127,62 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         ),
       }));
       setIsReturnModalOpen(false);
+    });
+  }
+
+  function openChangeClass() {
+    setSelectedCohortId(enrollment.cohortId ?? "");
+    setChangeClassReason("");
+    setError(null);
+    setIsChangeClassModalOpen(true);
+    // 기수 목록 로드
+    setCohortOptionsLoading(true);
+    fetch("/api/settings/cohorts")
+      .then((res) => res.json())
+      .then((data) => {
+        const list: CohortOption[] = (data.cohorts ?? []).map(
+          (c: { id: string; name: string; startDate: string; endDate: string; activeCount: number }) => ({
+            id: c.id,
+            name: c.name,
+            startDate: c.startDate,
+            endDate: c.endDate,
+            activeCount: c.activeCount ?? 0,
+          }),
+        );
+        setCohortOptions(list);
+      })
+      .catch(() => setCohortOptions([]))
+      .finally(() => setCohortOptionsLoading(false));
+  }
+
+  function handleChangeClass() {
+    if (!selectedCohortId) {
+      setError("새로운 기수를 선택해주세요.");
+      return;
+    }
+    if (selectedCohortId === enrollment.cohortId) {
+      setError("현재와 동일한 기수입니다. 다른 기수를 선택해주세요.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await fetch(`/api/enrollments/${enrollment.id}/change-class`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newCohortId: selectedCohortId, reason: changeClassReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "반 변경 처리 실패");
+        return;
+      }
+      const newCohort = cohortOptions.find((c) => c.id === selectedCohortId);
+      setEnrollment((prev) => ({
+        ...prev,
+        cohortId: selectedCohortId,
+        cohortName: newCohort?.name ?? prev.cohortName,
+      }));
+      setIsChangeClassModalOpen(false);
     });
   }
 
@@ -264,6 +334,19 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
             className="inline-flex items-center rounded-full border border-forest/20 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50 disabled:opacity-50"
           >
             복귀 처리
+          </button>
+        )}
+        {enrollment.courseType === "COMPREHENSIVE" &&
+          (enrollment.status === "ACTIVE" ||
+            enrollment.status === "SUSPENDED" ||
+            enrollment.status === "PENDING") && (
+          <button
+            type="button"
+            onClick={openChangeClass}
+            disabled={isPending}
+            className="inline-flex items-center rounded-full border border-ember/20 px-4 py-2 text-sm font-semibold text-ember transition hover:border-ember/50 disabled:opacity-50"
+          >
+            반 변경
           </button>
         )}
         {(enrollment.status === "ACTIVE" || enrollment.status === "SUSPENDED") && (
@@ -506,6 +589,73 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
             </div>
           )}
           <p className="text-sm text-slate">수강 신청을 <strong>취소</strong>합니다. 아직 수납이 없는 경우에만 사용하세요.</p>
+        </div>
+      </ActionModal>
+
+      {/* 반 변경 모달 */}
+      <ActionModal
+        open={isChangeClassModalOpen}
+        badgeLabel="수강 관리"
+        title="반/기수 변경"
+        description="수강 중인 기수를 다른 기수로 변경합니다."
+        confirmLabel="변경 처리"
+        cancelLabel="취소"
+        onClose={() => setIsChangeClassModalOpen(false)}
+        onConfirm={handleChangeClass}
+        isPending={isPending}
+      >
+        <div className="space-y-4">
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate">현재 기수</label>
+            <p className="rounded-2xl border border-ink/10 bg-mist/40 px-4 py-3 text-sm text-ink">
+              {enrollment.cohortName ?? "미배정"}
+            </p>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate">새 기수 선택 *</label>
+            {cohortOptionsLoading ? (
+              <div className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm text-slate">
+                기수 목록 불러오는 중...
+              </div>
+            ) : cohortOptions.length === 0 ? (
+              <div className="rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm text-slate">
+                활성화된 기수가 없습니다.
+              </div>
+            ) : (
+              <select
+                value={selectedCohortId}
+                onChange={(e) => setSelectedCohortId(e.target.value)}
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30"
+              >
+                <option value="">-- 기수 선택 --</option>
+                {cohortOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.id === enrollment.cohortId ? " (현재)" : ""}
+                    {" "}· 수강생 {c.activeCount}명
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate">변경 사유 (선택)</label>
+            <input
+              type="text"
+              value={changeClassReason}
+              onChange={(e) => setChangeClassReason(e.target.value)}
+              placeholder="예: 시간표 변경, 레벨 조정 등"
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-forest/30"
+            />
+          </div>
+          <p className="text-xs text-slate">
+            반 변경 시 기존 출결 기록은 유지되며, 이후 출결은 새 기수 기준으로 관리됩니다.
+          </p>
         </div>
       </ActionModal>
 

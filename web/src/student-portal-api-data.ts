@@ -607,6 +607,218 @@ export async function getStudentPortalScoresData(input: StudentPortalScoreFilter
   };
 }
 
+// ─── 회차별 성적 상세 ─────────────────────────────────────────────
+
+/**
+ * 특정 시험 날짜(dateKey = "YYYY-MM-DD")에 대한 상세 성적 조회
+ * - 해당 날짜의 모든 과목 점수
+ * - 과목별 전회차 대비 변화
+ * - 전체 석차 + 수험유형별 참여자 수
+ * - 방사형 차트용 과목별 점수 vs 평균
+ */
+export async function getStudentPortalScoreSessionDetail(input: {
+  examNumber: string;
+  dateKey: string; // "YYYY-MM-DD"
+}) {
+  const student = await loadStudentPortalProfile(input.examNumber);
+
+  if (!student) {
+    return null;
+  }
+
+  const prisma = getPrisma();
+
+  // 해당 날짜의 시험 세션 조회
+  const targetDate = new Date(input.dateKey);
+  const nextDate = new Date(targetDate);
+  nextDate.setDate(nextDate.getDate() + 1);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return null;
+  }
+
+  const sessions = await prisma.examSession.findMany({
+    where: {
+      examType: student.examType,
+      isCancelled: false,
+      examDate: {
+        gte: targetDate,
+        lt: nextDate,
+      },
+    },
+    orderBy: { subject: "asc" },
+    select: {
+      id: true,
+      week: true,
+      subject: true,
+      examDate: true,
+      periodId: true,
+    },
+  });
+
+  if (sessions.length === 0) {
+    return null;
+  }
+
+  const sessionIds = sessions.map((s) => s.id);
+
+  // 해당 학생의 점수 조회
+  const myScores = await prisma.score.findMany({
+    where: {
+      examNumber: student.examNumber,
+      sessionId: { in: sessionIds },
+    },
+    select: {
+      sessionId: true,
+      rawScore: true,
+      oxScore: true,
+      finalScore: true,
+      attendType: true,
+      sourceType: true,
+      note: true,
+    },
+  });
+
+  const myScoreMap = new Map(myScores.map((s) => [s.sessionId, s]));
+
+  // 전체 참여자 점수 조회 (석차 계산용)
+  const cohortScores = await prisma.score.findMany({
+    where: {
+      sessionId: { in: sessionIds },
+      finalScore: { not: null },
+    },
+    select: {
+      sessionId: true,
+      examNumber: true,
+      finalScore: true,
+    },
+  });
+
+  // 과목별 석차 계산
+  const rankBySession = new Map<number, { rank: number; total: number; avg: number }>();
+  for (const session of sessions) {
+    const sessionScores = cohortScores
+      .filter((s) => s.sessionId === session.id && s.finalScore !== null)
+      .map((s) => s.finalScore as number)
+      .sort((a, b) => b - a);
+
+    const myScore = myScoreMap.get(session.id)?.finalScore ?? null;
+    const total = sessionScores.length;
+    const avg =
+      total === 0
+        ? 0
+        : Math.round((sessionScores.reduce((sum, v) => sum + v, 0) / total) * 100) / 100;
+
+    if (myScore !== null && total > 0) {
+      const rank = sessionScores.filter((s) => s > myScore).length + 1;
+      rankBySession.set(session.id, { rank, total, avg });
+    } else {
+      rankBySession.set(session.id, { rank: 0, total, avg });
+    }
+  }
+
+  // 전회차 점수 조회 (과목별 변화 계산)
+  // 이 날짜 직전의 같은 과목 점수를 찾는다
+  const prevScoreBySubject = new Map<string, number | null>();
+  for (const session of sessions) {
+    const prevSession = await prisma.examSession.findFirst({
+      where: {
+        examType: student.examType,
+        isCancelled: false,
+        subject: session.subject,
+        examDate: { lt: targetDate },
+        scores: {
+          some: {
+            examNumber: student.examNumber,
+            finalScore: { not: null },
+          },
+        },
+      },
+      orderBy: { examDate: "desc" },
+      select: {
+        id: true,
+        examDate: true,
+      },
+    });
+
+    if (prevSession) {
+      const prevScore = await prisma.score.findUnique({
+        where: {
+          examNumber_sessionId: {
+            examNumber: student.examNumber,
+            sessionId: prevSession.id,
+          },
+        },
+        select: { finalScore: true },
+      });
+      prevScoreBySubject.set(session.subject, prevScore?.finalScore ?? null);
+    } else {
+      prevScoreBySubject.set(session.subject, null);
+    }
+  }
+
+  // 전체 합산 (총점 + 전체 석차)
+  const subjectScores = sessions.map((session) => {
+    const myScore = myScoreMap.get(session.id);
+    const rankInfo = rankBySession.get(session.id);
+    const prevScore = prevScoreBySubject.get(session.subject) ?? null;
+    const finalScore = myScore?.finalScore ?? null;
+    const change =
+      finalScore !== null && prevScore !== null ? Math.round((finalScore - prevScore) * 100) / 100 : null;
+
+    return {
+      subject: session.subject,
+      sessionId: session.id,
+      rawScore: myScore?.rawScore ?? null,
+      oxScore: myScore?.oxScore ?? null,
+      finalScore,
+      attendType: myScore?.attendType ?? null,
+      sourceType: myScore?.sourceType ?? null,
+      rank: rankInfo?.rank ?? null,
+      total: rankInfo?.total ?? 0,
+      cohortAvg: rankInfo?.avg ?? 0,
+      prevScore,
+      change,
+    };
+  });
+
+  const scoredSubjects = subjectScores.filter((s) => s.finalScore !== null);
+  const totalScore = scoredSubjects.reduce((sum, s) => sum + (s.finalScore ?? 0), 0);
+
+  // 전체 합산 석차: 각 참여자의 해당 날짜 합산 점수로 계산
+  const participantTotals = new Map<string, number>();
+  for (const row of cohortScores) {
+    if (row.finalScore === null) continue;
+    const current = participantTotals.get(row.examNumber) ?? 0;
+    participantTotals.set(row.examNumber, current + row.finalScore);
+  }
+  const totalRankList = Array.from(participantTotals.values()).sort((a, b) => b - a);
+  const overallRank =
+    scoredSubjects.length === 0
+      ? null
+      : totalRankList.filter((v) => v > totalScore).length + 1;
+  const overallTotal = participantTotals.size;
+
+  // 방사형 차트 데이터
+  const radarData = subjectScores.map((s) => ({
+    subject: s.subject,
+    score: s.finalScore ?? 0,
+    avg: s.cohortAvg,
+  }));
+
+  return {
+    student,
+    dateKey: input.dateKey,
+    week: sessions[0]?.week ?? null,
+    examDate: sessions[0]?.examDate ?? null,
+    subjectScores,
+    totalScore: Math.round(totalScore * 100) / 100,
+    overallRank,
+    overallTotal,
+    radarData,
+  };
+}
+
 export async function getStudentPortalAttendanceSummary(input: { examNumber: string }) {
   const student = await loadStudentPortalProfile(input.examNumber);
 

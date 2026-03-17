@@ -138,28 +138,58 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
   } | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
 
-  function calcDiscountAmount(types: string[], fee: number, baseInput: string, manualInput: string): number {
-    let total = 0;
+  const DISCOUNT_TYPE_LABEL: Record<string, string> = {
+    SIMULTANEOUS: "동시수강",
+    SIBLING: "형제 할인",
+    POLICE_ADMIN: "경찰행정학과",
+    FAMILY: "직계가족",
+    RETURNING_30: "종합반 재수강",
+    RETURNING_50: "이론반 재수강",
+    ONLINE: "인강생 혜택",
+    TRANSFER: "타학원 환승",
+    ADMIN_MANUAL: "직접 입력",
+  };
+
+  type DiscountLineItem = {
+    key: string;
+    label: string;
+    amount: number;
+  };
+
+  function calcDiscountDetail(
+    types: string[],
+    fee: number,
+    baseInput: string,
+    manualInput: string,
+  ): { items: DiscountLineItem[]; rawTotal: number; cappedTotal: number; capAdjustment: number } {
+    const items: DiscountLineItem[] = [];
+    let rawTotal = 0;
     for (const t of types) {
-      if (t === "SIMULTANEOUS") total += 50000;
-      else if (t === "SIBLING") total += 100000;
-      else if (t === "POLICE_ADMIN") total += 100000;
-      else if (t === "FAMILY") total += 100000;
-      else if (t === "RETURNING_30") total += Math.round(fee * 0.3);
-      else if (t === "RETURNING_50") total += Math.round(fee * 0.5);
-      else if (t === "ONLINE") total += Math.round((Number(baseInput) || 0) * 0.5);
-      else if (t === "TRANSFER") total += Math.round((Number(baseInput) || 0) * 0.3);
-      else if (t === "ADMIN_MANUAL") total += Number(manualInput) || 0;
+      let amount = 0;
+      if (t === "SIMULTANEOUS") amount = 50000;
+      else if (t === "SIBLING") amount = 100000;
+      else if (t === "POLICE_ADMIN") amount = 100000;
+      else if (t === "FAMILY") amount = 100000;
+      else if (t === "RETURNING_30") amount = Math.round(fee * 0.3);
+      else if (t === "RETURNING_50") amount = Math.round(fee * 0.5);
+      else if (t === "ONLINE") amount = Math.round((Number(baseInput) || 0) * 0.5);
+      else if (t === "TRANSFER") amount = Math.round((Number(baseInput) || 0) * 0.3);
+      else if (t === "ADMIN_MANUAL") amount = Number(manualInput) || 0;
+      items.push({ key: t, label: DISCOUNT_TYPE_LABEL[t] ?? t, amount });
+      rawTotal += amount;
     }
-    return Math.min(total, 500000);
+    const cappedTotal = Math.min(rawTotal, 500000);
+    const capAdjustment = rawTotal > 500000 ? rawTotal - 500000 : 0;
+    return { items, rawTotal, cappedTotal, capAdjustment };
   }
 
-  const manualDiscountAmount = calcDiscountAmount(
+  const discountDetail = calcDiscountDetail(
     selectedDiscountTypes,
     Number(regularFee) || 0,
     discountBaseInput,
     manualDiscountInput,
   );
+  const manualDiscountAmount = discountDetail.cappedTotal;
   const codeDiscountAmount = appliedCode?.finalDiscount ?? 0;
   const discountAmount = String(manualDiscountAmount + codeDiscountAmount);
 
@@ -945,10 +975,14 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
                   />
                 </div>
               )}
-              {manualDiscountAmount > 0 && (
+              {discountDetail.items.length > 0 && (
                 <p className="mt-1.5 text-sm font-semibold text-forest">
-                  수동 할인: {manualDiscountAmount.toLocaleString()}원
-                  {manualDiscountAmount >= 500000 && <span className="ml-1 text-xs text-ember font-normal">(50만원 한도 적용)</span>}
+                  수동 할인 합계: {manualDiscountAmount.toLocaleString()}원
+                  {discountDetail.capAdjustment > 0 && (
+                    <span className="ml-1 text-xs text-ember font-normal">
+                      (50만원 한도 적용, {discountDetail.capAdjustment.toLocaleString()}원 조정)
+                    </span>
+                  )}
                 </p>
               )}
             </div>
@@ -1015,33 +1049,68 @@ export function EnrollmentForm({ initialProducts, initialCohorts, initialSpecial
 
           {/* 수강료 계산 요약 */}
           <div className="rounded-[20px] border border-ink/10 bg-white divide-y divide-ink/5 overflow-hidden">
+            {/* 정가 */}
             <div className="flex items-center justify-between px-5 py-3">
               <span className="text-sm text-slate">정가</span>
               <span className="text-sm font-medium text-ink tabular-nums">
                 {(Number(regularFee) || 0).toLocaleString()}원
               </span>
             </div>
-            {manualDiscountAmount > 0 && (
-              <div className="flex items-center justify-between px-5 py-3">
-                <span className="text-sm text-slate">수동 할인</span>
-                <span className="text-sm font-medium text-red-600 tabular-nums">
-                  −{manualDiscountAmount.toLocaleString()}원
+
+            {/* 할인 항목별 상세 내역 */}
+            {discountDetail.items.map((item) => (
+              <div key={item.key} className="flex items-center justify-between px-5 py-2.5 bg-red-50/40">
+                <span className="text-sm text-slate">
+                  할인 {discountDetail.items.indexOf(item) + 1}
+                  <span className="ml-2 rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                    {item.label}
+                  </span>
+                </span>
+                <span className="text-sm font-semibold text-red-600 tabular-nums">
+                  −{item.amount.toLocaleString()}원
+                </span>
+              </div>
+            ))}
+
+            {/* 50만원 한도 초과 조정 */}
+            {discountDetail.capAdjustment > 0 && (
+              <div className="flex items-center justify-between px-5 py-2.5 bg-amber-50/60">
+                <span className="text-sm text-amber-700">
+                  한도 적용{" "}
+                  <span className="text-xs font-normal text-amber-600">(50만원 초과 조정)</span>
+                </span>
+                <span className="text-sm font-semibold text-amber-700 tabular-nums">
+                  +{discountDetail.capAdjustment.toLocaleString()}원
                 </span>
               </div>
             )}
+
+            {/* 코드 할인 */}
             {codeDiscountAmount > 0 && appliedCode && (
-              <div className="flex items-center justify-between px-5 py-3">
+              <div className="flex items-center justify-between px-5 py-2.5 bg-red-50/40">
                 <span className="text-sm text-slate">
                   코드 할인{" "}
                   <span className="rounded-full border border-forest/20 bg-forest/5 px-1.5 py-0.5 text-xs text-forest">
                     {appliedCode.code}
                   </span>
                 </span>
-                <span className="text-sm font-medium text-red-600 tabular-nums">
+                <span className="text-sm font-semibold text-red-600 tabular-nums">
                   −{codeDiscountAmount.toLocaleString()}원
                 </span>
               </div>
             )}
+
+            {/* 총 할인 소계 (할인이 2개 이상이거나 코드도 있을 때) */}
+            {(discountDetail.items.length > 1 || (discountDetail.items.length >= 1 && codeDiscountAmount > 0)) && (
+              <div className="flex items-center justify-between bg-mist/50 px-5 py-2.5">
+                <span className="text-sm text-slate">총 할인</span>
+                <span className="text-sm font-semibold text-red-600 tabular-nums">
+                  −{(manualDiscountAmount + codeDiscountAmount).toLocaleString()}원
+                </span>
+              </div>
+            )}
+
+            {/* 최종 수강료 */}
             <div className="flex items-center justify-between bg-ember/5 px-5 py-4">
               <span className="text-sm font-semibold text-ember">최종 수강료</span>
               <span className="text-xl font-bold text-ember tabular-nums">

@@ -20,6 +20,11 @@ type DiscountCodeRecord = {
   staff: { name: string } | null;
 };
 
+const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
+  RATE: "비율(%)",
+  FIXED: "정액(원)",
+};
+
 type DiscountCodeManagerProps = {
   initialCodes: DiscountCodeRecord[];
 };
@@ -88,6 +93,7 @@ function formatDiscount(record: DiscountCodeRecord) {
 export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) {
   const [codes, setCodes] = useState<DiscountCodeRecord[]>(initialCodes);
   const [filterType, setFilterType] = useState<CodeType | "ALL">("ALL");
+  const [filterDiscountType, setFilterDiscountType] = useState<DiscountType | "ALL">("ALL");
   const [filterActive, setFilterActive] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -100,6 +106,7 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
 
   const filteredCodes = codes.filter((c) => {
     if (filterType !== "ALL" && c.type !== filterType) return false;
+    if (filterDiscountType !== "ALL" && c.discountType !== filterDiscountType) return false;
     if (filterActive === "ACTIVE" && !c.isActive) return false;
     if (filterActive === "INACTIVE" && c.isActive) return false;
     return true;
@@ -233,6 +240,12 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
     { value: CodeType.CAMPAIGN, label: "캠페인" },
   ];
 
+  const discountTypeFilters: Array<{ value: DiscountType | "ALL"; label: string }> = [
+    { value: "ALL", label: "전체" },
+    { value: DiscountType.RATE, label: "비율(%)" },
+    { value: DiscountType.FIXED, label: "정액(원)" },
+  ];
+
   const activeFilters: Array<{ value: "ALL" | "ACTIVE" | "INACTIVE"; label: string }> = [
     { value: "ALL", label: "전체" },
     { value: "ACTIVE", label: "활성" },
@@ -246,6 +259,7 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">
+          {/* 코드 유형 필터 */}
           <div className="flex gap-1">
             {typeFilters.map((f) => (
               <button
@@ -262,6 +276,24 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
               </button>
             ))}
           </div>
+          {/* 할인 방식 필터 */}
+          <div className="flex gap-1">
+            {discountTypeFilters.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFilterDiscountType(f.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  filterDiscountType === f.value
+                    ? "bg-forest text-white"
+                    : "border border-ink/10 bg-white text-slate hover:border-forest/30"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {/* 활성 필터 */}
           <div className="flex gap-1">
             {activeFilters.map((f) => (
               <button
@@ -306,7 +338,7 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
         <table className="min-w-full divide-y divide-ink/10 text-sm">
           <thead>
             <tr>
-              {["코드", "유형", "할인", "사용 횟수", "유효 기간", "상태", "발급자", "액션"].map(
+              {["코드", "유형", "할인 방식", "할인", "사용 횟수", "유효 기간", "상태", "발급자", "액션"].map(
                 (header) => (
                   <th
                     key={header}
@@ -321,64 +353,103 @@ export function DiscountCodeManager({ initialCodes }: DiscountCodeManagerProps) 
           <tbody className="divide-y divide-ink/10">
             {filteredCodes.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate">
+                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate">
                   조건에 맞는 할인 코드가 없습니다.
                 </td>
               </tr>
             ) : null}
-            {filteredCodes.map((record) => (
-              <tr key={record.id} className="transition hover:bg-mist/30">
-                <td className="px-4 py-3 font-mono font-semibold text-ink">
-                  {record.code}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${CODE_TYPE_COLORS[record.type]}`}
-                  >
-                    {CODE_TYPE_LABELS[record.type]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 tabular-nums text-ink">
-                  {formatDiscount(record)}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-slate">
-                  {record.usageCount}
-                  {record.maxUsage != null ? ` / ${record.maxUsage}` : " / 무제한"}
-                </td>
-                <td className="px-4 py-3 text-xs text-slate">
-                  <div>{formatDate(record.validFrom)}</div>
-                  {record.validUntil ? (
-                    <div>~ {formatDate(record.validUntil)}</div>
-                  ) : (
-                    <div className="text-slate/60">종료일 없음</div>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      record.isActive
-                        ? "bg-green-50 text-green-700"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {record.isActive ? "활성" : "비활성"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate">
-                  {record.staff?.name ?? "-"}
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(record)}
-                    disabled={isPending}
-                    className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    수정
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filteredCodes.map((record) => {
+              const isExpiringSoon =
+                record.validUntil && record.isActive
+                  ? (() => {
+                      const until = new Date(record.validUntil);
+                      until.setHours(23, 59, 59, 999);
+                      const now = new Date();
+                      const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                      return until >= now && until <= sevenDays;
+                    })()
+                  : false;
+              return (
+                <tr key={record.id} className="transition hover:bg-mist/30">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-semibold text-ink">{record.code}</span>
+                      {isExpiringSoon && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          만료 임박
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${CODE_TYPE_COLORS[record.type]}`}
+                    >
+                      {CODE_TYPE_LABELS[record.type]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full border border-ink/10 bg-mist/60 px-2 py-0.5 text-xs text-slate">
+                      {DISCOUNT_TYPE_LABELS[record.discountType]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-ink">
+                    {formatDiscount(record)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-slate">
+                    <a
+                      href={`/admin/settings/discount-codes/${record.id}`}
+                      className="underline-offset-2 hover:underline hover:text-ember"
+                    >
+                      {record.usageCount}
+                      {record.maxUsage != null ? ` / ${record.maxUsage}` : " / 무제한"}
+                    </a>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate">
+                    <div>{formatDate(record.validFrom)}</div>
+                    {record.validUntil ? (
+                      <div className={isExpiringSoon ? "font-semibold text-amber-700" : ""}>
+                        ~ {formatDate(record.validUntil)}
+                      </div>
+                    ) : (
+                      <div className="text-slate/60">종료일 없음</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        record.isActive
+                          ? "bg-green-50 text-green-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {record.isActive ? "활성" : "비활성"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate">
+                    {record.staff?.name ?? "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(record)}
+                        disabled={isPending}
+                        className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        수정
+                      </button>
+                      <a
+                        href={`/admin/settings/discount-codes/${record.id}`}
+                        className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-forest/30 hover:text-forest"
+                      >
+                        이력
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

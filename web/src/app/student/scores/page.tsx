@@ -4,10 +4,11 @@ import { StudentLookupForm } from "@/components/student-portal/student-lookup-fo
 import { formatScore } from "@/lib/analytics/presentation";
 import { ATTEND_TYPE_LABEL, SCORE_SOURCE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
-import { formatDateWithWeekday } from "@/lib/format";
+import { formatDate, formatDateWithWeekday } from "@/lib/format";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import { getStudentPortalScorePageData } from "@/student-portal-api-data";
 import { ScoreChart } from "./score-chart";
+import { SubjectTrendChart } from "./subject-trend-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -249,6 +250,14 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
           <ScoreChart data={data.trendData} />
         ) : null}
 
+        {/* 과목별 성적 추이 (토글) */}
+        {data.subjectCrossTable.length > 0 && data.crossTableDates.length > 1 ? (
+          <SubjectTrendChart
+            crossTableDates={data.crossTableDates}
+            subjectCrossTable={data.subjectCrossTable}
+          />
+        ) : null}
+
         {/* 과목별 성적 크로스 테이블 */}
         {data.subjectCrossTable.length > 0 && data.crossTableDates.length > 0 ? (
           <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
@@ -294,13 +303,13 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
           </section>
         ) : null}
 
-        {/* 전체 성적 카드 목록 */}
+        {/* 전체 성적 카드 목록 (날짜별 그룹) */}
         <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">전체 성적 카드</h2>
               <p className="mt-3 text-sm leading-7 text-slate">
-                시험별 출결, 입력 방식, 최종 점수를 카드 단위로 정리했습니다.
+                날짜별로 묶인 시험 카드입니다. 날짜 제목을 클릭하면 상세 분석 페이지로 이동합니다.
               </p>
             </div>
           </div>
@@ -309,50 +318,94 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
             <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
               선택한 기간에 표시할 성적 카드가 없습니다.
             </div>
-          ) : (
-            <div className="mt-6 space-y-4">
-              {data.scoreRows.map((row) => (
-                <article key={row.id} className="rounded-[24px] border border-ink/10 p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
-                          {formatDateWithWeekday(row.session.examDate)}
-                        </span>
-                        <span className="inline-flex rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-slate">
-                          {row.session.week}주차
-                        </span>
-                      </div>
-                      <h3 className="mt-4 text-xl font-semibold">{SUBJECT_LABEL[row.session.subject]}</h3>
-                      <p className="mt-2 text-sm text-slate">
-                        출결 {ATTEND_TYPE_LABEL[row.attendType]} / 입력 방식 {SCORE_SOURCE_LABEL[row.sourceType]}
-                      </p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3 text-sm">
-                        <div className="text-slate">원점수</div>
-                        <div className="mt-2 text-lg font-semibold">{formatScore(row.rawScore)}</div>
-                      </div>
-                      <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3 text-sm">
-                        <div className="text-slate">OX 점수</div>
-                        <div className="mt-2 text-lg font-semibold">{formatScore(row.oxScore)}</div>
-                      </div>
-                      <div className={`rounded-[20px] border border-ink/10 px-4 py-3 text-sm ${scoreBgClass(row.finalScore)}`}>
-                        <div className="text-slate">최종 점수</div>
-                        <div className={`mt-2 text-lg ${scoreColorClass(row.finalScore)}`}>{formatScore(row.finalScore)}</div>
-                      </div>
-                    </div>
-                  </div>
+          ) : (() => {
+              // Group rows by exam date
+              const dateGroupMap = new Map<string, typeof data.scoreRows>();
+              for (const row of data.scoreRows) {
+                const dateKey = formatDate(row.session.examDate);
+                const group = dateGroupMap.get(dateKey) ?? [];
+                group.push(row);
+                dateGroupMap.set(dateKey, group);
+              }
+              const dateGroups = Array.from(dateGroupMap.entries()).sort(([a], [b]) => b.localeCompare(a));
 
-                  {row.note ? (
-                    <div className="mt-4 rounded-[20px] border border-ink/10 bg-white px-4 py-4 text-sm leading-7 text-slate">
-                      메모: {row.note}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          )}
+              return (
+                <div className="mt-6 space-y-6">
+                  {dateGroups.map(([dateKey, rows]) => {
+                    const firstRow = rows[0]!;
+                    const hasScore = rows.some((r) => r.finalScore !== null);
+
+                    return (
+                      <div key={dateKey} className="rounded-[24px] border border-ink/10 p-5">
+                        {/* 날짜 헤더 — 클릭하면 상세 페이지로 */}
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/student/scores/${encodeURIComponent(dateKey)}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-ember/30 bg-ember/5 px-4 py-1.5 text-sm font-semibold text-ember transition hover:bg-ember/10"
+                            >
+                              {formatDateWithWeekday(firstRow.session.examDate)}
+                              <span className="ml-1 text-xs opacity-70">→ 상세</span>
+                            </Link>
+                            <span className="inline-flex rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-slate">
+                              {firstRow.session.week}주차
+                            </span>
+                            {!hasScore && (
+                              <span className="inline-flex rounded-full border border-slate/20 bg-slate/10 px-3 py-1 text-xs font-semibold text-slate">
+                                미응시
+                              </span>
+                            )}
+                          </div>
+                          <Link
+                            href={`/student/scores/${encodeURIComponent(dateKey)}`}
+                            className="text-xs text-ember underline underline-offset-2 hover:text-ember/80"
+                          >
+                            회차 상세 분석
+                          </Link>
+                        </div>
+
+                        {/* 과목 카드들 */}
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {rows.map((row) => (
+                            <div
+                              key={row.id}
+                              className={`rounded-[20px] border border-ink/10 p-4 ${scoreBgClass(row.finalScore)}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate">
+                                  {SUBJECT_LABEL[row.session.subject]}
+                                </span>
+                                {row.finalScore === null && (
+                                  <span className="inline-flex rounded-full border border-slate/20 bg-slate/10 px-2 py-0.5 text-xs font-semibold text-slate">
+                                    미응시
+                                  </span>
+                                )}
+                              </div>
+                              <div className={`mt-2 text-xl ${scoreColorClass(row.finalScore)}`}>
+                                {row.finalScore !== null ? `${formatScore(row.finalScore)}점` : "-"}
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-slate">
+                                <span>원점수 {formatScore(row.rawScore)}</span>
+                                <span>OX {formatScore(row.oxScore)}</span>
+                              </div>
+                              <div className="mt-2 text-xs text-slate">
+                                출결 {ATTEND_TYPE_LABEL[row.attendType]} · {SCORE_SOURCE_LABEL[row.sourceType]}
+                              </div>
+                              {row.note ? (
+                                <div className="mt-2 rounded-[12px] border border-ink/10 bg-white px-3 py-2 text-xs text-slate">
+                                  {row.note}
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
+          }
         </section>
       </div>
     </main>

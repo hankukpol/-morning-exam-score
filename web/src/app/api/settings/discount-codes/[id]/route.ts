@@ -3,6 +3,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAdmin(AdminRole.COUNSELOR);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const id = Number(params.id);
+  if (isNaN(id)) return NextResponse.json({ error: "잘못된 ID" }, { status: 400 });
+
+  const code = await getPrisma().discountCode.findUnique({
+    where: { id },
+    include: {
+      staff: { select: { name: true } },
+      usages: {
+        orderBy: { usedAt: "desc" },
+        include: {
+          student: { select: { examNumber: true, name: true, phone: true } },
+          payment: {
+            select: {
+              id: true,
+              discountAmount: true,
+              netAmount: true,
+              createdAt: true,
+              enrollmentId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!code) return NextResponse.json({ error: "존재하지 않는 코드" }, { status: 404 });
+
+  return NextResponse.json({ data: code });
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireApiAdmin(AdminRole.MANAGER);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
