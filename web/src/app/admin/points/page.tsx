@@ -97,6 +97,12 @@ export default async function AdminPointsPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Link
+            href="/admin/points/leaderboard"
+            className="inline-flex items-center gap-2 rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-medium text-ember transition hover:bg-ember/20"
+          >
+            리더보드
+          </Link>
+          <Link
             href="/admin/points/attendance"
             className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-mist"
           >

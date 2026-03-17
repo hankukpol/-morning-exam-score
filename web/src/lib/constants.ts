@@ -340,6 +340,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "보고서",
   },
   {
+    href: "/admin/analytics/revenue",
+    label: "수납 분석",
+    description: "연간 수납 카테고리·결제수단 분석",
+    minRole: AdminRole.COUNSELOR,
+    group: "분석",
+  },
+  {
     href: "/admin/periods",
     label: "시험 등록",
     description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",
@@ -487,6 +494,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "결과 분석",
   },
   {
+    href: "/admin/analytics/attendance",
+    label: "출결 분석",
+    description: "월별 출석률 추이 및 반별 비교",
+    minRole: AdminRole.TEACHER,
+    group: "결과 분석",
+  },
+  {
     href: "/admin/dropout",
     label: "경고·탈락 판정",
     description: "주 3회 및 월 8회 기준 자동 판정",
@@ -512,6 +526,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "포인트 직접 관리",
     description: "학생 포인트 수동 지급 및 차감",
     minRole: AdminRole.MANAGER,
+    group: "판정 관리",
+  },
+  {
+    href: "/admin/points/leaderboard",
+    label: "포인트 리더보드",
+    description: "학생별 포인트 순위 및 최근 내역 분석",
+    minRole: AdminRole.COUNSELOR,
     group: "판정 관리",
   },
   {
