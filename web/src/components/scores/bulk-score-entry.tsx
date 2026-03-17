@@ -562,6 +562,35 @@ export function BulkScoreEntry({ periods, students }: BulkScoreEntryProps) {
                               handleScoreChange(student.examNumber, e.target.value)
                             }
                             placeholder="미응시"
+                            data-score-input="true"
+                            onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                                e.preventDefault();
+                                const inputs = Array.from(
+                                  document.querySelectorAll<HTMLInputElement>(
+                                    '[data-score-input="true"]',
+                                  ),
+                                );
+                                const idx = inputs.indexOf(e.currentTarget as HTMLInputElement);
+                                if (idx >= 0 && idx < inputs.length - 1) {
+                                  inputs[idx + 1].focus();
+                                  inputs[idx + 1].select();
+                                }
+                              } else if (e.key === "Tab" && e.shiftKey) {
+                                e.preventDefault();
+                                const inputs = Array.from(
+                                  document.querySelectorAll<HTMLInputElement>(
+                                    '[data-score-input="true"]',
+                                  ),
+                                );
+                                const idx = inputs.indexOf(e.currentTarget as HTMLInputElement);
+                                if (idx > 0) {
+                                  inputs[idx - 1].focus();
+                                  inputs[idx - 1].select();
+                                }
+                              }
+                            }}
                             className={`w-24 rounded-xl border px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-forest/30 transition ${
                               hasError
                                 ? "border-red-400 bg-red-50 text-red-700"

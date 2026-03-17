@@ -70,6 +70,37 @@ const STATUS_TRANSITION_LABEL: Partial<Record<EnrollmentStatus, string>> = {
   CANCELLED: "취소 처리",
 };
 
+function SortableHeader({
+  col,
+  label,
+  currentSort,
+  currentDir,
+  onSort,
+}: {
+  col: string;
+  label: string;
+  currentSort: string;
+  currentDir: string;
+  onSort: (col: string, dir: string) => void;
+}) {
+  const isActive = currentSort === col;
+  const nextDir = isActive && currentDir === "asc" ? "desc" : "asc";
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(col, nextDir)}
+      className="flex items-center gap-1 font-semibold hover:text-ember transition-colors text-left"
+    >
+      {label}
+      {isActive ? (
+        <span className="text-ember">{currentDir === "asc" ? "↑" : "↓"}</span>
+      ) : (
+        <span className="text-gray-300">↕</span>
+      )}
+    </button>
+  );
+}
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -120,6 +151,13 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
   const [filterStatus, setFilterStatus] = useState<EnrollmentStatus | "ALL">("ALL");
   const [filterCourseType, setFilterCourseType] = useState<CourseType | "ALL">("ALL");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<string>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function handleSort(col: string, dir: string) {
+    setSort(col);
+    setSortDir(dir as "asc" | "desc");
+  }
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -228,6 +266,16 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
   }
 
   const filtered = enrollments.filter((e) => filteredIds.has(e.id));
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sort === "studentName") return dir * a.student.name.localeCompare(b.student.name, "ko");
+    if (sort === "finalFee") return dir * (a.finalFee - b.finalFee);
+    if (sort === "startDate")
+      return dir * (new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    // default: createdAt
+    return dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  });
 
   function handleStatusChange(enrollment: EnrollmentWithRelations, newStatus: EnrollmentStatus) {
     setSuccessMessage(null);
@@ -411,34 +459,68 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     />
                   </th>
                 )}
-                {[
-                  "학생",
-                  "수강 유형",
-                  "강좌/기수",
-                  "기간",
-                  "수강료",
-                  "상태",
-                  "등록 경로",
-                  "액션",
-                ].map((header) => (
-                  <th
-                    key={header}
-                    className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap"
-                  >
-                    {header}
-                  </th>
-                ))}
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  <SortableHeader
+                    col="studentName"
+                    label="학생"
+                    currentSort={sort}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  수강 유형
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  강좌/기수
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  <SortableHeader
+                    col="startDate"
+                    label="기간"
+                    currentSort={sort}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  <SortableHeader
+                    col="finalFee"
+                    label="수강료"
+                    currentSort={sort}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  상태
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  등록 경로
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  <SortableHeader
+                    col="createdAt"
+                    label="등록일"
+                    currentSort={sort}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                  액션
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10">
-              {filtered.length === 0 ? (
+              {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={canBulkComplete ? 9 : 8} className="px-4 py-10 text-center text-sm text-slate">
+                  <td colSpan={canBulkComplete ? 10 : 9} className="px-4 py-10 text-center text-sm text-slate">
                     조건에 맞는 수강 내역이 없습니다.
                   </td>
                 </tr>
               ) : null}
-              {filtered.map((enrollment) => {
+              {sorted.map((enrollment) => {
                 const availableTransitions = STATUS_TRANSITIONS[enrollment.status] ?? [];
                 const canWithdraw =
                   enrollment.status !== "WITHDRAWN" && enrollment.status !== "COMPLETED";

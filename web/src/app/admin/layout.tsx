@@ -1,4 +1,5 @@
 ﻿import Link from "next/link";
+import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "sonner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SetupPanel } from "@/components/setup-panel";
@@ -118,6 +119,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F4F6]">
+      <NextTopLoader color="#C55A11" showSpinner={false} height={2} />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only left-4 top-4 z-[60] rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm"
