@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PassType } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import type { GraduateRow } from "./page";
@@ -22,7 +23,14 @@ const PASS_TYPE_COLOR: Record<PassType, string> = {
   FINAL_FAIL: "bg-red-50 text-red-600 border-red-200",
 };
 
+const EXAM_TYPE_LABEL: Record<string, string> = {
+  GONGCHAE: "공채",
+  GYEONGCHAE: "경채",
+};
+
 const ALL_PASS_TYPES = Object.keys(PASS_TYPE_LABEL) as PassType[];
+const POSITIVE_TYPES: PassType[] = ["WRITTEN_PASS", "FINAL_PASS", "APPOINTED"];
+const TAB_TYPES: Array<PassType | "ALL"> = ["ALL", "WRITTEN_PASS", "FINAL_PASS", "APPOINTED", "WRITTEN_FAIL", "FINAL_FAIL"];
 
 interface GraduateForm {
   examNumber: string;
@@ -66,11 +74,34 @@ export function GraduateManager({ initialRecords }: Props) {
   const [filterType, setFilterType] = useState<PassType | "ALL">("ALL");
   const [search, setSearch] = useState("");
 
+  // 연도 필터
+  const currentYear = new Date().getFullYear();
+  const years = Array.from(
+    new Set(
+      initialRecords.map((r) => {
+        const d = r.finalPassDate ?? r.writtenPassDate ?? r.appointedDate;
+        return d ? new Date(d).getFullYear() : null;
+      }).filter(Boolean) as number[],
+    ),
+  ).sort((a, b) => b - a);
+  if (!years.includes(currentYear)) years.unshift(currentYear);
+
+  const [filterYear, setFilterYear] = useState<number | "ALL">("ALL");
+
   const displayed = initialRecords.filter((r) => {
     if (filterType !== "ALL" && r.passType !== filterType) return false;
+    if (filterYear !== "ALL") {
+      const d = r.finalPassDate ?? r.writtenPassDate ?? r.appointedDate;
+      if (!d || new Date(d).getFullYear() !== filterYear) return false;
+    }
     if (search) {
       const q = search.toLowerCase();
-      if (!r.student.name.toLowerCase().includes(q) && !r.examNumber.includes(q) && !r.examName.toLowerCase().includes(q)) return false;
+      if (
+        !r.student.name.toLowerCase().includes(q) &&
+        !r.examNumber.includes(q) &&
+        !r.examName.toLowerCase().includes(q)
+      )
+        return false;
     }
     return true;
   });
@@ -100,7 +131,8 @@ export function GraduateManager({ initialRecords }: Props) {
 
   function handleCreate() {
     if (!form.examNumber || !form.examName || !form.passType) {
-      setError("수험번호, 시험명, 합격 구분은 필수입니다."); return;
+      setError("수험번호, 시험명, 합격 구분은 필수입니다.");
+      return;
     }
     startTransition(async () => {
       try {
@@ -124,13 +156,16 @@ export function GraduateManager({ initialRecords }: Props) {
         if (!res.ok) throw new Error(data.error ?? "등록 실패");
         setCreateOpen(false);
         router.refresh();
-      } catch (e) { setError(e instanceof Error ? e.message : "등록 실패"); }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "등록 실패");
+      }
     });
   }
 
   function handleEdit() {
     if (!editTarget || !form.examName || !form.passType) {
-      setError("시험명과 합격 구분은 필수입니다."); return;
+      setError("시험명과 합격 구분은 필수입니다.");
+      return;
     }
     startTransition(async () => {
       try {
@@ -153,7 +188,9 @@ export function GraduateManager({ initialRecords }: Props) {
         if (!res.ok) throw new Error(data.error ?? "수정 실패");
         setEditTarget(null);
         router.refresh();
-      } catch (e) { setError(e instanceof Error ? e.message : "수정 실패"); }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "수정 실패");
+      }
     });
   }
 
@@ -161,7 +198,10 @@ export function GraduateManager({ initialRecords }: Props) {
     if (!deleteTarget) return;
     startTransition(async () => {
       const res = await fetch(`/api/graduates/${deleteTarget.id}`, { method: "DELETE" });
-      if (res.ok) { setDeleteTarget(null); router.refresh(); }
+      if (res.ok) {
+        setDeleteTarget(null);
+        router.refresh();
+      }
     });
   }
 
@@ -176,30 +216,50 @@ export function GraduateManager({ initialRecords }: Props) {
           placeholder="이름·수험번호·시험명 검색"
           className="rounded-[12px] border border-ink/20 px-4 py-2 text-sm outline-none focus:border-forest w-56"
         />
-        <div className="flex gap-1">
-          <button
-            onClick={() => setFilterType("ALL")}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterType === "ALL" ? "bg-ink text-white" : "border border-ink/20 text-slate hover:border-ink/40"}`}
-          >
-            전체
-          </button>
-          {ALL_PASS_TYPES.map((t) => (
+
+        {/* 연도 필터 */}
+        <select
+          value={filterYear}
+          onChange={(e) => setFilterYear(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
+          className="rounded-[12px] border border-ink/20 px-3 py-2 text-sm outline-none focus:border-forest"
+        >
+          <option value="ALL">전체 연도</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}년
+            </option>
+          ))}
+        </select>
+
+        {/* 합격 구분 탭 */}
+        <div className="flex flex-wrap gap-1">
+          {TAB_TYPES.map((t) => (
             <button
               key={t}
               onClick={() => setFilterType(t)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filterType === t ? "bg-ink text-white" : "border border-ink/20 text-slate hover:border-ink/40"}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                filterType === t ? "bg-ink text-white" : "border border-ink/20 text-slate hover:border-ink/40"
+              }`}
             >
-              {PASS_TYPE_LABEL[t]}
+              {t === "ALL" ? "전체" : PASS_TYPE_LABEL[t as PassType]}
             </button>
           ))}
         </div>
+
         <button
           onClick={openCreate}
-          className="ml-auto rounded-[28px] bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-forest"
+          className="ml-auto rounded-[28px] bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-forest transition-colors"
         >
           + 합격 등록
         </button>
       </div>
+
+      {/* 결과 수 */}
+      <p className="text-xs text-slate mb-3">
+        {displayed.length}건
+        {filterYear !== "ALL" && ` · ${filterYear}년`}
+        {filterType !== "ALL" && ` · ${PASS_TYPE_LABEL[filterType as PassType]}`}
+      </p>
 
       {/* Table */}
       {displayed.length === 0 ? (
@@ -214,8 +274,10 @@ export function GraduateManager({ initialRecords }: Props) {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate">학생</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate">시험명</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">합격 구분</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-slate">수험 유형</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate">합격일</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">수강 기간</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-slate">성적 스냅샷</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate"></th>
               </tr>
             </thead>
@@ -223,8 +285,16 @@ export function GraduateManager({ initialRecords }: Props) {
               {displayed.map((r) => (
                 <tr key={r.id} className="hover:bg-mist/40">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{r.student.name}</p>
-                    <p className="text-xs text-slate">{r.examNumber}{r.student.generation ? ` · ${r.student.generation}기` : ""}</p>
+                    <Link
+                      href={`/admin/students/${r.examNumber}`}
+                      className="font-medium hover:text-forest transition-colors"
+                    >
+                      {r.student.name}
+                    </Link>
+                    <p className="text-xs text-slate">
+                      {r.examNumber}
+                      {r.student.generation ? ` · ${r.student.generation}기` : ""}
+                    </p>
                   </td>
                   <td className="px-4 py-3 text-slate">{r.examName}</td>
                   <td className="px-4 py-3 text-center">
@@ -232,20 +302,68 @@ export function GraduateManager({ initialRecords }: Props) {
                       {PASS_TYPE_LABEL[r.passType]}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-center text-xs text-slate">
+                    {EXAM_TYPE_LABEL[r.student.examType] ?? r.student.examType}
+                  </td>
                   <td className="px-4 py-3 text-slate text-xs">
                     {r.finalPassDate
-                      ? new Date(r.finalPassDate).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" })
+                      ? new Date(r.finalPassDate).toLocaleDateString("ko-KR", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })
                       : r.writtenPassDate
-                      ? new Date(r.writtenPassDate).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" })
+                      ? new Date(r.writtenPassDate).toLocaleDateString("ko-KR", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })
                       : "-"}
                   </td>
                   <td className="px-4 py-3 text-center text-slate text-xs">
                     {r.enrolledMonths != null ? `${r.enrolledMonths}개월` : "-"}
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    {r.scoreSnapshots.length > 0 ? (
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {r.scoreSnapshots
+                          .filter((s) => POSITIVE_TYPES.includes(s.snapshotType))
+                          .map((s) => (
+                            <span
+                              key={s.snapshotType}
+                              className="rounded-full bg-forest/10 px-1.5 py-0.5 text-[10px] text-forest font-medium"
+                            >
+                              {PASS_TYPE_LABEL[s.snapshotType]}
+                            </span>
+                          ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate/50">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-3">
-                      <button onClick={() => openEdit(r)} className="text-xs text-slate hover:text-ink">수정</button>
-                      <button onClick={() => { setError(null); setDeleteTarget(r); }} className="text-xs text-red-400 hover:text-red-600">삭제</button>
+                      <Link
+                        href={`/admin/graduates/${r.id}`}
+                        className="text-xs text-forest font-medium hover:underline"
+                      >
+                        상세
+                      </Link>
+                      <button
+                        onClick={() => openEdit(r)}
+                        className="text-xs text-slate hover:text-ink"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => {
+                          setError(null);
+                          setDeleteTarget(r);
+                        }}
+                        className="text-xs text-red-400 hover:text-red-600"
+                      >
+                        삭제
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -268,7 +386,7 @@ export function GraduateManager({ initialRecords }: Props) {
         onConfirm={handleCreate}
         panelClassName="max-w-lg"
       >
-        <GraduateForm form={form} onChange={setForm} error={error} showExamNumber />
+        <GraduateFormFields form={form} onChange={setForm} error={error} showExamNumber />
       </ActionModal>
 
       {/* Edit Modal */}
@@ -284,7 +402,7 @@ export function GraduateManager({ initialRecords }: Props) {
         onConfirm={handleEdit}
         panelClassName="max-w-lg"
       >
-        <GraduateForm form={form} onChange={setForm} error={error} />
+        <GraduateFormFields form={form} onChange={setForm} error={error} />
       </ActionModal>
 
       {/* Delete Modal */}
@@ -305,7 +423,7 @@ export function GraduateManager({ initialRecords }: Props) {
   );
 }
 
-function GraduateForm({
+function GraduateFormFields({
   form,
   onChange,
   error,
@@ -351,8 +469,10 @@ function GraduateForm({
           onChange={(e) => onChange({ ...form, passType: e.target.value as PassType })}
           className="w-full rounded-[12px] border border-ink/20 px-4 py-2.5 text-sm outline-none focus:border-forest"
         >
-          {Object.entries(PASS_TYPE_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+          {ALL_PASS_TYPES.map((k) => (
+            <option key={k} value={k}>
+              {PASS_TYPE_LABEL[k]}
+            </option>
           ))}
         </select>
       </div>

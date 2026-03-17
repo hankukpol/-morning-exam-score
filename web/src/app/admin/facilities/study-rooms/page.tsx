@@ -1,38 +1,17 @@
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
-import { StudyRoomManager } from "./study-room-manager";
+import { BookingManager } from "../../study-rooms/booking-manager";
+import type { StudyRoomRow, BookingRow } from "../../study-rooms/page";
 
 export const dynamic = "force-dynamic";
 
-export type StudyRoomRow = {
-  id: string;
-  name: string;
-  capacity: number;
-  description: string | null;
-  isActive: boolean;
-  sortOrder: number;
-};
-
-export type BookingRow = {
-  id: string;
-  roomId: string;
-  examNumber: string;
-  bookingDate: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  note: string | null;
-  room: { name: string };
-  student: { name: string; generation: number | null };
-  assigner: { name: string };
-};
-
-export default async function StudyRoomsPage() {
-  await requireAdminContext(AdminRole.ACADEMIC_ADMIN);
+export default async function FacilitiesStudyRoomsPage() {
+  await requireAdminContext(AdminRole.TEACHER);
 
   const today = new Date();
   const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayStr = todayDate.toISOString().slice(0, 10);
 
   const [rooms, todayBookings] = await Promise.all([
     getPrisma().studyRoom.findMany({
@@ -40,7 +19,7 @@ export default async function StudyRoomsPage() {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
     getPrisma().studyRoomBooking.findMany({
-      where: { bookingDate: todayDate, status: "CONFIRMED" },
+      where: { bookingDate: todayDate },
       include: {
         room: { select: { name: true } },
         student: { select: { name: true, generation: true } },
@@ -55,22 +34,91 @@ export default async function StudyRoomsPage() {
     bookingDate: b.bookingDate.toISOString(),
   }));
 
+  const confirmedCount = serializedBookings.filter((b) => b.status === "CONFIRMED").length;
+  const occupiedRooms = new Set(
+    serializedBookings.filter((b) => b.status === "CONFIRMED").map((b) => b.roomId),
+  ).size;
+
   return (
     <div className="p-8 sm:p-10">
+      {/* Header */}
       <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-800">
         시설 관리
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">스터디룸 예약</h1>
+      <h1 className="mt-5 text-3xl font-semibold text-ink">스터디룸 예약</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        스터디룸 예약 요청을 확인하고 배정합니다. 직원이 예약을 직접 배정하며 학생에게 안내합니다.
+        날짜별 스터디룸 예약 현황을 확인하고 직원이 직접 배정합니다.
       </p>
-      <div className="mt-8">
-        <StudyRoomManager
+
+      {/* KPI cards */}
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <KpiCard label="스터디룸" value={rooms.length} unit="개" />
+        <KpiCard label="오늘 예약" value={confirmedCount} unit="건" />
+        <KpiCard label="사용 중인 룸" value={occupiedRooms} unit="개" />
+        <KpiCard label="여유 룸" value={rooms.length - occupiedRooms} unit="개" />
+      </div>
+
+      {/* Rooms at a glance */}
+      {rooms.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          {rooms.map((room) => {
+            const count = serializedBookings.filter(
+              (b) => b.roomId === room.id && b.status === "CONFIRMED",
+            ).length;
+            return (
+              <div
+                key={room.id}
+                className={`rounded-[20px] border px-4 py-3 text-sm ${
+                  count > 0
+                    ? "border-ember/30 bg-ember/5"
+                    : "border-forest/20 bg-forest/5"
+                }`}
+              >
+                <p className="font-semibold text-ink">{room.name}</p>
+                <p className="text-xs text-slate">
+                  최대 {room.capacity}명 ·{" "}
+                  {count > 0 ? (
+                    <span className="text-ember font-medium">예약 {count}건</span>
+                  ) : (
+                    <span className="text-forest">여유</span>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Main booking manager */}
+      <div className="mt-10">
+        <BookingManager
           initialRooms={rooms as StudyRoomRow[]}
           initialBookings={serializedBookings}
-          todayDate={todayDate.toISOString()}
+          todayStr={todayStr}
         />
       </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function KpiCard({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+}) {
+  return (
+    <div className="rounded-[20px] border border-ink/10 bg-white px-5 py-4">
+      <p className="text-xs font-medium text-slate">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-ink">
+        {value}
+        <span className="ml-1 text-sm font-normal text-slate">{unit}</span>
+      </p>
     </div>
   );
 }

@@ -288,13 +288,21 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
         ) : null}
       </div>
 
-      {/* Back button */}
-      <div className="mt-6">
+      {/* Action buttons */}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
           href="/admin/payments"
           className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-5 py-2.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"
         >
           ← 목록으로
+        </a>
+        <a
+          href={`/admin/payments/${payment.id}/receipt`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full border border-forest/20 px-5 py-2.5 text-sm font-semibold text-forest transition hover:border-forest/50"
+        >
+          영수증 출력
         </a>
       </div>
 

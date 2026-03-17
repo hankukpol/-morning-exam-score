@@ -648,6 +648,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "시설 관리",
   },
   {
+    href: "/admin/facilities/study-rooms",
+    label: "스터디룸 예약",
+    description: "날짜별 스터디룸 예약 현황, 배정 및 취소 처리",
+    minRole: AdminRole.TEACHER,
+    group: "시설 관리",
+  },
+  {
     href: "/admin/facilities/textbooks",
     label: "교재 판매",
     description: "교재 현장 판매 등록 및 오늘 판매 내역 조회",

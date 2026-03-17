@@ -212,6 +212,14 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           수강증 출력
         </Link>
         <Link
+          href={`/admin/enrollments/${enrollment.id}/certificate`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-full border border-forest/20 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50"
+        >
+          수강확인서
+        </Link>
+        <Link
           href={`/admin/enrollments/${enrollment.id}/contract`}
           target="_blank"
           rel="noopener noreferrer"

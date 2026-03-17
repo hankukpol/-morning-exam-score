@@ -69,7 +69,16 @@
       "Bash(git add web/src/app/admin/students/[examNumber]/documents/ web/src/app/admin/students/[examNumber]/consent-toggle.tsx web/src/app/admin/students/[examNumber]/page.tsx web/src/app/api/students/[examNumber]/route.ts web/src/app/admin/settings/approval-rules/ web/src/app/api/settings/approval-rules/ web/prisma/schema.prisma web/prisma/migrations/approval_rules.sql web/src/lib/constants.ts)",
       "Bash(git add web/src/app/admin/enrollments/expiring/ web/src/app/api/enrollments/expiring/ web/src/app/student/page.tsx web/src/app/admin/enrollments/[id]/textbooks/ web/src/app/api/enrollments/[id]/textbooks/ web/src/components/enrollments/enrollment-form.tsx web/src/lib/constants.ts)",
       "Bash(git add -u)",
-      "Bash(git add web/src/)"
+      "Bash(git add web/src/)",
+      "Bash(git add web/src/app/admin/enrollments/expiring/page.tsx web/src/app/admin/enrollments/new/page.tsx web/src/components/enrollments/enrollment-form.tsx web/src/app/student/enrollment/page.tsx web/src/app/admin/page.tsx)",
+      "Bash(git add web/src/app/api/approvals/ web/src/app/admin/approvals/ web/src/app/api/results/cohort/ web/src/app/admin/results/cohort/ web/src/app/admin/page.tsx web/src/app/student/page.tsx web/src/lib/constants.ts)",
+      "Bash(git add web/prisma/schema.prisma web/prisma/migrations/add_course_contracts.sql web/src/app/api/contracts/ web/src/app/admin/enrollments/)",
+      "Bash(git add web/src/app/api/staff-settlements/ web/src/app/admin/staff-settlements/ web/src/app/api/prospects/ web/src/app/admin/prospects/ web/src/app/student/scores/ web/src/lib/constants.ts)",
+      "Bash(git add web/src/student-portal-api-data.ts)",
+      "Bash(git add web/src/app/student/wrong-notes/ web/src/components/student-portal/wrong-note-manager.tsx web/src/app/api/notifications/history/ web/src/app/admin/notifications/history/ web/src/lib/constants.ts)",
+      "Bash(ls \"d:\\\\앱 프로그램\\\\아침모의고사 성적,출결관리\\\\web\\\\src\\\\app\\\\api\\\\scores\\\\bulk-import\"\" && ls \"d:앱 프로그램아침모의고사 성적,출결관리websrcappapiscoresprogress\"\")",
+      "Bash(cd /d/앱 프로그램/아침모의고사 성적,출결관리/web)",
+      "Bash(git add prisma/migrations/notice_pinned.sql src/app/api/notices/[id]/pin/)"
     ],
     "additionalDirectories": [
       "D:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\settings\\cohorts",

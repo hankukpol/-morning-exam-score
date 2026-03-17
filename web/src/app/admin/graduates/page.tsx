@@ -18,9 +18,9 @@ export type GraduateRow = {
   isPublic: boolean;
   note: string | null;
   createdAt: string;
-  student: { name: string; generation: number | null };
+  student: { name: string; generation: number | null; examType: string };
   staff: { name: string };
-  scoreSnapshot: { overallAverage: number | null; totalEnrolledMonths: number } | null;
+  scoreSnapshots: Array<{ snapshotType: PassType; overallAverage: number | null; totalEnrolledMonths: number }>;
 };
 
 export default async function GraduatesPage() {
@@ -28,9 +28,9 @@ export default async function GraduatesPage() {
 
   const records = await getPrisma().graduateRecord.findMany({
     include: {
-      student: { select: { name: true, generation: true } },
+      student: { select: { name: true, generation: true, examType: true } },
       staff: { select: { name: true } },
-      scoreSnapshot: { select: { overallAverage: true, totalEnrolledMonths: true } },
+      scoreSnapshots: { select: { snapshotType: true, overallAverage: true, totalEnrolledMonths: true } },
     },
     orderBy: [{ createdAt: "desc" }],
   });
@@ -45,10 +45,37 @@ export default async function GraduatesPage() {
 
   // 연도별 합격 현황 요약
   const currentYear = new Date().getFullYear();
-  const thisYear = rows.filter((r) => {
-    const date = r.finalPassDate ?? r.writtenPassDate;
-    return date && date.startsWith(String(currentYear));
-  });
+
+  function countByTypeAndYear(type: PassType, year: number) {
+    return rows.filter((r) => {
+      if (r.passType !== type) return false;
+      const date = r.finalPassDate ?? r.writtenPassDate ?? r.appointedDate;
+      return date?.startsWith(String(year));
+    }).length;
+  }
+
+  const kpiData = [
+    {
+      type: "WRITTEN_PASS" as PassType,
+      label: "필기합격",
+      color: "bg-sky-50 text-sky-700 border-sky-200",
+      count: countByTypeAndYear("WRITTEN_PASS", currentYear),
+    },
+    {
+      type: "FINAL_PASS" as PassType,
+      label: "최종합격",
+      color: "bg-forest/10 text-forest border-forest/20",
+      count: countByTypeAndYear("FINAL_PASS", currentYear),
+    },
+    {
+      type: "APPOINTED" as PassType,
+      label: "임용",
+      color: "bg-amber-50 text-amber-700 border-amber-200",
+      count: countByTypeAndYear("APPOINTED", currentYear),
+    },
+  ];
+
+  const totalPassCount = rows.filter((r) => ["WRITTEN_PASS", "FINAL_PASS", "APPOINTED"].includes(r.passType)).length;
 
   return (
     <div className="p-8 sm:p-10">
@@ -60,19 +87,13 @@ export default async function GraduatesPage() {
         필기합격·최종합격 기록을 관리하고 합격자 성적 데이터를 보관합니다.
       </p>
 
-      {/* 연도 요약 카드 */}
+      {/* KPI 카드 */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {(
-          [
-            { type: "WRITTEN_PASS", label: "필기합격", color: "bg-sky-50 text-sky-700 border-sky-200" },
-            { type: "FINAL_PASS", label: "최종합격", color: "bg-forest/10 text-forest border-forest/20" },
-            { type: "APPOINTED", label: "임용", color: "bg-amber-50 text-amber-700 border-amber-200" },
-          ] as const
-        ).map(({ type, label, color }) => (
+        {kpiData.map(({ type, label, color, count }) => (
           <div key={type} className={`rounded-[20px] border p-5 ${color}`}>
             <p className="text-xs font-semibold">{currentYear}년 {label}</p>
             <p className="mt-1 text-3xl font-bold">
-              {rows.filter((r) => r.passType === type && (r.finalPassDate ?? r.writtenPassDate)?.startsWith(String(currentYear))).length}
+              {count}
               <span className="text-sm font-normal ml-1">명</span>
             </p>
           </div>
@@ -80,7 +101,7 @@ export default async function GraduatesPage() {
         <div className="rounded-[20px] border border-ink/10 bg-white p-5">
           <p className="text-xs font-semibold text-slate">전체 합격자</p>
           <p className="mt-1 text-3xl font-bold">
-            {rows.filter((r) => ["WRITTEN_PASS", "FINAL_PASS", "APPOINTED"].includes(r.passType)).length}
+            {totalPassCount}
             <span className="text-sm font-normal ml-1 text-slate">명</span>
           </p>
         </div>

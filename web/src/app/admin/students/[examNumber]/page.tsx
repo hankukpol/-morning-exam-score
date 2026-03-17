@@ -226,6 +226,24 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             </span>
           )}
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/admin/students/${params.examNumber}/score-report`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 px-3 py-1.5 text-xs font-semibold text-forest transition hover:border-forest/50"
+          >
+            성적통지표
+          </Link>
+          <Link
+            href={`/admin/students/${params.examNumber}/documents`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30"
+          >
+            공식 서류
+          </Link>
+        </div>
       </div>
 
       {/* 탭 */}

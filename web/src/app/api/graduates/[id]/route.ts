@@ -12,7 +12,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     include: {
       student: { select: { name: true, generation: true, examType: true } },
       staff: { select: { name: true } },
-      scoreSnapshot: true,
+      scoreSnapshots: { orderBy: { createdAt: "asc" as const } },
     },
   });
 

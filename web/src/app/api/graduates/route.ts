@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     include: {
       student: { select: { name: true, generation: true } },
       staff: { select: { name: true } },
-      scoreSnapshot: { select: { overallAverage: true, totalEnrolledMonths: true } },
+      scoreSnapshots: { select: { snapshotType: true, overallAverage: true, totalEnrolledMonths: true } },
     },
     orderBy: [{ createdAt: "desc" }],
   });
