@@ -269,6 +269,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/approvals",
+    label: "결재 대기함",
+    description: "환불 승인 대기 건 검토",
+    minRole: AdminRole.MANAGER,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/enrollments/ledger",
     label: "수강대장",
     description: "기수·기간별 수강생 명단 조회 및 출력 (학원법 준수)",
@@ -393,6 +400,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간 전체 통합 출감과 참여율",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",
+  },
+  {
+    href: "/admin/results/cohort",
+    label: "기수별 통계",
+    description: "기수별 성적 분포, 과목별 평균, 합격률",
+    minRole: AdminRole.TEACHER,
+    group: "결과 분석",
   },
   {
     href: "/admin/dropout",

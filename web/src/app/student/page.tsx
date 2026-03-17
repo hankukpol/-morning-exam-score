@@ -124,18 +124,64 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
     );
   }
 
-  const activeEnrollment = await getPrisma().courseEnrollment.findFirst({
-    where: {
-      examNumber: data.student.examNumber,
-      status: "ACTIVE",
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      cohort: { select: { name: true } },
-      product: { select: { name: true } },
-      specialLecture: { select: { name: true } },
-    },
-  });
+  const todayForStudentExams = new Date();
+  todayForStudentExams.setHours(0, 0, 0, 0);
+
+  const [activeEnrollment, upcomingStudentExams] = await Promise.all([
+    getPrisma().courseEnrollment.findFirst({
+      where: {
+        examNumber: data.student.examNumber,
+        status: "ACTIVE",
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        cohort: { select: { name: true } },
+        product: { select: { name: true } },
+        specialLecture: { select: { name: true } },
+      },
+    }),
+    getPrisma()
+      .civilServiceExam.findMany({
+        where: {
+          isActive: true,
+          writtenDate: { gte: todayForStudentExams },
+          examType: data.student.examType,
+        },
+        orderBy: { writtenDate: "asc" },
+        take: 3,
+        select: {
+          id: true,
+          name: true,
+          examType: true,
+          year: true,
+          writtenDate: true,
+          interviewDate: true,
+          resultDate: true,
+        },
+      })
+      .then((rows) => {
+        if (rows.length > 0) return rows;
+        // Fallback: show all exam types if no exams for this student's type
+        return getPrisma().civilServiceExam.findMany({
+          where: {
+            isActive: true,
+            writtenDate: { gte: todayForStudentExams },
+          },
+          orderBy: { writtenDate: "asc" },
+          take: 3,
+          select: {
+            id: true,
+            name: true,
+            examType: true,
+            year: true,
+            writtenDate: true,
+            interviewDate: true,
+            resultDate: true,
+          },
+        });
+      })
+      .catch(() => [] as never[]),
+  ]);
 
   function getEnrollmentCourseName(
     enrollment: typeof activeEnrollment,
@@ -181,6 +227,23 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
   const wrongNoteQuestionIds = new Set(data.wrongNoteQuestionIds);
   const classLabel = data.student.className ?? "반 정보 없음";
   const generationLabel = data.student.generation ? `${data.student.generation}기` : "기수 미지정";
+
+  function computeCivilExamDDay(date: Date): { label: string; pillClass: string } {
+    const diff = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: "종료", pillClass: "border-ink/10 bg-mist text-ink" };
+    if (diff === 0) return { label: "D-Day", pillClass: "border-red-200 bg-red-50 text-red-700" };
+    if (diff <= 14) return { label: `D-${diff}`, pillClass: "border-red-200 bg-red-50 text-red-700" };
+    if (diff <= 30) return { label: `D-${diff}`, pillClass: "border-amber-200 bg-amber-50 text-amber-700" };
+    return { label: `D-${diff}`, pillClass: "border-forest/20 bg-forest/10 text-forest" };
+  }
+
+  function formatKoreanDatePortal(date: Date | null): string {
+    if (!date) return "-";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}년 ${m}월 ${d}일`;
+  }
 
   return (
     <main className="min-h-screen bg-mist px-4 py-6 text-ink sm:px-6 lg:px-8">
@@ -339,6 +402,55 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 p-6 text-sm text-slate">
               현재 등록된 강좌가 없습니다.{" "}
               <span className="text-ink">문의: 053-241-0112</span>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">공무원 시험 일정</h2>
+              <p className="mt-1 text-xs text-slate">필기시험 기준 D-day</p>
+            </div>
+            <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+              {EXAM_TYPE_LABEL[data.student.examType]}
+            </span>
+          </div>
+          {upcomingStudentExams.length === 0 ? (
+            <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 px-5 py-6 text-sm text-slate">
+              예정된 시험이 없습니다.
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {upcomingStudentExams.map((exam) => {
+                const dday = exam.writtenDate ? computeCivilExamDDay(exam.writtenDate) : null;
+                return (
+                  <div
+                    key={exam.id}
+                    className="flex flex-1 min-w-[220px] items-center gap-3 rounded-[20px] border border-ink/10 bg-mist/60 px-4 py-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink">{exam.name}</p>
+                      <p className="mt-0.5 text-xs text-slate">
+                        {EXAM_TYPE_LABEL[exam.examType]} / {exam.year}년
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate">
+                        필기 {exam.writtenDate ? formatKoreanDatePortal(exam.writtenDate) : "-"}
+                      </p>
+                      {exam.resultDate ? (
+                        <p className="mt-0.5 text-xs text-slate">
+                          결과 {formatKoreanDatePortal(exam.resultDate)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {dday ? (
+                      <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${dday.pillClass}`}>
+                        {dday.label}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

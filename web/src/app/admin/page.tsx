@@ -28,7 +28,10 @@ export default async function AdminDashboardPage() {
 
   const in7Days = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi] = await Promise.all([
+  const todayForExams = new Date();
+  todayForExams.setHours(0, 0, 0, 0);
+
+  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -76,6 +79,25 @@ export default async function AdminDashboardPage() {
         todayNewEnrollments,
       }))
       .catch(() => null),
+    getPrisma()
+      .civilServiceExam.findMany({
+        where: {
+          isActive: true,
+          writtenDate: { gte: todayForExams },
+        },
+        orderBy: { writtenDate: "asc" },
+        take: 3,
+        select: {
+          id: true,
+          name: true,
+          examType: true,
+          year: true,
+          writtenDate: true,
+          interviewDate: true,
+          resultDate: true,
+        },
+      })
+      .catch(() => [] as never[]),
   ]);
 
   if (!summaryResult.ok) {
@@ -243,6 +265,23 @@ export default async function AdminDashboardPage() {
       className: "border-sky-200 bg-sky-50/70 text-sky-800",
     },
   ].filter((item) => item.alwaysShow || item.value > 0);
+
+  function computeExamDDay(date: Date): { label: string; color: string } {
+    const diff = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { label: "종료", color: "bg-ink/10 text-ink" };
+    if (diff === 0) return { label: "D-Day", color: "bg-red-100 text-red-700" };
+    if (diff <= 14) return { label: `D-${diff}`, color: "bg-red-100 text-red-700" };
+    if (diff <= 30) return { label: `D-${diff}`, color: "bg-amber-100 text-amber-700" };
+    return { label: `D-${diff}`, color: "bg-forest/10 text-forest" };
+  }
+
+  function formatKoreanDate(date: Date | null): string {
+    if (!date) return "-";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}년 ${m}월 ${d}일`;
+  }
 
   return (
     <div className="space-y-8 p-6 sm:p-8 lg:p-10">
@@ -540,6 +579,53 @@ export default async function AdminDashboardPage() {
             <p className="mt-3 text-xs font-semibold text-slate underline">전체 목록 →</p>
           </Link>
         </div>
+      </section>
+
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">시험 일정</h2>
+            <p className="mt-1 text-xs text-slate">예정된 공무원 시험 D-day</p>
+          </div>
+          <Link
+            href="/admin/settings/civil-exams"
+            className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20"
+          >
+            시험 일정 관리
+          </Link>
+        </div>
+        {upcomingExams.length === 0 ? (
+          <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 px-5 py-6 text-sm text-slate">
+            예정된 시험이 없습니다.
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {upcomingExams.map((exam) => {
+              const dday = exam.writtenDate ? computeExamDDay(exam.writtenDate) : null;
+              return (
+                <div
+                  key={exam.id}
+                  className="flex min-w-[200px] flex-1 items-center gap-3 rounded-[20px] border border-ink/10 bg-mist/60 px-4 py-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-semibold text-ink">{exam.name}</p>
+                    <p className="mt-0.5 text-xs text-slate">
+                      {EXAM_TYPE_LABEL[exam.examType]} / {exam.year}년
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate">
+                      필기 {exam.writtenDate ? formatKoreanDate(exam.writtenDate) : "-"}
+                    </p>
+                  </div>
+                  {dday ? (
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${dday.color}`}>
+                      {dday.label}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
