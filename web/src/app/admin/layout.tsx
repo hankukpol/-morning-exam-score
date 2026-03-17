@@ -1,12 +1,12 @@
 ﻿import Link from "next/link";
 import { Toaster } from "sonner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { NotificationBell } from "@/components/admin/notification-bell";
 import { SetupPanel } from "@/components/setup-panel";
 import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference";
-import { ADMIN_NAV_ITEMS, type NavItem, ROLE_LABEL } from "@/lib/constants";
+import { ADMIN_NAV_ITEMS, ROLE_LABEL } from "@/lib/constants";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { MobileNavWrapper } from "@/components/admin/mobile-nav-wrapper";
+import { TopModuleNav } from "@/components/admin/top-module-nav";
 import {
   getDisplayErrorDetails,
   getDisplayErrorMessage,
@@ -109,74 +109,57 @@ export default async function AdminLayout({
     roleAtLeast(context.adminUser.role, item.minRole),
   );
 
-  const groups = permittedItems.reduce((acc, item) => {
-    if (!acc[item.group]) {
-      acc[item.group] = [];
-    }
-    acc[item.group].push(item);
-    return acc;
-  }, {} as Record<string, NavItem[]>);
+  // Derive which module tabs to show (always include dashboard)
+  const permittedModuleIds = [
+    'dashboard',
+    ...new Set(permittedItems.map((item) => item.module).filter((m) => m !== 'dashboard')),
+  ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F3F4F6] lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-[#F3F4F6]">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only left-4 top-4 z-[60] rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm"
       >
         본문으로 건너뛰기
       </a>
-      <MobileNavWrapper>
-      <aside className="flex h-full min-h-screen w-full flex-shrink-0 flex-col bg-[#0B1120] text-gray-300">
-        <div className="p-6 pb-2">
-          <Link href="/" className="inline-flex items-center space-x-2">
-            <span className="flex items-center text-xl font-bold tracking-tight text-white">
-              <div className="mr-2 flex h-8 w-8 items-center justify-center bg-primary text-lg font-black text-white">
-                M
-              </div>
-              Morning Mock
-            </span>
-          </Link>
-        </div>
 
-        <div className="border-b border-white/5 px-6 pb-4 pt-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1 border-l-2 border-primary bg-[#1E293B] p-4">
-              <p className="text-sm font-semibold text-white">{context.adminUser.name}</p>
-              <p className="mt-1 text-xs text-gray-400">{context.adminUser.email}</p>
-              <span className="mt-2 inline-block flex-shrink-0 border border-primary/30 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-muted">
-                {ROLE_LABEL[context.adminUser.role]}
-              </span>
+      {/* Top module tab bar */}
+      <TopModuleNav
+        userName={context.adminUser.name}
+        userRole={ROLE_LABEL[context.adminUser.role]}
+        permittedModuleIds={permittedModuleIds}
+      />
+
+      {/* Sidebar + content */}
+      <div className="flex flex-1">
+        <MobileNavWrapper>
+          <aside className="flex h-full min-h-[calc(100vh-3.5rem)] w-56 flex-shrink-0 flex-col bg-[#0B1120] text-gray-300 lg:sticky lg:top-14">
+            <AdminNavLinks items={permittedItems} />
+
+            <div className="mt-auto border-t border-white/5 bg-[#0B1120] p-3 space-y-2">
+              <AdminShortcutReference
+                items={permittedItems.map((item) => ({
+                  href: item.href,
+                  label: item.label,
+                  description: item.description,
+                  group: item.group,
+                }))}
+              />
+              <SignOutButton />
             </div>
-            <div className="shrink-0 pt-1">
-              <NotificationBell />
-            </div>
-          </div>
-        </div>
+          </aside>
+        </MobileNavWrapper>
 
-        <AdminNavLinks groups={groups} />
-
-        <div className="border-t border-white/5 bg-[#0B1120] p-4 space-y-3">
-          <AdminShortcutReference
-            items={permittedItems.map((item) => ({
-              href: item.href,
-              label: item.label,
-              description: item.description,
-              group: item.group,
-            }))}
-          />
-          <SignOutButton />
-        </div>
-      </aside>
-      </MobileNavWrapper>
-
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="w-full min-w-0 flex-1 bg-gray-50 p-4 pt-16 sm:p-6 sm:pt-16 lg:p-8 lg:pt-8"
-      >
-        {children}
-        <Toaster position="top-right" richColors closeButton />
-      </main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="w-full min-w-0 flex-1 bg-gray-50 p-4 sm:p-6 lg:p-8"
+        >
+          {children}
+          <Toaster position="top-right" richColors closeButton />
+        </main>
+      </div>
     </div>
   );
 }

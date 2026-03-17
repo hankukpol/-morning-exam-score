@@ -168,6 +168,7 @@ export type NavItem = {
   description: string;
   minRole: AdminRole;
   group: string;
+  module: 'dashboard' | 'members' | 'payments' | 'scores' | 'attendance' | 'facilities' | 'system';
 };
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -177,6 +178,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "오늘의 시험, 경고 및 탈락, 미처리 알림 요약",
     minRole: AdminRole.VIEWER,
     group: "메인",
+    module: 'dashboard',
   },
   {
     href: "/admin/analytics",
@@ -184,6 +186,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "일간, 주간, 과목별 개인 분석 차트",
     minRole: AdminRole.VIEWER,
     group: "메인",
+    module: 'scores',
   },
   {
     href: "/admin/students/analyze",
@@ -191,6 +194,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "학생 검색으로 전체 기간 누적 성적과 취약 유형 조회",
     minRole: AdminRole.VIEWER,
     group: "메인",
+    module: 'scores',
   },
   {
     href: "/admin/students/compare",
@@ -198,6 +202,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "두 학생의 기간별 성적과 출결 지표를 같은 기준으로 비교",
     minRole: AdminRole.VIEWER,
     group: "메인",
+    module: 'scores',
   },
   {
     href: "/admin/prospects",
@@ -205,6 +210,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "미등록 예비 원생 상담 기록 및 수강 전환 관리",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/enrollments",
@@ -212,6 +218,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수강 등록, 상태 변경, 퇴원, 휴원 처리",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/enrollments/new",
@@ -219,6 +226,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "신규 수강 등록 (종합반 / 특강 단과)",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/payments",
@@ -226,6 +234,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수납 처리 내역 조회 및 검색",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/new",
@@ -233,6 +242,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "현금·이체 수납 등록 (수강료·교재·시설비)",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/links",
@@ -240,6 +250,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "온라인 결제 링크 생성·관리 (카카오톡·문자 전송용)",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/unlinked",
@@ -247,6 +258,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "결제 링크로 수납됐지만 학생에 연결되지 않은 온라인 결제 건 처리",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/unpaid",
@@ -254,6 +266,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "미납·부분납 수강생 조회 및 수납 처리 연결",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/installments",
@@ -261,6 +274,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "분할납부 회차별 납부 현황 조회 및 납부 처리",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/payments/refunds",
@@ -268,6 +282,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "승인 대기 중인 환불 요청 검토 및 승인·거절 처리",
     minRole: AdminRole.MANAGER,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/approvals",
@@ -275,6 +290,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "환불 승인 대기 건 검토",
     minRole: AdminRole.MANAGER,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/cohorts",
@@ -282,6 +298,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "활성 기수별 재원·대기자 현황 카드 및 KPI 대시보드",
     minRole: AdminRole.TEACHER,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/cohorts/waitlist",
@@ -289,6 +306,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기수별 대기자 목록, 여석 현황 및 수강 확정 처리",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/enrollments/ledger",
@@ -296,6 +314,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기수·기간별 수강생 명단 조회 및 출력 (학원법 준수)",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/enrollments/expiring",
@@ -303,6 +322,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "곧 수강 기간이 만료되는 학생 목록",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'members',
   },
   {
     href: "/admin/settlements/instructors",
@@ -310,6 +330,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "특강 강사별 수강료 배분 및 정산 현황",
     minRole: AdminRole.MANAGER,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/special-lectures",
@@ -317,6 +338,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "특강·단과 강좌별 수강 현황, 수강생 목록, 정산 조회",
     minRole: AdminRole.COUNSELOR,
     group: "수강 관리",
+    module: 'payments',
   },
   {
     href: "/admin/reports/monthly",
@@ -324,6 +346,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수강생·수납·환불·출결·강사 정산 통합 월간 요약",
     minRole: AdminRole.MANAGER,
     group: "보고서",
+    module: 'payments',
   },
   {
     href: "/admin/reports/annual",
@@ -331,6 +354,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월별 수납 추이·신규 등록·합격자 12개월 비교 통계",
     minRole: AdminRole.MANAGER,
     group: "보고서",
+    module: 'payments',
   },
   {
     href: "/admin/settlements/daily",
@@ -338,6 +362,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "일별 수납 집계 및 현금 시재 마감 처리",
     minRole: AdminRole.COUNSELOR,
     group: "보고서",
+    module: 'payments',
   },
   {
     href: "/admin/settlements/monthly",
@@ -345,6 +370,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월별 수납 집계 및 일별 수납 추이 조회",
     minRole: AdminRole.COUNSELOR,
     group: "보고서",
+    module: 'payments',
   },
   {
     href: "/admin/analytics/revenue",
@@ -352,6 +378,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "연간 수납 카테고리·결제수단 분석",
     minRole: AdminRole.COUNSELOR,
     group: "분석",
+    module: 'payments',
   },
   {
     href: "/admin/periods",
@@ -359,6 +386,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간 생성, 회차 자동 생성, 취소 및 수정 관리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'scores',
   },
   {
     href: "/admin/students",
@@ -366,6 +394,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "명단 조회, CRUD, 붙여넣기 등록",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/students/transfer",
@@ -373,6 +402,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "잘못 등록된 수험번호의 연결 데이터를 새 번호로 이전",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/students/merge",
@@ -380,6 +410,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "중복 등록된 학생 계정의 연결 데이터를 하나로 병합",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/classrooms",
@@ -387,6 +418,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "담임반 학생 편성, 카카오톡 출석 파싱, 일별 출결 기록",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/counseling",
@@ -394,6 +426,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "면담 기록, 목표 점수, 최근 4주 요약",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/counseling/prospects",
@@ -401,6 +434,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "미등록 예비 원생 상담 단계 관리 및 전환율 추적",
     minRole: AdminRole.COUNSELOR,
     group: "학사 관리",
+    module: 'members',
   },
   {
     href: "/admin/absence-notes",
@@ -408,6 +442,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "사유 결시 등록, 승인 및 반려, 소급 처리",
     minRole: AdminRole.TEACHER,
     group: "학사 관리",
+    module: 'attendance',
   },
   {
     href: "/admin/exams/morning",
@@ -415,6 +450,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간별 아침모의고사 수강생 명단 및 수험유형별 집계",
     minRole: AdminRole.TEACHER,
     group: "성적 관리",
+    module: 'scores',
   },
   {
     href: "/admin/exams/morning/scores",
@@ -422,6 +458,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간·회차별 성적 입력 현황 조회 및 성적 수정 연결",
     minRole: AdminRole.TEACHER,
     group: "성적 관리",
+    module: 'scores',
   },
   {
     href: "/admin/scores/input",
@@ -429,6 +466,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "오프라인, 온라인, 붙여넣기 업로드",
     minRole: AdminRole.TEACHER,
     group: "성적 관리",
+    module: 'scores',
   },
   {
     href: "/admin/scores/edit",
@@ -436,6 +474,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "회차별 성적 조회, 수정, 삭제",
     minRole: AdminRole.TEACHER,
     group: "성적 관리",
+    module: 'scores',
   },
   {
     href: "/admin/attendance/calendar",
@@ -443,6 +482,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "날짜별 경고, 결시, 탈락 현황",
     minRole: AdminRole.VIEWER,
     group: "성적 관리",
+    module: 'attendance',
   },
   {
     href: "/admin/attendance/lecture",
@@ -450,6 +490,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "날짜별 강의 세션 출결 현황 조회 및 출결 입력",
     minRole: AdminRole.TEACHER,
     group: "성적 관리",
+    module: 'attendance',
   },
   {
     href: "/admin/exams/monthly",
@@ -457,6 +498,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월말평가 시험 등록 및 구분별 접수·납부 처리",
     minRole: AdminRole.COUNSELOR,
     group: "성적 관리",
+    module: 'scores',
   },
   {
     href: "/admin/results/weekly",
@@ -464,6 +506,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "주차별 전체 및 신규생 출감 집계",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",
+    module: 'scores',
   },
   {
     href: "/admin/results/monthly",
@@ -471,6 +514,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월별 평균, 참여율, 결석 집계",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",
+    module: 'scores',
   },
   {
     href: "/admin/results/integrated",
@@ -478,6 +522,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간 전체 통합 출감과 참여율",
     minRole: AdminRole.VIEWER,
     group: "성적 현황",
+    module: 'scores',
   },
   {
     href: "/admin/results/cohort",
@@ -485,6 +530,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기수별 성적 분포, 과목별 평균, 합격률",
     minRole: AdminRole.TEACHER,
     group: "결과 분석",
+    module: 'scores',
   },
   {
     href: "/admin/results/distribution",
@@ -492,6 +538,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기간·회차별 점수 구간 분포, 평균·중앙값·표준편차 분석",
     minRole: AdminRole.TEACHER,
     group: "결과 분석",
+    module: 'scores',
   },
   {
     href: "/admin/results/comparison",
@@ -499,6 +546,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "최대 5명의 주차별 성적 추이를 같은 차트에서 비교",
     minRole: AdminRole.TEACHER,
     group: "결과 분석",
+    module: 'scores',
   },
   {
     href: "/admin/analytics/attendance",
@@ -506,6 +554,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월별 출석률 추이 및 반별 비교",
     minRole: AdminRole.TEACHER,
     group: "결과 분석",
+    module: 'attendance',
   },
   {
     href: "/admin/dropout",
@@ -513,6 +562,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "주 3회 및 월 8회 기준 자동 판정",
     minRole: AdminRole.VIEWER,
     group: "판정 관리",
+    module: 'attendance',
   },
   {
     href: "/admin/graduates",
@@ -520,6 +570,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "필기합격·최종합격 등록 및 합격자 성적 기록 관리",
     minRole: AdminRole.TEACHER,
     group: "판정 관리",
+    module: 'members',
   },
   {
     href: "/admin/points",
@@ -527,6 +578,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "개근 포인트 산정 및 수동 지급",
     minRole: AdminRole.TEACHER,
     group: "판정 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/points/manage",
@@ -534,6 +586,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "학생 포인트 수동 지급 및 차감",
     minRole: AdminRole.MANAGER,
     group: "판정 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/points/attendance",
@@ -541,6 +594,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "월별 개근 달성자 목록 및 개근 포인트 지급 이력 조회",
     minRole: AdminRole.TEACHER,
     group: "판정 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/points/leaderboard",
@@ -548,6 +602,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "학생별 포인트 순위 및 최근 내역 분석",
     minRole: AdminRole.COUNSELOR,
     group: "판정 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/points/history",
@@ -555,6 +610,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "유형·월·검색어로 전체 포인트 지급·차감 이력 조회",
     minRole: AdminRole.COUNSELOR,
     group: "판정 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/notices",
@@ -562,6 +618,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "학생 대상 공지 작성 및 발행",
     minRole: AdminRole.TEACHER,
     group: "알림·공지",
+    module: 'system',
   },
   {
     href: "/admin/memos",
@@ -569,6 +626,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "관리자·직원 협업 메모와 할 일 보드",
     minRole: AdminRole.TEACHER,
     group: "알림·공지",
+    module: 'system',
   },
   {
     href: "/admin/notifications",
@@ -576,6 +634,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "자동 및 수동 발송, 수신 동의, 발송 이력",
     minRole: AdminRole.TEACHER,
     group: "알림·공지",
+    module: 'system',
   },
   {
     href: "/admin/notifications/send",
@@ -583,6 +642,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "개별 학생, 기수, 재원생 전체에게 알림톡 수동 발송",
     minRole: AdminRole.COUNSELOR,
     group: "알림·공지",
+    module: 'system',
   },
   {
     href: "/admin/notifications/history",
@@ -590,6 +650,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "카카오 알림톡 발송 이력 및 성공률 조회, 실패 건 재발송",
     minRole: AdminRole.COUNSELOR,
     group: "알림·공지",
+    module: 'system',
   },
   {
     href: "/admin/query",
@@ -597,6 +658,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "날짜별 과목별 수강생 집계 통합 조회",
     minRole: AdminRole.VIEWER,
     group: "시스템 도구",
+    module: 'scores',
   },
   {
     href: "/admin/export",
@@ -604,6 +666,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수강생 명단과 raw 성적 다운로드",
     minRole: AdminRole.VIEWER,
     group: "시스템 도구",
+    module: 'system',
   },
   {
     href: "/admin/migration",
@@ -611,6 +674,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기존 운영 데이터 파일 이관",
     minRole: AdminRole.SUPER_ADMIN,
     group: "시스템 도구",
+    module: 'system',
   },
   {
     href: "/admin/audit-log",
@@ -618,6 +682,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "관리자 작업 이력 추적",
     minRole: AdminRole.SUPER_ADMIN,
     group: "시스템 도구",
+    module: 'system',
   },
   {
     href: "/admin/audit-logs",
@@ -625,6 +690,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "모든 중요 작업의 기록 조회 및 필터링",
     minRole: AdminRole.MANAGER,
     group: "시스템 도구",
+    module: 'system',
   },
   {
     href: "/admin/settings/system",
@@ -632,6 +698,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "운영 시간, 알림 채널, 수납 환불 정책 통합 관리",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/accounts",
@@ -639,6 +706,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "Supabase Auth 연동 계정 관리",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/absence-policies",
@@ -646,6 +714,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "사유별 출석 포함 및 개근 인정 기본값 관리",
     minRole: AdminRole.TEACHER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/notifications",
@@ -653,6 +722,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "Solapi 키와 발신 번호 설정",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/courses",
@@ -660,6 +730,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "종합반·단과·특강 강좌 등록 및 수강료 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/textbooks",
@@ -667,6 +738,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "교재 정보 및 재고 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/comprehensive-products",
@@ -674,6 +746,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수험 유형별 수강 기간·수강료 상품 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/cohorts",
@@ -681,6 +754,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "수험 유형별 기수(期數) 등록 및 기간 설정",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/lecture-schedules",
@@ -688,6 +762,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "기수별 강의 요일·시간·과목·강사 스케줄 설정",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/staff",
@@ -695,6 +770,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "직원 계정 권한 역할 및 연락처 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/instructors",
@@ -702,6 +778,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "강사 정보 및 정산 계좌 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/special-lectures",
@@ -709,6 +786,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "특강·단과 강좌 등록, 과목별 강사·수강료·배분율 설정",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/point-policies",
@@ -716,6 +794,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "포인트 지급 제도 템플릿 관리",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/academy",
@@ -723,6 +802,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "학원명, 원장, 사업자번호 등 기본 정보 설정",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/civil-exams",
@@ -730,6 +810,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "공채·경채 시험 일정 등록 및 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/study-rooms",
@@ -737,6 +818,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "스터디룸 목록 등록 및 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/lockers",
@@ -744,6 +826,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "사물함 구역별 일괄 생성 및 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/discount-codes",
@@ -751,6 +834,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "추천인·입소·캠페인 할인 코드 발급 및 관리",
     minRole: AdminRole.MANAGER,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/approval-rules",
@@ -758,6 +842,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "환불·할인·현금 지급 승인 기준 금액 설정",
     minRole: AdminRole.DIRECTOR,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/settings/audit-logs",
@@ -765,6 +850,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "전체 관리자 작업 이력 조회 및 직원별 활동 필터링",
     minRole: AdminRole.SUPER_ADMIN,
     group: "설정",
+    module: 'system',
   },
   {
     href: "/admin/lockers",
@@ -772,6 +858,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "구역별 사물함 현황 조회, 배정·반납 처리",
     minRole: AdminRole.TEACHER,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/facilities/lockers",
@@ -779,6 +866,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "사물함 배정, 대여 기록, 현황 조회",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/facilities/lockers/rental-billing",
@@ -786,6 +874,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "사물함 대여 수납 청구, 미납 현황, 연장 처리",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/study-rooms",
@@ -793,6 +882,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "날짜별 스터디룸 예약 현황 및 직원 배정",
     minRole: AdminRole.TEACHER,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/facilities/study-rooms",
@@ -800,6 +890,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "날짜별 스터디룸 예약 현황, 배정 및 취소 처리",
     minRole: AdminRole.TEACHER,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/textbooks",
@@ -807,6 +898,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "교재별 판매 통계, 재고 현황 조회 및 판매 등록",
     minRole: AdminRole.COUNSELOR,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/facilities/textbooks",
@@ -814,6 +906,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "교재 현장 판매 등록 및 오늘 판매 내역 조회",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
+    module: 'facilities',
   },
   {
     href: "/admin/staff-settlements",
@@ -821,6 +914,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "직원별 월별 수납 수수료 정산 조회 및 엑셀 출력",
     minRole: AdminRole.MANAGER,
     group: "직원 관리",
+    module: 'payments',
   },
 ];
 
