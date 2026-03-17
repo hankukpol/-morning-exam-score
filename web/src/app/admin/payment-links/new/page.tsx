@@ -9,16 +9,81 @@ export const dynamic = "force-dynamic";
 export default async function NewPaymentLinkPage() {
   await requireAdminContext(AdminRole.COUNSELOR);
 
-  const rawCourses = await getPrisma().course.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, tuitionFee: true },
-    orderBy: { name: "asc" },
-  });
+  const db = getPrisma();
+
+  const [rawCourses, rawCohorts, rawProducts, rawSpecialLectures] = await Promise.all([
+    db.course.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, tuitionFee: true },
+      orderBy: { name: "asc" },
+    }),
+    db.cohort.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        examCategory: true,
+        isActive: true,
+        startDate: true,
+        endDate: true,
+        enrollments: { select: { status: true } },
+      },
+      orderBy: { startDate: "desc" },
+    }),
+    db.comprehensiveCourseProduct.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        examCategory: true,
+        durationMonths: true,
+        salePrice: true,
+        isActive: true,
+      },
+      orderBy: [{ examCategory: "asc" }, { durationMonths: "asc" }],
+    }),
+    db.specialLecture.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        startDate: true,
+        endDate: true,
+        _count: { select: { enrollments: { where: { status: { in: ["ACTIVE", "COMPLETED"] } } } } },
+      },
+      orderBy: { startDate: "desc" },
+    }),
+  ]);
 
   const courses = rawCourses.map((c) => ({
     id: c.id,
     name: c.name,
     tuitionFee: c.tuitionFee ?? 0,
+  }));
+
+  const cohorts = rawCohorts.map(({ enrollments, startDate, endDate, ...cohort }) => {
+    const activeCount = enrollments.filter(
+      (e) => e.status === "PENDING" || e.status === "ACTIVE",
+    ).length;
+    const waitlistCount = enrollments.filter((e) => e.status === "WAITING").length;
+    return {
+      ...cohort,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      activeCount,
+      waitlistCount,
+    };
+  });
+
+  const products = rawProducts.map((p) => ({
+    ...p,
+  }));
+
+  const specialLectures = rawSpecialLectures.map(({ startDate, endDate, ...l }) => ({
+    ...l,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
   }));
 
   return (
@@ -42,7 +107,12 @@ export default async function NewPaymentLinkPage() {
       </p>
 
       <div className="mt-8 max-w-2xl">
-        <PaymentLinkForm courses={courses} />
+        <PaymentLinkForm
+          courses={courses}
+          cohorts={cohorts}
+          products={products}
+          specialLectures={specialLectures}
+        />
       </div>
     </div>
   );

@@ -125,6 +125,28 @@ export default async function ScoreSessionDetailPage({ params }: PageProps) {
               >
                 성적 목록으로
               </Link>
+              {data.prevDateKey && (
+                <Link
+                  href={`/student/scores/${encodeURIComponent(data.prevDateKey)}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  이전 시험
+                </Link>
+              )}
+              {data.nextDateKey && (
+                <Link
+                  href={`/student/scores/${encodeURIComponent(data.nextDateKey)}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+                >
+                  다음 시험
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -219,19 +241,55 @@ export default async function ScoreSessionDetailPage({ params }: PageProps) {
         )}
 
         {/* 하단 네비게이션 */}
-        <div className="flex flex-wrap gap-3 pb-6">
-          <Link
-            href="/student/scores"
-            className="inline-flex items-center rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            성적 목록으로
-          </Link>
-          <Link
-            href="/student"
-            className="inline-flex items-center rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
-          >
-            포털 홈으로
-          </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-6">
+          <div className="flex flex-wrap gap-3">
+            {data.prevDateKey ? (
+              <Link
+                href={`/student/scores/${encodeURIComponent(data.prevDateKey)}`}
+                className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                이전 시험 ({data.prevDateKey})
+              </Link>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-ink/10 bg-mist px-5 py-3 text-sm text-slate">
+                첫 번째 시험
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/student/scores"
+              className="inline-flex items-center rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              목록
+            </Link>
+            <Link
+              href="/student"
+              className="inline-flex items-center rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              포털 홈
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {data.nextDateKey ? (
+              <Link
+                href={`/student/scores/${encodeURIComponent(data.nextDateKey)}`}
+                className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                다음 시험 ({data.nextDateKey})
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-ink/10 bg-mist px-5 py-3 text-sm text-slate">
+                마지막 시험
+              </span>
+            )}
+          </div>
         </div>
 
       </div>

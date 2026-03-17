@@ -806,6 +806,31 @@ export async function getStudentPortalScoreSessionDetail(input: {
     avg: s.cohortAvg,
   }));
 
+  // 이전/다음 시험일 조회 (네비게이션용)
+  const [prevExamSession, nextExamSession] = await Promise.all([
+    prisma.examSession.findFirst({
+      where: {
+        examType: student.examType,
+        isCancelled: false,
+        examDate: { lt: targetDate },
+      },
+      orderBy: { examDate: "desc" },
+      select: { examDate: true },
+    }),
+    prisma.examSession.findFirst({
+      where: {
+        examType: student.examType,
+        isCancelled: false,
+        examDate: { gte: nextDate },
+      },
+      orderBy: { examDate: "asc" },
+      select: { examDate: true },
+    }),
+  ]);
+
+  const prevDateKey = prevExamSession ? formatDate(prevExamSession.examDate) : null;
+  const nextDateKey = nextExamSession ? formatDate(nextExamSession.examDate) : null;
+
   return {
     student,
     dateKey: input.dateKey,
@@ -816,6 +841,8 @@ export async function getStudentPortalScoreSessionDetail(input: {
     overallRank,
     overallTotal,
     radarData,
+    prevDateKey,
+    nextDateKey,
   };
 }
 

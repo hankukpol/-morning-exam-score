@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
+import { SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
+import { formatDateWithWeekday } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import { ScheduleClient } from "./schedule-client";
@@ -61,40 +63,82 @@ export default async function StudentSchedulePage() {
     );
   }
 
-  // Find the student's active course enrollment and its cohort
-  const activeEnrollment = await getPrisma().courseEnrollment.findFirst({
-    where: {
-      examNumber: viewer.examNumber,
-      status: "ACTIVE",
-      cohortId: { not: null },
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      cohortId: true,
-      cohort: {
-        select: {
-          id: true,
-          name: true,
-          lectureSchedules: {
-            where: { isActive: true },
-            select: {
-              id: true,
-              subjectName: true,
-              instructorName: true,
-              dayOfWeek: true,
-              startTime: true,
-              endTime: true,
-              isActive: true,
+  const now = new Date();
+
+  // Find the student's active course enrollment and its cohort; also fetch upcoming exam sessions
+  const [activeEnrollment, upcomingExams] = await Promise.all([
+    getPrisma().courseEnrollment.findFirst({
+      where: {
+        examNumber: viewer.examNumber,
+        status: "ACTIVE",
+        cohortId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        cohortId: true,
+        cohort: {
+          select: {
+            id: true,
+            name: true,
+            endDate: true,
+            lectureSchedules: {
+              where: { isActive: true },
+              select: {
+                id: true,
+                subjectName: true,
+                instructorName: true,
+                dayOfWeek: true,
+                startTime: true,
+                endTime: true,
+                isActive: true,
+              },
+              orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
             },
-            orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
           },
         },
       },
-    },
-  });
+    }),
+    getPrisma().examSession.findMany({
+      where: {
+        examType: viewer.examType,
+        isCancelled: false,
+        examDate: { gte: now },
+      },
+      orderBy: { examDate: "asc" },
+      take: 5,
+      select: {
+        id: true,
+        examDate: true,
+        subject: true,
+        week: true,
+        period: {
+          select: { name: true },
+        },
+      },
+    }),
+  ]);
 
   const schedules = activeEnrollment?.cohort?.lectureSchedules ?? [];
   const cohortName = activeEnrollment?.cohort?.name ?? null;
+  const cohortEndDate = activeEnrollment?.cohort?.endDate ?? null;
+
+  // Group upcoming exams by date
+  const examDateMap = new Map<string, { examDate: Date; subjects: string[]; week: number | null; periodName: string | null }>();
+  for (const exam of upcomingExams) {
+    const dateKey = exam.examDate.toISOString().slice(0, 10);
+    const entry = examDateMap.get(dateKey);
+    if (entry) {
+      entry.subjects.push(SUBJECT_LABEL[exam.subject] ?? exam.subject);
+    } else {
+      examDateMap.set(dateKey, {
+        examDate: exam.examDate,
+        subjects: [SUBJECT_LABEL[exam.subject] ?? exam.subject],
+        week: exam.week,
+        periodName: exam.period?.name ?? null,
+      });
+    }
+  }
+  const upcomingExamDates = Array.from(examDateMap.values());
 
   return (
     <main className="space-y-6 px-0 py-6">
@@ -111,6 +155,18 @@ export default async function StudentSchedulePage() {
             <p className="mt-5 text-sm leading-8 text-slate sm:text-base">
               현재 수강 중인 기수의 요일별 강의 일정을 확인할 수 있습니다.
             </p>
+            {cohortName && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+                  {cohortName}
+                </span>
+                {cohortEndDate && (
+                  <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+                    종료: {formatDateWithWeekday(cohortEndDate)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -122,6 +178,65 @@ export default async function StudentSchedulePage() {
           </div>
         </div>
       </section>
+
+      {/* Upcoming exam dates */}
+      {upcomingExamDates.length > 0 && (
+        <section className="rounded-[28px] border border-ember/20 bg-white p-5 sm:p-6">
+          <h2 className="mb-4 text-base font-semibold text-ink">예정된 시험 일정</h2>
+          <div className="space-y-2">
+            {upcomingExamDates.map((item, idx) => {
+              const dateKey = item.examDate.toISOString().slice(0, 10);
+              const isNext = idx === 0;
+              return (
+                <div
+                  key={dateKey}
+                  className={`flex flex-wrap items-center gap-3 rounded-[20px] border px-4 py-3 ${
+                    isNext
+                      ? "border-ember/30 bg-ember/5"
+                      : "border-ink/10 bg-mist/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isNext && (
+                      <span className="inline-flex h-5 items-center rounded-full bg-ember px-2 text-[10px] font-bold text-white">
+                        NEXT
+                      </span>
+                    )}
+                    <span className={`text-sm font-semibold ${isNext ? "text-ember" : "text-ink"}`}>
+                      {formatDateWithWeekday(item.examDate)}
+                    </span>
+                  </div>
+                  {item.week !== null && (
+                    <span className="inline-flex rounded-full border border-ink/10 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate">
+                      {item.week}주차
+                    </span>
+                  )}
+                  {item.periodName && (
+                    <span className="inline-flex rounded-full border border-forest/20 bg-forest/5 px-2.5 py-0.5 text-xs font-semibold text-forest">
+                      {item.periodName}
+                    </span>
+                  )}
+                  <div className="flex flex-wrap gap-1.5 ml-auto">
+                    {item.subjects.map((sub) => (
+                      <span
+                        key={sub}
+                        className="inline-flex rounded-full border border-ink/10 bg-white px-2.5 py-0.5 text-xs text-slate"
+                      >
+                        {sub}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {cohortEndDate && (
+            <p className="mt-3 text-xs text-slate">
+              기수 종료일: {formatDateWithWeekday(cohortEndDate)}
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Schedule content */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">

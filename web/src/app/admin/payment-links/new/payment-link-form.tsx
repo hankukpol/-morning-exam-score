@@ -19,8 +19,40 @@ type CourseOption = {
   tuitionFee: number;
 };
 
+type CohortOption = {
+  id: string;
+  name: string;
+  examCategory: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  activeCount: number;
+  waitlistCount: number;
+};
+
+type ProductOption = {
+  id: string;
+  name: string;
+  examCategory: string;
+  durationMonths: number;
+  salePrice: number;
+  isActive: boolean;
+};
+
+type SpecialLectureOption = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  _count?: { enrollments: number };
+};
+
 type Props = {
   courses: CourseOption[];
+  cohorts: CohortOption[];
+  products: ProductOption[];
+  specialLectures: SpecialLectureOption[];
 };
 
 // ---------------------------------------------------------------------------
@@ -64,7 +96,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 // Component
 // ---------------------------------------------------------------------------
 
-export function PaymentLinkForm({ courses }: Props) {
+export function PaymentLinkForm({ courses, cohorts, products, specialLectures }: Props) {
   const router = useRouter();
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -85,6 +117,13 @@ export function PaymentLinkForm({ courses }: Props) {
   const [expiryPreset, setExpiryPreset] = useState("168");
   const [maxUsage, setMaxUsage] = useState("");
   const [note, setNote] = useState("");
+
+  // Auto-enrollment fields
+  const [autoEnrollEnabled, setAutoEnrollEnabled] = useState(false);
+  const [courseType, setCourseType] = useState<"COMPREHENSIVE" | "SPECIAL_LECTURE" | "">("");
+  const [cohortId, setCohortId] = useState("");
+  const [productId, setProductId] = useState("");
+  const [specialLectureId, setSpecialLectureId] = useState("");
 
   const [error, setError] = useState("");
 
@@ -139,6 +178,27 @@ export function PaymentLinkForm({ courses }: Props) {
   }
 
   // ---------------------------------------------------------------------------
+  // Auto-enrollment toggle / courseType change
+  // ---------------------------------------------------------------------------
+
+  function handleAutoEnrollToggle(enabled: boolean) {
+    setAutoEnrollEnabled(enabled);
+    if (!enabled) {
+      setCourseType("");
+      setCohortId("");
+      setProductId("");
+      setSpecialLectureId("");
+    }
+  }
+
+  function handleCourseTypeChange(value: "COMPREHENSIVE" | "SPECIAL_LECTURE" | "") {
+    setCourseType(value);
+    setCohortId("");
+    setProductId("");
+    setSpecialLectureId("");
+  }
+
+  // ---------------------------------------------------------------------------
   // Expiry preset
   // ---------------------------------------------------------------------------
 
@@ -148,6 +208,29 @@ export function PaymentLinkForm({ courses }: Props) {
     if (hours > 0) {
       setExpiresAt(addHoursToNow(hours));
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auto-enrollment confirmation label
+  // ---------------------------------------------------------------------------
+
+  function getAutoEnrollSummary(): string | null {
+    if (!autoEnrollEnabled || !courseType) return null;
+    if (!selectedStudent) return null;
+
+    if (courseType === "COMPREHENSIVE") {
+      const cohort = cohorts.find((c) => c.id === cohortId);
+      if (!cohort) return null;
+      return `결제 완료 시 ${selectedStudent.name}을(를) ${cohort.name} 기수에 자동 수강등록합니다`;
+    }
+
+    if (courseType === "SPECIAL_LECTURE") {
+      const lecture = specialLectures.find((l) => l.id === specialLectureId);
+      if (!lecture) return null;
+      return `결제 완료 시 ${selectedStudent.name}을(를) ${lecture.name}에 자동 수강등록합니다`;
+    }
+
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -173,11 +256,24 @@ export function PaymentLinkForm({ courses }: Props) {
       return;
     }
 
+    // Validate auto-enrollment fields if enabled
+    if (autoEnrollEnabled && courseType) {
+      if (courseType === "COMPREHENSIVE" && !cohortId) {
+        setError("자동 수강등록: 기수를 선택해 주세요.");
+        return;
+      }
+      if (courseType === "SPECIAL_LECTURE" && !specialLectureId) {
+        setError("자동 수강등록: 특강을 선택해 주세요.");
+        return;
+      }
+    }
+
     startTransition(async () => {
       try {
-        const payload = {
+        const payload: Record<string, unknown> = {
           title: trimmedTitle,
           courseId: courseId ? Number(courseId) : undefined,
+          examNumber: selectedStudent?.examNumber,
           amount: parsedAmount,
           discountAmount: Number(discountAmount) || 0,
           allowPoint,
@@ -185,6 +281,17 @@ export function PaymentLinkForm({ courses }: Props) {
           maxUsage: maxUsage ? Number(maxUsage) : undefined,
           note: note.trim() || undefined,
         };
+
+        // Auto-enrollment fields
+        if (autoEnrollEnabled && courseType) {
+          payload.courseType = courseType;
+          if (courseType === "COMPREHENSIVE") {
+            if (cohortId) payload.cohortId = cohortId;
+            if (productId) payload.productId = productId;
+          } else if (courseType === "SPECIAL_LECTURE") {
+            if (specialLectureId) payload.specialLectureId = specialLectureId;
+          }
+        }
 
         const data = await requestJson<{ link: { id: number } }>("/api/payment-links", {
           method: "POST",
@@ -199,6 +306,7 @@ export function PaymentLinkForm({ courses }: Props) {
   }
 
   const finalAmount = Math.max(0, (Number(amount) || 0) - (Number(discountAmount) || 0));
+  const autoEnrollSummary = getAutoEnrollSummary();
 
   const inputClass =
     "w-full rounded-2xl border border-ink/15 bg-white px-4 py-2.5 text-sm outline-none focus:border-ember/60 focus:ring-1 focus:ring-ember/30";
@@ -413,6 +521,140 @@ export function PaymentLinkForm({ courses }: Props) {
             className={inputClass}
           />
         </div>
+      </div>
+
+      {/* ── 자동 수강등록 설정 (선택) ─────────────────────────── */}
+      <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+        {/* Section header with toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-forest">자동 수강등록 설정</h2>
+            <p className="mt-0.5 text-xs text-slate">선택 사항 — 결제 완료 시 수강등록을 자동으로 처리합니다</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleAutoEnrollToggle(!autoEnrollEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+              autoEnrollEnabled ? "bg-ember" : "bg-ink/20"
+            }`}
+            aria-pressed={autoEnrollEnabled}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                autoEnrollEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        {autoEnrollEnabled && (
+          <div className="mt-5 space-y-4">
+            {/* CourseType select */}
+            <div>
+              <label className={labelClass}>수강 유형</label>
+              <select
+                value={courseType}
+                onChange={(e) =>
+                  handleCourseTypeChange(e.target.value as "COMPREHENSIVE" | "SPECIAL_LECTURE" | "")
+                }
+                className={inputClass}
+              >
+                <option value="">유형 선택</option>
+                <option value="COMPREHENSIVE">종합반</option>
+                <option value="SPECIAL_LECTURE">특강 단과</option>
+              </select>
+            </div>
+
+            {/* COMPREHENSIVE fields */}
+            {courseType === "COMPREHENSIVE" && (
+              <>
+                <div>
+                  <label className={labelClass}>
+                    기수 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={cohortId}
+                    onChange={(e) => setCohortId(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">기수 선택</option>
+                    {cohorts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.isActive ? "" : " (비활성)"}
+                        {" — "}
+                        {new Date(c.startDate).toLocaleDateString("ko-KR")}~
+                        {new Date(c.endDate).toLocaleDateString("ko-KR")}
+                        {" ("}수강 {c.activeCount}명{c.waitlistCount > 0 ? `, 대기 ${c.waitlistCount}명` : ""}{")"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>상품 (선택)</label>
+                  <select
+                    value={productId}
+                    onChange={(e) => setProductId(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">상품 선택 없음</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {" — "}
+                        {p.durationMonths}개월 ({p.salePrice.toLocaleString()}원)
+                        {p.isActive ? "" : " (비활성)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* SPECIAL_LECTURE fields */}
+            {courseType === "SPECIAL_LECTURE" && (
+              <div>
+                <label className={labelClass}>
+                  특강 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={specialLectureId}
+                  onChange={(e) => setSpecialLectureId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">특강 선택</option>
+                  {specialLectures.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                      {l.isActive ? "" : " (비활성)"}
+                      {" — "}
+                      {new Date(l.startDate).toLocaleDateString("ko-KR")}~
+                      {new Date(l.endDate).toLocaleDateString("ko-KR")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Confirmation info card */}
+            {autoEnrollSummary && (
+              <div className="flex items-start gap-2.5 rounded-2xl border border-forest/20 bg-forest/5 px-4 py-3">
+                <span className="mt-0.5 text-base leading-none text-forest" aria-hidden="true">
+                  ✓
+                </span>
+                <p className="text-sm text-forest">{autoEnrollSummary}</p>
+              </div>
+            )}
+
+            {/* Info note when no student is selected */}
+            {!selectedStudent && courseType && (
+              <p className="text-xs text-slate">
+                학생을 선택하면 자동 수강등록 대상을 미리 확인할 수 있습니다.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── 메모 ─────────────────────────────────────────────── */}
