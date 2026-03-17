@@ -60,7 +60,7 @@ export default async function AdminDashboardPage() {
     return days;
   })().catch(() => [] as { label: string; dateStr: string; amount: number; count: number }[]);
 
-  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams] = await Promise.all([
+  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams, extraKpi] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -127,6 +127,27 @@ export default async function AdminDashboardPage() {
         },
       })
       .catch(() => [] as never[]),
+    getPrisma()
+      .$transaction([
+        // 오늘 결석 학생 수
+        getPrisma().classroomAttendanceLog.count({
+          where: { attendType: "ABSENT", attendDate: { gte: todayStart, lte: todayEnd } },
+        }),
+        // 최근 7일 발행된 공지사항 수
+        getPrisma().notice.count({
+          where: { isPublished: true, publishedAt: { gte: weekAgo } },
+        }),
+        // 현재 활성 결제 링크 수
+        getPrisma().paymentLink.count({
+          where: { status: "ACTIVE", expiresAt: { gte: todayStart } },
+        }),
+      ])
+      .then(([todayAbsentCount, recentNoticeCount, activePaymentLinkCount]) => ({
+        todayAbsentCount,
+        recentNoticeCount,
+        activePaymentLinkCount,
+      }))
+      .catch(() => null),
   ]);
 
   // 최근 활동 피드 (병렬 페치)
@@ -369,6 +390,34 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
+      {/* 빠른 작업 */}
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/admin/payments/new"
+          className="btn-ripple inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+        >
+          <span>+</span> 수납 등록
+        </Link>
+        <Link
+          href="/admin/enrollments/new"
+          className="btn-ripple inline-flex items-center gap-2 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest/90"
+        >
+          <span>+</span> 수강 등록
+        </Link>
+        <Link
+          href="/admin/students/new"
+          className="btn-ripple inline-flex items-center gap-2 rounded-full border border-ink/20 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/40 hover:bg-ink/5"
+        >
+          <span>+</span> 학생 등록
+        </Link>
+        <Link
+          href="/admin/payment-links/new"
+          className="btn-ripple inline-flex items-center gap-2 rounded-full border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
+        >
+          <span>+</span> 결제 링크 생성
+        </Link>
+      </div>
+
       <AdminMemoDashboardPanel
         currentAdminId={context.adminUser.id}
         currentAdminRole={context.adminUser.role}
@@ -571,6 +620,56 @@ export default async function AdminDashboardPage() {
               {enrollmentKpi ? enrollmentKpi.newThisWeek.toLocaleString() : "—"}
             </p>
             <p className="mt-2 text-xs text-slate">최근 7일 신규 수강 등록</p>
+          </Link>
+        </div>
+
+        {/* 2행: 출결·공지·결제링크 */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <Link
+            href="/admin/attendance"
+            className={`card-lift rounded-[20px] border p-5 transition hover:shadow-md ${
+              extraKpi && extraKpi.todayAbsentCount > 0
+                ? "border-red-200 bg-red-50"
+                : "border-ink/10 bg-white"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">오늘 결석</p>
+            <p
+              className={`count-animated mt-2 text-4xl font-bold ${
+                extraKpi && extraKpi.todayAbsentCount > 0 ? "text-red-700" : "text-ink"
+              }`}
+            >
+              {extraKpi ? extraKpi.todayAbsentCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">오늘 결석 처리된 학생 수</p>
+          </Link>
+          <Link
+            href="/admin/notices"
+            className="card-lift rounded-[20px] border border-ink/10 bg-white p-5 transition hover:shadow-md"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">최근 공지</p>
+            <p className="count-animated mt-2 text-4xl font-bold text-ink">
+              {extraKpi ? extraKpi.recentNoticeCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">최근 7일 발행된 공지사항</p>
+          </Link>
+          <Link
+            href="/admin/payment-links"
+            className={`card-lift rounded-[20px] border p-5 transition hover:shadow-md ${
+              extraKpi && extraKpi.activePaymentLinkCount > 0
+                ? "border-forest/20 bg-forest/5"
+                : "border-ink/10 bg-white"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate">활성 결제 링크</p>
+            <p
+              className={`count-animated mt-2 text-4xl font-bold ${
+                extraKpi && extraKpi.activePaymentLinkCount > 0 ? "text-forest" : "text-ink"
+              }`}
+            >
+              {extraKpi ? extraKpi.activePaymentLinkCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-2 text-xs text-slate">현재 유효한 온라인 결제 링크</p>
           </Link>
         </div>
       </section>
