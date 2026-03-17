@@ -198,7 +198,15 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "두 학생의 기간별 성적과 출결 지표를 같은 기준으로 비교",
     minRole: AdminRole.VIEWER,
     group: "메인",
-  },  {
+  },
+  {
+    href: "/admin/prospects",
+    label: "상담 방문자",
+    description: "미등록 예비 원생 상담 기록 및 수강 전환 관리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/enrollments",
     label: "수강 관리",
     description: "수강 등록, 상태 변경, 퇴원, 휴원 처리",
@@ -638,6 +646,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     description: "교재 현장 판매 등록 및 오늘 판매 내역 조회",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
+  },
+  {
+    href: "/admin/staff-settlements",
+    label: "직원 정산",
+    description: "직원별 월별 수납 수수료 정산 조회 및 엑셀 출력",
+    minRole: AdminRole.MANAGER,
+    group: "직원 관리",
   },
 ];
 
