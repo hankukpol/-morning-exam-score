@@ -17,10 +17,11 @@ import {
 } from "@/lib/analytics/analysis";
 import { recalculateStatusCache } from "@/lib/analytics/service";
 import { buildAbsenceNoteSystemNote } from "@/lib/absence-notes/system-note";
-import { EXAM_TYPE_SUBJECTS } from "@/lib/constants";
+import { EXAM_TYPE_SUBJECTS, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { countsAsConfiguredAttendance } from "@/lib/scores/calculation";
+import type { AttendanceDayStatus } from "@/components/student-portal/attendance-calendar";
 
 type StudentPortalProfile = {
   examNumber: string;
@@ -1187,3 +1188,218 @@ export async function createStudentAbsenceNote(input: {
   return result.note;
 }
 
+// ─── 월별 캘린더 출결 ────────────────────────────────────────────
+
+/**
+ * AttendType → 캘린더 상태 변환
+ * - NORMAL / LIVE → present
+ * - EXCUSED → excused
+ * - ABSENT → absent
+ */
+function attendTypeToCalendarStatus(attendType: AttendType): AttendanceDayStatus {
+  if (attendType === AttendType.NORMAL || attendType === AttendType.LIVE) {
+    return "present";
+  }
+  if (attendType === AttendType.EXCUSED) {
+    return "excused";
+  }
+  return "absent";
+}
+
+export type AttendanceCalendarRecord = {
+  date: string; // "YYYY-MM-DD"
+  status: AttendanceDayStatus;
+  subjects: string[]; // 해당 날짜 과목 레이블 목록
+};
+
+export type AttendanceCalendarSummary = {
+  present: number;
+  excused: number;
+  absent: number;
+  total: number;
+  attendanceRate: number;
+  streak: number; // 오늘까지 연속 출석 일수 (날짜 단위)
+};
+
+/**
+ * 월별 출결 캘린더 데이터 조회
+ * - month: "YYYY-MM" 형식. 생략 시 현재 달.
+ * - 날짜별로 가장 우선되는 상태(출석 > 공결 > 결석) 하나를 반환.
+ */
+export async function getStudentPortalAttendanceCalendarData(input: {
+  examNumber: string;
+  month?: string;
+}) {
+  const student = await loadStudentPortalProfile(input.examNumber);
+  if (!student) return null;
+
+  const prisma = getPrisma();
+
+  // 월 파싱
+  const now = new Date();
+  let targetYear = now.getFullYear();
+  let targetMonth = now.getMonth() + 1;
+
+  if (input.month) {
+    const parts = input.month.split("-").map(Number);
+    if (parts.length === 2 && Number.isInteger(parts[0]) && Number.isInteger(parts[1])) {
+      targetYear = parts[0]!;
+      targetMonth = parts[1]!;
+    }
+  }
+
+  const monthStart = new Date(targetYear, targetMonth - 1, 1);
+  const monthEnd = new Date(targetYear, targetMonth, 1); // exclusive
+
+  // 해당 월의 시험 세션 조회 (취소 제외)
+  const sessions = await prisma.examSession.findMany({
+    where: {
+      examType: student.examType,
+      isCancelled: false,
+      examDate: {
+        gte: monthStart,
+        lt: monthEnd,
+      },
+    },
+    orderBy: [{ examDate: "asc" }, { subject: "asc" }],
+    select: {
+      id: true,
+      examDate: true,
+      subject: true,
+    },
+  });
+
+  if (sessions.length === 0) {
+    return {
+      student,
+      month: `${targetYear}-${String(targetMonth).padStart(2, "0")}`,
+      records: [] as AttendanceCalendarRecord[],
+      summary: {
+        present: 0,
+        excused: 0,
+        absent: 0,
+        total: 0,
+        attendanceRate: 0,
+        streak: 0,
+      } satisfies AttendanceCalendarSummary,
+    };
+  }
+
+  const sessionIds = sessions.map((s) => s.id);
+
+  // 점수(출결) + 공결 사유서 조회
+  const [scores, approvedAbsences] = await Promise.all([
+    prisma.score.findMany({
+      where: {
+        examNumber: student.examNumber,
+        sessionId: { in: sessionIds },
+      },
+      select: {
+        sessionId: true,
+        attendType: true,
+      },
+    }),
+    prisma.absenceNote.findMany({
+      where: {
+        examNumber: student.examNumber,
+        status: AbsenceStatus.APPROVED,
+        sessionId: { in: sessionIds },
+      },
+      select: {
+        sessionId: true,
+      },
+    }),
+  ]);
+
+  const scoreMap = new Map(scores.map((s) => [s.sessionId, s.attendType]));
+  const excusedSet = new Set(approvedAbsences.map((a) => a.sessionId));
+
+  // 날짜별 집계 — 하루에 여러 과목이 있으므로 날짜를 키로 묶습니다.
+  // 우선순위: present > excused > absent
+  const todayStr = formatDate(now);
+
+  type DayAgg = {
+    statuses: AttendanceDayStatus[];
+    subjects: string[];
+    isFuture: boolean;
+  };
+
+  const dayMap = new Map<string, DayAgg>();
+
+  for (const session of sessions) {
+    const dateStr = formatDate(session.examDate);
+    const isFuture = dateStr > todayStr;
+    const existingEntry = dayMap.get(dateStr);
+    const entry: DayAgg = existingEntry ?? { statuses: [], subjects: [], isFuture };
+    if (!existingEntry) {
+      dayMap.set(dateStr, entry);
+    }
+
+    entry.subjects.push(SUBJECT_LABEL[session.subject]);
+
+    if (isFuture) {
+      entry.statuses.push("future");
+      continue;
+    }
+
+    const attendType = scoreMap.get(session.id);
+    if (!attendType) {
+      entry.statuses.push("absent");
+    } else if (excusedSet.has(session.id)) {
+      entry.statuses.push("excused");
+    } else {
+      entry.statuses.push(attendTypeToCalendarStatus(attendType));
+    }
+  }
+
+  // 날짜별 대표 상태 결정
+  function dominantStatus(statuses: AttendanceDayStatus[]): AttendanceDayStatus {
+    if (statuses.includes("present")) return "present";
+    if (statuses.includes("excused")) return "excused";
+    if (statuses.includes("absent")) return "absent";
+    return "future";
+  }
+
+  const records: AttendanceCalendarRecord[] = Array.from(dayMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, agg]) => ({
+      date,
+      status: agg.isFuture && !agg.statuses.some((s) => s !== "future")
+        ? "future"
+        : dominantStatus(agg.statuses),
+      subjects: agg.subjects,
+    }));
+
+  // 요약 (과거/오늘 날짜만 집계)
+  const pastRecords = records.filter((r) => r.date <= todayStr);
+  const present = pastRecords.filter((r) => r.status === "present").length;
+  const excused = pastRecords.filter((r) => r.status === "excused").length;
+  const absent = pastRecords.filter((r) => r.status === "absent").length;
+  const total = present + excused + absent;
+  const attendanceRate = total === 0 ? 0 : Math.round(((present + excused) / total) * 1000) / 10;
+
+  // 연속 출석 스트릭: 역순으로 연속 출석/공결 날짜 계산
+  const sortedPast = [...pastRecords].sort((a, b) => b.date.localeCompare(a.date));
+  let streak = 0;
+  for (const r of sortedPast) {
+    if (r.status === "present" || r.status === "excused") {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    student,
+    month: `${targetYear}-${String(targetMonth).padStart(2, "0")}`,
+    records,
+    summary: {
+      present,
+      excused,
+      absent,
+      total,
+      attendanceRate,
+      streak,
+    } satisfies AttendanceCalendarSummary,
+  };
+}

@@ -403,6 +403,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "성적 관리",
   },
   {
+    href: "/admin/attendance/lecture",
+    label: "강의 출결",
+    description: "날짜별 강의 세션 출결 현황 조회 및 출결 입력",
+    minRole: AdminRole.TEACHER,
+    group: "성적 관리",
+  },
+  {
     href: "/admin/exams/monthly",
     label: "월말평가 접수",
     description: "월말평가 시험 등록 및 구분별 접수·납부 처리",
@@ -574,6 +581,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/settings/cohorts",
     label: "기수 관리",
     description: "수험 유형별 기수(期數) 등록 및 기간 설정",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+  },
+  {
+    href: "/admin/settings/lecture-schedules",
+    label: "강의 스케줄",
+    description: "기수별 강의 요일·시간·과목·강사 스케줄 설정",
     minRole: AdminRole.MANAGER,
     group: "설정",
   },

@@ -24,6 +24,8 @@ export type PaymentLinkRow = {
   staff: { name: string };
   course: { name: string } | null;
   _count: { payments: number };
+  isExpired: boolean;
+  isExpiringSoon: boolean;
 };
 
 export type CourseOption = {
@@ -32,8 +34,20 @@ export type CourseOption = {
   tuitionFee: number;
 };
 
+export type LinkStats = {
+  total: number;
+  active: number;
+  paid: number;
+  expired: number;
+  disabled: number;
+  usedUp: number;
+  expiringSoon: number;
+};
+
 export default async function PaymentLinksPage() {
   await requireAdminContext(AdminRole.COUNSELOR);
+
+  const now = new Date();
 
   const [rawLinks, rawCourses] = await getPrisma().$transaction([
     getPrisma().paymentLink.findMany({
@@ -55,7 +69,22 @@ export default async function PaymentLinksPage() {
     ...l,
     expiresAt: l.expiresAt.toISOString(),
     createdAt: l.createdAt.toISOString(),
+    isExpired: l.expiresAt < now,
+    isExpiringSoon:
+      l.status === "ACTIVE" &&
+      l.expiresAt > now &&
+      l.expiresAt < new Date(now.getTime() + 24 * 60 * 60 * 1000),
   }));
+
+  const stats: LinkStats = {
+    total: links.length,
+    active: links.filter((l) => l.status === "ACTIVE" && !l.isExpired).length,
+    paid: links.reduce((sum, l) => sum + l._count.payments, 0),
+    expired: links.filter((l) => l.status === "EXPIRED" || (l.status === "ACTIVE" && l.isExpired)).length,
+    disabled: links.filter((l) => l.status === "DISABLED").length,
+    usedUp: links.filter((l) => l.status === "USED_UP").length,
+    expiringSoon: links.filter((l) => l.isExpiringSoon).length,
+  };
 
   const courses: CourseOption[] = rawCourses;
 
@@ -70,7 +99,7 @@ export default async function PaymentLinksPage() {
         결제하면 자동으로 수납이 등록됩니다.
       </p>
       <div className="mt-8">
-        <PaymentLinkManager initialLinks={links} courses={courses} />
+        <PaymentLinkManager initialLinks={links} courses={courses} initialStats={stats} />
       </div>
     </div>
   );

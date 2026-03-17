@@ -49,6 +49,7 @@ model Student {
   graduateRecords            GraduateRecord[]
   discountCodeUsages         DiscountCodeUsage[]
   examRegistrations          ExamRegistration[]
+  lectureAttendances         LectureAttendance[]
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -853,7 +854,8 @@ model Cohort {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  enrollments CourseEnrollment[]
+  enrollments      CourseEnrollment[]
+  lectureSchedules LectureSchedule[]
 
   @@index([examCategory, isActive])
   @@map("cohorts")
@@ -1738,4 +1740,71 @@ model ExamRegistration {
   @@index([examEventId, division])
   @@index([examNumber])
   @@map("exam_registrations")
+}
+
+// ─── 강의 출결 관리 ────────────────────────────────────────────────────────────
+
+enum AttendStatus {
+  PRESENT  // 출석
+  LATE     // 지각
+  ABSENT   // 결석
+  EXCUSED  // 공결
+  @@map("AttendStatus")
+}
+
+// 강의 스케줄 (기수별 반복 강의 정보)
+model LectureSchedule {
+  id             String   @id @default(cuid())
+  cohortId       String
+  subjectName    String   // 과목명 (형법, 헌법 등)
+  instructorName String?  // 강사명
+  dayOfWeek      Int      // 0=일 ~ 6=토
+  startTime      String   // "09:00"
+  endTime        String   // "11:00"
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cohort   Cohort           @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  sessions LectureSession[]
+
+  @@index([cohortId])
+  @@map("lecture_schedules")
+}
+
+// 특정 날짜 강의 세션
+model LectureSession {
+  id           String   @id @default(cuid())
+  scheduleId   String
+  sessionDate  DateTime @db.Date
+  startTime    String
+  endTime      String
+  isCancelled  Boolean  @default(false)
+  note         String?
+  createdAt    DateTime @default(now())
+
+  schedule    LectureSchedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  attendances LectureAttendance[]
+
+  @@unique([scheduleId, sessionDate])
+  @@index([sessionDate])
+  @@map("lecture_sessions")
+}
+
+// 학생별 강의 출결
+model LectureAttendance {
+  id         String       @id @default(cuid())
+  sessionId  String
+  studentId  String       // Student.examNumber
+  status     AttendStatus @default(PRESENT)
+  note       String?
+  checkedAt  DateTime     @default(now())
+  checkedBy  String?      @db.Uuid
+
+  session LectureSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student        @relation(fields: [studentId], references: [examNumber], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+  @@map("lecture_attendances")
 }

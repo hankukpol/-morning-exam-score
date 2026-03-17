@@ -3,7 +3,7 @@ import { AdminRole } from "@prisma/client";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
 
-// GET /api/payment-links - list all payment links
+// GET /api/payment-links - list all payment links with stats
 export async function GET(req: NextRequest) {
   const auth = await requireApiAdmin(AdminRole.COUNSELOR);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -28,9 +28,23 @@ export async function GET(req: NextRequest) {
     createdAt: link.createdAt.toISOString(),
     updatedAt: link.updatedAt.toISOString(),
     isExpired: link.expiresAt < now,
+    isExpiringSoon: link.status === "ACTIVE" && link.expiresAt > now && link.expiresAt < new Date(now.getTime() + 24 * 60 * 60 * 1000),
   }));
 
-  return NextResponse.json({ links: serialized });
+  // 상태별 집계 (만료 여부는 expiresAt 기준으로 실시간 판단)
+  const stats = {
+    total: links.length,
+    active: links.filter((l) => l.status === "ACTIVE" && l.expiresAt >= now).length,
+    paid: links.reduce((sum, l) => sum + l._count.payments, 0),
+    expired: links.filter((l) => l.status === "EXPIRED" || (l.status === "ACTIVE" && l.expiresAt < now)).length,
+    disabled: links.filter((l) => l.status === "DISABLED").length,
+    usedUp: links.filter((l) => l.status === "USED_UP").length,
+    expiringSoon: links.filter(
+      (l) => l.status === "ACTIVE" && l.expiresAt > now && l.expiresAt < new Date(now.getTime() + 24 * 60 * 60 * 1000),
+    ).length,
+  };
+
+  return NextResponse.json({ links: serialized, stats });
 }
 
 // POST /api/payment-links - create a new payment link
