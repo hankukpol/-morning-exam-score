@@ -466,6 +466,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "알림·공지",
   },
   {
+    href: "/admin/notifications/history",
+    label: "알림 발송 이력",
+    description: "카카오 알림톡 발송 이력 및 성공률 조회",
+    minRole: AdminRole.MANAGER,
+    group: "알림·공지",
+  },
+  {
     href: "/admin/query",
     label: "교차표 조회",
     description: "날짜별 과목별 수강생 집계 통합 조회",

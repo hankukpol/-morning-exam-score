@@ -254,34 +254,73 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
 
         <div className="mt-6 space-y-4">
           {filteredNotes.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-              저장한 오답이 없거나, 현재 필터에 맞는 데이터가 없습니다.
+            <div className="rounded-[24px] border border-dashed border-ink/10 p-8 text-center">
+              {notes.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-ink">아직 저장한 오답이 없습니다.</p>
+                  <p className="text-sm text-slate leading-7">
+                    성적 조회 화면에서 틀린 문항 옆의 <span className="font-semibold text-ink">노트 저장</span> 버튼을 눌러 오답을 기록해 보세요.
+                  </p>
+                  <a
+                    href="/student/scores"
+                    className="mt-2 inline-flex items-center rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-forest"
+                  >
+                    성적 조회로 이동
+                  </a>
+                </div>
+              ) : (
+                <p className="text-sm text-slate">현재 필터에 맞는 오답이 없습니다.</p>
+              )}
             </div>
           ) : null}
 
           {filteredNotes.map((note) => (
             <article key={note.id} className="rounded-[24px] border border-ink/10 p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate">
+                    <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
                       {SUBJECT_LABEL[note.subject]}
                     </span>
-                    <span className="inline-flex rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate">
+                    <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
                       {formatDate(note.examDate)}
                     </span>
+                    {note.difficulty ? (
+                      <span className="inline-flex rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate">
+                        난이도: {note.difficulty}
+                      </span>
+                    ) : null}
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold">{note.questionNo}번 문항</h3>
-                  <div className="mt-3 grid gap-2 text-sm text-slate sm:grid-cols-2">
-                    <p>정답: {note.correctAnswer}</p>
-                    <p>내 답안: {note.studentAnswer ?? "-"}</p>
-                    <p>
-                      정답률{" "}
-                      {note.correctRate !== null && note.correctRate !== undefined
-                        ? `${note.correctRate.toFixed(1)}%`
-                        : "-"}
-                    </p>
-                    <p>난이도: {note.difficulty ?? "-"}</p>
+                  <h3 className="mt-3 text-lg font-semibold">{note.questionNo}번 문항</h3>
+                  <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate">정답</span>
+                      <span className="rounded-lg border border-forest/20 bg-forest/10 px-2 py-0.5 font-semibold text-forest">
+                        {note.correctAnswer}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate">내 답안</span>
+                      <span className="rounded-lg border border-red-200 bg-red-50 px-2 py-0.5 font-semibold text-red-700">
+                        {note.studentAnswer ?? "-"}
+                      </span>
+                    </div>
+                    {note.correctRate !== null && note.correctRate !== undefined ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate">정답률</span>
+                        <span
+                          className={`font-semibold ${
+                            note.correctRate >= 70
+                              ? "text-forest"
+                              : note.correctRate >= 40
+                                ? "text-amber-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {note.correctRate.toFixed(1)}%
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
