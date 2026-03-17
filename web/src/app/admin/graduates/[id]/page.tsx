@@ -22,8 +22,10 @@ export type GraduateDetail = {
   createdAt: string;
   student: {
     name: string;
+    mobile: string | null;
     generation: number | null;
     examType: string;
+    courseEnrollmentCount: number;
   };
   staff: { name: string };
   scoreSnapshots: Array<{
@@ -44,14 +46,22 @@ export type GraduateDetail = {
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function GraduateDetailPage({ params }: PageProps) {
-  await requireAdminContext(AdminRole.VIEWER);
+  await requireAdminContext(AdminRole.TEACHER);
 
   const { id } = await params;
 
   const record = await getPrisma().graduateRecord.findUnique({
     where: { id },
     include: {
-      student: { select: { name: true, generation: true, examType: true } },
+      student: {
+        select: {
+          name: true,
+          phone: true,
+          generation: true,
+          examType: true,
+          _count: { select: { courseEnrollments: true } },
+        },
+      },
       staff: { select: { name: true } },
       scoreSnapshots: { orderBy: { createdAt: "asc" } },
     },
@@ -67,8 +77,10 @@ export default async function GraduateDetailPage({ params }: PageProps) {
     createdAt: record.createdAt.toISOString(),
     student: {
       name: record.student.name,
+      mobile: record.student.phone ?? null,
       generation: record.student.generation,
       examType: record.student.examType,
+      courseEnrollmentCount: record.student._count.courseEnrollments,
     },
     scoreSnapshots: record.scoreSnapshots.map((s) => ({
       id: s.id,
@@ -87,6 +99,7 @@ export default async function GraduateDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
+      {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-2 text-sm text-slate">
         <Link href="/admin/graduates" className="hover:text-forest transition-colors">
           합격자 관리
@@ -95,15 +108,34 @@ export default async function GraduateDetailPage({ params }: PageProps) {
         <span className="text-ink">{record.student.name}</span>
       </div>
 
-      <div className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-800">
-        합격자 상세
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-800">
+            합격자 상세
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold">
+            {record.student.name}
+            <span className="ml-2 text-lg font-normal text-slate">
+              {record.student.generation ? `${record.student.generation}기` : ""}
+            </span>
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Link
+            href="/admin/graduates"
+            className="rounded-[20px] border border-ink/20 px-4 py-2 text-sm font-medium text-slate transition-colors hover:border-ink/40 hover:text-ink"
+          >
+            ← 목록으로
+          </Link>
+          <Link
+            href={`/admin/students/${record.examNumber}`}
+            className="rounded-[20px] border border-forest/30 bg-forest/5 px-4 py-2 text-sm font-medium text-forest transition-colors hover:bg-forest/10"
+          >
+            학생 프로필 →
+          </Link>
+        </div>
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">
-        {record.student.name}
-        <span className="ml-2 text-lg font-normal text-slate">
-          {record.student.generation ? `${record.student.generation}기` : ""}
-        </span>
-      </h1>
 
       <GraduateDetailClient detail={detail} />
     </div>

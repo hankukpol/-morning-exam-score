@@ -54,12 +54,13 @@ export type LectureDetailData = {
 export default async function SpecialLectureDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await requireAdminContext(AdminRole.COUNSELOR);
+  const { id } = await params;
 
   const lecture = await getPrisma().specialLecture.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       subjects: {
         include: {

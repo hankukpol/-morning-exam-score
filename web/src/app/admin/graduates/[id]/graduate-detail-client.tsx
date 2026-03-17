@@ -108,7 +108,19 @@ export function GraduateDetailClient({ detail }: Props) {
       <div className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-base font-semibold mb-4">기본 정보</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <InfoItem label="학번" value={detail.examNumber} />
+          <InfoItem
+            label="학번"
+            value={
+              <a
+                href={`/admin/students/${detail.examNumber}`}
+                className="text-forest hover:underline font-medium"
+              >
+                {detail.examNumber}
+              </a>
+            }
+          />
+          <InfoItem label="이름" value={detail.student.name} />
+          <InfoItem label="연락처" value={detail.student.mobile ?? "-"} />
           <InfoItem label="수험 유형" value={EXAM_TYPE_LABEL[detail.student.examType] ?? detail.student.examType} />
           <InfoItem
             label="합격 구분"
@@ -152,6 +164,40 @@ export function GraduateDetailClient({ detail }: Props) {
             <p className="text-sm text-slate">{detail.note}</p>
           </div>
         )}
+      </div>
+
+      {/* 관련 학생 정보 카드 */}
+      <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <h2 className="text-base font-semibold mb-4">관련 학생 정보</h2>
+        <div className="flex flex-wrap items-center gap-6">
+          <div>
+            <p className="text-xs font-medium text-slate mb-0.5">학번</p>
+            <a
+              href={`/admin/students/${detail.examNumber}`}
+              className="text-sm font-medium text-forest hover:underline"
+            >
+              {detail.examNumber}
+            </a>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate mb-0.5">이름</p>
+            <p className="text-sm font-medium text-ink">{detail.student.name}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate mb-0.5">연락처</p>
+            <p className="text-sm font-medium text-ink">{detail.student.mobile ?? "-"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate mb-0.5">수강 등록 이력</p>
+            <p className="text-sm font-medium text-ink">{detail.student.courseEnrollmentCount}건</p>
+          </div>
+          <a
+            href={`/admin/students/${detail.examNumber}`}
+            className="ml-auto rounded-[20px] border border-forest/30 bg-forest/5 px-4 py-2 text-sm font-medium text-forest transition-colors hover:bg-forest/10"
+          >
+            학생 프로필 보기 →
+          </a>
+        </div>
       </div>
 
       {/* 성적 스냅샷 섹션 */}

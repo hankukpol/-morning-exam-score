@@ -1,4 +1,5 @@
 import { AdminRole } from "@prisma/client";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -9,16 +10,18 @@ export const dynamic = "force-dynamic";
 export default async function PaymentDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
+  const { id } = await params;
+
   const payment = await getPrisma().payment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       student: { select: { name: true, phone: true } },
       processor: { select: { name: true } },
-      items: true,
+      items: { orderBy: { id: "asc" } },
       refunds: {
         orderBy: { processedAt: "desc" },
         select: {
@@ -34,6 +37,9 @@ export default async function PaymentDetailPage({
           processedAt: true,
         },
       },
+      installments: {
+        orderBy: { seq: "asc" },
+      },
     },
   });
 
@@ -41,10 +47,40 @@ export default async function PaymentDetailPage({
 
   return (
     <div className="p-8 sm:p-10">
+      {/* Breadcrumb */}
+      <nav className="mb-4 flex items-center gap-2 text-xs text-slate">
+        <Link href="/admin/payments" className="hover:text-ink transition-colors">
+          수납 관리
+        </Link>
+        <span>/</span>
+        <span className="text-ink">수납 상세</span>
+      </nav>
+
+      {/* Badge + header */}
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
-        수납 관리
+        수납 상세
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">수납 상세</h1>
+
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">
+            {payment.student ? payment.student.name : "비회원"}
+            <span className="ml-3 text-xl font-normal text-slate">
+              {payment.netAmount.toLocaleString()}원
+            </span>
+          </h1>
+          {payment.examNumber ? (
+            <p className="mt-1 text-sm text-slate">학번: {payment.examNumber}</p>
+          ) : null}
+        </div>
+        <Link
+          href="/admin/payments"
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-5 py-2.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"
+        >
+          ← 목록으로
+        </Link>
+      </div>
+
       <div className="mt-8">
         <PaymentDetail payment={payment as unknown as PaymentDetailData} />
       </div>
