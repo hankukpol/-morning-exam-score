@@ -1,49 +1,14 @@
 import { AdminRole, NotificationChannel, NotificationType } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { NOTIFICATION_TYPE_LABEL } from "@/lib/constants";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
+import {
+  NotificationHistoryClient,
+  type NotificationLogRow,
+} from "./notification-history-client";
 
 export const dynamic = "force-dynamic";
-
-// ─── Channel labels ──────────────────────────────────────────────────────────
-const CHANNEL_LABEL: Record<NotificationChannel, string> = {
-  ALIMTALK: "알림톡",
-  SMS: "SMS",
-  WEB_PUSH: "웹 푸시",
-};
-
-const CHANNEL_COLOR: Record<NotificationChannel, string> = {
-  ALIMTALK: "border-amber-200 bg-amber-50 text-amber-800",
-  SMS: "border-sky-200 bg-sky-50 text-sky-800",
-  WEB_PUSH: "border-purple-200 bg-purple-50 text-purple-800",
-};
-
-// ─── Status ──────────────────────────────────────────────────────────────────
-function getStatusBadge(status: string) {
-  if (status === "sent") {
-    return {
-      label: "성공",
-      color: "border-forest/30 bg-forest/10 text-forest",
-    };
-  }
-  if (status === "failed") {
-    return {
-      label: "실패",
-      color: "border-red-200 bg-red-50 text-red-700",
-    };
-  }
-  return {
-    label: status,
-    color: "border-ink/20 bg-ink/5 text-slate",
-  };
-}
-
-// ─── Date helpers ────────────────────────────────────────────────────────────
-function formatSentAt(date: Date): string {
-  return format(date, "yyyy-MM-dd(E) HH:mm", { locale: ko });
-}
 
 // ─── Type filter values ───────────────────────────────────────────────────────
 const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -72,7 +37,7 @@ type PageProps = {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default async function NotificationHistoryPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.MANAGER);
+  await requireAdminContext(AdminRole.COUNSELOR);
 
   const page = Math.max(1, parseInt(searchParams?.page ?? "1", 10));
   const limit = 20;
@@ -111,7 +76,10 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const [filteredTotal, logs, monthTotal, monthFail] = await Promise.all([
+  // Last 6 months for chart
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0);
+
+  const [filteredTotal, logs, monthTotal, monthFail, chartRawLogs] = await Promise.all([
     prisma.notificationLog.count({ where }),
     prisma.notificationLog.findMany({
       where,
@@ -137,13 +105,37 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
         status: "failed",
       },
     }),
+    prisma.notificationLog.findMany({
+      where: { sentAt: { gte: sixMonthsAgo } },
+      select: { sentAt: true, status: true },
+      orderBy: { sentAt: "asc" },
+    }),
   ]);
 
   const monthSuccess = monthTotal - monthFail;
-  const successRate =
-    monthTotal > 0 ? Math.round((monthSuccess / monthTotal) * 100) : 100;
-
+  const successRate = monthTotal > 0 ? Math.round((monthSuccess / monthTotal) * 100) : 100;
   const totalPages = Math.ceil(filteredTotal / limit);
+
+  // Build monthly chart data
+  const chartMap = new Map<string, { sent: number; failed: number }>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    chartMap.set(key, { sent: 0, failed: 0 });
+  }
+  for (const log of chartRawLogs) {
+    const d = log.sentAt;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (chartMap.has(key)) {
+      const entry = chartMap.get(key)!;
+      if (log.status === "sent") entry.sent += 1;
+      else if (log.status === "failed") entry.failed += 1;
+    }
+  }
+  const monthlyChart = Array.from(chartMap.entries()).map(([month, counts]) => ({
+    month,
+    ...counts,
+  }));
 
   // Build pagination URL helper
   function pageUrl(p: number) {
@@ -155,16 +147,43 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
     return `/admin/notifications/history?${params.toString()}`;
   }
 
+  // Serialize logs for client component
+  const serializedLogs: NotificationLogRow[] = logs.map((log) => ({
+    id: log.id,
+    type: log.type,
+    channel: log.channel,
+    status: log.status,
+    message: log.message,
+    failReason: log.failReason,
+    sentAt: log.sentAt.toISOString(),
+    student: {
+      examNumber: log.student.examNumber,
+      name: log.student.name,
+      phone: log.student.phone,
+    },
+  }));
+
   return (
     <div className="p-8 sm:p-10">
       {/* Header */}
       <div className="inline-flex rounded-full border border-ink/20 bg-ink/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate">
         알림·공지
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">알림 발송 이력</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        카카오 알림톡·SMS 발송 이력을 조회하고 성공률을 확인합니다.
-      </p>
+      <div className="mt-5 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">알림 발송 이력</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+            카카오 알림톡·SMS 발송 이력을 조회하고 성공률을 확인합니다.
+            실패 건은 재발송 버튼으로 즉시 재처리할 수 있습니다.
+          </p>
+        </div>
+        <Link
+          href="/admin/notifications/send"
+          className="flex-shrink-0 inline-flex items-center rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90"
+        >
+          수동 발송
+        </Link>
+      </div>
 
       {/* KPI Cards */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -241,6 +260,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
               <option value="ALL">전체 상태</option>
               <option value="sent">성공</option>
               <option value="failed">실패</option>
+              <option value="skipped">제외</option>
             </select>
           </div>
 
@@ -280,167 +300,49 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
         </p>
       </form>
 
-      {/* Log Table */}
-      <div className="mt-8 rounded-[28px] border border-ink/10 bg-white">
-        {logs.length === 0 ? (
-          <div className="p-16 text-center">
-            <p className="text-sm text-slate">조건에 맞는 발송 이력이 없습니다.</p>
-            <p className="mt-2 text-xs text-slate/60">
-              알림톡이 발송되면 이 목록에 자동으로 기록됩니다.
-            </p>
-            <a
-              href="/admin/notifications"
-              className="mt-6 inline-flex items-center rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
-            >
-              알림 발송 페이지로 이동
-            </a>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-ink/10 bg-mist text-left">
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    발송일시
-                  </th>
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    유형
-                  </th>
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    채널
-                  </th>
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    수신자
-                  </th>
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    연락처
-                  </th>
-                  <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate">
-                    상태
-                  </th>
-                  <th className="px-5 py-4 font-semibold text-slate">비고</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log, idx) => {
-                  const isEven = idx % 2 === 0;
-                  const statusBadge = getStatusBadge(log.status);
-                  const channelColor = CHANNEL_COLOR[log.channel];
-                  const channelLabel = CHANNEL_LABEL[log.channel];
-                  const typeLabel =
-                    NOTIFICATION_TYPE_LABEL[log.type] ?? log.type;
-
-                  return (
-                    <tr
-                      key={log.id}
-                      className={`border-b border-ink/5 transition hover:bg-mist/60 ${isEven ? "" : "bg-gray-50/40"}`}
-                    >
-                      {/* 발송일시 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <p className="font-medium text-ink">
-                          {formatSentAt(log.sentAt)}
-                        </p>
-                      </td>
-
-                      {/* 유형 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <span className="inline-flex rounded-full border border-ink/20 bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink">
-                          {typeLabel}
-                        </span>
-                      </td>
-
-                      {/* 채널 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${channelColor}`}
-                        >
-                          {channelLabel}
-                        </span>
-                      </td>
-
-                      {/* 수신자 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <a
-                          href={`/admin/students/${log.student.examNumber}`}
-                          className="font-medium text-ink hover:underline"
-                        >
-                          {log.student.name}
-                        </a>
-                        <p className="font-mono text-xs text-slate">
-                          {log.student.examNumber}
-                        </p>
-                      </td>
-
-                      {/* 연락처 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <span className="font-mono text-xs text-slate">
-                          {log.student.phone ?? "-"}
-                        </span>
-                      </td>
-
-                      {/* 상태 */}
-                      <td className="whitespace-nowrap px-5 py-3.5 align-top">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadge.color}`}
-                        >
-                          {statusBadge.label}
-                        </span>
-                      </td>
-
-                      {/* 비고 */}
-                      <td className="max-w-xs px-5 py-3.5 align-top">
-                        {log.failReason ? (
-                          <p className="break-words text-xs leading-relaxed text-red-600">
-                            {log.failReason}
-                          </p>
-                        ) : (
-                          <span className="text-xs text-slate/50">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-ink/10 px-6 py-4">
-            <p className="text-sm text-slate">
-              {page} / {totalPages} 페이지 &nbsp;·&nbsp;{" "}
-              {filteredTotal.toLocaleString("ko-KR")}건
-            </p>
-            <div className="flex gap-2">
-              {page > 1 ? (
-                <a
-                  href={pageUrl(page - 1)}
-                  className="inline-flex items-center rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40"
-                >
-                  ← 이전
-                </a>
-              ) : (
-                <span className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate/40">
-                  ← 이전
-                </span>
-              )}
-              {page < totalPages ? (
-                <a
-                  href={pageUrl(page + 1)}
-                  className="inline-flex items-center rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40"
-                >
-                  다음 →
-                </a>
-              ) : (
-                <span className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate/40">
-                  다음 →
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Client section: Chart + Table */}
+      <div className="mt-8 space-y-8">
+        <NotificationHistoryClient
+          logs={serializedLogs}
+          monthlyChart={monthlyChart}
+        />
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between rounded-[28px] border border-ink/10 bg-white px-6 py-4">
+          <p className="text-sm text-slate">
+            {page} / {totalPages} 페이지 &nbsp;·&nbsp;{" "}
+            {filteredTotal.toLocaleString("ko-KR")}건
+          </p>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <a
+                href={pageUrl(page - 1)}
+                className="inline-flex items-center rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40"
+              >
+                ← 이전
+              </a>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate/40">
+                ← 이전
+              </span>
+            )}
+            {page < totalPages ? (
+              <a
+                href={pageUrl(page + 1)}
+                className="inline-flex items-center rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40"
+              >
+                다음 →
+              </a>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-slate/40">
+                다음 →
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

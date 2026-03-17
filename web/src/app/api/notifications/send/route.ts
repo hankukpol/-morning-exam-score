@@ -1,6 +1,7 @@
-﻿import { AdminRole, ExamType, NotificationType, StudentStatus } from "@prisma/client";
+import { AdminRole, ExamType, NotificationType, StudentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { getPrisma } from "@/lib/prisma";
 import {
   previewManualNotification,
   previewQueuedNotifications,
@@ -8,6 +9,8 @@ import {
   sendQueuedNotifications,
   sendStatusNotifications,
 } from "@/lib/notifications/service";
+
+type TargetMode = "student" | "cohort" | "all_active";
 
 type RequestBody = {
   preview?: boolean;
@@ -19,10 +22,51 @@ type RequestBody = {
   pointAmount?: number | null;
   periodId?: number;
   statuses?: StudentStatus[];
+  // Manual send extensions
+  target?: TargetMode;
+  cohortId?: string;
 };
 
+/**
+ * Resolve exam numbers for cohort / all_active targets.
+ */
+async function resolveExamNumbersForTarget(
+  target: TargetMode,
+  opts: { cohortId?: string; examNumbers?: string[] },
+): Promise<string[] | undefined> {
+  if (target === "student") {
+    // examNumbers supplied directly from caller
+    return opts.examNumbers;
+  }
+
+  const prisma = getPrisma();
+
+  if (target === "cohort" && opts.cohortId) {
+    // Get all ACTIVE / PENDING enrollments for the cohort
+    const enrollments = await prisma.courseEnrollment.findMany({
+      where: {
+        cohortId: opts.cohortId,
+        status: { in: ["ACTIVE", "PENDING"] },
+      },
+      select: { examNumber: true },
+    });
+    return enrollments.map((e) => e.examNumber);
+  }
+
+  if (target === "all_active") {
+    // All isActive students with notification consent
+    const students = await prisma.student.findMany({
+      where: { isActive: true, notificationConsent: true },
+      select: { examNumber: true },
+    });
+    return students.map((s) => s.examNumber);
+  }
+
+  return undefined;
+}
+
 export async function POST(request: Request) {
-  const auth = await requireApiAdmin(AdminRole.TEACHER);
+  const auth = await requireApiAdmin(AdminRole.COUNSELOR);
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -33,19 +77,25 @@ export async function POST(request: Request) {
     const logIds =
       body.logIds?.map((value) => Number(value)).filter((value) => Number.isInteger(value)) ?? [];
 
-    if (body.preview) {
-      if (logIds.length > 0) {
-        const result = await previewQueuedNotifications({ logIds });
-        return NextResponse.json(result);
-      }
+    // ── Queued notification preview ─────────────────────────────────────────
+    if (body.preview && logIds.length > 0) {
+      const result = await previewQueuedNotifications({ logIds });
+      return NextResponse.json(result);
+    }
 
-      const examNumbers =
-        body.examNumbers?.map((value) => String(value).trim()).filter(Boolean) ?? undefined;
+    // ── Manual notification preview ─────────────────────────────────────────
+    if (body.preview) {
+      const target = body.target ?? "student";
+      const resolvedExamNumbers = await resolveExamNumbersForTarget(target, {
+        cohortId: body.cohortId,
+        examNumbers: body.examNumbers?.map((v) => String(v).trim()).filter(Boolean),
+      });
+
       const result = await previewManualNotification({
         type: body.type ?? NotificationType.NOTICE,
         message: body.message,
         examType: body.examType,
-        examNumbers,
+        examNumbers: resolvedExamNumbers,
         pointAmount:
           body.pointAmount === null || body.pointAmount === undefined
             ? null
@@ -55,6 +105,7 @@ export async function POST(request: Request) {
       return NextResponse.json(result);
     }
 
+    // ── Send queued notifications ───────────────────────────────────────────
     if (logIds.length > 0) {
       const result = await sendQueuedNotifications({
         adminId: auth.context.adminUser.id,
@@ -65,6 +116,7 @@ export async function POST(request: Request) {
       return NextResponse.json(result);
     }
 
+    // ── Send status-based notifications ────────────────────────────────────
     const statuses =
       body.statuses?.filter(
         (value) =>
@@ -86,14 +138,19 @@ export async function POST(request: Request) {
       return NextResponse.json(result);
     }
 
-    const examNumbers =
-      body.examNumbers?.map((value) => String(value).trim()).filter(Boolean) ?? undefined;
+    // ── Manual notification send (student / cohort / all_active) ────────────
+    const target = body.target ?? "student";
+    const resolvedExamNumbers = await resolveExamNumbersForTarget(target, {
+      cohortId: body.cohortId,
+      examNumbers: body.examNumbers?.map((v) => String(v).trim()).filter(Boolean),
+    });
+
     const result = await sendManualNotification({
       adminId: auth.context.adminUser.id,
       type: body.type ?? NotificationType.NOTICE,
       message: body.message,
       examType: body.examType,
-      examNumbers,
+      examNumbers: resolvedExamNumbers,
       pointAmount:
         body.pointAmount === null || body.pointAmount === undefined
           ? null

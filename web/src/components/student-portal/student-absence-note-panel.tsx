@@ -53,6 +53,28 @@ const NOTE_STATUS_CLASS: Record<AbsenceStatus, string> = {
   REJECTED: "border-red-200 bg-red-50 text-red-700",
 };
 
+const NOTE_STATUS_ICON: Record<AbsenceStatus, string> = {
+  PENDING: "⏳",
+  APPROVED: "✓",
+  REJECTED: "✕",
+};
+
+const ABSENCE_CATEGORY_ICON: Record<AbsenceCategory, string> = {
+  MILITARY: "🪖",
+  MEDICAL: "🏥",
+  FAMILY: "👨‍👩‍👧",
+  OTHER: "📝",
+};
+
+type NoteFilterTab = "ALL" | AbsenceStatus;
+
+const NOTE_FILTER_LABEL: Record<NoteFilterTab, string> = {
+  ALL: "전체",
+  PENDING: "대기",
+  APPROVED: "승인",
+  REJECTED: "반려",
+};
+
 export function StudentAbsenceNotePanel({
   sessionOptions,
   notes,
@@ -70,6 +92,7 @@ export function StudentAbsenceNotePanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noteFilter, setNoteFilter] = useState<NoteFilterTab>("ALL");
 
   useEffect(() => {
     if (availableSessions.length === 0) {
@@ -110,6 +133,11 @@ export function StudentAbsenceNotePanel({
       return;
     }
 
+    if (!reason.trim()) {
+      setErrorMessage("상세 사유를 입력해 주세요.");
+      return;
+    }
+
     setNotice(null);
     setErrorMessage(null);
     setIsSubmitting(true);
@@ -141,8 +169,48 @@ export function StudentAbsenceNotePanel({
     }
   }
 
+  // 상태별 카운트
+  const pendingCount = notes.filter((n) => n.status === AbsenceStatus.PENDING).length;
+  const approvedCount = notes.filter((n) => n.status === AbsenceStatus.APPROVED).length;
+  const rejectedCount = notes.filter((n) => n.status === AbsenceStatus.REJECTED).length;
+
+  const noteFilterCount: Record<NoteFilterTab, number> = {
+    ALL: notes.length,
+    PENDING: pendingCount,
+    APPROVED: approvedCount,
+    REJECTED: rejectedCount,
+  };
+
+  const filteredNotes = noteFilter === "ALL"
+    ? notes
+    : notes.filter((n) => n.status === noteFilter);
+
+  const noteFilterTabs: NoteFilterTab[] = ["ALL", "PENDING", "APPROVED", "REJECTED"];
+
   return (
     <div className="space-y-6">
+      {/* 상태별 카운트 요약 */}
+      {notes.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center rounded-[20px] border border-amber-200 bg-amber-50 p-3 text-center">
+            <span className="text-lg">⏳</span>
+            <p className="mt-1 text-xl font-bold text-amber-700">{pendingCount}</p>
+            <p className="text-xs text-amber-600">대기 중</p>
+          </div>
+          <div className="flex flex-col items-center rounded-[20px] border border-forest/20 bg-forest/10 p-3 text-center">
+            <span className="text-lg">✓</span>
+            <p className="mt-1 text-xl font-bold text-forest">{approvedCount}</p>
+            <p className="text-xs text-forest">승인됨</p>
+          </div>
+          <div className="flex flex-col items-center rounded-[20px] border border-red-200 bg-red-50 p-3 text-center">
+            <span className="text-lg">✕</span>
+            <p className="mt-1 text-xl font-bold text-red-700">{rejectedCount}</p>
+            <p className="text-xs text-red-600">반려됨</p>
+          </div>
+        </div>
+      )}
+
+      {/* 사유서 제출 폼 */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -151,8 +219,14 @@ export function StudentAbsenceNotePanel({
               지난 회차 결석 사유를 제출할 수 있습니다. 예비군은 자동 승인되고, 그 외 사유는 관리자 검토 후 상태가 반영됩니다.
             </p>
           </div>
-          <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3 text-sm text-slate">
-            제출 가능한 회차 {availableSessions.length}건
+          <div
+            className={`rounded-[20px] border px-4 py-2.5 text-sm font-semibold ${
+              availableSessions.length > 0
+                ? "border-ember/20 bg-ember/10 text-ember"
+                : "border-ink/10 bg-mist text-slate"
+            }`}
+          >
+            제출 가능 {availableSessions.length}건
           </div>
         </div>
 
@@ -168,6 +242,7 @@ export function StudentAbsenceNotePanel({
         ) : null}
 
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+          {/* 회차 선택 */}
           <div>
             <label className="mb-2 block text-sm font-medium">선택 회차</label>
             <select
@@ -187,27 +262,35 @@ export function StudentAbsenceNotePanel({
             </select>
           </div>
 
+          {/* 사유 구분 카드 선택 */}
           <div>
-            <label className="mb-2 block text-sm font-medium">사유 구분</label>
-            <select
-              value={absenceCategory}
-              onChange={(event) => setAbsenceCategory(event.target.value as AbsenceCategory)}
-              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
-              disabled={isSubmitting}
-            >
+            <label className="mb-2 block text-sm font-medium">결석 유형</label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Object.values(AbsenceCategory).map((category) => (
-                <option key={category} value={category}>
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setAbsenceCategory(category)}
+                  disabled={isSubmitting}
+                  className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-sm font-semibold transition ${
+                    absenceCategory === category
+                      ? "border-ember/40 bg-ember/10 text-ember"
+                      : "border-ink/10 bg-white text-slate hover:border-ink/20 hover:text-ink"
+                  }`}
+                >
+                  <span className="text-lg leading-none">{ABSENCE_CATEGORY_ICON[category]}</span>
                   {ABSENCE_CATEGORY_LABEL[category]}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             {absenceCategory === AbsenceCategory.MILITARY ? (
-              <p className="mt-2 text-xs leading-6 text-forest">
+              <p className="mt-2 rounded-xl border border-forest/20 bg-forest/10 px-3 py-2 text-xs leading-6 text-forest">
                 예비군 사유서는 자동 승인되며, 출결 인정과 개근 반영 여부도 함께 처리됩니다.
               </p>
             ) : null}
           </div>
 
+          {/* 상세 사유 */}
           <div>
             <label className="mb-2 block text-sm font-medium">상세 사유</label>
             <textarea
@@ -218,6 +301,15 @@ export function StudentAbsenceNotePanel({
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
               disabled={isSubmitting}
             />
+          </div>
+
+          {/* 파일 첨부 안내 */}
+          <div className="rounded-2xl border border-ink/10 bg-mist px-4 py-3 text-xs leading-6 text-slate">
+            <p className="font-semibold text-ink">증빙 서류 제출 안내</p>
+            <p className="mt-0.5">
+              진단서·소집 통지서 등 증빙 서류는 온라인 첨부가 지원되지 않습니다.
+              학원 창구(053-241-0112)에 직접 제출해 주세요.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -235,6 +327,7 @@ export function StudentAbsenceNotePanel({
         </form>
       </section>
 
+      {/* 제출 내역 + 필터 탭 */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -243,26 +336,55 @@ export function StudentAbsenceNotePanel({
               이전에 제출한 사유서의 처리 결과와 출결 반영 여부를 한 번에 확인할 수 있습니다.
             </p>
           </div>
-          <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3 text-sm text-slate">
+          <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-2.5 text-sm text-slate">
             총 {notes.length}건
           </div>
         </div>
 
-        {notes.length === 0 ? (
-          <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-sm text-slate">
-            제출한 사유서가 아직 없습니다.
+        {/* 상태 필터 탭 */}
+        {notes.length > 0 && (
+          <div className="mt-5 flex gap-0 border-b border-ink/10">
+            {noteFilterTabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setNoteFilter(tab)}
+                className={`flex items-center gap-1.5 border-b-2 px-4 pb-3 text-sm font-semibold transition ${
+                  noteFilter === tab
+                    ? "border-ember text-ember"
+                    : "border-transparent text-slate hover:text-ink"
+                }`}
+              >
+                {NOTE_FILTER_LABEL[tab]}
+                <span
+                  className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs ${
+                    noteFilter === tab ? "bg-ember text-white" : "bg-mist text-slate"
+                  }`}
+                >
+                  {noteFilterCount[tab]}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredNotes.length === 0 ? (
+          <div className="mt-6 rounded-[24px] border border-dashed border-ink/10 p-8 text-center text-sm text-slate">
+            {noteFilter === "ALL" ? "제출한 사유서가 아직 없습니다." : `${NOTE_FILTER_LABEL[noteFilter]} 상태인 사유서가 없습니다.`}
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
-            {notes.map((note) => (
-              <article key={note.id} className="rounded-[24px] border border-ink/10 p-5">
+          <div className="mt-5 space-y-4">
+            {filteredNotes.map((note) => (
+              <article key={note.id} className={`rounded-[24px] border p-5 ${note.status === AbsenceStatus.REJECTED ? "border-red-200" : "border-ink/10"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${NOTE_STATUS_CLASS[note.status]}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${NOTE_STATUS_CLASS[note.status]}`}>
+                        <span>{NOTE_STATUS_ICON[note.status]}</span>
                         {NOTE_STATUS_LABEL[note.status]}
                       </span>
-                      <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
+                        <span>{note.absenceCategory ? ABSENCE_CATEGORY_ICON[note.absenceCategory] : "📝"}</span>
                         {note.absenceCategory ? ABSENCE_CATEGORY_LABEL[note.absenceCategory] : "기타"}
                       </span>
                     </div>
@@ -288,9 +410,13 @@ export function StudentAbsenceNotePanel({
                     <div>
                       반영 출결: {ATTEND_TYPE_LABEL[note.status === AbsenceStatus.APPROVED ? AttendType.EXCUSED : AttendType.ABSENT]}
                     </div>
-                    {note.adminNote ? <div className="mt-2">관리자 메모: {note.adminNote}</div> : null}
+                    {note.adminNote ? (
+                      <div className={`mt-2 ${note.status === AbsenceStatus.REJECTED ? "text-red-700" : "text-slate"}`}>
+                        관리자 메모: {note.adminNote}
+                      </div>
+                    ) : null}
                     {note.status === AbsenceStatus.REJECTED ? (
-                      <div className="mt-2 text-red-700">
+                      <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
                         반려된 회차는 내용을 보완해 다시 제출할 수 있습니다.
                       </div>
                     ) : null}
@@ -302,6 +428,7 @@ export function StudentAbsenceNotePanel({
         )}
       </section>
 
+      {/* 제출 불가 회차 안내 */}
       {sessionOptions.some((session) => !session.canSubmit) ? (
         <section className="rounded-[28px] border border-ink/10 bg-white p-5 text-sm leading-7 text-slate sm:p-6">
           <h2 className="text-xl font-semibold text-ink">제출할 수 없는 회차 안내</h2>

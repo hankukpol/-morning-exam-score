@@ -270,6 +270,20 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/cohorts",
+    label: "기수 현황",
+    description: "활성 기수별 재원·대기자 현황 카드 및 KPI 대시보드",
+    minRole: AdminRole.TEACHER,
+    group: "수강 관리",
+  },
+  {
+    href: "/admin/cohorts/waitlist",
+    label: "대기자 관리",
+    description: "기수별 대기자 목록, 여석 현황 및 수강 확정 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/enrollments/ledger",
     label: "수강대장",
     description: "기수·기간별 수강생 명단 조회 및 출력 (학원법 준수)",
@@ -515,10 +529,17 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "알림·공지",
   },
   {
+    href: "/admin/notifications/send",
+    label: "알림 수동 발송",
+    description: "개별 학생, 기수, 재원생 전체에게 알림톡 수동 발송",
+    minRole: AdminRole.COUNSELOR,
+    group: "알림·공지",
+  },
+  {
     href: "/admin/notifications/history",
     label: "알림 발송 이력",
-    description: "카카오 알림톡 발송 이력 및 성공률 조회",
-    minRole: AdminRole.MANAGER,
+    description: "카카오 알림톡 발송 이력 및 성공률 조회, 실패 건 재발송",
+    minRole: AdminRole.COUNSELOR,
     group: "알림·공지",
   },
   {

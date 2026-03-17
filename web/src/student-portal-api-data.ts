@@ -1245,14 +1245,44 @@ export async function getStudentPortalPointsPageData(input: {
     )
     .reduce((sum, log) => sum + log.amount, 0);
 
+  // 월별 통계 집계 (최근 6개월)
+  const monthlyStatsMap = new Map<string, { year: number; month: number; earned: number; spent: number }>();
+  for (const log of pointLogs) {
+    const y = log.grantedAt.getFullYear();
+    const m = log.grantedAt.getMonth() + 1;
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    const existing = monthlyStatsMap.get(key) ?? { year: y, month: m, earned: 0, spent: 0 };
+    if (log.amount >= 0) {
+      existing.earned += log.amount;
+    } else {
+      existing.spent += Math.abs(log.amount);
+    }
+    monthlyStatsMap.set(key, existing);
+  }
+
+  const monthlyStats = Array.from(monthlyStatsMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6)
+    .map(([, v]) => v);
+
+  // 유형별 집계
+  const typeStats = pointLogs.reduce<Record<string, number>>((acc, log) => {
+    acc[log.type] = (acc[log.type] ?? 0) + log.amount;
+    return acc;
+  }, {});
+
   return {
     student,
     pointLogs,
+    monthlyStats,
+    typeStats,
     summary: {
       totalPoints: pointLogs.reduce((sum, log) => sum + log.amount, 0),
       currentMonthPoints,
       historyCount: pointLogs.length,
       latestGrantedAt: pointLogs[0]?.grantedAt ?? null,
+      earnedCount: pointLogs.filter((l) => l.amount > 0).length,
+      spentCount: pointLogs.filter((l) => l.amount < 0).length,
     },
   };
 }

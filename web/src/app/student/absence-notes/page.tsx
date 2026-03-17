@@ -2,9 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StudentAbsenceNotePanel } from "@/components/student-portal/student-absence-note-panel";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
-import { SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
-import { formatDateWithWeekday } from "@/lib/format";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import { getStudentPortalAbsenceNotePageData } from "@/student-portal-api-data";
 
@@ -117,21 +115,27 @@ export default async function StudentAbsenceNotesPage({ searchParams }: PageProp
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
               <p className="text-sm text-slate">조회 기간</p>
               <p className="mt-3 text-xl font-semibold">{data.selectedPeriod?.name ?? "기간 미선택"}</p>
             </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">제출 가능한 회차</p>
-              <p className="mt-3 text-xl font-semibold">{data.sessionOptions.filter((session) => session.canSubmit).length}건</p>
+            <article className="rounded-[24px] border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm text-amber-600">검토 대기</p>
+              <p className="mt-3 text-xl font-semibold text-amber-700">
+                {data.notes.filter((n) => n.status === "PENDING").length}건
+              </p>
             </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">가장 최근 회차</p>
-              <p className="mt-3 text-xl font-semibold">
-                {data.sessionOptions[0]
-                  ? `${formatDateWithWeekday(data.sessionOptions[0].examDate)} / ${SUBJECT_LABEL[data.sessionOptions[0].subject]}`
-                  : "-"}
+            <article className="rounded-[24px] border border-forest/20 bg-forest/10 p-4">
+              <p className="text-sm text-forest">승인됨</p>
+              <p className="mt-3 text-xl font-semibold text-forest">
+                {data.notes.filter((n) => n.status === "APPROVED").length}건
+              </p>
+            </article>
+            <article className="rounded-[24px] border border-red-200 bg-red-50 p-4">
+              <p className="text-sm text-red-600">반려됨</p>
+              <p className="mt-3 text-xl font-semibold text-red-700">
+                {data.notes.filter((n) => n.status === "REJECTED").length}건
               </p>
             </article>
           </div>
