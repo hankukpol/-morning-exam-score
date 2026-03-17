@@ -522,7 +522,12 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
                 return (
                   <tr key={record.id} className="transition hover:bg-mist/30">
                     <td className="px-4 py-3 font-semibold text-ink">
-                      {record.name}
+                      <a
+                        href={`/admin/prospects/${record.id}`}
+                        className="transition hover:text-ember hover:underline"
+                      >
+                        {record.name}
+                      </a>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-slate">
                       {record.phone ?? "-"}
