@@ -6,7 +6,8 @@ import Link from "next/link";
 import { AttendType, StudentStatus } from "@prisma/client";
 import { ATTEND_TYPE_LABEL } from "@/lib/constants";
 import { ActionModal } from "@/components/ui/action-modal";
-import type { ClassroomData, ClassroomStudentRow } from "./page";
+import type { ClassroomData, ClassroomStudentRow, AttendanceLogRow } from "./page";
+import { AttendanceMonthlyView } from "./attendance-monthly-view";
 
 interface SearchStudent {
   examNumber: string;
@@ -34,15 +35,20 @@ interface AttendLog {
   source: string;
 }
 
+type TabKey = "today" | "monthly";
+
 interface Props {
   classroom: ClassroomData;
   todayLogMap: Record<string, AttendLog>;
   todayDate: string;
+  attendanceLogs: AttendanceLogRow[];
+  defaultMonth: string;
 }
 
-export function ClassroomDetail({ classroom, todayLogMap, todayDate }: Props) {
+export function ClassroomDetail({ classroom, todayLogMap, todayDate, attendanceLogs, defaultMonth }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [activeTab, setActiveTab] = useState<TabKey>("today");
 
   const [addOpen, setAddOpen] = useState(false);
   const [addQuery, setAddQuery] = useState("");
@@ -136,8 +142,51 @@ export function ClassroomDetail({ classroom, todayLogMap, todayDate }: Props) {
   ).length;
   const noLogCount = classroom.students.filter((s) => !logMap[s.examNumber]).length;
 
+  // Students list for monthly view
+  const studentsForMonthly = classroom.students.map((s) => ({
+    examNumber: s.examNumber,
+    name: s.student.name,
+    generation: s.student.generation,
+  }));
+
   return (
     <div>
+      {/* Tab navigation */}
+      <div className="mb-6 flex gap-1 rounded-[16px] border border-ink/10 bg-mist/50 p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("today")}
+          className={`rounded-[12px] px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "today"
+              ? "bg-white shadow-sm text-ink"
+              : "text-slate hover:text-ink"
+          }`}
+        >
+          오늘 출결
+        </button>
+        <button
+          onClick={() => setActiveTab("monthly")}
+          className={`rounded-[12px] px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "monthly"
+              ? "bg-white shadow-sm text-ink"
+              : "text-slate hover:text-ink"
+          }`}
+        >
+          월간 출결
+        </button>
+      </div>
+
+      {/* Monthly attendance tab */}
+      {activeTab === "monthly" && (
+        <AttendanceMonthlyView
+          students={studentsForMonthly}
+          attendanceLogs={attendanceLogs}
+          month={defaultMonth}
+        />
+      )}
+
+      {/* Today's attendance tab */}
+      {activeTab === "today" && (
+      <div>
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="rounded-[20px] border border-forest/20 bg-forest/5 p-5 text-center">
@@ -234,6 +283,8 @@ export function ClassroomDetail({ classroom, todayLogMap, todayDate }: Props) {
           </tbody>
         </table>
       </div>
+      </div>
+      )}
 
       {/* Add student modal */}
       <ActionModal

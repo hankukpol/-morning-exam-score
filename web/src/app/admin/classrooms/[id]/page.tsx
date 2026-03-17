@@ -1,4 +1,4 @@
-import { AdminRole, AttendType, StudentStatus } from "@prisma/client";
+import { AdminRole, StudentStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
@@ -28,6 +28,12 @@ export interface ClassroomData {
   generation: number | null;
   teacher: { id: string; name: string };
   students: ClassroomStudentRow[];
+}
+
+export interface AttendanceLogRow {
+  examNumber: string;
+  attendDate: string; // "YYYY-MM-DD"
+  attendType: string;
 }
 
 export default async function ClassroomDetailPage({
@@ -72,6 +78,26 @@ export default async function ClassroomDetailPage({
 
   const logMap = new Map(todayLogs.map((l) => [l.examNumber, l]));
 
+  // Monthly attendance logs
+  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  const monthlyLogs = await getPrisma().classroomAttendanceLog.findMany({
+    where: {
+      classroomId: params.id,
+      attendDate: { gte: firstDayOfMonth, lte: lastDayOfMonth },
+    },
+    select: { examNumber: true, attendDate: true, attendType: true },
+    orderBy: [{ attendDate: "asc" }],
+  });
+
+  const logsForClient: AttendanceLogRow[] = monthlyLogs.map((l) => ({
+    examNumber: l.examNumber,
+    attendDate: l.attendDate.toISOString().slice(0, 10),
+    attendType: l.attendType,
+  }));
+
   // Serialize dates for client
   const classroomData: ClassroomData = {
     id: classroom.id,
@@ -107,6 +133,8 @@ export default async function ClassroomDetailPage({
           classroom={classroomData}
           todayLogMap={Object.fromEntries(logMap)}
           todayDate={todayDate.toISOString()}
+          attendanceLogs={logsForClient}
+          defaultMonth={defaultMonth}
         />
       </div>
     </div>

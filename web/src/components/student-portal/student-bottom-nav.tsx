@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, CalendarDays, House, ShieldCheck } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, House, ShieldCheck } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -26,9 +26,9 @@ const NAV_ITEMS = [
     icon: CalendarDays,
   },
   {
-    href: "/student/notices",
-    label: "공지",
-    icon: Bell,
+    href: "/student/civil-exams",
+    label: "시험일정",
+    icon: ClipboardList,
   },
 ] as const;
 

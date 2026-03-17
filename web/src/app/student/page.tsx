@@ -444,6 +444,17 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-violet-600 bg-violet-50",
               },
               {
+                href: "/student/civil-exams",
+                label: "시험일정",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M6 3.75A2.75 2.75 0 0 1 8.75 1h2.5A2.75 2.75 0 0 1 14 3.75v.443c.572.055 1.14.122 1.706.2C17.053 4.582 18 5.75 18 7.07v3.469c0 1.126-.694 2.191-1.83 2.54-1.952.599-4.024.921-6.17.921s-4.219-.322-6.17-.921C2.694 12.73 2 11.665 2 10.539V7.07c0-1.321.947-2.489 2.294-2.676A41.047 41.047 0 0 1 6 4.193V3.75Zm6.5 0v.325a41.622 41.622 0 0 0-5 0V3.75c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25ZM10 10a1 1 0 0 0-1 1v.01a1 1 0 0 0 2 0V11a1 1 0 0 0-1-1Z" clipRule="evenodd" />
+                    <path d="M3 15.055v-.684c.126.053.255.1.39.142 2.092.642 4.313.987 6.61.987 2.297 0 4.518-.345 6.61-.987.135-.041.264-.089.39-.142v.684c0 1.347-.985 2.53-2.363 2.686a41.454 41.454 0 0 1-9.274 0C3.985 17.585 3 16.402 3 15.055Z" />
+                  </svg>
+                ),
+                color: "text-ink bg-amber-50",
+              },
+              {
                 href: "/student/study-rooms",
                 label: "스터디룸",
                 icon: (
@@ -479,6 +490,76 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             ))}
           </div>
         </section>
+
+        {/* ── 다가오는 공채 시험 D-day 위젯 ── */}
+        {upcomingStudentExams.length > 0 && (() => {
+          const nextExam = upcomingStudentExams[0]!;
+          const ddayDiff = nextExam.writtenDate
+            ? Math.ceil((new Date(nextExam.writtenDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : null;
+          const ddayLabel =
+            ddayDiff === null
+              ? null
+              : ddayDiff === 0
+              ? "D-Day!"
+              : ddayDiff > 0
+              ? `D-${ddayDiff}`
+              : "완료";
+          const ddayClass =
+            ddayDiff === null
+              ? "border-ink/10 bg-mist text-slate"
+              : ddayDiff === 0
+              ? "border-ember/30 bg-ember/10 text-ember"
+              : ddayDiff > 0 && ddayDiff <= 14
+              ? "border-red-200 bg-red-50 text-red-700"
+              : ddayDiff > 0 && ddayDiff <= 30
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : ddayDiff > 0
+              ? "border-forest/20 bg-forest/10 text-forest"
+              : "border-ink/10 bg-mist text-slate";
+
+          return (
+            <Link
+              href="/student/civil-exams"
+              className="block rounded-[28px] border border-ink/10 bg-white p-5 transition hover:border-ember/20 hover:shadow-sm sm:p-6"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                Upcoming Exam
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-ink">다가오는 공채 시험</h2>
+                  <p className="mt-1 truncate text-sm font-medium text-ink">
+                    {nextExam.name}{" "}
+                    <span className="text-slate">({nextExam.year}년)</span>
+                  </p>
+                  {nextExam.writtenDate && (
+                    <p className="mt-0.5 text-xs text-slate">
+                      필기{" "}
+                      {(() => {
+                        const d = new Date(nextExam.writtenDate);
+                        return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+                      })()}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  {ddayLabel && (
+                    <span className={`rounded-full border px-3 py-1 text-sm font-bold ${ddayClass}`}>
+                      {ddayLabel}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 text-xs text-slate">
+                    전체 보기
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                      <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            </Link>
+          );
+        })()}
 
         {/* ── 오늘 출결 상태 ── */}
         <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">

@@ -78,7 +78,10 @@
       "Bash(git add web/src/app/student/wrong-notes/ web/src/components/student-portal/wrong-note-manager.tsx web/src/app/api/notifications/history/ web/src/app/admin/notifications/history/ web/src/lib/constants.ts)",
       "Bash(ls \"d:\\\\앱 프로그램\\\\아침모의고사 성적,출결관리\\\\web\\\\src\\\\app\\\\api\\\\scores\\\\bulk-import\"\" && ls \"d:앱 프로그램아침모의고사 성적,출결관리websrcappapiscoresprogress\"\")",
       "Bash(cd /d/앱 프로그램/아침모의고사 성적,출결관리/web)",
-      "Bash(git add prisma/migrations/notice_pinned.sql src/app/api/notices/[id]/pin/)"
+      "Bash(git add prisma/migrations/notice_pinned.sql src/app/api/notices/[id]/pin/)",
+      "Bash(ls -d \"d:/앱 프로그램/아침모의고사 성적,출결관리/web/src/app/admin\"/*/)",
+      "Bash(ls \"d:\\\\앱 프로그램\\\\아침모의고사 성적,출결관리\\\\web\\\\src\\\\components\\\\settlements\"\" 2>/dev/null; echo \"---\"; cat \"d:앱 프로그램아침모의고사 성적,출결관리websrcappadminstaff-settlementspage.tsx\" 2>/dev/null | head -20; echo \"---\"; cat \"d:앱 프로그램아침모의고사 성적,출결관리websrcappadminapprovalspage.tsx\" 2>/dev/null | head -20; echo \"---\"; cat \"d:앱 프로그램아침모의고사 성적,출결관리websrcappadminreportsannualpage.tsx \")",
+      "Bash(npm run dev)"
     ],
     "additionalDirectories": [
       "D:\\앱 프로그램\\아침모의고사 성적,출결관리\\web\\src\\app\\api\\settings\\cohorts",

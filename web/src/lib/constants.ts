@@ -305,6 +305,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/special-lectures",
+    label: "특강 수강 현황",
+    description: "특강·단과 강좌별 수강 현황, 수강생 목록, 정산 조회",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/reports/monthly",
     label: "월별 운영 보고서",
     description: "수강생·수납·환불·출결·강사 정산 통합 월간 요약",
@@ -728,6 +735,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/facilities/lockers",
     label: "사물함 관리",
     description: "사물함 배정, 대여 기록, 현황 조회",
+    minRole: AdminRole.ACADEMIC_ADMIN,
+    group: "시설 관리",
+  },
+  {
+    href: "/admin/facilities/lockers/rental-billing",
+    label: "사물함 수납 관리",
+    description: "사물함 대여 수납 청구, 미납 현황, 연장 처리",
     minRole: AdminRole.ACADEMIC_ADMIN,
     group: "시설 관리",
   },
