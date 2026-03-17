@@ -140,6 +140,12 @@ export default async function StudentSchedulePage() {
   }
   const upcomingExamDates = Array.from(examDateMap.values());
 
+  // Countdown to next exam (in days, rounded down)
+  const nextExamDate = upcomingExamDates[0]?.examDate ?? null;
+  const daysUntilNextExam = nextExamDate
+    ? Math.max(0, Math.floor((nextExamDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+
   return (
     <main className="space-y-6 px-0 py-6">
       {/* Header */}
@@ -180,9 +186,29 @@ export default async function StudentSchedulePage() {
       </section>
 
       {/* Upcoming exam dates */}
-      {upcomingExamDates.length > 0 && (
-        <section className="rounded-[28px] border border-ember/20 bg-white p-5 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold text-ink">예정된 시험 일정</h2>
+      <section className="rounded-[28px] border border-ember/20 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-semibold text-ink">예정된 시험 일정</h2>
+          {daysUntilNextExam !== null && (
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+              daysUntilNextExam === 0
+                ? "border-red-200 bg-red-50 text-red-700"
+                : daysUntilNextExam <= 3
+                ? "border-ember/30 bg-ember/10 text-ember"
+                : "border-forest/20 bg-forest/10 text-forest"
+            }`}>
+              {daysUntilNextExam === 0 ? "오늘 시험" : `다음 시험까지 ${daysUntilNextExam}일`}
+            </span>
+          )}
+        </div>
+        {upcomingExamDates.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-ink/10 px-5 py-8 text-center">
+            <p className="text-sm font-semibold text-ink">예정된 시험이 없습니다</p>
+            <p className="mt-1.5 text-xs text-slate">
+              앞으로 예정된 시험 일정이 아직 등록되지 않았습니다.
+            </p>
+          </div>
+        ) : (
           <div className="space-y-2">
             {upcomingExamDates.map((item, idx) => {
               const dateKey = item.examDate.toISOString().slice(0, 10);
@@ -230,13 +256,13 @@ export default async function StudentSchedulePage() {
               );
             })}
           </div>
-          {cohortEndDate && (
-            <p className="mt-3 text-xs text-slate">
-              기수 종료일: {formatDateWithWeekday(cohortEndDate)}
-            </p>
-          )}
-        </section>
-      )}
+        )}
+        {cohortEndDate && (
+          <p className="mt-3 text-xs text-slate">
+            기수 종료일: {formatDateWithWeekday(cohortEndDate)}
+          </p>
+        )}
+      </section>
 
       {/* Schedule content */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
