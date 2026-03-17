@@ -529,9 +529,23 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "판정 관리",
   },
   {
+    href: "/admin/points/attendance",
+    label: "개근 포인트 현황",
+    description: "월별 개근 달성자 목록 및 개근 포인트 지급 이력 조회",
+    minRole: AdminRole.TEACHER,
+    group: "판정 관리",
+  },
+  {
     href: "/admin/points/leaderboard",
     label: "포인트 리더보드",
     description: "학생별 포인트 순위 및 최근 내역 분석",
+    minRole: AdminRole.COUNSELOR,
+    group: "판정 관리",
+  },
+  {
+    href: "/admin/points/history",
+    label: "포인트 전체 이력",
+    description: "유형·월·검색어로 전체 포인트 지급·차감 이력 조회",
     minRole: AdminRole.COUNSELOR,
     group: "판정 관리",
   },

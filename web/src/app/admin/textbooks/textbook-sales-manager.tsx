@@ -341,7 +341,12 @@ export function TextbookSalesManagerFull({ textbooks, yearLabel }: Props) {
             {filteredTextbooks.map((t) => (
               <tr key={t.id} className="transition hover:bg-mist/30">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-ink">{t.title}</div>
+                  <Link
+                    href={`/admin/textbooks/${t.id}`}
+                    className="font-medium text-ink hover:text-ember hover:underline"
+                  >
+                    {t.title}
+                  </Link>
                   {t.author && (
                     <div className="text-xs text-slate">{t.author}{t.publisher ? ` / ${t.publisher}` : ""}</div>
                   )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { PointType } from "@prisma/client";
 import type { HistoryLogRow } from "./page";
+import { POINT_TYPE_LABEL } from "./page";
 
 const POINT_TYPE_COLOR: Record<PointType, string> = {
   PERFECT_ATTENDANCE: "border-forest/30 bg-forest/10 text-forest",
@@ -13,27 +14,25 @@ const POINT_TYPE_COLOR: Record<PointType, string> = {
   MANUAL: "border-ember/30 bg-ember/10 text-ember",
 };
 
+const POINT_TYPE_VALUES: PointType[] = [
+  "PERFECT_ATTENDANCE",
+  "SCORE_EXCELLENCE",
+  "ESSAY_EXCELLENCE",
+  "MANUAL",
+];
+
 type Filters = {
-  studentId: string;
+  q: string;
   type: string;
-  from: string;
-  to: string;
+  month: string;
 };
 
 export function PointsHistory({
   initialLogs,
-  total,
-  page,
-  pageCount,
-  pageSize,
   filters: initialFilters,
   pointTypeLabelMap,
 }: {
   initialLogs: HistoryLogRow[];
-  total: number;
-  page: number;
-  pageCount: number;
-  pageSize: number;
   filters: Filters;
   pointTypeLabelMap: Record<PointType, string>;
 }) {
@@ -41,208 +40,245 @@ export function PointsHistory({
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [, startTransition] = useTransition();
 
-  function buildUrl(overrides: Partial<Filters & { page: number }>) {
+  function buildUrl(overrides: Partial<Filters>) {
     const params = new URLSearchParams();
-    const merged = { ...filters, page, ...overrides };
-    if (merged.studentId) params.set("studentId", merged.studentId);
+    const merged = { ...filters, ...overrides };
+    if (merged.q) params.set("q", merged.q);
     if (merged.type) params.set("type", merged.type);
-    if (merged.from) params.set("from", merged.from);
-    if (merged.to) params.set("to", merged.to);
-    if (merged.page > 1) params.set("page", String(merged.page));
-    const q = params.toString();
-    return `/admin/points/history${q ? `?${q}` : ""}`;
+    if (merged.month) params.set("month", merged.month);
+    const qs = params.toString();
+    return `/admin/points/history${qs ? `?${qs}` : ""}`;
+  }
+
+  function applyFilters(overrides: Partial<Filters>) {
+    startTransition(() => {
+      router.push(buildUrl(overrides));
+    });
   }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    applyFilters({});
+  }
+
+  function handleTypeChip(val: string) {
+    const newType = filters.type === val ? "" : val;
+    setFilters((f) => ({ ...f, type: newType }));
+    applyFilters({ type: newType });
+  }
+
+  function handleClearAll() {
+    const cleared: Filters = { q: "", type: "", month: "" };
+    setFilters(cleared);
     startTransition(() => {
-      router.push(buildUrl({ page: 1 }));
+      router.push("/admin/points/history");
     });
   }
 
+  const hasFilters = filters.q || filters.type || filters.month;
+
   return (
     <>
-      {/* 필터 폼 */}
-      <form
-        onSubmit={handleSearch}
-        className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-5"
-      >
-        <div>
-          <label className="mb-2 block text-xs font-medium text-slate">학번</label>
-          <input
-            type="text"
-            value={filters.studentId}
-            onChange={(e) => setFilters((f) => ({ ...f, studentId: e.target.value }))}
-            placeholder="학번 입력"
-            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
-          />
+      {/* Filter Panel */}
+      <div className="mt-10 rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">필터</h2>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="text-xs font-medium text-slate hover:text-ember transition-colors"
+            >
+              필터 초기화
+            </button>
+          )}
         </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-slate">유형</label>
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
-            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
-          >
-            <option value="">전체</option>
-            {Object.entries(pointTypeLabelMap).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-slate">시작일</label>
-          <input
-            type="date"
-            value={filters.from}
-            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
-            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-slate">종료일</label>
-          <input
-            type="date"
-            value={filters.to}
-            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
-            className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
-          />
-        </div>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="w-full rounded-full bg-ink py-2.5 text-sm font-semibold text-white transition hover:bg-forest"
-          >
-            조회
-          </button>
-        </div>
-      </form>
 
-      {/* 결과 테이블 */}
-      <div className="mt-6 rounded-[28px] border border-ink/10 bg-white">
+        {/* Type Chips */}
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium text-slate">유형</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => handleTypeChip("")}
+              className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${
+                !filters.type
+                  ? "border-ink/30 bg-ink text-white"
+                  : "border-ink/10 bg-white text-slate hover:bg-mist"
+              }`}
+            >
+              전체
+            </button>
+            {POINT_TYPE_VALUES.map((pt) => (
+              <button
+                key={pt}
+                type="button"
+                onClick={() => handleTypeChip(pt)}
+                className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${
+                  filters.type === pt
+                    ? POINT_TYPE_COLOR[pt] + " font-semibold"
+                    : "border-ink/10 bg-white text-slate hover:bg-mist"
+                }`}
+              >
+                {pointTypeLabelMap[pt]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Month + Search row */}
+        <form onSubmit={handleSearch} className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-2 block text-xs font-medium text-slate">월 (YYYY-MM)</label>
+            <input
+              type="month"
+              value={filters.month}
+              onChange={(e) => setFilters((f) => ({ ...f, month: e.target.value }))}
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-medium text-slate">검색 (학번 / 이름)</label>
+            <input
+              type="text"
+              value={filters.q}
+              onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+              placeholder="학번 또는 이름 입력"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/40"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full rounded-full bg-ink py-2.5 text-sm font-semibold text-white transition hover:bg-forest"
+            >
+              조회
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Transaction Table */}
+      <div className="mt-6 rounded-[28px] border border-ink/10 bg-white shadow-panel overflow-hidden">
         <div className="flex items-center justify-between border-b border-ink/10 px-6 py-4">
           <p className="text-sm font-semibold text-ink">
-            전체 <span className="text-forest">{total.toLocaleString()}</span>건
+            조회 결과{" "}
+            <span className="text-forest">{initialLogs.length.toLocaleString()}</span>건
+            {initialLogs.length === 200 && (
+              <span className="ml-2 text-xs font-normal text-slate">(최대 200건)</span>
+            )}
           </p>
         </div>
 
         {initialLogs.length === 0 ? (
-          <div className="px-6 py-8 text-center text-sm text-slate">
-            조건에 맞는 이력이 없습니다.
+          <div className="px-6 py-12 text-center text-sm text-slate">
+            조건에 맞는 포인트 이력이 없습니다.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead>
-                <tr className="border-b border-ink/5 text-left text-xs font-medium text-slate">
-                  <th className="px-6 py-3">이름</th>
-                  <th className="px-3 py-3">학번</th>
-                  <th className="px-3 py-3">유형</th>
-                  <th className="px-3 py-3 text-right">포인트</th>
-                  <th className="px-3 py-3">사유</th>
-                  <th className="px-3 py-3">날짜</th>
-                  <th className="px-3 py-3">지급자</th>
+                <tr className="border-b border-ink/8 bg-mist/40 text-left">
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    지급일시
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    학번
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    이름
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    유형
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    사유
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate">
+                    포인트
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate">
+                    지급자
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-ink/5">
                 {initialLogs.map((log) => (
                   <tr
                     key={log.id}
-                    className="border-b border-ink/5 last:border-0 hover:bg-mist/60 transition-colors"
+                    className="hover:bg-mist/40 transition-colors"
                   >
-                    <td className="px-6 py-3 font-medium text-ink">
+                    {/* 지급일시 */}
+                    <td className="px-6 py-3 whitespace-nowrap text-xs text-slate">
+                      {new Date(log.grantedAt).toLocaleString("ko-KR", {
+                        year: "2-digit",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}
+                    </td>
+
+                    {/* 학번 */}
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <Link
                         href={`/admin/students/${log.examNumber}`}
-                        className="hover:text-forest transition-colors"
-                      >
-                        {log.studentName}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-3 font-mono text-xs text-slate">
-                      <Link
-                        href={`/admin/points/${log.examNumber}`}
-                        className="hover:text-forest transition-colors"
+                        className="font-mono text-xs text-slate hover:text-forest transition-colors"
                       >
                         {log.examNumber}
                       </Link>
                     </td>
-                    <td className="px-3 py-3">
+
+                    {/* 이름 */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Link
+                        href={`/admin/students/${log.examNumber}`}
+                        className="font-medium text-ink hover:text-forest transition-colors"
+                      >
+                        {log.studentName}
+                      </Link>
+                    </td>
+
+                    {/* 유형 badge */}
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
-                          POINT_TYPE_COLOR[log.type] ?? "border-ink/10 bg-ink/5 text-slate"
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                          POINT_TYPE_COLOR[log.type] ??
+                          "border-ink/10 bg-ink/5 text-slate"
                         }`}
                       >
                         {pointTypeLabelMap[log.type] ?? log.type}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right">
+
+                    {/* 사유 (max 40 chars) */}
+                    <td className="px-4 py-3 max-w-[200px] truncate text-slate text-xs">
+                      {log.reason.length > 40
+                        ? log.reason.slice(0, 40) + "…"
+                        : log.reason}
+                    </td>
+
+                    {/* 포인트 */}
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
                       <span
-                        className={`font-semibold tabular-nums ${
-                          log.amount >= 0 ? "text-forest" : "text-red-600"
+                        className={`font-bold tabular-nums ${
+                          log.amount >= 0 ? "text-forest" : "text-ember"
                         }`}
                       >
                         {log.amount >= 0 ? "+" : ""}
                         {log.amount.toLocaleString()}P
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-slate max-w-[180px] truncate">{log.reason}</td>
-                    <td className="px-3 py-3 text-xs text-slate whitespace-nowrap">
-                      {new Date(log.grantedAt).toLocaleDateString("ko-KR", {
-                        year: "2-digit",
-                        month: "2-digit",
-                        day: "2-digit",
-                      })}
+
+                    {/* 지급자 */}
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate">
+                      {log.grantedBy ?? "—"}
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate">{log.grantedBy ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {/* 페이지네이션 */}
-        {pageCount > 1 && (
-          <div className="flex items-center justify-between border-t border-ink/5 px-6 py-3">
-            <p className="text-xs text-slate">
-              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} / {total}건
-            </p>
-            <div className="flex items-center gap-1">
-              {page > 1 && (
-                <Link
-                  href={buildUrl({ page: page - 1 })}
-                  className="rounded-lg border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink hover:bg-mist transition"
-                >
-                  이전
-                </Link>
-              )}
-              {Array.from({ length: Math.min(5, pageCount) }, (_, i) => {
-                const p = Math.max(1, Math.min(page - 2, pageCount - 4)) + i;
-                return (
-                  <Link
-                    key={p}
-                    href={buildUrl({ page: p })}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                      p === page
-                        ? "border-forest bg-forest text-white"
-                        : "border-ink/10 text-ink hover:bg-mist"
-                    }`}
-                  >
-                    {p}
-                  </Link>
-                );
-              })}
-              {page < pageCount && (
-                <Link
-                  href={buildUrl({ page: page + 1 })}
-                  className="rounded-lg border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink hover:bg-mist transition"
-                >
-                  다음
-                </Link>
-              )}
-            </div>
           </div>
         )}
       </div>
