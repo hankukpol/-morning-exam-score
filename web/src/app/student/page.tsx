@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CourseType, Subject } from "@prisma/client";
+import { AttendStatus, CourseType, Subject } from "@prisma/client";
 import {
   BarComparisonChart,
   RadarComparisonChart,
@@ -14,6 +14,7 @@ import {
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDate, formatDateWithWeekday } from "@/lib/format";
+import { listStudentNotices } from "@/lib/notices/service";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalPageData } from "@/lib/student-portal/service";
 
@@ -127,7 +128,10 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
   const todayForStudentExams = new Date();
   todayForStudentExams.setHours(0, 0, 0, 0);
 
-  const [activeEnrollment, upcomingStudentExams] = await Promise.all([
+  // Today's date string for lecture attendance lookup
+  const todayDateStr = todayForStudentExams.toISOString().slice(0, 10);
+
+  const [activeEnrollment, upcomingStudentExams, todayLectureAttendances, recentNotices] = await Promise.all([
     getPrisma().courseEnrollment.findFirst({
       where: {
         examNumber: data.student.examNumber,
@@ -181,6 +185,30 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
         });
       })
       .catch(() => [] as never[]),
+    // Today's lecture attendance records
+    getPrisma().lectureAttendance.findMany({
+      where: {
+        studentId: data.student.examNumber,
+        session: {
+          sessionDate: todayForStudentExams,
+          isCancelled: false,
+        },
+      },
+      include: {
+        session: {
+          include: {
+            schedule: {
+              select: { subjectName: true, startTime: true, endTime: true },
+            },
+          },
+        },
+      },
+      orderBy: { session: { startTime: "asc" } },
+    }).catch(() => [] as never[]),
+    // Top 3 recent published notices
+    listStudentNotices(data.student.examType)
+      .then((notices) => notices.slice(0, 3))
+      .catch(() => [] as never[]),
   ]);
 
   function getEnrollmentCourseName(
@@ -222,6 +250,20 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
     COMPLETED: "border-ink/10 bg-mist text-ink",
     WITHDRAWN: "border-red-200 bg-red-50 text-red-700",
     CANCELLED: "border-red-200 bg-red-50 text-red-700",
+  };
+
+  const ATTEND_STATUS_LABEL: Record<AttendStatus, string> = {
+    PRESENT: "출석",
+    LATE: "지각",
+    ABSENT: "결석",
+    EXCUSED: "공결",
+  };
+
+  const ATTEND_STATUS_BADGE: Record<AttendStatus, string> = {
+    PRESENT: "border-forest/20 bg-forest/10 text-forest",
+    LATE: "border-amber-200 bg-amber-50 text-amber-700",
+    ABSENT: "border-red-200 bg-red-50 text-red-700",
+    EXCUSED: "border-sky-200 bg-sky-50 text-sky-700",
   };
 
   const wrongNoteQuestionIds = new Set(data.wrongNoteQuestionIds);
@@ -392,6 +434,26 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-slate bg-slate/10",
               },
               {
+                href: "/student/schedule",
+                label: "시간표",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-violet-600 bg-violet-50",
+              },
+              {
+                href: "/student/study-rooms",
+                label: "스터디룸",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path d="M2 4.25A2.25 2.25 0 0 1 4.25 2h11.5A2.25 2.25 0 0 1 18 4.25v8.5A2.25 2.25 0 0 1 15.75 15h-3.105a3.501 3.501 0 0 0 1.1 1.677A.75.75 0 0 1 13.26 18H6.74a.75.75 0 0 1-.484-1.323A3.501 3.501 0 0 0 7.355 15H4.25A2.25 2.25 0 0 1 2 12.75v-8.5Z" />
+                  </svg>
+                ),
+                color: "text-teal-600 bg-teal-50",
+              },
+              {
                 href: "/student/settings",
                 label: "설정",
                 icon: (
@@ -417,6 +479,104 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             ))}
           </div>
         </section>
+
+        {/* ── 오늘 출결 상태 ── */}
+        <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                Today&apos;s Attendance
+              </p>
+              <h2 className="mt-1 text-xl font-semibold">오늘 출결 현황</h2>
+              <p className="mt-1 text-xs text-slate">{todayDateStr}</p>
+            </div>
+            <Link
+              href="/student/attendance"
+              className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              출결 전체 보기
+            </Link>
+          </div>
+
+          {todayLectureAttendances.length === 0 ? (
+            <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 px-5 py-6 text-sm text-slate">
+              오늘 등록된 강의 출결 기록이 없습니다.
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2">
+              {todayLectureAttendances.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center justify-between rounded-[20px] border border-ink/10 bg-mist/60 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-ink">
+                      {att.session.schedule.subjectName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate">
+                      {att.session.schedule.startTime} ~ {att.session.schedule.endTime}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${ATTEND_STATUS_BADGE[att.status]}`}
+                  >
+                    {ATTEND_STATUS_LABEL[att.status]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── 최신 공지사항 (상위 3건) ── */}
+        {recentNotices.length > 0 && (
+          <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                  Notices
+                </p>
+                <h2 className="mt-1 text-xl font-semibold">최신 공지사항</h2>
+              </div>
+              <Link
+                href="/student/notices"
+                className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                전체 공지 보기
+              </Link>
+            </div>
+            <div className="mt-4 flex flex-col gap-2">
+              {recentNotices.map((notice) => (
+                <Link
+                  key={notice.id}
+                  href={`/student/notices/${notice.id}`}
+                  className="flex items-start justify-between gap-3 rounded-[20px] border border-ink/10 bg-mist/60 px-4 py-3 transition hover:border-ember/20 hover:bg-ember/5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {notice.isPinned && (
+                        <span className="inline-flex rounded-full border border-ember/30 bg-ember/10 px-2 py-0.5 text-[10px] font-semibold text-ember">
+                          고정
+                        </span>
+                      )}
+                      <span className="truncate text-sm font-semibold text-ink">
+                        {notice.title}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate">
+                      {notice.publishedAt
+                        ? `${notice.publishedAt.getFullYear()}-${String(notice.publishedAt.getMonth() + 1).padStart(2, "0")}-${String(notice.publishedAt.getDate()).padStart(2, "0")}`
+                        : `${notice.createdAt.getFullYear()}-${String(notice.createdAt.getMonth() + 1).padStart(2, "0")}-${String(notice.createdAt.getDate()).padStart(2, "0")}`}
+                    </p>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 h-4 w-4 shrink-0 text-slate">
+                    <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── 최근 성적 요약 카드 ── */}
         {data.dailyAnalysis.length > 0 && (() => {
