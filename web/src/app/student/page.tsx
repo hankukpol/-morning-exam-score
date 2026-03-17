@@ -382,6 +382,16 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-sky-600 bg-sky-50",
               },
               {
+                href: "/student/check-in",
+                label: "QR출석",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-forest bg-forest/10",
+              },
+              {
                 href: "/student/notices",
                 label: "공지사항",
                 icon: (

@@ -3,6 +3,7 @@ import { AdminRole, ExamType, Subject } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { SessionLockToggle } from "./session-lock-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -369,10 +370,11 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
                                 취소
                               </span>
                             )}
-                            {session.isLocked && !session.isCancelled && (
-                              <span className="inline-flex items-center rounded-full border border-ink/10 bg-ink/5 px-2 py-0.5 text-[10px] font-semibold text-slate">
-                                잠김
-                              </span>
+                            {!session.isCancelled && (
+                              <SessionLockToggle
+                                sessionId={session.id}
+                                isLocked={session.isLocked}
+                              />
                             )}
                             {!session.isCancelled && !session.isLocked && (
                               <span className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-2 py-0.5 text-[10px] font-semibold text-forest">

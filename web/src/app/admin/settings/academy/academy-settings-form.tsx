@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import type { AcademySettingsRow } from "./page";
 
 type Props = {
@@ -36,7 +37,6 @@ const FIELD_PLACEHOLDERS: Record<keyof AcademySettingsRow, string> = {
 export function AcademySettingsForm({ initialSettings }: Props) {
   const [form, setForm] = useState<AcademySettingsRow>(initialSettings);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -46,7 +46,6 @@ export function AcademySettingsForm({ initialSettings }: Props) {
       return;
     }
     setError(null);
-    setSuccess(false);
     startTransition(async () => {
       const res = await fetch("/api/settings/academy", {
         method: "PUT",
@@ -55,10 +54,10 @@ export function AcademySettingsForm({ initialSettings }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "저장 실패");
+        toast.error(data.error ?? "저장 실패");
         return;
       }
-      setSuccess(true);
+      toast.success("저장되었습니다.");
     });
   }
 
@@ -67,11 +66,6 @@ export function AcademySettingsForm({ initialSettings }: Props) {
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-2xl border border-forest/20 bg-forest/10 px-4 py-3 text-sm text-forest">
-          저장되었습니다.
         </div>
       )}
 

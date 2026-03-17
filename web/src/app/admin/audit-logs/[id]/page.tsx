@@ -25,6 +25,8 @@ const ACTION_LABEL: Record<string, string> = {
   SCORE_UPDATE: "성적 수정",
   SCORE_DELETE: "성적 삭제",
   SCORE_SESSION_DELETE: "회차 성적 삭제",
+  SESSION_LOCK: "회차 성적 잠금",
+  SESSION_UNLOCK: "회차 성적 잠금 해제",
   PERIOD_CREATE: "시험 기간 생성",
   PERIOD_UPDATE: "시험 기간 수정",
   PERIOD_ACTIVATE: "시험 기간 활성화",

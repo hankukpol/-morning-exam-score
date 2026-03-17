@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import { Toaster } from "sonner";
 import { StudentBottomNav } from "@/components/student-portal/student-bottom-nav";
 import { StudentLogoutButton } from "@/components/student-portal/student-logout-button";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
@@ -89,6 +90,7 @@ export default async function StudentLayout({
       </div>
 
       <StudentBottomNav />
+      <Toaster position="top-center" richColors closeButton />
     </div>
   );
 }

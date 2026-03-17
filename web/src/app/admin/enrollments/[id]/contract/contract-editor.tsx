@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 export type ContractItem = { label: string; amount: number };
 
@@ -60,8 +61,6 @@ export function ContractEditor({ enrollmentId, initial }: Props) {
   const [items, setItems] = useState<ContractItem[]>(initial.items);
   const [note, setNote] = useState(initial.note ?? "");
   const [printedAt, setPrintedAt] = useState<string | null>(initial.printedAt);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, startSave] = useTransition();
   const [isPrinting, startPrint] = useTransition();
 
@@ -77,31 +76,26 @@ export function ContractEditor({ enrollmentId, initial }: Props) {
       }
       return next;
     });
-    setSaveSuccess(false);
   }
 
   function addItem() {
     setItems((prev) => [...prev, { label: "", amount: 0 }]);
-    setSaveSuccess(false);
   }
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index));
-    setSaveSuccess(false);
   }
 
   function handleSave() {
-    setSaveError(null);
-    setSaveSuccess(false);
     startSave(async () => {
       try {
         await requestJson(`${apiBase}`, {
           method: "PATCH",
           body: JSON.stringify({ items, note: note.trim() }),
         });
-        setSaveSuccess(true);
+        toast.success("저장되었습니다.");
       } catch (e) {
-        setSaveError(e instanceof Error ? e.message : "저장 실패");
+        toast.error(e instanceof Error ? e.message : "저장 실패");
       }
     });
   }
@@ -231,25 +225,12 @@ export function ContractEditor({ enrollmentId, initial }: Props) {
               value={note}
               onChange={(e) => {
                 setNote(e.target.value);
-                setSaveSuccess(false);
               }}
               rows={2}
               placeholder="특약사항이 있으면 입력하세요"
               className="w-full border border-[#D1D5DB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C55A11]/40 resize-none"
             />
           </div>
-
-          {/* 피드백 */}
-          {saveError && (
-            <p className="text-sm text-red-600 rounded-xl border border-red-200 bg-red-50 px-3 py-2">
-              {saveError}
-            </p>
-          )}
-          {saveSuccess && (
-            <p className="text-sm text-[#1F4D3A] font-medium rounded-xl border border-[#1F4D3A]/20 bg-[#1F4D3A]/5 px-3 py-2">
-              저장되었습니다.
-            </p>
-          )}
 
           {/* 버튼 */}
           <div className="flex gap-3 pt-1">

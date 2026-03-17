@@ -1,9 +1,12 @@
 ﻿import Link from "next/link";
+import { Toaster } from "sonner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { NotificationBell } from "@/components/admin/notification-bell";
 import { SetupPanel } from "@/components/setup-panel";
 import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference";
 import { ADMIN_NAV_ITEMS, type NavItem, ROLE_LABEL } from "@/lib/constants";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
+import { MobileNavWrapper } from "@/components/admin/mobile-nav-wrapper";
 import {
   getDisplayErrorDetails,
   getDisplayErrorMessage,
@@ -122,7 +125,8 @@ export default async function AdminLayout({
       >
         본문으로 건너뛰기
       </a>
-      <aside className="flex min-h-screen w-full flex-shrink-0 flex-col bg-[#0B1120] text-gray-300 lg:w-[260px]">
+      <MobileNavWrapper>
+      <aside className="flex h-full min-h-screen w-full flex-shrink-0 flex-col bg-[#0B1120] text-gray-300">
         <div className="p-6 pb-2">
           <Link href="/" className="inline-flex items-center space-x-2">
             <span className="flex items-center text-xl font-bold tracking-tight text-white">
@@ -149,28 +153,7 @@ export default async function AdminLayout({
           </div>
         </div>
 
-        <nav className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-4 py-4">
-          {Object.entries(groups).map(([groupName, items]) => (
-            <div key={groupName}>
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {groupName}
-              </h3>
-              <div className="space-y-1">
-                {items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="group flex items-center border-l-2 border-transparent px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary hover:bg-white/5 hover:text-white"
-                  >
-                    <div className="flex-1">
-                      <div className="text-gray-300 group-hover:text-white">{item.label}</div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
+        <AdminNavLinks groups={groups} />
 
         <div className="border-t border-white/5 bg-[#0B1120] p-4 space-y-3">
           <AdminShortcutReference
@@ -184,13 +167,15 @@ export default async function AdminLayout({
           <SignOutButton />
         </div>
       </aside>
+      </MobileNavWrapper>
 
       <main
         id="main-content"
         tabIndex={-1}
-        className="w-full min-w-0 flex-1 bg-gray-50 p-4 sm:p-6 lg:p-8"
+        className="w-full min-w-0 flex-1 bg-gray-50 p-4 pt-16 sm:p-6 sm:pt-16 lg:p-8 lg:pt-8"
       >
         {children}
+        <Toaster position="top-right" richColors closeButton />
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 type StudentInfo = {
   id: string;
@@ -55,7 +56,6 @@ export function PointAdjustManager() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
-  const [adjustSuccess, setAdjustSuccess] = useState<string | null>(null);
   const [isAdjusting, startAdjust] = useTransition();
 
   function handleSearch() {
@@ -63,7 +63,6 @@ export function PointAdjustManager() {
     if (!q) return;
     setSearchError(null);
     setStudentData(null);
-    setAdjustSuccess(null);
     setAdjustError(null);
 
     startSearch(async () => {
@@ -89,7 +88,6 @@ export function PointAdjustManager() {
     if (!studentData) return;
 
     setAdjustError(null);
-    setAdjustSuccess(null);
 
     const finalAmount = mode === "deduct" ? -numAmount : numAmount;
 
@@ -111,11 +109,9 @@ export function PointAdjustManager() {
         setStudentData(refreshed);
         setAmount("");
         setReason("");
-        setAdjustSuccess(
-          `${mode === "grant" ? "지급" : "차감"} 완료: ${Math.abs(finalAmount).toLocaleString()}P`,
-        );
+        toast.success(`${mode === "grant" ? "지급" : "차감"} 완료: ${Math.abs(finalAmount).toLocaleString()}P`);
       } catch (e) {
-        setAdjustError(e instanceof Error ? e.message : "처리 실패");
+        toast.error(e instanceof Error ? e.message : "처리 실패");
       }
     });
   }
@@ -175,7 +171,7 @@ export function PointAdjustManager() {
             {/* 지급/차감 탭 */}
             <div className="flex rounded-xl overflow-hidden border border-[#E5E7EB] mb-4 w-fit">
               <button
-                onClick={() => { setMode("grant"); setAdjustError(null); setAdjustSuccess(null); }}
+                onClick={() => { setMode("grant"); setAdjustError(null); }}
                 className={`px-5 py-2 text-sm font-medium transition-colors ${
                   mode === "grant"
                     ? "bg-[#1F4D3A] text-white"
@@ -185,7 +181,7 @@ export function PointAdjustManager() {
                 지급
               </button>
               <button
-                onClick={() => { setMode("deduct"); setAdjustError(null); setAdjustSuccess(null); }}
+                onClick={() => { setMode("deduct"); setAdjustError(null); }}
                 className={`px-5 py-2 text-sm font-medium transition-colors ${
                   mode === "deduct"
                     ? "bg-red-600 text-white"
@@ -220,7 +216,6 @@ export function PointAdjustManager() {
               </div>
 
               {adjustError && <p className="text-sm text-red-600">{adjustError}</p>}
-              {adjustSuccess && <p className="text-sm text-[#1F4D3A] font-medium">{adjustSuccess}</p>}
 
               {mode === "deduct" && Number(amount) > 0 && studentData.balance < Number(amount) && (
                 <p className="text-xs text-amber-600">
