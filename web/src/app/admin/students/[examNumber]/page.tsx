@@ -19,6 +19,7 @@ import {
   type PaymentHistoryRow,
 } from "./student-payment-history";
 import { StudentPointHistory, type PointHistoryRow } from "./student-point-history";
+import { AttendanceHistorySection } from "./student-attendance-history";
 import {
   StudentAdminMemos,
   type AdminMemoRow,
@@ -46,6 +47,7 @@ const TABS = [
   "enrollments",
   "payments",
   "points",
+  "attendance",
   "memos",
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -60,6 +62,7 @@ const TAB_LABELS: Record<Tab, string> = {
   enrollments: "수업",
   payments: "수납",
   points: "포인트",
+  attendance: "출결 이력",
   memos: "메모",
 };
 
@@ -94,6 +97,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   let scoreChartPoints: ScoreChartPoint[] | null = null;
   let studentPoints: PointHistoryRow[] | null = null;
   let studentMemos: AdminMemoRow[] | null = null;
+  let attendanceLogs: {
+    id: string;
+    attendDate: Date;
+    attendType: import("@prisma/client").AttendType;
+    classroom: { name: string; generation: number | null } | null;
+  }[] = [];
 
   if (tab === "score-chart") {
     // student.scores는 이미 로드됨 — AttendType이 ABSENT이 아닌 것만 차트에 표시
@@ -219,6 +228,22 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
       grantedBy: p.grantedBy,
       period: p.period ? { name: p.period.name } : null,
     }));
+  } else if (tab === "attendance") {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    attendanceLogs = await getPrisma()
+      .classroomAttendanceLog.findMany({
+        where: {
+          examNumber: params.examNumber,
+          attendDate: { gte: sixMonthsAgo },
+        },
+        include: {
+          classroom: { select: { name: true, generation: true } },
+        },
+        orderBy: { attendDate: "desc" },
+        take: 200,
+      })
+      .catch(() => []);
   } else if (tab === "memos") {
     const viewerId = context.adminUser.id;
     const rows = await getPrisma().adminMemo.findMany({
@@ -261,6 +286,7 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
     ...(canEdit ? (["timeline", "counseling"] as Tab[]) : []),
     ...(canViewPayments ? (["enrollments", "payments"] as Tab[]) : []),
     "points",
+    "attendance",
     ...(canEdit ? (["memos"] as Tab[]) : []),
   ];
 
@@ -715,6 +741,11 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
         {/* 포인트 탭 */}
         {tab === "points" && (
           <StudentPointHistory points={studentPoints ?? []} />
+        )}
+
+        {/* 출결 이력 탭 */}
+        {tab === "attendance" && (
+          <AttendanceHistorySection logs={attendanceLogs} />
         )}
 
         {/* 메모 탭 */}

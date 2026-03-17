@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { LockerStatus, LockerZone, RentalFeeUnit } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import {
@@ -477,6 +478,12 @@ export function LockerGrid({ initialLockers }: Props) {
             >
               상태 변경
             </button>
+            <Link
+              href={`/admin/lockers/${selected.id}`}
+              className="rounded-[20px] border border-ink/20 px-4 py-2 text-sm text-slate hover:border-ink/40"
+            >
+              상세 보기
+            </Link>
           </div>
         </div>
       )}
