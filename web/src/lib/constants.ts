@@ -242,6 +242,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "수강 관리",
   },
   {
+    href: "/admin/payments/unlinked",
+    label: "미연결 결제",
+    description: "결제 링크로 수납됐지만 학생에 연결되지 않은 온라인 결제 건 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+  },
+  {
     href: "/admin/payments/unpaid",
     label: "미납 관리",
     description: "미납·부분납 수강생 조회 및 수납 처리 연결",

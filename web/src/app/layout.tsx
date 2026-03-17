@@ -2,14 +2,17 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC \uC131\uC801\u00B7\uCD9C\uACB0\uAD00\uB9AC",
-  description: "\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC \uC6B4\uC601, \uD559\uC0DD \uD3EC\uD138, \uC131\uC801\u00B7\uCD9C\uACB0 \uAD00\uB9AC\uB97C \uC704\uD55C \uC6F9 \uC571",
+  title: {
+    default: "한국경찰학원 관리시스템",
+    template: "%s | 한국경찰학원",
+  },
+  description: "한국경찰학원 통합 관리 시스템 — 수강·수납·성적·출결 관리",
   manifest: "/manifest.json",
-  applicationName: "\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC",
+  applicationName: "한국경찰학원",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "\uC544\uCE68\uBAA8\uC758\uACE0\uC0AC",
+    title: "한국경찰학원",
   },
   icons: {
     icon: [

@@ -6,8 +6,8 @@ import { getStudentPortalViewer } from "@/lib/student-portal/service";
 
 export const metadata: Metadata = {
   title: {
-    default: "학생 포털",
-    template: "%s | 학생 포털",
+    default: "한국경찰학원 학생 포털",
+    template: "%s | 한국경찰학원",
   },
 };
 
@@ -32,7 +32,7 @@ export default async function StudentLayout({
                 학생 포털
               </p>
               <Link href="/student" className="mt-2 block text-lg font-semibold">
-                아침모의고사 학생 포털
+                한국경찰학원 학생 포털
               </Link>
               <p className="mt-2 text-xs leading-6 text-slate">
                 {viewer

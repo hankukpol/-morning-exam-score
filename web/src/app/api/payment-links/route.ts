@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AdminRole } from "@prisma/client";
+import { AdminRole, CourseType } from "@prisma/client";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
 
@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
   const {
     title,
     courseId,
+    examNumber,
+    cohortId,
+    productId,
+    courseType,
+    specialLectureId,
     amount,
     discountAmount = 0,
     allowPoint = true,
@@ -65,6 +70,11 @@ export async function POST(req: NextRequest) {
   } = body as {
     title: string;
     courseId?: number;
+    examNumber?: string;
+    cohortId?: string;
+    productId?: string;
+    courseType?: CourseType;
+    specialLectureId?: string;
     amount: number;
     discountAmount?: number;
     allowPoint?: boolean;
@@ -89,6 +99,11 @@ export async function POST(req: NextRequest) {
     data: {
       title: title.trim(),
       courseId: courseId ?? null,
+      examNumber: examNumber?.trim() ?? null,
+      cohortId: cohortId ?? null,
+      productId: productId ?? null,
+      courseType: courseType ?? null,
+      specialLectureId: specialLectureId ?? null,
       amount,
       discountAmount: discountAmount ?? 0,
       finalAmount,

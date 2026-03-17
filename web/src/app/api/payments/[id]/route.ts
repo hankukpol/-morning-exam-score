@@ -39,7 +39,7 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { note, status } = body;
+    const { note, status, examNumber } = body;
 
     const existing = await getPrisma().payment.findUnique({
       where: { id: params.id },
@@ -49,9 +49,21 @@ export async function PATCH(
       return NextResponse.json({ error: "결제 내역을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    // Validate examNumber if provided for student linking
+    if (examNumber !== undefined && examNumber !== null) {
+      const student = await getPrisma().student.findUnique({
+        where: { examNumber: String(examNumber) },
+        select: { examNumber: true },
+      });
+      if (!student) {
+        return NextResponse.json({ error: "해당 학번의 학생을 찾을 수 없습니다." }, { status: 400 });
+      }
+    }
+
     const updateData: Record<string, unknown> = {};
     if (note !== undefined) updateData.note = note?.trim() || null;
     if (status !== undefined) updateData.status = status as PaymentStatus;
+    if (examNumber !== undefined) updateData.examNumber = examNumber ?? null;
 
     const payment = await getPrisma().$transaction(async (tx) => {
       const updated = await tx.payment.update({
@@ -69,10 +81,12 @@ export async function PATCH(
           before: {
             note: existing.note,
             status: existing.status,
+            examNumber: existing.examNumber,
           },
           after: {
             note: updated.note,
             status: updated.status,
+            examNumber: updated.examNumber,
           },
           ipAddress: request.headers.get("x-forwarded-for"),
         },

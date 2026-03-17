@@ -1,6 +1,7 @@
 import { AdminRole } from "@prisma/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { PaymentLinkDetailClient } from "./payment-link-detail-client";
@@ -56,6 +57,10 @@ export default async function PaymentLinkDetailPage({
       course: {
         select: { id: true, name: true, cohortStartDate: true, cohortEndDate: true },
       },
+      cohort: { select: { id: true, name: true, startDate: true, endDate: true } },
+      product: { select: { id: true, name: true } },
+      specialLecture: { select: { id: true, name: true } },
+      student: { select: { examNumber: true, name: true } },
       payments: {
         select: {
           id: true,
@@ -70,6 +75,12 @@ export default async function PaymentLinkDetailPage({
       },
     },
   });
+
+  // Generate the public payment URL & QR code
+  const payUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? "https://localhost:3000"}/pay/${link?.token ?? ""}`;
+  const qrDataUrl = link
+    ? await QRCode.toDataURL(payUrl, { width: 200, margin: 2 }).catch(() => null)
+    : null;
 
   if (!link) notFound();
 
@@ -248,15 +259,78 @@ export default async function PaymentLinkDetailPage({
 
         {/* Sidebar */}
         <div className="space-y-4">
-          {/* Copy URL */}
+          {/* Copy URL + QR */}
           <div className="rounded-[28px] border border-ink/10 bg-white p-6">
             <h2 className="text-base font-semibold text-ink">결제 링크</h2>
-            <p className="mt-2 break-all text-xs text-slate">/pay/{link.token}</p>
+            <p className="mt-2 break-all rounded-lg bg-mist px-3 py-2 font-mono text-xs text-slate">
+              /pay/{link.token}
+            </p>
+            {qrDataUrl && (
+              <div className="mt-4 flex flex-col items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt="결제 링크 QR 코드"
+                  className="h-[140px] w-[140px] rounded-xl border border-ink/10"
+                />
+                <p className="mt-1 text-[10px] text-slate">QR 코드로 결제 페이지 바로가기</p>
+              </div>
+            )}
             <PaymentLinkDetailClient
               linkId={link.id}
               token={link.token}
               canDisable={canDisable}
             />
+          </div>
+
+          {/* Auto-enrollment config */}
+          <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+            <h2 className="text-base font-semibold text-ink">자동 수강등록 설정</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-slate">지정 학생</dt>
+                <dd className="font-medium text-ink">
+                  {link.student
+                    ? `${link.student.name} (${link.student.examNumber})`
+                    : <span className="text-slate">없음 (다회용)</span>}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate">수강 유형</dt>
+                <dd className="font-medium text-ink">
+                  {link.courseType === "COMPREHENSIVE"
+                    ? "종합반"
+                    : link.courseType === "SPECIAL_LECTURE"
+                      ? "특강 단과"
+                      : <span className="text-slate">미설정</span>}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate">기수</dt>
+                <dd className="font-medium text-ink">
+                  {link.cohort ? link.cohort.name : <span className="text-slate">미설정</span>}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate">종합반 상품</dt>
+                <dd className="font-medium text-ink">
+                  {link.product ? link.product.name : <span className="text-slate">미설정</span>}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate">특강 단과</dt>
+                <dd className="font-medium text-ink">
+                  {link.specialLecture
+                    ? link.specialLecture.name
+                    : <span className="text-slate">미설정</span>}
+                </dd>
+              </div>
+              <div className="mt-3 rounded-lg border border-ink/5 bg-mist/50 px-3 py-2 text-xs text-slate">
+                {link.examNumber || link.cohortId || link.productId || link.specialLectureId
+                  ? "결제 완료 시 위 설정으로 수강이 자동 등록됩니다."
+                  : "자동 수강등록이 설정되지 않았습니다. 결제 후 수동으로 수강 등록이 필요합니다."}
+              </div>
+            </dl>
           </div>
 
           {/* Stats */}

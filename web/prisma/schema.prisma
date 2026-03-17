@@ -50,6 +50,7 @@ model Student {
   discountCodeUsages         DiscountCodeUsage[]
   examRegistrations          ExamRegistration[]
   lectureAttendances         LectureAttendance[]
+  paymentLinks               PaymentLink[]
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -836,7 +837,8 @@ model ComprehensiveCourseProduct {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  enrollments CourseEnrollment[]
+  enrollments  CourseEnrollment[]
+  paymentLinks PaymentLink[]
 
   @@index([examCategory, isActive])
   @@map("comprehensive_course_products")
@@ -857,6 +859,7 @@ model Cohort {
 
   enrollments      CourseEnrollment[]
   lectureSchedules LectureSchedule[]
+  paymentLinks     PaymentLink[]
 
   @@index([examCategory, isActive])
   @@map("cohorts")
@@ -886,6 +889,7 @@ model SpecialLecture {
   enrollments      CourseEnrollment[]
   discountPolicies SpecialLectureDiscount[]
   fieldConfigs     SpecialLectureFieldConfig[]
+  paymentLinks     PaymentLink[]
 
   @@index([isActive])
   @@map("special_lectures")
@@ -1643,6 +1647,12 @@ model PaymentLink {
   token          String      @unique @default(cuid())
   title          String      // 링크 제목 (예: "2026 공채 종합반 3월 등록")
   courseId       Int?
+  // 자동 수강등록에 필요한 필드 (결제 완료 시 CourseEnrollment 자동 생성)
+  examNumber     String?     // 특정 학생 지정 시 (null이면 다회용 링크)
+  cohortId       String?     // 종합반 기수 ID
+  productId      String?     // 종합반 상품 ID
+  courseType     CourseType? // 수강 유형 (COMPREHENSIVE / SPECIAL_LECTURE)
+  specialLectureId String?   // 특강 단과 ID (courseType=SPECIAL_LECTURE)
   amount         Int         // 정상 결제 금액
   discountAmount Int         @default(0)
   finalAmount    Int         // 실결제 금액 = amount - discountAmount
@@ -1656,13 +1666,18 @@ model PaymentLink {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  course   Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  staff    AdminUser  @relation(fields: [createdBy], references: [id])
-  payments Payment[]
+  course         Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  student        Student?        @relation(fields: [examNumber], references: [examNumber], onDelete: SetNull)
+  cohort         Cohort?         @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  product        ComprehensiveCourseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  specialLecture SpecialLecture? @relation(fields: [specialLectureId], references: [id], onDelete: SetNull)
+  staff          AdminUser       @relation(fields: [createdBy], references: [id])
+  payments       Payment[]
 
   @@index([token])
   @@index([status])
   @@index([createdBy])
+  @@index([examNumber])
   @@map("payment_links")
 }
 

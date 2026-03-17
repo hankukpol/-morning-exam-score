@@ -1,7 +1,7 @@
 {
-  "name": "아침모의고사 학생 포털",
-  "short_name": "학생포털",
-  "description": "수험번호와 이름으로 본인 성적, 공지, 오답노트를 확인하는 모바일 학생 포털입니다.",
+  "name": "한국경찰학원",
+  "short_name": "한국경찰학원",
+  "description": "수험번호와 생년월일로 본인 성적, 공지, 수강 정보를 확인하는 한국경찰학원 학생 포털입니다.",
   "start_url": "/student",
   "scope": "/student",
   "display": "standalone",
