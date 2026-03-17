@@ -411,6 +411,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
           <div className="flex flex-wrap gap-2">
             <Link
               prefetch={false}
+              href={`/admin/students/import?examType=${filters.examType}`}
+              className="inline-flex items-center rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest/80"
+            >
+              Excel 가져오기
+            </Link>
+            <Link
+              prefetch={false}
               href={`/admin/students/paste-import?examType=${filters.examType}`}
               className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
             >

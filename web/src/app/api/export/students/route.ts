@@ -22,7 +22,10 @@ const columns: ExportColumn<StudentExportRow>[] = [
   { header: "신규/기존", value: (row) => row.studentType },
   { header: "온라인 ID", value: (row) => row.onlineId },
   { header: "등록일", value: (row) => row.registeredAt },
+  { header: "DB 생성일", value: (row) => row.createdAt },
   { header: "상태", value: (row) => row.isActive },
+  { header: "현재 수강 강좌", value: (row) => row.activeCourse },
+  { header: "포인트 잔액", value: (row) => row.pointBalance },
   { header: "메모", value: (row) => row.note },
 ];
 
