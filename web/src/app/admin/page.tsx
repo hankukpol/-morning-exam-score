@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AdminRole, ExamType } from "@prisma/client";
 import { DashboardInboxPanel } from "@/components/dashboard/dashboard-inbox-panel";
+import { TodayTodosPanel } from "@/components/dashboard/today-todos-panel";
+import { WeeklyPaymentChart } from "@/components/dashboard/weekly-payment-chart";
 import { AdminMemoDashboardPanel } from "@/components/memos/admin-memo-dashboard-panel";
 import { Sparkline } from "@/components/ui/sparkline";
 import { getDashboardSummary } from "@/lib/analytics/service";
@@ -30,6 +32,32 @@ export default async function AdminDashboardPage() {
 
   const todayForExams = new Date();
   todayForExams.setHours(0, 0, 0, 0);
+
+  // 지난 7일 일별 수납 데이터 계산
+  const weeklyPaymentData = await (async () => {
+    const days: { label: string; dateStr: string; amount: number; count: number }[] = [];
+    const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000);
+      const dEnd = new Date(d);
+      dEnd.setHours(23, 59, 59, 999);
+      const agg = await getPrisma().payment.aggregate({
+        where: { processedAt: { gte: d, lte: dEnd } },
+        _sum: { netAmount: true },
+        _count: { id: true },
+      });
+      const mm = d.getMonth() + 1;
+      const dd = d.getDate();
+      const dow = DAY_KO[d.getDay()];
+      days.push({
+        label: `${mm}/${dd}(${dow})`,
+        dateStr: d.toISOString().slice(0, 10),
+        amount: agg._sum.netAmount ?? 0,
+        count: agg._count.id,
+      });
+    }
+    return days;
+  })().catch(() => [] as { label: string; dateStr: string; amount: number; count: number }[]);
 
   const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams] = await Promise.all([
     getDashboardSummary()
@@ -579,6 +607,40 @@ export default async function AdminDashboardPage() {
             <p className="mt-3 text-xs font-semibold text-slate underline">전체 목록 →</p>
           </Link>
         </div>
+      </section>
+
+      {/* 오늘의 할 일 (클라이언트 컴포넌트) */}
+      <TodayTodosPanel />
+
+      {/* 주간 수납 추이 */}
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">이번 주 수납 추이</h2>
+            <p className="mt-1 text-xs text-slate">최근 7일 일별 수납 금액</p>
+          </div>
+          <Link
+            href="/admin/payments"
+            className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/20"
+          >
+            수납 목록
+          </Link>
+        </div>
+        <div className="mt-5">
+          <WeeklyPaymentChart data={weeklyPaymentData} />
+        </div>
+        {weeklyPaymentData.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-3">
+            {weeklyPaymentData.map((d) => (
+              <div key={d.dateStr} className="text-center">
+                <p className="text-[10px] text-slate">{d.label}</p>
+                <p className="text-xs font-semibold text-ink">
+                  {d.amount > 0 ? `${(d.amount / 10000).toFixed(0)}만` : "-"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">

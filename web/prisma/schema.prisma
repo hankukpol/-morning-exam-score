@@ -48,6 +48,7 @@ model Student {
   studyRoomBookings          StudyRoomBooking[]
   graduateRecords            GraduateRecord[]
   discountCodeUsages         DiscountCodeUsage[]
+  examRegistrations          ExamRegistration[]
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -1680,4 +1681,61 @@ model ConsultationProspect {
   @@index([staffId])
   @@index([visitedAt])
   @@map("consultation_prospects")
+}
+
+// ─── 모의고사 접수 (월말평가 등) ──────────────────────────────────────────────
+
+enum ExamEventType {
+  MORNING        // 아침모의고사
+  MONTHLY        // 월말평가
+  SPECIAL        // 특강모의고사
+  EXTERNAL       // 외부모의고사
+  @@map("ExamEventType")
+}
+
+enum ExamDivision {
+  GONGCHAE_M     // 공채 남자
+  GONGCHAE_F     // 공채 여자
+  GYEONGCHAE     // 경채
+  ONLINE         // 온라인
+  @@map("ExamDivision")
+}
+
+model ExamEvent {
+  id                      String        @id @default(cuid())
+  title                   String        // 예: "2026년 3월 월말평가"
+  eventType               ExamEventType
+  examDate                DateTime
+  registrationFee         Int           @default(0)  // 참가비 (원)
+  registrationDeadline    DateTime?
+  venue                   String?       // 장소
+  isActive                Boolean       @default(true)
+  createdAt               DateTime      @default(now())
+
+  registrations ExamRegistration[]
+
+  @@index([eventType, examDate])
+  @@map("exam_events")
+}
+
+model ExamRegistration {
+  id            String        @id @default(cuid())
+  examEventId   String
+  examNumber    String?       // 기존 학생 (null이면 외부 수험생)
+  externalName  String?       // 외부 수험생 이름
+  externalPhone String?       // 외부 수험생 연락처
+  division      ExamDivision
+  isPaid        Boolean       @default(false)
+  paidAmount    Int           @default(0)
+  paidAt        DateTime?
+  seatNumber    String?       // 좌석번호
+  registeredAt  DateTime      @default(now())
+  cancelledAt   DateTime?
+
+  examEvent ExamEvent @relation(fields: [examEventId], references: [id], onDelete: Cascade)
+  student   Student?  @relation(fields: [examNumber], references: [examNumber], onDelete: SetNull)
+
+  @@index([examEventId, division])
+  @@index([examNumber])
+  @@map("exam_registrations")
 }

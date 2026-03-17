@@ -403,6 +403,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "성적 관리",
   },
   {
+    href: "/admin/exams/monthly",
+    label: "월말평가 접수",
+    description: "월말평가 시험 등록 및 구분별 접수·납부 처리",
+    minRole: AdminRole.COUNSELOR,
+    group: "성적 관리",
+  },
+  {
     href: "/admin/results/weekly",
     label: "주간 성적 현황",
     description: "주차별 전체 및 신규생 출감 집계",

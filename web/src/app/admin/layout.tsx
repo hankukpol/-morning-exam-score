@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { NotificationBell } from "@/components/admin/notification-bell";
 import { SetupPanel } from "@/components/setup-panel";
 import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference";
 import { ADMIN_NAV_ITEMS, type NavItem, ROLE_LABEL } from "@/lib/constants";
@@ -134,12 +135,17 @@ export default async function AdminLayout({
         </div>
 
         <div className="border-b border-white/5 px-6 pb-4 pt-4">
-          <div className="border-l-2 border-primary bg-[#1E293B] p-4">
-            <p className="text-sm font-semibold text-white">{context.adminUser.name}</p>
-            <p className="mt-1 text-xs text-gray-400">{context.adminUser.email}</p>
-            <span className="mt-2 inline-block flex-shrink-0 border border-primary/30 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-muted">
-              {ROLE_LABEL[context.adminUser.role]}
-            </span>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1 border-l-2 border-primary bg-[#1E293B] p-4">
+              <p className="text-sm font-semibold text-white">{context.adminUser.name}</p>
+              <p className="mt-1 text-xs text-gray-400">{context.adminUser.email}</p>
+              <span className="mt-2 inline-block flex-shrink-0 border border-primary/30 bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-muted">
+                {ROLE_LABEL[context.adminUser.role]}
+              </span>
+            </div>
+            <div className="shrink-0 pt-1">
+              <NotificationBell />
+            </div>
           </div>
         </div>
 
