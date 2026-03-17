@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { SettlementExcelButton } from "./settlement-excel-button";
 
 const STAFF_ROLE_LABEL: Record<string, string> = {
@@ -26,6 +27,7 @@ type SettlementRow = {
 type Props = {
   year: number;
   month: number;
+  currentMonthStr: string;
   settlements: SettlementRow[];
 };
 
@@ -33,7 +35,11 @@ function formatKRW(amount: number) {
   return amount.toLocaleString("ko-KR") + "원";
 }
 
-export function SettlementTable({ year, month, settlements }: Props) {
+function formatYearMonth(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+export function SettlementTable({ year, month, currentMonthStr, settlements }: Props) {
   const router = useRouter();
 
   // year/month selectors state
@@ -81,17 +87,47 @@ export function SettlementTable({ year, month, settlements }: Props) {
   }));
 
   function handleSearch() {
-    router.push(`/admin/staff-settlements?year=${selectedYear}&month=${selectedMonth}`);
+    router.push(
+      `/admin/staff-settlements?month=${formatYearMonth(selectedYear, selectedMonth)}`
+    );
   }
 
   const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  function prevMonthPath() {
+    if (selectedMonth === 1)
+      return `/admin/staff-settlements?month=${formatYearMonth(selectedYear - 1, 12)}`;
+    return `/admin/staff-settlements?month=${formatYearMonth(selectedYear, selectedMonth - 1)}`;
+  }
+
+  function nextMonthPath() {
+    if (selectedMonth === 12)
+      return `/admin/staff-settlements?month=${formatYearMonth(selectedYear + 1, 1)}`;
+    return `/admin/staff-settlements?month=${formatYearMonth(selectedYear, selectedMonth + 1)}`;
+  }
+
+  const isNextFuture =
+    selectedYear > currentYear ||
+    (selectedYear === currentYear && selectedMonth >= currentMonth);
 
   return (
     <div className="space-y-6">
       {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3">
+        {/* Prev/Next month navigation */}
+        <Link
+          href={prevMonthPath()}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-white text-slate shadow-sm transition hover:border-forest/30 hover:text-forest"
+          aria-label="이전 달"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-ink">년도</label>
           <select
@@ -126,6 +162,25 @@ export function SettlementTable({ year, month, settlements }: Props) {
         >
           조회
         </button>
+
+        {isNextFuture ? (
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 bg-white/50 text-slate/40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        ) : (
+          <Link
+            href={nextMonthPath()}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-white text-slate shadow-sm transition hover:border-forest/30 hover:text-forest"
+            aria-label="다음 달"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+
         <div className="ml-auto">
           <SettlementExcelButton year={year} month={month} rates={excelRates} />
         </div>
@@ -147,19 +202,27 @@ export function SettlementTable({ year, month, settlements }: Props) {
               <th className="px-4 py-3 text-right font-semibold text-forest">수납 총액</th>
               <th className="px-4 py-3 text-center font-semibold text-forest">배분율(%)</th>
               <th className="px-4 py-3 text-right font-semibold text-forest">정산 금액</th>
+              <th className="px-4 py-3 text-center font-semibold text-forest">상세</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/5">
             {computedRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate">
                   이 기간에 수납을 처리한 직원이 없습니다.
                 </td>
               </tr>
             ) : (
               computedRows.map((row) => (
                 <tr key={row.staffId} className="hover:bg-mist/50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-ink">{row.staffName}</td>
+                  <td className="px-4 py-3 font-medium text-ink">
+                    <Link
+                      href={`/admin/staff-settlements/${row.staffId}?month=${currentMonthStr}`}
+                      className="hover:text-forest transition-colors underline-offset-2 hover:underline"
+                    >
+                      {row.staffName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-slate">
                     {STAFF_ROLE_LABEL[row.staffRole] ?? row.staffRole}
                   </td>
@@ -185,6 +248,14 @@ export function SettlementTable({ year, month, settlements }: Props) {
                   <td className="px-4 py-3 text-right font-semibold text-ember">
                     {row.commissionRate > 0 ? formatKRW(row.commissionAmount) : "-"}
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <Link
+                      href={`/admin/staff-settlements/${row.staffId}?month=${currentMonthStr}`}
+                      className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-slate transition hover:border-forest/30 hover:text-forest"
+                    >
+                      상세
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}
@@ -207,6 +278,7 @@ export function SettlementTable({ year, month, settlements }: Props) {
                     ? formatKRW(grandTotal.commissionAmount)
                     : "-"}
                 </td>
+                <td className="px-4 py-3" />
               </tr>
             </tfoot>
           )}

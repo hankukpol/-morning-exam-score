@@ -1372,6 +1372,7 @@ export function AbsenceNoteManager({
                     <th className="cursor-pointer select-none px-4 py-3 hover:text-ink" onClick={() => toggleSort("submittedAt")}>
                       제출일 <SortIcon column="submittedAt" sortBy={sortBy} sortOrder={sortOrder} />
                     </th>
+                    <th className="px-4 py-3">상세</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink/5">
@@ -1438,6 +1439,16 @@ export function AbsenceNoteManager({
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate">
                           {note.submittedAt ? formatDateTime(note.submittedAt) : "-"}
+                        </td>
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`/admin/absence-notes/${note.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-ink transition hover:border-ember/30 hover:text-ember"
+                          >
+                            상세
+                          </a>
                         </td>
                       </tr>
                     );

@@ -1,6 +1,7 @@
 ﻿/**
- * PUT  /api/absence-notes/[id]  - 사유서 처리
- * DELETE /api/absence-notes/[id] - 사유서 삭제
+ * GET    /api/absence-notes/[id]  - 사유서 상세 조회
+ * PUT    /api/absence-notes/[id]  - 사유서 처리
+ * DELETE /api/absence-notes/[id]  - 사유서 삭제
  *
  * PUT action 분기:
  * - "update" (기본): 사유 내용·카테고리·메모·출석 포함·개근 인정 수정
@@ -12,6 +13,7 @@
 import { AbsenceCategory, AdminRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { getPrisma } from "@/lib/prisma";
 import {
   changeAbsenceNoteSession,
   deleteAbsenceNote,
@@ -38,6 +40,56 @@ type RouteContext = {
 
 function parseId(context: RouteContext) {
   return Number(context.params.id);
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireApiAdmin(AdminRole.TEACHER);
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  try {
+    const noteId = parseId(context);
+
+    if (!Number.isInteger(noteId)) {
+      return NextResponse.json({ error: "사유서 ID가 올바르지 않습니다." }, { status: 400 });
+    }
+
+    const note = await getPrisma().absenceNote.findUnique({
+      where: { id: noteId },
+      include: {
+        student: {
+          select: {
+            examNumber: true,
+            name: true,
+            phone: true,
+          },
+        },
+        session: {
+          include: {
+            period: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        attachments: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!note) {
+      return NextResponse.json({ error: "사유서를 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    return NextResponse.json(note);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "사유서 조회에 실패했습니다." },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PUT(request: Request, context: RouteContext) {

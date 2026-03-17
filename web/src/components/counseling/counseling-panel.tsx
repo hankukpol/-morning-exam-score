@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Subject } from "@prisma/client";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
@@ -140,19 +141,28 @@ function RecordCard({
           {isPending && <Spinner />}
           삭제
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (formRef.current) {
-              onUpdate(record.id, new FormData(formRef.current));
-            }
-          }}
-          disabled={isPending}
-          className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending && <Spinner />}
-          수정 저장
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/counseling/${record.id}`}
+            target="_blank"
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          >
+            상세 보기
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              if (formRef.current) {
+                onUpdate(record.id, new FormData(formRef.current));
+              }
+            }}
+            disabled={isPending}
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending && <Spinner />}
+            수정 저장
+          </button>
+        </div>
       </div>
 
       {/* 학생 변경 섹션 */}
