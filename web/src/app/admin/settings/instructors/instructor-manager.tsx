@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ActionModal } from "@/components/ui/action-modal";
 import type { InstructorRow } from "./page";
@@ -158,6 +159,12 @@ export function InstructorManager({ initialInstructors }: Props) {
                   {!i.isActive && (
                     <span className="rounded-full border border-ink/10 bg-ink/5 px-2 py-0.5 text-xs text-slate">비활성</span>
                   )}
+                  <Link
+                    href={`/admin/settings/instructors/${i.id}`}
+                    className="text-xs text-slate hover:text-ember"
+                  >
+                    상세
+                  </Link>
                   <button
                     onClick={() => openEdit(i)}
                     className="text-xs text-slate hover:text-ink"
