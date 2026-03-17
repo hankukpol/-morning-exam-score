@@ -368,6 +368,20 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     group: "학사 관리",
   },
   {
+    href: "/admin/exams/morning",
+    label: "아침모의고사 수강 현황",
+    description: "기간별 아침모의고사 수강생 명단 및 수험유형별 집계",
+    minRole: AdminRole.TEACHER,
+    group: "성적 관리",
+  },
+  {
+    href: "/admin/exams/morning/scores",
+    label: "아침모의고사 회차 성적",
+    description: "기간·회차별 성적 입력 현황 조회 및 성적 수정 연결",
+    minRole: AdminRole.TEACHER,
+    group: "성적 관리",
+  },
+  {
     href: "/admin/scores/input",
     label: "성적 업로드",
     description: "오프라인, 온라인, 붙여넣기 업로드",

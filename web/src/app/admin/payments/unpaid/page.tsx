@@ -1,109 +1,99 @@
-import { AdminRole, EnrollmentStatus } from "@prisma/client";
+import { AdminRole } from "@prisma/client";
 import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
-import {
-  ENROLLMENT_STATUS_LABEL,
-  ENROLLMENT_STATUS_COLOR,
-} from "@/lib/constants";
-import { UnpaidListClient, type UnpaidRow } from "./unpaid-list-client";
+import { UnpaidListClient, type UnpaidInstallmentRow } from "./unpaid-list-client";
 
 export const dynamic = "force-dynamic";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-function formatDate(date: Date): string {
+function toDateStr(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}.${m}.${d}`;
 }
 
-const UNPAID_STATUSES: EnrollmentStatus[] = ["PENDING", "ACTIVE", "SUSPENDED"];
-
 // ─── page ────────────────────────────────────────────────────────────────────
 
-export default async function UnpaidPage({
-  searchParams,
-}: {
-  searchParams: { status?: string };
-}) {
+export default async function UnpaidPage() {
   await requireAdminContext(AdminRole.COUNSELOR);
 
   const prisma = getPrisma();
 
-  // 1. Fetch up to 500 enrollments with the relevant statuses
-  const enrollments = await prisma.courseEnrollment.findMany({
-    where: {
-      status: { in: UNPAID_STATUSES },
-    },
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const weekLater = new Date(todayStart);
+  weekLater.setDate(weekLater.getDate() + 7);
+
+  // Fetch all unpaid installments (paidAt = null), ordered by dueDate asc
+  const rawItems = await prisma.installment.findMany({
+    where: { paidAt: null },
     include: {
-      student: {
-        select: { name: true, phone: true, examNumber: true },
+      payment: {
+        select: {
+          id: true,
+          enrollmentId: true,
+          examNumber: true,
+          category: true,
+          netAmount: true,
+          note: true,
+          student: { select: { name: true, phone: true, examNumber: true } },
+          items: { select: { itemName: true }, take: 1 },
+        },
       },
-      cohort: { select: { name: true } },
-      product: { select: { name: true } },
-      specialLecture: { select: { name: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ dueDate: "asc" }, { seq: "asc" }],
     take: 500,
   });
 
-  // 2. Fetch all APPROVED payments linked to these enrollments (by enrollmentId)
-  const enrollmentIds = enrollments.map((e) => e.id);
-
-  const approvedPayments = await prisma.payment.findMany({
-    where: {
-      enrollmentId: { in: enrollmentIds },
-      status: "APPROVED",
-    },
-    select: {
-      enrollmentId: true,
-      netAmount: true,
-    },
+  // Aggregate: get total installments per paymentId to compute "N회차/총 M회차"
+  const paymentIds = [...new Set(rawItems.map((i) => i.paymentId))];
+  const allInstallments = await prisma.installment.findMany({
+    where: { paymentId: { in: paymentIds } },
+    select: { paymentId: true, seq: true },
   });
-
-  // Build a map: enrollmentId → total paid
-  const paidMap = new Map<string, number>();
-  for (const p of approvedPayments) {
-    if (!p.enrollmentId) continue;
-    paidMap.set(p.enrollmentId, (paidMap.get(p.enrollmentId) ?? 0) + p.netAmount);
+  // Map paymentId → max seq (= total rounds)
+  const totalRoundsMap = new Map<string, number>();
+  for (const inst of allInstallments) {
+    const cur = totalRoundsMap.get(inst.paymentId) ?? 0;
+    if (inst.seq > cur) totalRoundsMap.set(inst.paymentId, inst.seq);
   }
 
-  // 3. Compute unpaid rows (serialise Date → string for client component)
-  const unpaidRows: UnpaidRow[] = enrollments
-    .map((e) => {
-      const paidAmount = paidMap.get(e.id) ?? 0;
-      const unpaidAmount = e.finalFee - paidAmount;
-      const courseName =
-        e.product?.name ?? e.specialLecture?.name ?? e.cohort?.name ?? "—";
-      return {
-        id: e.id,
-        examNumber: e.examNumber,
-        studentName: e.student.name,
-        mobile: e.student.phone ?? null,
-        courseName,
-        status: e.status,
-        finalFee: e.finalFee,
-        paidAmount,
-        unpaidAmount,
-        createdAt: formatDate(e.createdAt),
-      };
-    })
-    .filter((row) => row.unpaidAmount > 0);
+  // Build rows
+  const rows: UnpaidInstallmentRow[] = rawItems.map((item) => {
+    const dueDate = item.dueDate;
+    const isOverdue = dueDate < todayStart;
+    const isThisWeek = dueDate >= todayStart && dueDate < weekLater;
+    const status: UnpaidInstallmentRow["installmentStatus"] = isOverdue
+      ? "OVERDUE"
+      : "PENDING";
 
-  // 4. Apply status filter from searchParams
-  const filterStatus = searchParams.status as EnrollmentStatus | undefined;
-  const filteredRows =
-    filterStatus && UNPAID_STATUSES.includes(filterStatus)
-      ? unpaidRows.filter((r) => r.status === filterStatus)
-      : unpaidRows;
+    return {
+      id: item.id,
+      paymentId: item.paymentId,
+      enrollmentId: item.payment.enrollmentId ?? null,
+      examNumber: item.payment.examNumber ?? null,
+      studentName: item.payment.student?.name ?? null,
+      mobile: item.payment.student?.phone ?? null,
+      courseName:
+        item.payment.items[0]?.itemName ?? item.payment.note ?? "—",
+      seq: item.seq,
+      totalRounds: totalRoundsMap.get(item.paymentId) ?? item.seq,
+      dueDate: toDateStr(dueDate),
+      amount: item.amount,
+      installmentStatus: status,
+      isThisWeek,
+    };
+  });
 
-  // 5. Summary stats (always over ALL unpaid, before status filter)
-  const totalCount = unpaidRows.length;
-  const totalUnpaidAmount = unpaidRows.reduce((s, r) => s + r.unpaidAmount, 0);
-  const fullyUnpaidCount = unpaidRows.filter((r) => r.paidAmount === 0).length;
-  const partiallyUnpaidCount = totalCount - fullyUnpaidCount;
+  // KPI
+  const totalCount = rows.length;
+  const pendingCount = rows.filter((r) => r.installmentStatus === "PENDING").length;
+  const overdueCount = rows.filter((r) => r.installmentStatus === "OVERDUE").length;
+  const thisWeekCount = rows.filter((r) => r.isThisWeek).length;
+  const totalUnpaidAmount = rows.reduce((s, r) => s + r.amount, 0);
 
   // ─── render ────────────────────────────────────────────────────────────────
   return (
@@ -112,94 +102,81 @@ export default async function UnpaidPage({
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
         수납 관리
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">미납 관리</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        수강 등록 후 수납이 완료되지 않은 내역을 조회합니다. 전액 미납(빨강)과 부분 미납(노랑)으로
-        구분됩니다. <strong className="text-ink">독촉 발송</strong> 버튼으로 학생에게 알림을 보낼 수
-        있습니다.
-      </p>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">미납 현황</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-slate">
+            분납 약정 중 미납·연체 건을 조회합니다. 납부예정일이 오늘 이전이면{" "}
+            <span className="font-semibold text-red-600">연체</span>로 표시됩니다.
+          </p>
+        </div>
 
-      {/* Summary cards */}
+        {/* Quick actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/payments/new"
+            className="inline-flex items-center gap-1.5 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-ember/90"
+          >
+            + 수납 등록
+          </Link>
+          <Link
+            href="/admin/payments/installments"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/40"
+          >
+            할부 관리 →
+          </Link>
+        </div>
+      </div>
+
+      {/* KPI cards */}
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate">미납 건수</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-slate">전체 미납</p>
           <p className="mt-2 text-3xl font-semibold text-ink">{totalCount.toLocaleString()}</p>
           <p className="mt-1 text-xs text-slate">건</p>
         </div>
 
-        <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate">총 미납 금액</p>
-          <p className="mt-2 text-2xl font-semibold text-ember">
-            {totalUnpaidAmount.toLocaleString()}
+        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-widest text-amber-700">미납 (예정)</p>
+          <p className="mt-2 text-3xl font-semibold text-amber-700">
+            {pendingCount.toLocaleString()}
           </p>
-          <p className="mt-1 text-xs text-slate">원</p>
+          <p className="mt-1 text-xs text-amber-600">건</p>
         </div>
 
         <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-red-600">전액 미납</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-red-600">연체</p>
           <p className="mt-2 text-3xl font-semibold text-red-700">
-            {fullyUnpaidCount.toLocaleString()}
+            {overdueCount.toLocaleString()}
           </p>
           <p className="mt-1 text-xs text-red-500">건</p>
         </div>
 
-        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-amber-600">부분 미납</p>
-          <p className="mt-2 text-3xl font-semibold text-amber-700">
-            {partiallyUnpaidCount.toLocaleString()}
+        <div className="rounded-[28px] border border-ember/20 bg-ember/5 p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-widest text-ember">총 미납액</p>
+          <p className="mt-2 text-2xl font-semibold text-ember">
+            {totalUnpaidAmount.toLocaleString()}
           </p>
-          <p className="mt-1 text-xs text-amber-500">건</p>
+          <p className="mt-1 text-xs text-ember/70">원</p>
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-slate">수강 상태:</span>
-        {(
-          [
-            { value: "", label: "전체" },
-            { value: "PENDING", label: ENROLLMENT_STATUS_LABEL.PENDING },
-            { value: "ACTIVE", label: ENROLLMENT_STATUS_LABEL.ACTIVE },
-            { value: "SUSPENDED", label: ENROLLMENT_STATUS_LABEL.SUSPENDED },
-          ] as { value: string; label: string }[]
-        ).map((opt) => {
-          const isActive =
-            opt.value === "" ? !filterStatus : filterStatus === opt.value;
-          return (
-            <Link
-              key={opt.value}
-              href={
-                opt.value
-                  ? `/admin/payments/unpaid?status=${opt.value}`
-                  : "/admin/payments/unpaid"
-              }
-              className={[
-                "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-ember bg-ember text-white"
-                  : "border-ink/20 bg-white text-ink hover:border-ember/40 hover:text-ember",
-              ].join(" ")}
-            >
-              {opt.label}
-            </Link>
-          );
-        })}
-
-        <span className="ml-auto text-sm text-slate">
-          {filteredRows.length.toLocaleString()}건 표시 중
-        </span>
+      {/* Client component (filter tabs + table) */}
+      <div className="mt-8">
+        <UnpaidListClient
+          rows={rows}
+          summary={{
+            totalCount,
+            pendingCount,
+            overdueCount,
+            thisWeekCount,
+            totalUnpaidAmount,
+          }}
+        />
       </div>
 
-      {/* Table — Client Component (독촉 발송 버튼 포함) */}
-      <div className="mt-4 overflow-hidden rounded-[20px] border border-ink/10 bg-white shadow-sm">
-        <UnpaidListClient rows={filteredRows} />
-      </div>
-
-      {/* Footnote */}
       <p className="mt-4 text-xs text-slate/70">
-        * 최대 500건의 수강 등록 내역을 조회합니다. 상태가 신청·수강 중·휴원인 수강 건 중 승인된
-        수납 합계가 최종 수강료에 미달하는 경우에만 표시됩니다. 독촉 발송은 알림 수신에 동의한
-        학생에게만 전송됩니다.
+        * 최대 500건의 미납 분납 회차를 조회합니다. 납부예정일 오름차순으로 정렬됩니다.
       </p>
     </div>
   );

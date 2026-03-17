@@ -18,6 +18,11 @@ import {
   StudentPaymentHistory,
   type PaymentHistoryRow,
 } from "./student-payment-history";
+import { StudentPointHistory, type PointHistoryRow } from "./student-point-history";
+import {
+  StudentAdminMemos,
+  type AdminMemoRow,
+} from "./student-admin-memos";
 import { StudentScoreChart, type ScoreChartPoint } from "./student-score-chart";
 import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
@@ -40,6 +45,8 @@ const TABS = [
   "counseling",
   "enrollments",
   "payments",
+  "points",
+  "memos",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -52,6 +59,8 @@ const TAB_LABELS: Record<Tab, string> = {
   counseling: "면담",
   enrollments: "수업",
   payments: "수납",
+  points: "포인트",
+  memos: "메모",
 };
 
 type PageProps = {
@@ -83,6 +92,8 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   let studentEnrollments: StudentEnrollmentRow[] | null = null;
   let studentPayments: PaymentHistoryRow[] | null = null;
   let scoreChartPoints: ScoreChartPoint[] | null = null;
+  let studentPoints: PointHistoryRow[] | null = null;
+  let studentMemos: AdminMemoRow[] | null = null;
 
   if (tab === "score-chart") {
     // student.scores는 이미 로드됨 — AttendType이 ABSENT이 아닌 것만 차트에 표시
@@ -193,6 +204,52 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
         processedAt: r.processedAt.toISOString(),
       })),
     }));
+  } else if (tab === "points") {
+    const rows = await getPrisma().pointLog.findMany({
+      where: { examNumber: params.examNumber },
+      include: { period: { select: { name: true } } },
+      orderBy: { grantedAt: "desc" },
+    });
+    studentPoints = rows.map((p) => ({
+      id: p.id,
+      type: p.type,
+      amount: p.amount,
+      reason: p.reason,
+      grantedAt: p.grantedAt.toISOString(),
+      grantedBy: p.grantedBy,
+      period: p.period ? { name: p.period.name } : null,
+    }));
+  } else if (tab === "memos") {
+    const viewerId = context.adminUser.id;
+    const rows = await getPrisma().adminMemo.findMany({
+      where: {
+        relatedStudentExamNumber: params.examNumber,
+        OR: [
+          { scope: "TEAM" },
+          { ownerId: viewerId },
+          { assigneeId: viewerId },
+        ],
+      },
+      include: {
+        owner: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
+      },
+      orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
+    });
+    studentMemos = rows.map((m) => ({
+      id: m.id,
+      title: m.title,
+      content: m.content,
+      color: m.color,
+      scope: m.scope,
+      status: m.status,
+      isPinned: m.isPinned,
+      dueAt: m.dueAt ? m.dueAt.toISOString() : null,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+      owner: m.owner,
+      assignee: m.assignee,
+    }));
   }
 
   const canViewPayments = roleAtLeast(context.adminUser.role, AdminRole.COUNSELOR);
@@ -203,6 +260,8 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
     "analysis",
     ...(canEdit ? (["timeline", "counseling"] as Tab[]) : []),
     ...(canViewPayments ? (["enrollments", "payments"] as Tab[]) : []),
+    "points",
+    ...(canEdit ? (["memos"] as Tab[]) : []),
   ];
 
   return (
@@ -650,6 +709,21 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           <StudentPaymentHistory
             examNumber={params.examNumber}
             payments={studentPayments ?? []}
+          />
+        )}
+
+        {/* 포인트 탭 */}
+        {tab === "points" && (
+          <StudentPointHistory points={studentPoints ?? []} />
+        )}
+
+        {/* 메모 탭 */}
+        {tab === "memos" && (
+          <StudentAdminMemos
+            examNumber={params.examNumber}
+            initialMemos={studentMemos ?? []}
+            currentAdminId={context.adminUser.id}
+            currentAdminName={context.adminUser.name}
           />
         )}
       </div>

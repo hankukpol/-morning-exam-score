@@ -8,21 +8,27 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const sp = request.nextUrl.searchParams;
-  const status = sp.get("status") ?? "all"; // "all" | "overdue" | "upcoming" | "paid"
+  // status: "all" | "overdue" | "upcoming" | "paid"
+  const status = sp.get("status") ?? "all";
   const page = Math.max(1, Number(sp.get("page") ?? "1") || 1);
   const limit = 50;
   const skip = (page - 1) * limit;
+
+  // Optional date-range filters (ISO date string, e.g. "2026-03-24")
+  const dueBefore = sp.get("dueBefore"); // dueDate < this date
+  const dueAfter = sp.get("dueAfter");   // dueDate >= this date
 
   // today at 00:00:00 local time (server), converted to UTC
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
   type WhereClause = {
-    paidAt?: null;
-    dueDate?: { lt?: Date; gte?: Date };
+    paidAt?: null | { not: null };
+    dueDate?: { lt?: Date; gte?: Date; lte?: Date };
   };
 
-  const where: WhereClause = (() => {
+  // Build where based on status tab
+  let where: WhereClause = (() => {
     if (status === "overdue") {
       return { paidAt: null, dueDate: { lt: todayStart } };
     }
@@ -30,25 +36,36 @@ export async function GET(request: NextRequest) {
       return { paidAt: null, dueDate: { gte: todayStart } };
     }
     if (status === "paid") {
-      // paidAt is NOT null — omit paidAt filter to get all, then filter in query
-      return {} as WhereClause;
+      return { paidAt: { not: null } };
     }
     // "all"
-    return {} as WhereClause;
+    return {};
   })();
 
-  // For "paid" we need paidAt != null
-  const paidFilter = status === "paid" ? { paidAt: { not: null } } : {};
-
-  const combinedWhere = { ...where, ...paidFilter };
+  // Apply optional dueBefore / dueAfter overrides
+  if (dueBefore || dueAfter) {
+    const dueDateFilter: { lt?: Date; gte?: Date } = {};
+    if (dueBefore) {
+      const d = new Date(dueBefore + "T00:00:00");
+      if (!isNaN(d.getTime())) dueDateFilter.lt = d;
+    }
+    if (dueAfter) {
+      const d = new Date(dueAfter + "T00:00:00");
+      if (!isNaN(d.getTime())) dueDateFilter.gte = d;
+    }
+    if (Object.keys(dueDateFilter).length > 0) {
+      where = { ...where, dueDate: dueDateFilter };
+    }
+  }
 
   const [items, total] = await getPrisma().$transaction([
     getPrisma().installment.findMany({
-      where: combinedWhere,
+      where,
       include: {
         payment: {
           select: {
             id: true,
+            enrollmentId: true,
             examNumber: true,
             category: true,
             netAmount: true,
@@ -62,11 +79,11 @@ export async function GET(request: NextRequest) {
       skip,
       take: limit,
     }),
-    getPrisma().installment.count({ where: combinedWhere }),
+    getPrisma().installment.count({ where }),
   ]);
 
   // Summary counts (always computed fresh regardless of filter)
-  const [overdueCount, upcomingCount, paidCount] = await getPrisma().$transaction([
+  const [overdueCount, upcomingCount, paidCount, totalUnpaidAmount] = await Promise.all([
     getPrisma().installment.count({
       where: { paidAt: null, dueDate: { lt: todayStart } },
     }),
@@ -76,13 +93,22 @@ export async function GET(request: NextRequest) {
     getPrisma().installment.count({
       where: { paidAt: { not: null } },
     }),
+    getPrisma().installment.aggregate({
+      where: { paidAt: null },
+      _sum: { amount: true },
+    }),
   ]);
 
   return NextResponse.json({
     data: {
       items,
       total,
-      summary: { overdueCount, upcomingCount, paidCount },
+      summary: {
+        overdueCount,
+        upcomingCount,
+        paidCount,
+        totalUnpaidAmount: totalUnpaidAmount._sum.amount ?? 0,
+      },
     },
   });
 }
