@@ -87,6 +87,12 @@ export default async function SpecialLectureDetailPage({ params }: PageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <Link
+            href={`/admin/settings/special-lectures/${id}/edit`}
+            className="rounded-[20px] border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/20"
+          >
+            수정
+          </Link>
+          <Link
             href={`/admin/settings/special-lectures/${id}/registrations`}
             className="rounded-[20px] bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
           >

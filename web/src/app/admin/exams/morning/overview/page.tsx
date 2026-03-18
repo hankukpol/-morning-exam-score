@@ -313,6 +313,12 @@ export default async function MorningExamOverviewPage() {
             회차별 성적 현황
           </Link>
           <Link
+            href="/admin/exams/morning/compare"
+            className="inline-flex items-center rounded-full border border-ember/30 bg-ember/5 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
+          >
+            기간 비교
+          </Link>
+          <Link
             href="/admin/scores/input"
             className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20"
           >

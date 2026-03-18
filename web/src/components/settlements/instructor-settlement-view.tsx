@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { InstructorSettlementRow } from "@/app/admin/settlements/instructors/page";
@@ -254,6 +255,14 @@ export function InstructorSettlementView({ month, rows }: Props) {
                         {row.totalAcademyAmount.toLocaleString()}원
                       </p>
                     </div>
+
+                    {/* 상세 페이지 링크 */}
+                    <Link
+                      href={`/admin/settlements/instructors/${row.instructorId}?month=${month}`}
+                      className="rounded-full border border-ink/20 px-3.5 py-1.5 text-xs font-medium text-slate transition hover:border-ink/40 hover:text-ink"
+                    >
+                      상세
+                    </Link>
 
                     {/* 정산 완료 처리 버튼 */}
                     <button

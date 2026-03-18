@@ -53,7 +53,29 @@ export default async function ExternalExamPage() {
             경찰청·공단 주관 외부 시험 일정을 등록하고 수강생 응시 결과를 기록합니다.
           </p>
         </div>
-        <div className="mt-5 sm:mt-0 flex flex-shrink-0 items-start">
+        <div className="mt-5 sm:mt-0 flex flex-shrink-0 items-center gap-3">
+          <Link
+            href="/admin/exams/external/results"
+            className="inline-flex items-center gap-2 rounded-full border border-purple-300 px-5 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            결과 분석
+          </Link>
           <Link
             href="/admin/exams/new"
             className="inline-flex items-center gap-2 rounded-full bg-[#C55A11] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#b04e0f]"
