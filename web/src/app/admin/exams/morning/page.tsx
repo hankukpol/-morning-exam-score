@@ -53,6 +53,12 @@ export default async function MorningExamPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/admin/exams/morning/overview"
+            className="inline-flex items-center rounded-full border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
+          >
+            성적 개요
+          </Link>
+          <Link
             href="/admin/exams/morning/scores"
             className="inline-flex items-center rounded-full border border-forest/30 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/10"
           >

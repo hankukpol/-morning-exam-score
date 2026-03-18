@@ -279,6 +279,17 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         >
           수정
         </Link>
+        {enrollment.courseType === "COMPREHENSIVE" &&
+          (enrollment.status === "ACTIVE" ||
+            enrollment.status === "SUSPENDED" ||
+            enrollment.status === "PENDING") && (
+            <Link
+              href={`/admin/enrollments/${enrollment.id}/transfer`}
+              className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50 hover:bg-forest/10"
+            >
+              반 이동
+            </Link>
+          )}
         <Link
           href={`/admin/enrollments/${enrollment.id}/card`}
           target="_blank"

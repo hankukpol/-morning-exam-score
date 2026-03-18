@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
@@ -359,6 +360,12 @@ export function TextbookManager({ initialTextbooks }: TextbookManagerProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
+                    <Link
+                      href={`/admin/settings/textbooks/${textbook.id}`}
+                      className="inline-flex items-center rounded-full border border-forest/20 px-3 py-1 text-xs font-semibold text-forest transition hover:border-forest/50 hover:bg-forest/5"
+                    >
+                      상세
+                    </Link>
                     <button
                       type="button"
                       onClick={() => openStockModal(textbook)}

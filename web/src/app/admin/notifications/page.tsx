@@ -1,4 +1,5 @@
 ﻿import { AdminRole, ExamType } from "@prisma/client";
+import Link from "next/link";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_TYPE_LABEL } from "@/lib/constants";
@@ -33,7 +34,15 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         F-09 Notifications
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">알림 발송</h1>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-3xl font-semibold">알림 발송</h1>
+        <Link
+          href="/admin/notifications/broadcast"
+          className="inline-flex items-center gap-2 rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90"
+        >
+          <span>일괄 발송</span>
+        </Link>
+      </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         Solapi 기반 알림톡과 SMS 발송을 관리하고, 공지 Web Push 전달 이력까지 함께 점검합니다.
         발송 전 대상자를 미리 확인하고, 수신 동의와 발송 이력을 함께 볼 수 있습니다.

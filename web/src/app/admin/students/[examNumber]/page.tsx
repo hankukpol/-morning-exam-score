@@ -414,6 +414,14 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           >
             포인트 관리
           </Link>
+          {canEdit && (
+            <Link
+              href={`/admin/students/${params.examNumber}/memos`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30"
+            >
+              메모 스레드
+            </Link>
+          )}
           {canManageSuspension && (
             <SuspendButton examNumber={params.examNumber} suspendStatus={suspendStatus} />
           )}

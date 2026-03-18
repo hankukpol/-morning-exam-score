@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CourseCategory, CourseStatus, ExamType } from "@prisma/client";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -359,6 +360,12 @@ export function CourseManager({ initialCourses }: CourseManagerProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
+                    <Link
+                      href={`/admin/settings/courses/${course.id}`}
+                      className="inline-flex items-center rounded-full border border-forest/20 px-3 py-1 text-xs font-semibold text-forest transition hover:border-forest/50"
+                    >
+                      상세
+                    </Link>
                     <button
                       type="button"
                       onClick={() => openEdit(course)}
