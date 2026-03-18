@@ -115,6 +115,8 @@ export default async function TextbookSalesPage() {
   const monthSaleTotal = monthlySales.reduce((s, r) => s + ((r._count as { _all?: number } | undefined)?._all ?? 0), 0);
   const monthAmountTotal = monthlySales.reduce((s, r) => s + (r._sum?.totalPrice ?? 0), 0);
   const lowStockCount = textbooks.filter((t) => t.stock <= 5 && t.isActive).length;
+  const totalStock = textbooks.reduce((s, t) => s + t.stock, 0);
+  const outOfStockCount = textbooks.filter((t) => t.stock === 0 && t.isActive).length;
 
   const yearLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
 
@@ -178,6 +180,106 @@ export default async function TextbookSalesPage() {
           </p>
           <p className="mt-1 text-xs text-slate">즉시 발주 필요</p>
         </div>
+      </div>
+
+      {/* ── 재고 현황 요약 바 ── */}
+      <div className="mt-6 rounded-[28px] border border-ink/10 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+              Inventory Summary
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-ink">재고 현황</h2>
+          </div>
+          {lowStockCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              재고 부족 {lowStockCount}종 — 즉시 발주 필요
+            </span>
+          )}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3">
+            <p className="text-xs text-slate">총 교재 종류</p>
+            <p className="mt-1.5 text-xl font-bold text-ink">
+              {totalCount}종
+              <span className="ml-1.5 text-xs font-normal text-slate">활성 {activeCount}종</span>
+            </p>
+          </div>
+          <div className="rounded-[20px] border border-ink/10 bg-mist px-4 py-3">
+            <p className="text-xs text-slate">총 재고</p>
+            <p className="mt-1.5 text-xl font-bold text-ink">{totalStock.toLocaleString()}권</p>
+          </div>
+          <div
+            className={`rounded-[20px] border px-4 py-3 ${
+              lowStockCount > 0 ? "border-amber-200 bg-amber-50" : "border-ink/10 bg-mist"
+            }`}
+          >
+            <p className="text-xs text-slate">재고 부족 (5권 이하)</p>
+            <p
+              className={`mt-1.5 text-xl font-bold ${lowStockCount > 0 ? "text-amber-700" : "text-forest"}`}
+            >
+              {lowStockCount}종
+            </p>
+          </div>
+          <div
+            className={`rounded-[20px] border px-4 py-3 ${
+              outOfStockCount > 0 ? "border-red-200 bg-red-50" : "border-ink/10 bg-mist"
+            }`}
+          >
+            <p className="text-xs text-slate">품절 (0권)</p>
+            <p
+              className={`mt-1.5 text-xl font-bold ${outOfStockCount > 0 ? "text-red-700" : "text-forest"}`}
+            >
+              {outOfStockCount}종
+            </p>
+          </div>
+        </div>
+
+        {/* Per-textbook stock bar visualization (top items only) */}
+        {textbooks.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-medium text-slate">교재별 재고 현황</p>
+            {textbooks
+              .filter((t) => t.isActive)
+              .sort((a, b) => a.stock - b.stock)
+              .slice(0, 8)
+              .map((t) => {
+                const maxStock = Math.max(...textbooks.filter((x) => x.isActive).map((x) => x.stock), 1);
+                const pct = Math.min(100, Math.round((t.stock / maxStock) * 100));
+                return (
+                  <div key={t.id} className="flex items-center gap-3">
+                    <div className="w-32 min-w-0 truncate text-xs text-ink sm:w-40">{t.title}</div>
+                    <div className="flex flex-1 items-center gap-2">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink/8">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            t.stock === 0
+                              ? "bg-red-400"
+                              : t.stock <= 5
+                              ? "bg-amber-400"
+                              : "bg-forest"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`w-12 text-right text-xs font-semibold tabular-nums ${
+                          t.stock === 0
+                            ? "text-red-600"
+                            : t.stock <= 5
+                            ? "text-amber-600"
+                            : "text-ink"
+                        }`}
+                      >
+                        {t.stock}권
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       <div className="mt-8">

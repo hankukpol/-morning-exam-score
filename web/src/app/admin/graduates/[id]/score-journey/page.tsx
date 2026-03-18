@@ -3,32 +3,22 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
-import { GraduateDetailClient } from "./graduate-detail-client";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
+import { ScoreJourneyClient } from "./score-journey-client";
 
 export const dynamic = "force-dynamic";
 
-export type GraduateDetail = {
-  id: string;
+export type ScoreJourneyData = {
+  graduateId: string;
   examNumber: string;
+  studentName: string;
+  studentMobile: string | null;
   examName: string;
   passType: PassType;
   writtenPassDate: string | null;
   finalPassDate: string | null;
   appointedDate: string | null;
   enrolledMonths: number | null;
-  testimony: string | null;
-  isPublic: boolean;
-  note: string | null;
-  createdAt: string;
-  student: {
-    name: string;
-    mobile: string | null;
-    generation: number | null;
-    examType: string;
-    courseEnrollmentCount: number;
-  };
-  staff: { name: string };
   scoreSnapshots: Array<{
     id: string;
     snapshotType: PassType;
@@ -42,47 +32,64 @@ export type GraduateDetail = {
     last3MonthsAvg: number | null;
     createdAt: string;
   }>;
+  // Raw score history for individual exam sessions
+  scoreHistory: Array<{
+    sessionId: number;
+    subject: string;
+    examDate: string;
+    finalScore: number | null;
+    rawScore: number | null;
+  }>;
 };
 
 type PageProps = { params: Promise<{ id: string }> };
 
-export default async function GraduateDetailPage({ params }: PageProps) {
+export default async function ScoreJourneyPage({ params }: PageProps) {
   await requireAdminContext(AdminRole.TEACHER);
 
   const { id } = await params;
+  const prisma = getPrisma();
 
-  const record = await getPrisma().graduateRecord.findUnique({
+  const record = await prisma.graduateRecord.findUnique({
     where: { id },
     include: {
       student: {
         select: {
           name: true,
           phone: true,
-          generation: true,
-          examType: true,
-          _count: { select: { courseEnrollments: true } },
         },
       },
-      staff: { select: { name: true } },
       scoreSnapshots: { orderBy: { createdAt: "asc" } },
     },
   });
 
   if (!record) notFound();
 
-  const detail: GraduateDetail = {
-    ...record,
+  // Fetch raw score history from the Score table for this student
+  const rawScores = await prisma.score.findMany({
+    where: { examNumber: record.examNumber },
+    include: {
+      session: {
+        select: {
+          subject: true,
+          examDate: true,
+        },
+      },
+    },
+    orderBy: { session: { examDate: "asc" } },
+  });
+
+  const data: ScoreJourneyData = {
+    graduateId: record.id,
+    examNumber: record.examNumber,
+    studentName: record.student.name,
+    studentMobile: record.student.phone ?? null,
+    examName: record.examName,
+    passType: record.passType,
     writtenPassDate: record.writtenPassDate?.toISOString() ?? null,
     finalPassDate: record.finalPassDate?.toISOString() ?? null,
     appointedDate: record.appointedDate?.toISOString() ?? null,
-    createdAt: record.createdAt.toISOString(),
-    student: {
-      name: record.student.name,
-      mobile: record.student.phone ?? null,
-      generation: record.student.generation,
-      examType: record.student.examType,
-      courseEnrollmentCount: record.student._count.courseEnrollments,
-    },
+    enrolledMonths: record.enrolledMonths,
     scoreSnapshots: record.scoreSnapshots.map((s) => ({
       id: s.id,
       snapshotType: s.snapshotType,
@@ -96,6 +103,21 @@ export default async function GraduateDetailPage({ params }: PageProps) {
       last3MonthsAvg: s.last3MonthsAvg,
       createdAt: s.createdAt.toISOString(),
     })),
+    scoreHistory: rawScores.map((s) => ({
+      sessionId: s.sessionId,
+      subject: s.session.subject,
+      examDate: s.session.examDate.toISOString(),
+      finalScore: s.finalScore,
+      rawScore: s.rawScore,
+    })),
+  };
+
+  const PASS_TYPE_LABEL: Record<PassType, string> = {
+    WRITTEN_PASS: "필기합격",
+    FINAL_PASS: "최종합격",
+    APPOINTED: "임용",
+    WRITTEN_FAIL: "필기불합격",
+    FINAL_FAIL: "최종불합격",
   };
 
   return (
@@ -104,7 +126,8 @@ export default async function GraduateDetailPage({ params }: PageProps) {
         items={[
           { label: "판정 관리", href: "/admin/graduates" },
           { label: "합격자 관리", href: "/admin/graduates" },
-          { label: record.student.name },
+          { label: record.student.name, href: `/admin/graduates/${id}` },
+          { label: "성적 궤적" },
         ]}
       />
 
@@ -112,27 +135,21 @@ export default async function GraduateDetailPage({ params }: PageProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-800">
-            합격자 상세
+            성적 궤적 분석
           </div>
           <h1 className="mt-4 text-3xl font-semibold">
             {record.student.name}
             <span className="ml-2 text-lg font-normal text-slate">
-              {record.student.generation ? `${record.student.generation}기` : ""}
+              {PASS_TYPE_LABEL[record.passType]}
             </span>
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <Link
-            href="/admin/graduates"
+            href={`/admin/graduates/${id}`}
             className="rounded-[20px] border border-ink/20 px-4 py-2 text-sm font-medium text-slate transition-colors hover:border-ink/40 hover:text-ink"
           >
-            ← 목록으로
-          </Link>
-          <Link
-            href={`/admin/graduates/${id}/score-journey`}
-            className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-          >
-            성적 궤적 보기 →
+            ← 합격자 상세
           </Link>
           <Link
             href={`/admin/students/${record.examNumber}`}
@@ -143,7 +160,7 @@ export default async function GraduateDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <GraduateDetailClient detail={detail} />
+      <ScoreJourneyClient data={data} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { InlineStockAdjust } from "@/components/textbooks/inline-stock-adjust";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,11 @@ export default async function TextbookDetailPage({ params }: PageProps) {
   const textbook = await prisma.textbook.findUnique({ where: { id: textbookId } });
   if (!textbook) notFound();
 
-  const [totalAgg, recentSales] = await prisma.$transaction([
+  const now = new Date();
+  // Last 6 months for monthly breakdown
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+  const [totalAgg, recentSales, monthlySales] = await prisma.$transaction([
     prisma.textbookSale.aggregate({
       where: { textbookId },
       _count: { id: true },
@@ -42,6 +47,11 @@ export default async function TextbookDetailPage({ params }: PageProps) {
       },
       orderBy: { soldAt: "desc" },
       take: 20,
+    }),
+    prisma.textbookSale.findMany({
+      where: { textbookId, soldAt: { gte: sixMonthsAgo } },
+      select: { soldAt: true, quantity: true, totalPrice: true },
+      orderBy: { soldAt: "asc" },
     }),
   ]);
 
@@ -65,6 +75,34 @@ export default async function TextbookDetailPage({ params }: PageProps) {
   const totalSaleCount = totalAgg._count.id;
   const totalSaleQty = totalAgg._sum.quantity ?? 0;
   const totalSaleAmount = totalAgg._sum.totalPrice ?? 0;
+
+  // Build monthly breakdown for last 6 months
+  type MonthStat = { label: string; qty: number; amount: number; count: number };
+  const monthlyMap = new Map<string, MonthStat>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlyMap.set(key, {
+      label: `${d.getMonth() + 1}월`,
+      qty: 0,
+      amount: 0,
+      count: 0,
+    });
+  }
+  for (const sale of monthlySales) {
+    const d = new Date(sale.soldAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const entry = monthlyMap.get(key);
+    if (entry) {
+      entry.qty += sale.quantity;
+      entry.amount += sale.totalPrice;
+      entry.count += 1;
+    }
+  }
+  const monthlyStats = Array.from(monthlyMap.values());
+  const maxMonthlyQty = Math.max(...monthlyStats.map((m) => m.qty), 1);
+  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const thisMonthStat = monthlyMap.get(thisMonthKey)!;
 
   return (
     <div className="p-8 sm:p-10">
@@ -139,14 +177,12 @@ export default async function TextbookDetailPage({ params }: PageProps) {
           </div>
           <div>
             <dt className="text-xs font-medium text-slate">재고</dt>
-            <dd className="mt-1 text-sm font-semibold">
-              {textbook.stock === 0 ? (
-                <span className="text-red-600">품절 (0개)</span>
-              ) : textbook.stock <= 5 ? (
-                <span className="text-amber-600">{textbook.stock}개 (부족)</span>
-              ) : (
-                <span className="text-ink">{textbook.stock}개</span>
-              )}
+            <dd className="mt-1">
+              <InlineStockAdjust
+                textbookId={textbookId}
+                textbookTitle={textbook.title}
+                currentStock={textbook.stock}
+              />
             </dd>
           </div>
           <div>
@@ -181,6 +217,97 @@ export default async function TextbookDetailPage({ params }: PageProps) {
           <p className="mt-2 text-3xl font-bold text-ember">
             {totalSaleAmount.toLocaleString()}원
           </p>
+        </div>
+      </div>
+
+      {/* Monthly sales breakdown */}
+      <div className="mt-6 rounded-[28px] border border-ink/10 bg-white shadow-panel p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+              Monthly Sales
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-ink">월별 판매 현황 (최근 6개월)</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="rounded-[16px] border border-ember/20 bg-ember/5 px-4 py-2 text-center">
+              <p className="text-[10px] text-slate">이번 달 판매</p>
+              <p className="mt-0.5 text-lg font-bold text-ember">
+                {thisMonthStat.qty}권
+              </p>
+              <p className="text-[10px] text-slate">
+                {thisMonthStat.amount.toLocaleString()}원
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bar chart */}
+        <div className="mt-5">
+          <div className="flex h-32 items-end gap-2">
+            {monthlyStats.map((m) => {
+              const heightPct = maxMonthlyQty > 0 ? Math.max(4, Math.round((m.qty / maxMonthlyQty) * 100)) : 4;
+              const isThisMonth = m.label === `${now.getMonth() + 1}월`;
+              return (
+                <div key={m.label} className="group relative flex flex-1 flex-col items-center justify-end">
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full mb-2 hidden w-28 rounded-xl border border-ink/10 bg-white p-2 text-center text-xs shadow-md group-hover:block z-10">
+                    <p className="font-semibold text-ink">{m.label}</p>
+                    <p className="text-slate">{m.qty}권 / {m.count}건</p>
+                    <p className="font-semibold text-ember">{m.amount.toLocaleString()}원</p>
+                  </div>
+                  <div
+                    className={`w-full rounded-t-lg transition-all ${
+                      isThisMonth ? "bg-ember" : "bg-forest/40 hover:bg-forest/60"
+                    }`}
+                    style={{ height: `${heightPct}%` }}
+                  />
+                  <p className={`mt-1.5 text-center text-[10px] font-medium ${isThisMonth ? "text-ember" : "text-slate"}`}>
+                    {m.label}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Monthly table */}
+        <div className="mt-4 overflow-hidden rounded-[20px] border border-ink/10">
+          <table className="min-w-full divide-y divide-ink/8 text-sm">
+            <thead className="bg-mist/60">
+              <tr>
+                {["월", "판매 건수", "판매 수량", "판매 금액"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink/8">
+              {monthlyStats.map((m) => {
+                const isThisMonth = m.label === `${now.getMonth() + 1}월`;
+                return (
+                  <tr key={m.label} className={isThisMonth ? "bg-ember/5" : "hover:bg-mist/30"}>
+                    <td className={`px-4 py-2.5 text-sm font-semibold ${isThisMonth ? "text-ember" : "text-ink"}`}>
+                      {m.label}
+                      {isThisMonth && (
+                        <span className="ml-1.5 text-[10px] font-normal text-slate">(이번 달)</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums text-ink">
+                      {m.count > 0 ? `${m.count}건` : <span className="text-slate/40">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 tabular-nums text-ink">
+                      {m.qty > 0 ? `${m.qty}권` : <span className="text-slate/40">—</span>}
+                    </td>
+                    <td className={`px-4 py-2.5 tabular-nums font-semibold ${m.amount > 0 ? "text-ember" : "text-slate/40"}`}>
+                      {m.amount > 0 ? `${m.amount.toLocaleString()}원` : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

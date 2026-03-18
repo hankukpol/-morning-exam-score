@@ -7,6 +7,8 @@ import {
   RefundStatus,
 } from "@prisma/client";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
+import { PaymentTimeline, type TimelineInstallment } from "@/components/student-portal/payment-timeline";
+import { PaymentCalendar, type CalendarInstallment } from "@/components/student-portal/payment-calendar";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
@@ -175,6 +177,48 @@ async function fetchPaymentScheduleData(examNumber: string) {
     ]),
   );
 
+  // Next upcoming unpaid installment (earliest dueDate that is not overdue)
+  const nextDueInstallment = unpaidInstallments
+    .filter((i) => !i.isOverdue && i.dueDate !== null)
+    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())[0] ?? null;
+
+  const daysUntilNextDue = nextDueInstallment?.dueDate
+    ? Math.ceil(
+        (new Date(nextDueInstallment.dueDate).setHours(0, 0, 0, 0) -
+          new Date(now).setHours(0, 0, 0, 0)) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+
+  // Build timeline items (enrich with courseName)
+  const timelineInstallments: TimelineInstallment[] = allInstallments.map((inst) => {
+    const enrollment = inst.enrollmentId ? enrollmentMap.get(inst.enrollmentId) : null;
+    return {
+      id: inst.id,
+      seq: inst.seq,
+      amount: inst.amount,
+      dueDate: inst.dueDate ? inst.dueDate.toISOString() : null,
+      paidAt: inst.paidAt ? inst.paidAt.toISOString() : null,
+      courseName: enrollment?.name ?? "강좌",
+      isOverdue: inst.isOverdue,
+      isUpcoming: inst.isUpcoming,
+    };
+  });
+
+  // Build calendar items
+  const calendarInstallments: CalendarInstallment[] = allInstallments.map((inst) => {
+    const enrollment = inst.enrollmentId ? enrollmentMap.get(inst.enrollmentId) : null;
+    return {
+      id: inst.id,
+      seq: inst.seq,
+      amount: inst.amount,
+      dueDate: inst.dueDate ? inst.dueDate.toISOString() : null,
+      paidAt: inst.paidAt ? inst.paidAt.toISOString() : null,
+      courseName: enrollment?.name ?? "강좌",
+      isOverdue: inst.isOverdue,
+    };
+  });
+
   return {
     enrollments,
     allInstallments,
@@ -184,6 +228,10 @@ async function fetchPaymentScheduleData(examNumber: string) {
     totalGrossFee,
     netPaid,
     enrollmentMap,
+    nextDueInstallment,
+    daysUntilNextDue,
+    timelineInstallments,
+    calendarInstallments,
   };
 }
 
@@ -250,6 +298,10 @@ export default async function StudentPaymentSchedulePage() {
     totalGrossFee,
     netPaid,
     enrollmentMap,
+    daysUntilNextDue,
+    nextDueInstallment,
+    timelineInstallments,
+    calendarInstallments,
   } = await fetchPaymentScheduleData(viewer.examNumber);
 
   const progressPercent =
@@ -290,7 +342,7 @@ export default async function StudentPaymentSchedulePage() {
           </div>
 
           {/* ── 요약 KPI ── */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
               <p className="text-sm text-slate">총 수강료</p>
               <p className="mt-3 text-2xl font-bold text-ink">
@@ -305,19 +357,65 @@ export default async function StudentPaymentSchedulePage() {
             </article>
             <article
               className={`rounded-[24px] border p-4 ${
-                unpaidTotal > 0
+                overdueAmount > 0
+                  ? "border-red-200 bg-red-50"
+                  : unpaidTotal > 0
                   ? "border-amber-200 bg-amber-50"
                   : "border-ink/10 bg-mist"
               }`}
             >
-              <p className="text-sm text-slate">미납액</p>
+              <p className="text-sm text-slate">
+                {overdueAmount > 0 ? "연체 금액" : "미납액"}
+              </p>
               <p
                 className={`mt-3 text-2xl font-bold ${
-                  unpaidTotal > 0 ? "text-amber-700" : "text-forest"
+                  overdueAmount > 0
+                    ? "text-red-700"
+                    : unpaidTotal > 0
+                    ? "text-amber-700"
+                    : "text-forest"
                 }`}
               >
-                {formatAmount(unpaidTotal)}
+                {overdueAmount > 0 ? formatAmount(overdueAmount) : formatAmount(unpaidTotal)}
               </p>
+              {overdueAmount > 0 && (
+                <p className="mt-1 text-xs text-red-600">즉시 납부 필요</p>
+              )}
+            </article>
+            <article
+              className={`rounded-[24px] border p-4 ${
+                daysUntilNextDue !== null && daysUntilNextDue <= 3
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-ink/10 bg-mist"
+              }`}
+            >
+              <p className="text-sm text-slate">이번 달 납부 예정</p>
+              {nextDueInstallment ? (
+                <>
+                  <p
+                    className={`mt-3 text-2xl font-bold ${
+                      daysUntilNextDue !== null && daysUntilNextDue <= 3
+                        ? "text-amber-700"
+                        : "text-ink"
+                    }`}
+                  >
+                    {formatAmount(nextDueInstallment.amount)}
+                  </p>
+                  {daysUntilNextDue !== null && (
+                    <p
+                      className={`mt-1 text-xs font-semibold ${
+                        daysUntilNextDue <= 3 ? "text-amber-600" : "text-slate"
+                      }`}
+                    >
+                      {daysUntilNextDue === 0
+                        ? "오늘 납부일"
+                        : `D-${daysUntilNextDue}`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-3 text-2xl font-bold text-forest">없음</p>
+              )}
             </article>
           </div>
 
@@ -325,7 +423,7 @@ export default async function StudentPaymentSchedulePage() {
           {totalGrossFee > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate">납부 진행률</span>
+                <span className="text-slate">납부 진행률 (완납까지 남은 금액)</span>
                 <span className="font-semibold text-forest">{progressPercent}%</span>
               </div>
               <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-ink/10">
@@ -335,8 +433,10 @@ export default async function StudentPaymentSchedulePage() {
                 />
               </div>
               <div className="mt-2 flex justify-between text-xs text-slate">
-                <span>납부 {formatAmount(netPaid)}</span>
-                <span>잔액 {formatAmount(Math.max(0, totalGrossFee - netPaid))}</span>
+                <span>납부 완료 {formatAmount(netPaid)}</span>
+                <span className={unpaidTotal > 0 ? "font-semibold text-amber-600" : ""}>
+                  잔액 {formatAmount(Math.max(0, totalGrossFee - netPaid))}
+                </span>
               </div>
             </div>
           )}
@@ -377,6 +477,16 @@ export default async function StudentPaymentSchedulePage() {
               </div>
             </div>
           </section>
+        )}
+
+        {/* ── 납부 진행 타임라인 ── */}
+        {timelineInstallments.length > 0 && (
+          <PaymentTimeline installments={timelineInstallments} />
+        )}
+
+        {/* ── 납부일 달력 ── */}
+        {calendarInstallments.some((i) => i.dueDate !== null) && (
+          <PaymentCalendar installments={calendarInstallments} />
         )}
 
         {/* ── 납부 일정 테이블 ── */}
