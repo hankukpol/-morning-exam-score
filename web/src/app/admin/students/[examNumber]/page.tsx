@@ -408,6 +408,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           >
             공식 서류
           </Link>
+          <Link
+            href={`/admin/students/${params.examNumber}/points`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-400"
+          >
+            포인트 관리
+          </Link>
           {canManageSuspension && (
             <SuspendButton examNumber={params.examNumber} suspendStatus={suspendStatus} />
           )}

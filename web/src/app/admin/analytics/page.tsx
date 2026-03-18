@@ -556,6 +556,20 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             <p className="font-semibold text-ink group-hover:text-forest">면담 현황 분석</p>
             <p className="mt-1 text-xs text-slate">월별 면담 기록·상담사별 통계·수강 전환율</p>
           </Link>
+          <Link
+            href="/admin/analytics/payments"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-ember/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-ember">결제 수단 분석</p>
+            <p className="mt-1 text-xs text-slate">결제수단·항목별 수납 현황, 환불율, 월별 추이</p>
+          </Link>
+          <Link
+            href="/admin/analytics/discounts"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">할인코드 분석</p>
+            <p className="mt-1 text-xs text-slate">코드별 사용 현황, 할인 총액, 미사용 코드 파악</p>
+          </Link>
         </div>
       </div>
     </div>
