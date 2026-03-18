@@ -108,6 +108,25 @@ export default async function ReportsPage() {
           </div>
           <div className="mt-6 text-xs text-slate">현재: {year}년 →</div>
         </Link>
+
+        <Link
+          href="/admin/reports/weekly"
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ink/30 hover:shadow-lg transition-all sm:col-span-2 lg:col-span-1"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-ink/10 px-3 py-1 text-xs font-semibold text-ink">주간</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">주간 성적 보고서</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                활성 기간의 직렬별 최신 주차 성적·출결·위험군 현황을 Excel 파일로 다운로드합니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-ink transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">Excel(.xlsx) 다운로드 →</div>
+        </Link>
       </div>
 
       {/* Quick Navigation */}
