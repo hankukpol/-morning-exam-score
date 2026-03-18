@@ -271,6 +271,58 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
         </div>
       </div>
 
+      {/* 휴원/복귀 인라인 상태 액션 */}
+      {(enrollment.status === "ACTIVE" || enrollment.status === "SUSPENDED") && (
+        <div
+          className={`flex items-center justify-between rounded-[20px] border px-5 py-4 ${
+            enrollment.status === "SUSPENDED"
+              ? "border-amber-200 bg-amber-50"
+              : "border-forest/20 bg-forest/5"
+          }`}
+        >
+          <div>
+            <p
+              className={`text-sm font-semibold ${
+                enrollment.status === "SUSPENDED" ? "text-amber-800" : "text-forest"
+              }`}
+            >
+              {enrollment.status === "SUSPENDED"
+                ? "현재 휴원 중입니다."
+                : "현재 수강 중입니다."}
+            </p>
+            <p className="mt-0.5 text-xs text-slate">
+              {enrollment.status === "SUSPENDED"
+                ? activeLeavePending
+                  ? `휴원일: ${formatDate(activeLeavePending.leaveDate)}${activeLeavePending.returnDate ? ` · 복귀 예정: ${formatDate(activeLeavePending.returnDate)}` : ""}`
+                  : "복귀 처리를 통해 수강 상태로 전환할 수 있습니다."
+                : "휴원 처리를 통해 일시 중단할 수 있습니다."}
+            </p>
+          </div>
+          <div>
+            {enrollment.status === "ACTIVE" && (
+              <button
+                type="button"
+                onClick={openLeave}
+                disabled={isPending}
+                className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-5 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-200 disabled:opacity-50"
+              >
+                휴원 처리
+              </button>
+            )}
+            {enrollment.status === "SUSPENDED" && activeLeavePending && (
+              <button
+                type="button"
+                onClick={() => openReturn(activeLeavePending.id)}
+                disabled={isPending}
+                className="inline-flex items-center rounded-full border border-forest/30 bg-forest/15 px-5 py-2 text-sm font-semibold text-forest transition hover:bg-forest/25 disabled:opacity-50"
+              >
+                복귀 처리
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 수강증 */}
       <div className="flex flex-wrap items-center gap-3">
         <Link

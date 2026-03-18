@@ -5,6 +5,7 @@
 } from "@prisma/client";
 import { AbsenceNoteFilterPresetControls } from "@/components/absence-notes/absence-note-filter-preset-controls";
 import { AbsenceNoteManager } from "@/components/absence-notes/absence-note-manager";
+import { AbsenceNotesListClient } from "@/app/admin/absence-notes/absence-notes-list-client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   getAnalyticsContext,
@@ -462,15 +463,18 @@ export default async function AdminAbsenceNotesPage({ searchParams }: PageProps)
             </form>
           </section>
 
-          <div className="h-full [&>div]:flex [&>div]:h-full [&>div]:flex-col [&>div>section]:h-full">
-            <AbsenceNoteManager
-              students={students}
-              sessions={sessionOptions}
-              policies={[]}
-              notes={mappedNotes}
-              showCreateSection={false}
-              showGuidanceSection={false}
-            />
+          <div className="h-full">
+            <section className="rounded-[28px] border border-ink/10 bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-ink">사유서 검토</h3>
+                  <p className="mt-1 text-sm text-slate">
+                    대기 사유서를 선택해 일괄 승인 또는 반려 처리할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+              <AbsenceNotesListClient notes={mappedNotes} />
+            </section>
           </div>
         </div>
       </section>

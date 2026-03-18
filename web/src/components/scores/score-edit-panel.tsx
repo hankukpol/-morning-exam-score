@@ -61,6 +61,7 @@ type EditDraft = {
 
 type ScoreEditPanelProps = {
   periods: PeriodOption[];
+  initialSessionId?: number | null;
 };
 
 const MONTH_NAMES = [
@@ -115,13 +116,38 @@ function findTodaySelection(periods: PeriodOption[], todayKey: string) {
   };
 }
 
-export function ScoreEditPanel({ periods }: ScoreEditPanelProps) {
+function findSessionSelection(periods: PeriodOption[], targetSessionId: number) {
+  for (const period of periods) {
+    const session = period.sessions.find((s) => s.id === targetSessionId);
+    if (session) {
+      return {
+        dateKey: sessionDateKey(session),
+        sessionId: String(session.id),
+      };
+    }
+  }
+  return null;
+}
+
+export function ScoreEditPanel({ periods, initialSessionId }: ScoreEditPanelProps) {
   const today = new Date();
   const todayKey = toDateKey(today);
-  const initialSelection = findTodaySelection(periods, todayKey);
+
+  // If initialSessionId is provided, try to pre-select that session; fall back to today
+  const initialSelection = (() => {
+    if (initialSessionId) {
+      const found = findSessionSelection(periods, initialSessionId);
+      if (found) return found;
+    }
+    return findTodaySelection(periods, todayKey);
+  })();
+
+  // When jumping to a pre-selected session, scroll/jump the calendar to that month
+  const initialDate = initialSelection.dateKey ? new Date(`${initialSelection.dateKey}T00:00:00`) : today;
+
   const [periodOptions, setPeriodOptions] = useState(periods);
-  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
-  const [calendarMonth, setCalendarMonth] = useState(today.getMonth());
+  const [calendarYear, setCalendarYear] = useState(initialDate.getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(initialDate.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(initialSelection.dateKey);
   const [selectedSessionId, setSelectedSessionId] = useState<string>(initialSelection.sessionId);
   const [searchQuery, setSearchQuery] = useState("");
