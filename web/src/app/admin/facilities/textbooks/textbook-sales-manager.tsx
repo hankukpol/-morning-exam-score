@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { type TextbookRow, type SaleRow } from "./page";
 import { ActionModal } from "@/components/ui/action-modal";
 
@@ -12,6 +12,17 @@ const SUBJECT_LABELS: Record<string, string> = {
   POLICE_SCIENCE: "경찰학",
   CUMULATIVE: "종합",
 };
+
+function todayString(): string {
+  const d = new Date();
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0")
+  );
+}
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -36,7 +47,15 @@ type Props = {
 };
 
 export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
-  const [todaySales, setTodaySales] = useState<SaleRow[]>(initialTodaySales);
+  const today = todayString();
+
+  const [sales, setSales] = useState<SaleRow[]>(initialTodaySales);
+  const [dateFrom, setDateFrom] = useState<string>(today);
+  const [dateTo, setDateTo] = useState<string>(today);
+  const [isLoadingRange, setIsLoadingRange] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const [isRangeSearch, setIsRangeSearch] = useState(false); // false = showing initial today data
+
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [form, setForm] = useState<SellFormState>({
     textbookId: null,
@@ -48,6 +67,65 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
   const [isPending, startTransition] = useTransition();
 
   const selectedTextbook = textbooks.find((t) => t.id === form.textbookId);
+
+  const fetchSales = useCallback(async (from: string, to: string) => {
+    setIsLoadingRange(true);
+    setRangeError(null);
+    try {
+      const result = await requestJson<{ sales: Array<{
+        id: number;
+        textbook: { id: number; title: string; subject: string | null };
+        examNumber: string | null;
+        staff: { name: string };
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        note: string | null;
+        soldAt: string;
+        textbookId: number;
+      }> }>(`/api/textbooks/sales?dateFrom=${from}&dateTo=${to}&limit=1000`);
+
+      const mapped: SaleRow[] = result.sales.map((s) => ({
+        id: s.id,
+        textbookId: s.textbook.id,
+        textbookTitle: s.textbook.title,
+        examNumber: s.examNumber,
+        staffName: s.staff.name,
+        quantity: s.quantity,
+        unitPrice: s.unitPrice,
+        totalPrice: s.totalPrice,
+        note: s.note,
+        soldAt: s.soldAt,
+      }));
+
+      setSales(mapped);
+      setIsRangeSearch(true);
+    } catch (e) {
+      setRangeError(e instanceof Error ? e.message : "조회 실패");
+    } finally {
+      setIsLoadingRange(false);
+    }
+  }, []);
+
+  function handleSearch() {
+    if (!dateFrom || !dateTo) {
+      setRangeError("시작일과 종료일을 모두 입력하세요.");
+      return;
+    }
+    if (dateFrom > dateTo) {
+      setRangeError("시작일이 종료일보다 늦을 수 없습니다.");
+      return;
+    }
+    fetchSales(dateFrom, dateTo);
+  }
+
+  function handleResetToToday() {
+    setDateFrom(today);
+    setDateTo(today);
+    setRangeError(null);
+    setSales(initialTodaySales);
+    setIsRangeSearch(false);
+  }
 
   function openSellModal(textbookId?: number) {
     setForm({
@@ -117,7 +195,11 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
           soldAt: result.sale.soldAt,
         };
 
-        setTodaySales((prev) => [newSale, ...prev]);
+        // 새 판매건 추가 (현재 조회 범위가 오늘이거나 오늘 날짜를 포함하면 목록 상단에 추가)
+        const saleDate = newSale.soldAt.slice(0, 10);
+        if (saleDate >= dateFrom && saleDate <= dateTo) {
+          setSales((prev) => [newSale, ...prev]);
+        }
         setSellModalOpen(false);
       } catch (e) {
         setError(e instanceof Error ? e.message : "판매 등록 실패");
@@ -125,32 +207,98 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
     });
   }
 
-  const todayTotal = todaySales.reduce((sum, s) => sum + s.totalPrice, 0);
-  const todayCount = todaySales.reduce((sum, s) => sum + s.quantity, 0);
+  const totalRevenue = sales.reduce((sum, s) => sum + s.totalPrice, 0);
+  const totalQuantity = sales.reduce((sum, s) => sum + s.quantity, 0);
 
   const inputCls =
     "w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm outline-none focus:border-ink/30 transition";
   const labelCls = "mb-1 block text-xs font-medium text-slate";
 
+  const isToday = dateFrom === today && dateTo === today;
+  const rangeLabel = isToday
+    ? "오늘"
+    : dateFrom === dateTo
+    ? dateFrom
+    : `${dateFrom} ~ ${dateTo}`;
+
   return (
     <div className="space-y-8">
-      {/* Today summary */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-[20px] border border-ink/10 bg-white p-5">
-          <p className="text-xs font-medium text-slate">오늘 판매 건수</p>
-          <p className="mt-1 text-2xl font-bold">{todaySales.length}건</p>
-          <p className="text-sm text-slate">{todayCount}권</p>
+      {/* Date range filter */}
+      <div className="rounded-[20px] border border-ink/10 bg-white overflow-hidden">
+        <div className="flex flex-wrap items-end gap-3 p-4 border-b border-ink/10">
+          <div>
+            <label className="text-xs font-medium text-slate mb-1 block">시작일</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="block rounded-lg border border-ink/20 px-3 py-1.5 text-sm outline-none focus:border-ink/40 transition"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate mb-1 block">종료일</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="block rounded-lg border border-ink/20 px-3 py-1.5 text-sm outline-none focus:border-ink/40 transition"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSearch}
+              disabled={isLoadingRange}
+              className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-white transition hover:bg-forest/90 disabled:opacity-60"
+            >
+              {isLoadingRange ? "조회 중..." : "조회"}
+            </button>
+            <button
+              onClick={handleResetToToday}
+              disabled={isLoadingRange}
+              className="rounded-full border border-ink/20 px-5 py-2 text-sm font-medium text-slate transition hover:bg-mist/50 disabled:opacity-60"
+            >
+              오늘
+            </button>
+          </div>
+          {/* Export button */}
+          <div className="ml-auto">
+            <a
+              href={`/api/textbooks/sales/export?dateFrom=${dateFrom}&dateTo=${dateTo}`}
+              download
+              className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 px-4 py-2 text-sm font-medium text-slate transition hover:bg-mist/50"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Excel 내보내기
+            </a>
+          </div>
         </div>
-        <div className="rounded-[20px] border border-ink/10 bg-white p-5">
-          <p className="text-xs font-medium text-slate">오늘 판매 금액</p>
-          <p className="mt-1 text-2xl font-bold">{todayTotal.toLocaleString()}원</p>
-        </div>
-        <div className="rounded-[20px] border border-ink/10 bg-white p-5 sm:col-span-1 col-span-2">
-          <p className="text-xs font-medium text-slate">판매 가능 교재</p>
-          <p className="mt-1 text-2xl font-bold">{textbooks.length}종</p>
-          <p className="text-sm text-slate">
-            재고 있음 {textbooks.filter((t) => t.stock > 0).length}종
-          </p>
+
+        {rangeError && (
+          <div className="px-4 py-2 text-sm text-red-700 bg-red-50 border-b border-red-100">
+            {rangeError}
+          </div>
+        )}
+
+        {/* Summary stats */}
+        <div className="flex flex-wrap gap-6 px-4 py-2.5 text-sm text-slate bg-mist/30">
+          <span>
+            기간:{" "}
+            <strong className="text-ink">{rangeLabel}</strong>
+          </span>
+          <span>
+            판매건:{" "}
+            <strong className="text-ink">{sales.length}건</strong>
+          </span>
+          <span>
+            판매수량:{" "}
+            <strong className="text-ink">{totalQuantity}권</strong>
+          </span>
+          <span>
+            합계:{" "}
+            <strong className="text-forest">{totalRevenue.toLocaleString()}원</strong>
+          </span>
         </div>
       </div>
 
@@ -227,14 +375,19 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
         </div>
       </div>
 
-      {/* Today's sales */}
+      {/* Sales history */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">오늘 판매 내역</h2>
+        <h2 className="text-lg font-semibold mb-4">
+          판매 내역{" "}
+          <span className="text-sm font-normal text-slate">({rangeLabel})</span>
+        </h2>
         <div className="overflow-hidden rounded-[20px] border border-ink/10 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink/8 bg-mist/50">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-slate">시각</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate">
+                  {isToday && !isRangeSearch ? "시각" : "판매일시"}
+                </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate">교재명</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate hidden sm:table-cell">수험번호</th>
                 <th className="px-5 py-3 text-right text-xs font-semibold text-slate">수량</th>
@@ -243,32 +396,46 @@ export function TextbookSalesManager({ textbooks, initialTodaySales }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/6">
-              {todaySales.length === 0 && (
+              {isLoadingRange && (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-sm text-slate">
-                    오늘 판매 내역이 없습니다
+                    조회 중...
                   </td>
                 </tr>
               )}
-              {todaySales.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-5 py-3.5 text-slate tabular-nums">
-                    {new Date(s.soldAt).toLocaleTimeString("ko-KR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+              {!isLoadingRange && sales.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-sm text-slate">
+                    해당 기간 판매 내역이 없습니다
                   </td>
-                  <td className="px-5 py-3.5 font-medium">{s.textbookTitle}</td>
-                  <td className="px-5 py-3.5 text-slate hidden sm:table-cell">
-                    {s.examNumber ?? "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-right tabular-nums">{s.quantity}권</td>
-                  <td className="px-5 py-3.5 text-right tabular-nums font-medium">
-                    {s.totalPrice.toLocaleString()}원
-                  </td>
-                  <td className="px-5 py-3.5 text-slate hidden md:table-cell">{s.staffName}</td>
                 </tr>
-              ))}
+              )}
+              {!isLoadingRange && sales.map((s) => {
+                const dt = new Date(s.soldAt);
+                const showDate = !isToday || isRangeSearch;
+                const timeLabel = showDate
+                  ? dt.toLocaleDateString("ko-KR", {
+                      month: "2-digit",
+                      day: "2-digit",
+                    }) +
+                    " " +
+                    dt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+                  : dt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <tr key={s.id}>
+                    <td className="px-5 py-3.5 text-slate tabular-nums">{timeLabel}</td>
+                    <td className="px-5 py-3.5 font-medium">{s.textbookTitle}</td>
+                    <td className="px-5 py-3.5 text-slate hidden sm:table-cell">
+                      {s.examNumber ?? "—"}
+                    </td>
+                    <td className="px-5 py-3.5 text-right tabular-nums">{s.quantity}권</td>
+                    <td className="px-5 py-3.5 text-right tabular-nums font-medium">
+                      {s.totalPrice.toLocaleString()}원
+                    </td>
+                    <td className="px-5 py-3.5 text-slate hidden md:table-cell">{s.staffName}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

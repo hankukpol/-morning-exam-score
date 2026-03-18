@@ -2,6 +2,7 @@ import { AdminRole } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AbsenceNoteActions } from "./absence-note-actions";
+import { AbsenceNotePrintButton } from "./print-button";
 import { ABSENCE_CATEGORY_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -84,16 +85,18 @@ export default async function AbsenceNoteDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 sm:p-10">
-      <Breadcrumbs
-        items={[
-          { label: "학사 관리", href: "/admin/absence-notes" },
-          { label: "사유서 관리", href: "/admin/absence-notes" },
-          { label: `사유서 #${note.id}` },
-        ]}
-      />
+      <div className="no-print">
+        <Breadcrumbs
+          items={[
+            { label: "학사 관리", href: "/admin/absence-notes" },
+            { label: "사유서 관리", href: "/admin/absence-notes" },
+            { label: `사유서 #${note.id}` },
+          ]}
+        />
+      </div>
 
       {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 no-print">
         <div>
           <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
             결석계 상세
@@ -108,12 +111,24 @@ export default async function AbsenceNoteDetailPage({ params }: PageProps) {
             학번 {note.examNumber} · {note.session.period.name}
           </p>
         </div>
-        <Link
-          href="/admin/absence-notes"
-          className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-mist"
-        >
-          ← 목록으로
-        </Link>
+        <div className="flex items-center gap-2">
+          <AbsenceNotePrintButton />
+          <Link
+            href="/admin/absence-notes"
+            className="inline-flex items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink/20 hover:bg-mist no-print"
+          >
+            ← 목록으로
+          </Link>
+        </div>
+      </div>
+
+      {/* Print-only header — hidden on screen */}
+      <div className="hidden print:block mb-6 border-b-2 border-ink pb-4">
+        <div className="text-xl font-bold text-center">한국경찰학원</div>
+        <div className="text-lg font-semibold text-center mt-1">결석계</div>
+        <div className="mt-2 text-center text-sm text-slate">
+          {note.student.name} ({note.examNumber}) · {formatDate(examDate)} · {subjectLabel}
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_340px]">
@@ -278,10 +293,26 @@ export default async function AbsenceNoteDetailPage({ params }: PageProps) {
               </ul>
             )}
           </section>
+
+          {/* Signature section — print only */}
+          <div className="hidden print:flex mt-12 justify-between">
+            <div className="text-center">
+              <div className="text-sm text-slate">신청자 서명</div>
+              <div className="mt-8 border-b border-ink w-32"></div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm text-slate">담당자 확인</div>
+              <div className="mt-8 border-b border-ink w-32"></div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm text-slate">원장 결재</div>
+              <div className="mt-8 border-b border-ink w-32"></div>
+            </div>
+          </div>
         </div>
 
         {/* Right column: actions + quick links */}
-        <aside className="flex flex-col gap-6 xl:sticky xl:top-6 self-start">
+        <aside className="flex flex-col gap-6 xl:sticky xl:top-6 self-start no-print">
           {/* Action buttons (client component) */}
           <AbsenceNoteActions noteId={note.id} status={note.status} />
 

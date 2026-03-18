@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ActionModal } from "@/components/ui/action-modal";
+import { LockerRentalDetailModal } from "@/components/facilities/locker-rental-detail-modal";
 import type { RentalRow } from "./page";
 
 type Kpi = {
@@ -77,6 +78,8 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
   const [tab, setTab] = useState<FilterTab>("all");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [selectedRental, setSelectedRental] = useState<RentalRow | null>(null);
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [newForm, setNewForm] = useState<NewRentalForm>(EMPTY_NEW_FORM);
@@ -180,6 +183,22 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
       setIsRenewModalOpen(false);
       setRenewingId(null);
     });
+  }
+
+  function handleMarkPaid(rentalId: string) {
+    setRentals((prev) =>
+      prev.map((r) =>
+        r.id === rentalId ? { ...r, paidAt: new Date().toISOString() } : r,
+      ),
+    );
+  }
+
+  function handleCancelRental(rentalId: string) {
+    setRentals((prev) =>
+      prev.map((r) =>
+        r.id === rentalId ? { ...r, status: "CANCELLED" } : r,
+      ),
+    );
   }
 
   function handleCreate() {
@@ -328,11 +347,16 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
                   const isExpired = daysLeft !== null && daysLeft < 0;
 
                   return (
-                    <tr key={rental.id} className="hover:bg-mist/40 transition-colors">
+                    <tr
+                      key={rental.id}
+                      className="cursor-pointer hover:bg-mist/50 transition-colors"
+                      onClick={() => setSelectedRental(rental)}
+                    >
                       <td className="px-5 py-3.5 font-medium">
                         <Link
                           href={`/admin/students/${rental.examNumber}`}
                           className="text-forest hover:underline underline-offset-2"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {rental.studentName}
                         </Link>
@@ -377,7 +401,7 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
                             {!rental.paidAt && (
                               <button
                                 type="button"
-                                onClick={() => openPay(rental.id)}
+                                onClick={(e) => { e.stopPropagation(); openPay(rental.id); }}
                                 className="mr-3 text-xs font-semibold text-forest transition hover:text-ink"
                               >
                                 납부 처리
@@ -385,7 +409,7 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
                             )}
                             <button
                               type="button"
-                              onClick={() => openRenew(rental)}
+                              onClick={(e) => { e.stopPropagation(); openRenew(rental); }}
                               className="text-xs font-semibold text-slate transition hover:text-ink"
                             >
                               연장
@@ -459,6 +483,14 @@ export function LockerRentalBillingClient({ initialRentals, kpi }: Props) {
           </div>
         </div>
       </ActionModal>
+
+      {/* 상세 모달 */}
+      <LockerRentalDetailModal
+        rental={selectedRental}
+        onClose={() => setSelectedRental(null)}
+        onMarkPaid={handleMarkPaid}
+        onCancel={handleCancelRental}
+      />
 
       {/* 신규 대여 등록 모달 */}
       <ActionModal

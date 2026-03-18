@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const dateStr = searchParams.get("date"); // YYYY-MM-DD (특정일 필터)
   const monthStr = searchParams.get("month"); // YYYY-MM (월 필터)
+  const dateFromStr = searchParams.get("dateFrom"); // YYYY-MM-DD (범위 시작)
+  const dateToStr = searchParams.get("dateTo"); // YYYY-MM-DD (범위 종료)
   const textbookIdStr = searchParams.get("textbookId"); // 교재별 필터
   const aggregate = searchParams.get("aggregate"); // "monthly" | "textbook"
   const limitStr = searchParams.get("limit") ?? "200";
@@ -20,7 +22,13 @@ export async function GET(request: NextRequest) {
 
   let dateFilter: { soldAt?: { gte: Date; lte: Date } } = {};
 
-  if (dateStr) {
+  if (dateFromStr && dateToStr) {
+    const start = new Date(dateFromStr + "T00:00:00");
+    const end = new Date(dateToStr + "T23:59:59");
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+      dateFilter = { soldAt: { gte: start, lte: end } };
+    }
+  } else if (dateStr) {
     const d = new Date(dateStr);
     const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
     const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);

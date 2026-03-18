@@ -82,7 +82,7 @@ export default async function TextbookFacilitiesPage() {
       </div>
       <h1 className="mt-4 text-3xl font-semibold">교재 판매</h1>
       <p className="mt-2 text-sm text-slate">
-        교재 현장 판매를 등록하고 오늘의 판매 이력을 조회합니다.
+        교재 현장 판매를 등록하고 판매 이력을 기간별로 조회합니다.
       </p>
       <div className="mt-8">
         <TextbookSalesManager textbooks={textbooks} initialTodaySales={todaySales} />
