@@ -269,12 +269,20 @@ export function SpecialLectureManager({ initialRows, instructors }: Props) {
           />
           비활성 강좌 포함
         </label>
-        <button
-          onClick={openCreate}
-          className="rounded-[28px] bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-forest"
-        >
-          + 특강 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/settings/special-lectures/new"
+            className="rounded-[28px] bg-ember px-4 py-2 text-sm font-semibold text-white hover:bg-ember/90"
+          >
+            새 특강 등록
+          </Link>
+          <button
+            onClick={openCreate}
+            className="rounded-[28px] bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-forest"
+          >
+            + 특강 추가
+          </button>
+        </div>
       </div>
 
       {/* Cards */}

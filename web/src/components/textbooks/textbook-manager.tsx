@@ -280,14 +280,22 @@ export function TextbookManager({ initialTextbooks }: TextbookManagerProps) {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
-        >
-          <span>+</span>
-          <span>새 교재 추가</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/settings/textbooks/sales"
+            className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ember"
+          >
+            매출 현황
+          </Link>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
+          >
+            <span>+</span>
+            <span>새 교재 추가</span>
+          </button>
+        </div>
       </div>
 
       {/* Messages */}

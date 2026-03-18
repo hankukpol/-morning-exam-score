@@ -271,17 +271,25 @@ export function PaymentLinkManager({ initialLinks, courses, initialStats }: Prop
       {/* Header */}
       <div className="mt-6 flex items-center justify-between">
         <p className="text-sm text-slate">{links.length}개 링크</p>
-        <button
-          type="button"
-          onClick={() => {
-            setForm(EMPTY_FORM);
-            setError("");
-            setCreateOpen(true);
-          }}
-          className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90"
-        >
-          + 결제 링크 생성
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/payment-links/bulk"
+            className="rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ink/30 hover:text-ember"
+          >
+            일괄 생성
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setForm(EMPTY_FORM);
+              setError("");
+              setCreateOpen(true);
+            }}
+            className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            + 결제 링크 생성
+          </button>
+        </div>
       </div>
 
       {/* Link table */}

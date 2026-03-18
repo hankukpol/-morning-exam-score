@@ -4,6 +4,7 @@ import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { SessionLockToggle } from "./session-lock-toggle";
+import { PeriodBatchLock } from "./period-batch-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ type PageProps = {
 };
 
 export default async function ScoreSessionsPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
+  await requireAdminContext(AdminRole.ACADEMIC_ADMIN);
 
   const sp = await searchParams;
 
@@ -360,7 +361,7 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
             {periodGroups.map((group) => (
               <div key={group.id}>
                 {/* 기수 섹션 헤더 */}
-                <div className="mb-3 flex items-center gap-3">
+                <div className="mb-3 flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-semibold text-ink">{group.name}</h3>
                     {group.isActive && (
@@ -384,6 +385,12 @@ export default async function ScoreSessionsPage({ searchParams }: PageProps) {
                       </span>
                     )}
                   </div>
+                  <PeriodBatchLock
+                    periodId={group.id}
+                    periodName={group.name}
+                    totalSessions={group.sessions.filter((s) => !s.isCancelled).length}
+                    lockedCount={group.lockedCount}
+                  />
                   <div className="flex-1 border-b border-ink/10" />
                 </div>
 
