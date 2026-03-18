@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -79,11 +80,22 @@ export default async function InstallmentsPage() {
             분할납부 약정 회차별 납부 현황 조회 및 납부 처리
           </p>
         </div>
-        {overdueCount > 0 ? (
-          <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-            연체 {overdueCount.toLocaleString()}건
-          </span>
-        ) : null}
+        <div className="flex items-center gap-3 flex-wrap">
+          {overdueCount > 0 ? (
+            <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+              연체 {overdueCount.toLocaleString()}건
+            </span>
+          ) : null}
+          <Link
+            href="/admin/payments/installments/calendar"
+            className="inline-flex items-center gap-2 rounded-full border border-ember/30 bg-ember/5 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            달력 보기
+          </Link>
+        </div>
       </div>
 
       {/* Summary cards */}

@@ -245,6 +245,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'payments',
   },
   {
+    href: "/admin/pos",
+    label: "단과 POS",
+    description: "단과·특강 즉석 결제 처리 (현금·카드·이체)",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+    module: 'payments',
+  },
+  {
     href: "/admin/payment-links",
     label: "결제 링크",
     description: "온라인 결제 링크 생성·관리 (카카오톡·문자 전송용)",
