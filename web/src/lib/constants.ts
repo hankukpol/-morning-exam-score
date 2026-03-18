@@ -605,6 +605,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'scores',
   },
   {
+    href: "/admin/analytics/retention",
+    label: "재원율 분석",
+    description: "수강생 유지율·중도탈락·재등록 현황 분석",
+    minRole: AdminRole.MANAGER,
+    group: "결과 분석",
+    module: 'scores',
+  },
+  {
     href: "/admin/dropout",
     label: "경고·탈락 판정",
     description: "주 3회 및 월 8회 기준 자동 판정",

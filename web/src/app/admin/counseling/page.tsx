@@ -58,6 +58,16 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         면담 예약, 상담 기록, 출결과 성적 요약을 한 화면에서 확인하고 관리합니다.
       </p>
 
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          prefetch={false}
+          href="/admin/counseling/follow-ups"
+          className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800 transition hover:border-amber-400 hover:bg-amber-100"
+        >
+          후속 연락 대상 확인 →
+        </Link>
+      </div>
+
       <section className="mt-8 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-[28px] border border-ink/10 bg-white p-6">

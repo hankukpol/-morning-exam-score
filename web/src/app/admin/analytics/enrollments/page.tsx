@@ -253,12 +253,18 @@ export default async function EnrollmentAnalyticsPage({
       </section>
 
       {/* Navigation shortcut */}
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/admin/analytics"
           className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 bg-white px-4 py-2 text-sm font-medium text-ink hover:border-forest/40 hover:text-forest transition-colors"
         >
           ← 성적 분석으로
+        </Link>
+        <Link
+          href="/admin/analytics/retention"
+          className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 hover:border-sky-400 hover:bg-sky-100 transition-colors"
+        >
+          재원율 분석 →
         </Link>
         <Link
           href="/admin/payments/unpaid"

@@ -4,6 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { CounselingActions } from "./counseling-actions";
+import { ConvertToEnrollmentButton } from "./convert-button";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 
 export const dynamic = "force-dynamic";
@@ -24,20 +25,37 @@ export default async function CounselingRecordDetailPage({ params }: PageProps) 
 
   const prisma = getPrisma();
 
-  const record = await prisma.counselingRecord.findUnique({
-    where: { id: recordId },
-    include: {
-      student: {
-        select: {
-          examNumber: true,
-          name: true,
-          phone: true,
-          examType: true,
-          currentStatus: true,
+  const [record, cohorts, products, specialLectures] = await Promise.all([
+    prisma.counselingRecord.findUnique({
+      where: { id: recordId },
+      include: {
+        student: {
+          select: {
+            examNumber: true,
+            name: true,
+            phone: true,
+            examType: true,
+            currentStatus: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.cohort.findMany({
+      where: { isActive: true },
+      orderBy: { startDate: "desc" },
+      select: { id: true, name: true },
+    }),
+    prisma.comprehensiveCourseProduct.findMany({
+      where: { isActive: true },
+      orderBy: [{ examCategory: "asc" }, { durationMonths: "asc" }],
+      select: { id: true, name: true },
+    }),
+    prisma.specialLecture.findMany({
+      where: { isActive: true },
+      orderBy: { startDate: "desc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   if (!record) {
     notFound();
@@ -236,6 +254,24 @@ export default async function CounselingRecordDetailPage({ params }: PageProps) 
 
         {/* Sidebar */}
         <aside className="self-start space-y-4 xl:sticky xl:top-6">
+          {/* Convert to enrollment */}
+          <div className="rounded-[28px] border border-ember/20 bg-ember/5 p-6">
+            <h2 className="text-base font-semibold">수강 등록 전환</h2>
+            <p className="mt-2 text-sm text-slate">
+              이 면담 기록을 바탕으로 학생의 수강 등록을 생성합니다.
+            </p>
+            <div className="mt-4">
+              <ConvertToEnrollmentButton
+                recordId={record.id}
+                studentName={record.student.name}
+                examNumber={record.examNumber}
+                cohorts={cohorts}
+                products={products}
+                specialLectures={specialLectures}
+              />
+            </div>
+          </div>
+
           {/* Quick links */}
           <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">
             <h2 className="text-base font-semibold">학생 바로가기</h2>
