@@ -181,7 +181,27 @@ export function SettlementTable({ year, month, currentMonthStr, settlements }: P
           </Link>
         )}
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href={`/admin/staff-settlements/daily?month=${formatYearMonth(year, month)}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-slate shadow-sm transition hover:border-forest/30 hover:text-forest"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            일별 상세
+          </Link>
           <SettlementExcelButton year={year} month={month} rates={excelRates} />
         </div>
       </div>

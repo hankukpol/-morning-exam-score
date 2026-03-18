@@ -821,6 +821,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'system',
   },
   {
+    href: "/admin/settings/notification-rules",
+    label: "알림 발송 규칙",
+    description: "이벤트별 자동 알림 발송 조건 및 규칙 조회",
+    minRole: AdminRole.MANAGER,
+    group: "설정",
+    module: 'system',
+  },
+  {
     href: "/admin/settings/notifications",
     label: "SMS 알림 설정",
     description: "Solapi 키와 발신 번호 설정",
