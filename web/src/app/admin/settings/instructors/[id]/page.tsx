@@ -80,6 +80,18 @@ export default async function InstructorDetailPage({ params }: PageProps) {
             {instructor.isActive ? "재직중" : "퇴직"}
           </span>
           <Link
+            href={`/admin/settings/instructors/${id}/revenue-rates`}
+            className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/5"
+          >
+            배분율 관리
+          </Link>
+          <Link
+            href={`/admin/settings/instructors/${id}/subjects`}
+            className="inline-flex items-center rounded-full border border-forest/30 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/5"
+          >
+            담당 과목 관리
+          </Link>
+          <Link
             href={`/admin/settings/instructors/${id}/edit`}
             className="inline-flex items-center rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
           >

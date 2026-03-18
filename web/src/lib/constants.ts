@@ -333,6 +333,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'members',
   },
   {
+    href: "/admin/leaves",
+    label: "휴원 관리",
+    description: "전체 학생 휴원 신청 및 복귀 현황 대시보드",
+    minRole: AdminRole.COUNSELOR,
+    group: "수강 관리",
+    module: 'members',
+  },
+  {
     href: "/admin/settlements/instructors",
     label: "강사 정산",
     description: "특강 강사별 수강료 배분 및 정산 현황",

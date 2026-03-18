@@ -102,6 +102,11 @@ function CohortCard({ cohort }: { cohort: CohortItem }) {
     return iso.slice(0, 10).replace(/-/g, ".");
   }
 
+  const endDate = new Date(cohort.endDate);
+  const now = new Date();
+  const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const isEndingSoon = cohort.isActive && diffDays <= 14;
+
   return (
     <div
       className={`relative flex flex-col rounded-[28px] border bg-white p-6 transition hover:shadow-md ${
@@ -176,6 +181,21 @@ function CohortCard({ cohort }: { cohort: CohortItem }) {
         </div>
       ) : (
         <p className="mt-4 text-xs text-slate">정원 제한 없음</p>
+      )}
+
+      {/* Ending soon badge */}
+      {isEndingSoon && (
+        <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-semibold text-amber-700">
+            {diffDays <= 0 ? "종료일 경과" : `D-${diffDays} 종료 임박`} — 수료 처리 필요
+          </span>
+          <Link
+            href={`/admin/settings/cohorts/${cohort.id}/graduation`}
+            className="ml-2 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+          >
+            처리 &rarr;
+          </Link>
+        </div>
       )}
 
       {/* Action */}

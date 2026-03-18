@@ -324,7 +324,34 @@ export default async function ScoresHubPage() {
             </div>
             <p className="font-semibold text-ink">성적 일괄 업로드</p>
             <p className="mt-1 text-xs leading-5 text-slate">
-              CSV 파일로 대량 성적 일괄 등록
+              CSV 파일로 대량 성적 일괄 등록 (학번,이름,원점수)
+            </p>
+          </Link>
+
+          {/* 다과목 CSV 가져오기 */}
+          <Link
+            href="/admin/scores/import"
+            className="group rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel transition hover:border-ember/30 hover:shadow-md"
+          >
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-ember/10 text-ember transition group-hover:bg-ember/20">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                />
+              </svg>
+            </div>
+            <p className="font-semibold text-ink">다과목 CSV 가져오기</p>
+            <p className="mt-1 text-xs leading-5 text-slate">
+              한 행에 여러 과목 점수를 담은 CSV로 일괄 입력
             </p>
           </Link>
 

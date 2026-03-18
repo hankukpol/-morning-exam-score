@@ -27,6 +27,7 @@ const MODULE_PATHS: Record<string, string[]> = {
     "/admin/counseling",
     "/admin/prospects",
     "/admin/graduates",
+    "/admin/leaves",
   ],
   payments: [
     "/admin/payments",

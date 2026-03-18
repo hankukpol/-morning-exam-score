@@ -160,6 +160,19 @@ export default async function CohortDetailPage({ params, searchParams }: PagePro
           >
             전체 대기자 관리 &rarr;
           </Link>
+          {/* 기수 종료 처리 버튼: 활성 기수이고 종료일이 14일 이내이거나 지난 경우 */}
+          {rawCohort.isActive && (() => {
+            const now = new Date();
+            const in14 = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+            return rawCohort.endDate <= in14;
+          })() && (
+            <Link
+              href={`/admin/settings/cohorts/${cohort.id}/graduation`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
+            >
+              기수 종료 처리 &rarr;
+            </Link>
+          )}
         </div>
       </div>
 

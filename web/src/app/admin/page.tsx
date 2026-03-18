@@ -8,7 +8,7 @@ import { AdminMemoDashboardPanel } from "@/components/memos/admin-memo-dashboard
 import { Sparkline } from "@/components/ui/sparkline";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
-import { EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { EXAM_CATEGORY_LABEL, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { listDashboardInboxData } from "@/lib/dashboard/inbox";
 import {
   getDisplayErrorDetails,
@@ -60,7 +60,9 @@ export default async function AdminDashboardPage() {
     return days;
   })().catch(() => [] as { label: string; dateStr: string; amount: number; count: number }[]);
 
-  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams, extraKpi, pendingRefundCount] = await Promise.all([
+  const in14Days = new Date(todayStart.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const [summaryResult, inboxResult, enrollmentKpi, urgentKpi, upcomingExams, extraKpi, pendingRefundCount, endingCohorts] = await Promise.all([
     getDashboardSummary()
       .then((data) => ({ ok: true as const, data }))
       .catch((err: unknown) => ({ ok: false as const, err })),
@@ -152,6 +154,29 @@ export default async function AdminDashboardPage() {
     getPrisma()
       .refund.count({ where: { status: "PENDING" } })
       .catch(() => 0),
+    // 기수 종료 임박: 14일 이내 종료 예정인 활성 기수
+    getPrisma()
+      .cohort.findMany({
+        where: {
+          isActive: true,
+          endDate: { gte: todayStart, lte: in14Days },
+        },
+        orderBy: { endDate: "asc" },
+        select: {
+          id: true,
+          name: true,
+          endDate: true,
+          examCategory: true,
+          _count: {
+            select: {
+              enrollments: {
+                where: { status: { in: ["ACTIVE", "PENDING"] } },
+              },
+            },
+          },
+        },
+      })
+      .catch(() => [] as never[]),
   ]);
 
   // 최근 활동 피드 (병렬 페치)
@@ -767,6 +792,57 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
       </section>
+
+      {/* 기수 종료 임박 */}
+      {endingCohorts.length > 0 && (
+        <section className="rounded-[28px] border border-amber-200 bg-amber-50/60 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-amber-900">기수 종료 임박</h2>
+              <p className="mt-1 text-xs text-amber-700">14일 이내 종료 예정인 활성 기수 — 수료 처리가 필요합니다</p>
+            </div>
+            <Link
+              href="/admin/cohorts"
+              className="inline-flex rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+            >
+              기수 현황 대시보드
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {endingCohorts.map((cohort) => {
+              const endDate = new Date(cohort.endDate);
+              const diffDays = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              const dDayLabel = diffDays <= 0 ? "D-Day" : `D-${diffDays}`;
+              const dDayColor = diffDays <= 0 ? "bg-red-100 text-red-700" : diffDays <= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+              return (
+                <Link
+                  key={cohort.id}
+                  href={`/admin/settings/cohorts/${cohort.id}/graduation`}
+                  className="flex items-start justify-between gap-3 rounded-[20px] border border-amber-200 bg-white p-4 transition hover:border-amber-400 hover:shadow-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-ink">{cohort.name}</p>
+                    <p className="mt-0.5 text-xs text-slate">
+                      {EXAM_CATEGORY_LABEL[cohort.examCategory as keyof typeof EXAM_CATEGORY_LABEL] ?? cohort.examCategory}
+                      {" · "}
+                      종료 {endDate.toLocaleDateString("ko-KR")}
+                    </p>
+                    <p className="mt-1 text-xs text-slate">
+                      재원생 <strong className="text-ink">{cohort._count.enrollments}</strong>명
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${dDayColor}`}>
+                      {dDayLabel}
+                    </span>
+                    <span className="text-xs font-semibold text-amber-700 underline">수료 처리 →</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 오늘의 할 일 (클라이언트 컴포넌트) */}
       <TodayTodosPanel />
