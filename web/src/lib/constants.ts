@@ -1237,6 +1237,7 @@ export const RENTAL_STATUS_LABEL: Record<RentalStatus, string> = {
 };
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
+  PENDING: "승인 대기",
   CONFIRMED: "확정",
   CANCELLED: "취소",
   NOSHOW: "노쇼",

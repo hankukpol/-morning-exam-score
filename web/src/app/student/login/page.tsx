@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { redirect } from "next/navigation";
-import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
+import { LoginForm } from "./login-form";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 
@@ -81,7 +81,7 @@ export default async function StudentLoginPage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <StudentLookupForm redirectPath={readRedirectPath(searchParams)} />
+        <LoginForm redirectPath={readRedirectPath(searchParams)} />
       </div>
     </main>
   );

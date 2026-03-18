@@ -5,6 +5,7 @@ import { StudentLookupForm } from "@/components/student-portal/student-lookup-fo
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
+import { BookingRequestForm } from "./booking-request-form";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,14 @@ export const metadata: Metadata = {
 };
 
 const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
+  PENDING: "승인 대기",
   CONFIRMED: "확정",
   CANCELLED: "취소",
   NOSHOW: "노쇼",
 };
 
 const BOOKING_STATUS_BADGE: Record<BookingStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-700",
   CONFIRMED: "border-forest/20 bg-forest/10 text-forest",
   CANCELLED: "border-ink/10 bg-mist text-slate",
   NOSHOW: "border-red-200 bg-red-50 text-red-700",
@@ -108,11 +111,14 @@ export default async function StudentStudyRoomsPage() {
     take: 50,
   });
 
+  const pendingBookings = allBookings.filter((b) => b.status === BookingStatus.PENDING);
   const upcomingBookings = allBookings.filter(
     (b) => b.status === BookingStatus.CONFIRMED && isUpcoming(b.bookingDate, b.endTime),
   );
   const pastBookings = allBookings.filter(
-    (b) => !upcomingBookings.some((u) => u.id === b.id),
+    (b) =>
+      b.status !== BookingStatus.PENDING &&
+      !upcomingBookings.some((u) => u.id === b.id),
   );
 
   return (
@@ -128,8 +134,9 @@ export default async function StudentStudyRoomsPage() {
               스터디룸 예약 현황
             </h1>
             <p className="mt-5 text-sm leading-8 text-slate sm:text-base">
-              배정된 스터디룸 예약 내역을 확인할 수 있습니다. 스터디룸은 직원을 통해 신청할 수 있습니다.
+              스터디룸 예약 내역을 확인하고 직접 신청할 수 있습니다. 신청 후 직원 승인 시 확정됩니다.
             </p>
+            <BookingRequestForm />
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -148,15 +155,71 @@ export default async function StudentStudyRoomsPage() {
             <p className="mt-3 text-xl font-semibold">{upcomingBookings.length}건</p>
           </article>
           <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+            <p className="text-sm text-slate">승인 대기</p>
+            <p className="mt-3 text-xl font-semibold">
+              {pendingBookings.length > 0 ? (
+                <span className="text-amber-700">{pendingBookings.length}건</span>
+              ) : (
+                <span>{pendingBookings.length}건</span>
+              )}
+            </p>
+          </article>
+          <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
             <p className="text-sm text-slate">전체 이용 내역</p>
             <p className="mt-3 text-xl font-semibold">{allBookings.length}건</p>
           </article>
-          <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-            <p className="text-sm text-slate">예약 문의</p>
-            <p className="mt-3 text-sm font-semibold">053-241-0112</p>
-          </article>
         </div>
       </section>
+
+      {/* Pending bookings (승인 대기 중) */}
+      {pendingBookings.length > 0 && (
+        <section className="rounded-[28px] border border-amber-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                Pending
+              </p>
+              <h2 className="mt-1 text-xl font-semibold">승인 대기 중</h2>
+            </div>
+            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+              {pendingBookings.length}건
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate">
+            아래 예약 신청은 담당 직원이 검토 중입니다. 승인되면 &quot;확정&quot; 상태로 변경됩니다.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-2">
+            {pendingBookings.map((booking) => (
+              <article
+                key={booking.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-[20px] border border-amber-200 bg-amber-50/60 px-5 py-4"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-bold text-ink">{booking.room.name}</span>
+                    {booking.room.capacity > 1 && (
+                      <span className="inline-flex rounded-full border border-ink/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate">
+                        최대 {booking.room.capacity}명
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate">{formatBookingDate(booking.bookingDate)}</p>
+                  <p className="text-xs font-semibold text-amber-700">
+                    {booking.startTime} ~ {booking.endTime}
+                  </p>
+                  {booking.note && (
+                    <p className="text-xs text-slate">메모: {booking.note}</p>
+                  )}
+                </div>
+                <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                  승인 대기
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Upcoming bookings */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">

@@ -2,7 +2,7 @@ import { AdminRole, RefundType } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
-import { ApprovalActions, type PendingRefundRow } from "./approval-actions";
+import { ApprovalActions, StudyRoomBookingActions, type PendingRefundRow, type PendingBookingRow } from "./approval-actions";
 import { TabNav, type ApprovalTab } from "./tab-nav";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,13 @@ export default async function ApprovalsPage({ searchParams }: PageProps) {
 
   const rawTab = typeof searchParams?.tab === "string" ? searchParams.tab : "refund";
   const activeTab: ApprovalTab =
-    rawTab === "discount" ? "discount" : rawTab === "cash" ? "cash" : "refund";
+    rawTab === "discount"
+      ? "discount"
+      : rawTab === "cash"
+        ? "cash"
+        : rawTab === "studyroom"
+          ? "studyroom"
+          : "refund";
 
   // ── Settings (thresholds) ─────────────────────────────────────────────────
   const settings = await getPrisma().academySettings.findUnique({ where: { id: 1 } });
@@ -116,7 +122,30 @@ export default async function ApprovalsPage({ searchParams }: PageProps) {
     },
   });
 
-  const totalCount = refundRows.length + discountEnrollments.length + cashPayments.length;
+  // ── Tab 4: Pending study room bookings ────────────────────────────────────
+  const pendingBookings = await getPrisma().studyRoomBooking.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    include: {
+      room: { select: { name: true } },
+      student: { select: { name: true } },
+    },
+  });
+
+  const bookingRows: PendingBookingRow[] = pendingBookings.map((b) => ({
+    id: b.id,
+    examNumber: b.examNumber,
+    studentName: b.student?.name ?? null,
+    roomId: b.roomId,
+    roomName: b.room.name,
+    bookingDate: b.bookingDate.toISOString(),
+    startTime: b.startTime,
+    endTime: b.endTime,
+    note: b.note,
+    createdAt: b.createdAt.toISOString(),
+  }));
+
+  const totalCount = refundRows.length + discountEnrollments.length + cashPayments.length + bookingRows.length;
 
   return (
     <div className="p-8 sm:p-10">
@@ -150,6 +179,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps) {
         refundCount={refundRows.length}
         discountCount={discountEnrollments.length}
         cashCount={cashPayments.length}
+        studyroomCount={bookingRows.length}
       />
 
       {/* ── Tab panels ───────────────────────────────────────────────────── */}
@@ -482,6 +512,84 @@ export default async function ApprovalsPage({ searchParams }: PageProps) {
                   <p className="text-xs text-slate">
                     이 목록은 정보 표시 전용입니다. 영수증 발행 여부는 수납 상세에서 확인하세요.
                   </p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : null}
+        {/* Tab 4: 스터디룸 신청 */}
+        {activeTab === "studyroom" ? (
+          <>
+            <div className="mb-4 flex items-center gap-2 rounded-2xl border border-amber-100 bg-amber-50/60 px-5 py-3 text-xs text-amber-800">
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold">
+                !
+              </span>
+              학생 포털에서 신청한 스터디룸 예약 요청입니다. 승인하면 &quot;확정&quot;, 거절하면 &quot;취소&quot; 상태로 변경됩니다.
+            </div>
+
+            {bookingRows.length === 0 ? (
+              <div className="rounded-[28px] border border-ink/10 bg-white p-12 text-center">
+                <p className="text-sm text-slate">대기 중인 스터디룸 예약 신청이 없습니다.</p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-[28px] border border-ink/10 bg-white">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-ink/10 text-sm">
+                    <thead>
+                      <tr>
+                        {["학번", "이름", "스터디룸", "날짜", "시간", "메모", "신청일", "처리"].map((h) => (
+                          <th
+                            key={h}
+                            className="whitespace-nowrap bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase text-slate"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink/10">
+                      {bookingRows.map((row) => (
+                        <tr key={row.id} className="transition-colors hover:bg-mist/30">
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-slate">
+                            <a
+                              href={`/admin/students/${row.examNumber}`}
+                              className="font-medium text-ink transition-colors hover:text-ember"
+                            >
+                              {row.examNumber}
+                            </a>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <a
+                              href={`/admin/students/${row.examNumber}`}
+                              className="font-medium text-ink transition-colors hover:text-ember"
+                            >
+                              {row.studentName ?? "—"}
+                            </a>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <span className="inline-flex rounded-full border border-forest/20 bg-forest/5 px-2 py-0.5 text-xs font-semibold text-forest">
+                              {row.roomName}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-slate">
+                            {new Date(row.bookingDate).toLocaleDateString("ko-KR")}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-ink tabular-nums">
+                            {row.startTime} ~ {row.endTime}
+                          </td>
+                          <td className="max-w-[160px] truncate px-4 py-3 text-xs text-slate">
+                            {row.note ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-slate">
+                            {formatDateTime(row.createdAt)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <StudyRoomBookingActions booking={row} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

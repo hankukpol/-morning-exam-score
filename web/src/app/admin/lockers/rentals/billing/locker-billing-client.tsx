@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export type BillingRentalRow = {
   id: string;
@@ -60,12 +61,6 @@ export function LockerBillingClient({ initialRentals }: Props) {
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [errorId, setErrorId] = useState<string | null>(null);
 
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
   const displayed = useMemo(() => {
     if (!filterOverdue) return rentals;
     return rentals.filter((r) => isOverdue(r.endDate));
@@ -75,9 +70,7 @@ export function LockerBillingClient({ initialRentals }: Props) {
   const totalActive = rentals.length;
   const totalOverdue = rentals.filter((r) => isOverdue(r.endDate)).length;
   const unpaid = rentals.filter((r) => !r.paidAt);
-  const monthlyRevenue = unpaid
-    .filter((r) => r.feeUnit === "MONTHLY")
-    .reduce((sum, r) => sum + r.feeAmount, 0);
+  const totalUnpaidAmount = unpaid.reduce((sum, r) => sum + r.feeAmount, 0);
 
   async function handleMarkPaid(rentalId: string) {
     setPendingIds((prev) => new Set(prev).add(rentalId));
@@ -94,6 +87,7 @@ export function LockerBillingClient({ initialRentals }: Props) {
 
       if (!res.ok) {
         setErrorId(rentalId);
+        toast.error(data.error ?? "납부 처리에 실패했습니다.");
         return;
       }
 
@@ -104,8 +98,10 @@ export function LockerBillingClient({ initialRentals }: Props) {
             : r,
         ),
       );
+      toast.success("납부 완료 처리되었습니다.");
     } catch {
       setErrorId(rentalId);
+      toast.error("납부 처리 중 오류가 발생했습니다.");
     } finally {
       setPendingIds((prev) => {
         const next = new Set(prev);
@@ -114,8 +110,6 @@ export function LockerBillingClient({ initialRentals }: Props) {
       });
     }
   }
-
-  const _ = today; // suppress unused warning
 
   return (
     <div>
@@ -129,9 +123,9 @@ export function LockerBillingClient({ initialRentals }: Props) {
           <p className="text-2xl font-bold text-red-700">{totalOverdue}</p>
           <p className="mt-1 text-xs text-slate">연체 (종료일 경과)</p>
         </div>
-        <div className="rounded-[20px] border border-forest/20 bg-forest/5 p-5 text-center">
-          <p className="text-2xl font-bold text-forest">{formatCurrency(monthlyRevenue)}</p>
-          <p className="mt-1 text-xs text-slate">미납 월정액 합계</p>
+        <div className="rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-center">
+          <p className="text-2xl font-bold text-amber-700">{formatCurrency(totalUnpaidAmount)}</p>
+          <p className="mt-1 text-xs text-slate">미납 요금 합계</p>
         </div>
       </div>
 
@@ -193,7 +187,13 @@ export function LockerBillingClient({ initialRentals }: Props) {
                 return (
                   <tr
                     key={rental.id}
-                    className={`transition-colors hover:bg-mist/40 ${overdue && !isPaid ? "bg-red-50/30" : ""}`}
+                    className={`transition-colors ${
+                      overdue && !isPaid
+                        ? "bg-red-50/40 hover:bg-red-50/60"
+                        : !isPaid
+                        ? "bg-amber-50/40 hover:bg-amber-50/60"
+                        : "hover:bg-mist/40"
+                    }`}
                   >
                     <td className="px-5 py-3.5">
                       <Link

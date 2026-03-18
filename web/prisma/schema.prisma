@@ -62,6 +62,7 @@ model Student {
   examRegistrations          ExamRegistration[]
   lectureAttendances         LectureAttendance[]
   paymentLinks               PaymentLink[]
+  documentIssuances          DocumentIssuance[]
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -412,6 +413,7 @@ model AdminUser {
   courseContracts                CourseContract[]
   consultationProspects          ConsultationProspect[]
   enrollmentHistories            EnrollmentHistory[]
+  documentIssuances              DocumentIssuance[]      @relation("DocumentIssuances")
 
   @@map("admin_users")
 }
@@ -1450,6 +1452,7 @@ model LockerRental {
 // 스터디룸
 
 enum BookingStatus {
+  PENDING   // 학생 신청 (승인 대기)
   CONFIRMED // 확정
   CANCELLED // 취소
   NOSHOW // 노쇼
@@ -1589,6 +1592,34 @@ model AcademySettings {
   updatedAt     DateTime @updatedAt
 
   @@map("academy_settings")
+}
+
+// ─── 서류 발급 이력 ────────────────────────────────────────────────────────────
+
+enum DocumentType {
+  ENROLLMENT_CERT
+  TAX_CERT
+  SCORE_REPORT
+  ATTENDANCE_CERT
+  CUSTOM
+
+  @@map("document_types")
+}
+
+model DocumentIssuance {
+  id          String       @id @default(cuid())
+  examNumber  String
+  docType     DocumentType
+  note        String?
+  issuedBy    String       @db.Uuid
+  issuedAt    DateTime     @default(now())
+
+  student      Student   @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
+  issuedByUser AdminUser @relation("DocumentIssuances", fields: [issuedBy], references: [id])
+
+  @@index([examNumber])
+  @@index([issuedAt])
+  @@map("document_issuances")
 }
 
 model CivilServiceExam {

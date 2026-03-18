@@ -150,24 +150,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // 2. customData에서 linkId 추출
-    const linkIdStr = verified.customData;
-    if (!linkIdStr) {
+    // 2. customData에서 linkId + 포인트 정보 추출
+    // 신규 형식: JSON { linkId, pointAmount?, examNumber? }
+    // 구 형식(하위 호환): 숫자 문자열 "123"
+    const customDataStr = verified.customData;
+    if (!customDataStr) {
       console.error(
         `[PortOne Webhook] customData(linkId) 없음 (paymentId: ${portonePaymentId})`
       );
       return NextResponse.json({ error: "customData missing" }, { status: 400 });
     }
 
-    const linkId = parseInt(linkIdStr, 10);
-    if (isNaN(linkId)) {
-      console.error(
-        `[PortOne Webhook] customData가 숫자가 아님: ${linkIdStr}`
-      );
-      return NextResponse.json(
-        { error: "invalid customData" },
-        { status: 400 }
-      );
+    let linkId: number;
+    let webhookPointAmount = 0;
+    let webhookExamNumber: string | null = null;
+
+    // JSON 파싱 시도 (신규 형식)
+    if (customDataStr.startsWith("{")) {
+      let parsed: { linkId?: unknown; pointAmount?: unknown; examNumber?: unknown };
+      try {
+        parsed = JSON.parse(customDataStr) as { linkId?: unknown; pointAmount?: unknown; examNumber?: unknown };
+      } catch {
+        console.error(
+          `[PortOne Webhook] customData JSON 파싱 실패: ${customDataStr}`
+        );
+        return NextResponse.json({ error: "invalid customData" }, { status: 400 });
+      }
+      const parsedLinkId = parseInt(String(parsed.linkId ?? ""), 10);
+      if (isNaN(parsedLinkId)) {
+        console.error(
+          `[PortOne Webhook] customData.linkId가 유효하지 않음: ${customDataStr}`
+        );
+        return NextResponse.json({ error: "invalid customData" }, { status: 400 });
+      }
+      linkId = parsedLinkId;
+      if (typeof parsed.pointAmount === "number" && parsed.pointAmount > 0) {
+        webhookPointAmount = parsed.pointAmount;
+      }
+      if (typeof parsed.examNumber === "string" && parsed.examNumber.trim()) {
+        webhookExamNumber = parsed.examNumber.trim();
+      }
+    } else {
+      // 구 형식: 순수 숫자 문자열
+      const parsedLinkId = parseInt(customDataStr, 10);
+      if (isNaN(parsedLinkId)) {
+        console.error(
+          `[PortOne Webhook] customData가 숫자가 아님: ${customDataStr}`
+        );
+        return NextResponse.json({ error: "invalid customData" }, { status: 400 });
+      }
+      linkId = parsedLinkId;
     }
 
     // 3. 멱등성 체크: 이미 해당 portone paymentId로 처리된 Payment가 있으면 skip
@@ -202,42 +234,90 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. 금액 검증 (결제 금액과 링크 금액이 일치하는지 확인)
+    // 5. 금액 검증: 실결제금액 + 포인트차감 = 링크finalAmount 이어야 함
     const paidAmount = verified.amount.paid;
-    if (paidAmount !== link.finalAmount) {
+    const expectedCharge = link.finalAmount - webhookPointAmount;
+    if (paidAmount !== expectedCharge) {
       console.error(
-        `[PortOne Webhook] 금액 불일치: paid=${paidAmount}, expected=${link.finalAmount} (linkId: ${linkId})`
+        `[PortOne Webhook] 금액 불일치: paid=${paidAmount}, expected=${expectedCharge} (finalAmount=${link.finalAmount}, pointAmount=${webhookPointAmount}, linkId: ${linkId})`
       );
       // 금액 불일치는 보안 이슈이므로 400 응답 (PortOne이 재시도하지 않도록)
-      // 실무에서는 별도 알림 발송 필요
       return NextResponse.json({ error: "amount mismatch" }, { status: 400 });
+    }
+
+    // 포인트 사용 시 학생 존재 및 잔액 검증
+    if (webhookPointAmount > 0 && webhookExamNumber) {
+      const pointStudent = await getPrisma().student.findUnique({
+        where: { examNumber: webhookExamNumber },
+        select: { examNumber: true },
+      });
+      if (!pointStudent) {
+        console.error(
+          `[PortOne Webhook] 포인트 사용 학생 없음 (examNumber: ${webhookExamNumber})`
+        );
+        // 학생 없으면 포인트 미차감으로 계속 진행 (결제 자체는 정상)
+        webhookPointAmount = 0;
+        webhookExamNumber = null;
+      } else {
+        // 잔액 재확인 (조작 방지)
+        const balanceAgg = await getPrisma().pointLog.aggregate({
+          where: { examNumber: webhookExamNumber },
+          _sum: { amount: true },
+        });
+        const currentBalance = Math.max(0, balanceAgg._sum.amount ?? 0);
+        if (currentBalance < webhookPointAmount) {
+          console.error(
+            `[PortOne Webhook] 포인트 잔액 부족: balance=${currentBalance}, requested=${webhookPointAmount} (examNumber: ${webhookExamNumber})`
+          );
+          webhookPointAmount = 0;
+          webhookExamNumber = null;
+        }
+      }
     }
 
     const systemAdminId = getSystemAdminId();
 
-    // 6. 트랜잭션으로 Payment 생성 + PaymentLink 업데이트
+    // 6. 트랜잭션으로 Payment 생성 + PaymentLink 업데이트 + (포인트 차감)
     const { payment, updatedLink } = await getPrisma().$transaction(
       async (tx) => {
         // Payment 레코드 생성
-        // examNumber는 PaymentLink에 지정된 학생 학번을 사용
+        // examNumber는 PaymentLink에 지정된 학생 학번 또는 포인트 사용 학번을 사용
+        const paymentExamNumber =
+          link.examNumber ?? webhookExamNumber ?? null;
+
+        // netAmount = 실제 카드 청구액 (paidAmount) + 포인트 차감액
+        // grossAmount = 링크 정상 결제 금액 (할인 전)
         const created = await tx.payment.create({
           data: {
             idempotencyKey,
-            examNumber: link.examNumber ?? null,
+            examNumber: paymentExamNumber,
             paymentLinkId: link.id,
             category: "TUITION",
             method: "CARD",
             status: "APPROVED",
-            grossAmount: paidAmount,
+            grossAmount: link.amount,
             discountAmount: link.discountAmount,
             couponAmount: 0,
-            pointAmount: 0,
-            netAmount: paidAmount,
-            note: `PortOne 온라인 결제 | 주문ID: ${portonePaymentId}${verified.orderName ? ` | ${verified.orderName}` : ""}`,
+            pointAmount: webhookPointAmount,
+            netAmount: link.finalAmount, // 포인트 포함 총 결제 가치 (link.finalAmount)
+            note: `PortOne 온라인 결제 | 주문ID: ${portonePaymentId}${verified.orderName ? ` | ${verified.orderName}` : ""}${webhookPointAmount > 0 ? ` | 포인트 ${webhookPointAmount.toLocaleString()}P 사용` : ""}`,
             processedBy: systemAdminId,
             processedAt: verified.paidAt ? new Date(verified.paidAt) : new Date(),
           },
         });
+
+        // 포인트 차감 PointLog 생성
+        if (webhookPointAmount > 0 && webhookExamNumber) {
+          await tx.pointLog.create({
+            data: {
+              examNumber: webhookExamNumber,
+              type: "MANUAL",
+              amount: -webhookPointAmount,
+              reason: `온라인 결제 포인트 사용 | 결제ID: ${created.id}`,
+              grantedBy: systemAdminId,
+            },
+          });
+        }
 
         // PaymentLink usageCount 증가
         const newUsageCount = link.usageCount + 1;

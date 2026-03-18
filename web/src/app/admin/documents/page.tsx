@@ -3,6 +3,14 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 
+const DOC_TYPE_LABEL: Record<string, string> = {
+  ENROLLMENT_CERT: "수강확인서",
+  TAX_CERT: "교육비납입증명서",
+  SCORE_REPORT: "성적확인서",
+  ATTENDANCE_CERT: "출결확인서",
+  CUSTOM: "기타 서류",
+};
+
 export const dynamic = "force-dynamic";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -29,6 +37,16 @@ export default async function DocumentsHubPage() {
   await requireAdminContext(AdminRole.COUNSELOR);
 
   const prisma = getPrisma();
+
+  // Fetch recent issuance history (last 20)
+  const recentIssuances = await prisma.documentIssuance.findMany({
+    orderBy: { issuedAt: "desc" },
+    take: 20,
+    include: {
+      student: { select: { name: true } },
+      issuedByUser: { select: { name: true } },
+    },
+  });
 
   // Fetch recent enrollments that have had certificates/documents accessed
   // We approximate recent certificate-eligible enrollments (ACTIVE, COMPLETED, SUSPENDED)
@@ -351,9 +369,66 @@ export default async function DocumentsHubPage() {
         )}
       </div>
 
+      {/* Recent Issuance History */}
+      <div className="mt-10">
+        <h2 className="text-base font-semibold text-ink mb-4">최근 발급 이력</h2>
+        <p className="text-xs text-slate mb-4">
+          직원이 발급 기록 버튼을 통해 기록한 최근 20건의 서류 발급 이력입니다.
+        </p>
+
+        {recentIssuances.length === 0 ? (
+          <div className="rounded-[20px] border border-ink/10 bg-white px-6 py-10 text-center text-sm text-slate">
+            발급 이력이 없습니다. 학생 문서 페이지에서 &quot;발급 기록&quot; 버튼을 눌러 기록하세요.
+          </div>
+        ) : (
+          <div className="rounded-[20px] border border-ink/10 bg-white overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink/10 bg-mist/60">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate">학생</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate">문서 유형</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate hidden sm:table-cell">발급자</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate hidden md:table-cell">발급일시</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate hidden lg:table-cell">메모</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {recentIssuances.map((iss) => (
+                  <tr key={iss.id} className="hover:bg-mist/30 transition">
+                    <td className="px-5 py-3.5">
+                      <Link
+                        href={`/admin/students/${iss.examNumber}`}
+                        className="font-medium text-ink hover:text-forest transition"
+                      >
+                        {iss.student?.name ?? iss.examNumber}
+                      </Link>
+                      <p className="text-xs text-slate">{iss.examNumber}</p>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex rounded-full border border-forest/20 bg-forest/5 px-2.5 py-0.5 text-xs font-semibold text-forest">
+                        {DOC_TYPE_LABEL[iss.docType] ?? iss.docType}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 hidden sm:table-cell text-xs text-slate">
+                      {iss.issuedByUser?.name ?? "—"}
+                    </td>
+                    <td className="px-5 py-3.5 hidden md:table-cell text-xs text-slate">
+                      {formatDateShort(iss.issuedAt)}
+                    </td>
+                    <td className="px-5 py-3.5 hidden lg:table-cell text-xs text-slate">
+                      {iss.note ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Footer note */}
       <p className="mt-6 text-xs text-slate/60">
-        발급 기준일: {today} · 서류는 인쇄 또는 PDF로 저장하세요. 디지털 발급 이력 기록 기능은 추후 업데이트 예정입니다.
+        발급 기준일: {today} · 서류는 인쇄 또는 PDF로 저장하세요.
       </p>
     </div>
   );

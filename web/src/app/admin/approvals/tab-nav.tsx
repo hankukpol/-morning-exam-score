@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 
-export type ApprovalTab = "refund" | "discount" | "cash";
+export type ApprovalTab = "refund" | "discount" | "cash" | "studyroom";
 
 const TAB_DEFS: { key: ApprovalTab; label: string }[] = [
   { key: "refund", label: "환불 대기" },
   { key: "discount", label: "할인 승인 대기" },
   { key: "cash", label: "고액 현금 수납" },
+  { key: "studyroom", label: "스터디룸 신청" },
 ];
 
 type TabNavProps = {
@@ -15,15 +16,17 @@ type TabNavProps = {
   refundCount: number;
   discountCount: number;
   cashCount: number;
+  studyroomCount: number;
 };
 
-export function TabNav({ activeTab, refundCount, discountCount, cashCount }: TabNavProps) {
+export function TabNav({ activeTab, refundCount, discountCount, cashCount, studyroomCount }: TabNavProps) {
   const router = useRouter();
 
   const counts: Record<ApprovalTab, number> = {
     refund: refundCount,
     discount: discountCount,
     cash: cashCount,
+    studyroom: studyroomCount,
   };
 
   return (

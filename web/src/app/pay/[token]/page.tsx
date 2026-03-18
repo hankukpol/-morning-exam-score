@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPrisma } from "@/lib/prisma";
-import { PayButton } from "./PayButton";
+import { PaySection } from "./PaySection";
 
 export const dynamic = "force-dynamic";
 
@@ -147,7 +147,7 @@ export default async function PayPage({ params }: { params: { token: string } })
               </span>
             </div>
             {link.allowPoint && (
-              <p className="text-xs text-slate">* 보유 포인트 사용 가능</p>
+              <p className="text-xs text-slate">* 아래에서 포인트 사용 가능</p>
             )}
           </div>
 
@@ -169,8 +169,8 @@ export default async function PayPage({ params }: { params: { token: string } })
           )}
 
           {/* Action area */}
-          <div className="px-6 pb-6">
-            {isUnavailable ? (
+          {isUnavailable ? (
+            <div className="px-6 pb-6">
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-5 text-center">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                   <svg
@@ -202,15 +202,16 @@ export default async function PayPage({ params }: { params: { token: string } })
                   053-241-0112 전화하기
                 </a>
               </div>
-            ) : (
-              <PayButton
-                linkId={link.id}
-                token={token}
-                orderName={link.title}
-                finalAmount={link.finalAmount}
-              />
-            )}
-          </div>
+            </div>
+          ) : (
+            <PaySection
+              linkId={link.id}
+              token={token}
+              orderName={link.title}
+              finalAmount={link.finalAmount}
+              allowPoint={link.allowPoint}
+            />
+          )}
         </div>
 
         {/* Footer */}

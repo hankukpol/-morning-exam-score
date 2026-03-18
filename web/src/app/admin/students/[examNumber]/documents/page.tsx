@@ -4,6 +4,7 @@ import { AdminRole, AttendType } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { PrintButton } from "./print-button";
+import { IssueRecordButton } from "./issue-record-button";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,10 @@ export default async function StudentDocumentsPage({ params, searchParams }: Pag
               출결확인서
             </Link>
           </div>
+          <IssueRecordButton
+            examNumber={examNumber}
+            docType={docType === "attendance" ? "ATTENDANCE_CERT" : "ENROLLMENT_CERT"}
+          />
           <PrintButton />
         </div>
       </div>

@@ -4,6 +4,75 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { RefundType } from "@prisma/client";
 
+// ─── Study Room Booking Approval Actions ──────────────────────────────────────
+
+export type PendingBookingRow = {
+  id: string;
+  examNumber: string;
+  studentName: string | null;
+  roomId: string;
+  roomName: string;
+  bookingDate: string; // ISO date string
+  startTime: string;
+  endTime: string;
+  note: string | null;
+  createdAt: string;
+};
+
+type BookingActionsProps = {
+  booking: PendingBookingRow;
+};
+
+export function StudyRoomBookingActions({ booking }: BookingActionsProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAction(action: "CONFIRMED" | "CANCELLED") {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/study-room-bookings/${booking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: action }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? "처리에 실패했습니다.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => handleAction("CONFIRMED")}
+          className="rounded-full border border-forest/30 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+        >
+          승인
+        </button>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => handleAction("CANCELLED")}
+          className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+        >
+          거절
+        </button>
+      </div>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
 export type PendingRefundRow = {
   id: string;
   paymentId: string;

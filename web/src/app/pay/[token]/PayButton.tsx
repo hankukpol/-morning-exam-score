@@ -51,9 +51,13 @@ type PayButtonProps = {
   token: string;
   orderName: string;
   finalAmount: number;
+  /** 포인트 차감 금액 (0이면 포인트 미사용) */
+  pointAmount?: number;
+  /** 포인트 사용 학생 학번 */
+  examNumber?: string;
 };
 
-export function PayButton({ linkId, token, orderName, finalAmount }: PayButtonProps) {
+export function PayButton({ linkId, token, orderName, finalAmount, pointAmount = 0, examNumber }: PayButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,15 +109,23 @@ export function PayButton({ linkId, token, orderName, finalAmount }: PayButtonPr
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
 
+      // 포인트 차감 시 실제 청구 금액을 줄이고, customData에 linkId + 포인트 정보를 JSON으로 전달
+      const chargeAmount = pointAmount > 0 ? finalAmount - pointAmount : finalAmount;
+      const customData = JSON.stringify(
+        pointAmount > 0 && examNumber
+          ? { linkId, pointAmount, examNumber }
+          : { linkId }
+      );
+
       const response = await window.PortOne.requestPayment({
         storeId,
         channelKey,
         paymentId,
         orderName,
-        totalAmount: finalAmount,
+        totalAmount: chargeAmount,
         currency: "KRW",
         payMethod: "CARD",
-        customData: String(linkId), // 웹훅에서 linkId 조회에 사용
+        customData, // 웹훅에서 linkId + 포인트 정보 추출에 사용
         redirectUrl: `${origin}/pay/${token}/result`,
       });
 
@@ -140,7 +152,7 @@ export function PayButton({ linkId, token, orderName, finalAmount }: PayButtonPr
     } finally {
       setIsLoading(false);
     }
-  }, [linkId, token, orderName, finalAmount]);
+  }, [linkId, token, orderName, finalAmount, pointAmount, examNumber]);
 
   return (
     <div className="space-y-3">
