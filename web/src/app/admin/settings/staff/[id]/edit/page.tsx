@@ -11,7 +11,7 @@ export default async function StaffEditPage({
 }: {
   params: { id: string };
 }) {
-  const ctx = await requireAdminContext(AdminRole.SUPER_ADMIN);
+  const ctx = await requireAdminContext(AdminRole.DIRECTOR);
 
   const { id } = params;
 
@@ -44,12 +44,26 @@ export default async function StaffEditPage({
       staff: {
         select: {
           role: true,
+          note: true,
         },
       },
     },
   });
 
   if (!adminUser) notFound();
+
+  // Parse shareRatio from staff.note JSON
+  let shareRatio: number | null = null;
+  if (adminUser.staff?.note) {
+    try {
+      const noteData = JSON.parse(adminUser.staff.note) as Record<string, unknown>;
+      if (typeof noteData.shareRatio === "number") {
+        shareRatio = noteData.shareRatio;
+      }
+    } catch {
+      // ignore parse error
+    }
+  }
 
   const data: StaffEditData = {
     id: adminUser.id,
@@ -58,6 +72,7 @@ export default async function StaffEditPage({
     role: adminUser.role,
     isActive: adminUser.isActive,
     staffRole: adminUser.staff?.role ?? null,
+    shareRatio,
   };
 
   return (

@@ -57,6 +57,7 @@ export interface StaffEditData {
   role: AdminRole;
   isActive: boolean;
   staffRole: string | null;
+  shareRatio: number | null;
 }
 
 interface FormState {
@@ -65,6 +66,7 @@ interface FormState {
   role: AdminRole;
   staffRole: StaffRole | "";
   isActive: boolean;
+  shareRatio: string;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>({
     name: data.name,
@@ -80,12 +83,23 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
     role: data.role,
     staffRole: (data.staffRole as StaffRole) ?? "",
     isActive: data.isActive,
+    shareRatio: data.shareRatio !== null ? String(data.shareRatio) : "",
   });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.name.trim()) {
       setError("이름을 입력하세요.");
+      return;
+    }
+    const shareRatioNum = form.shareRatio.trim()
+      ? Number(form.shareRatio.trim())
+      : null;
+    if (
+      shareRatioNum !== null &&
+      (isNaN(shareRatioNum) || shareRatioNum < 0 || shareRatioNum > 100)
+    ) {
+      setError("배분율은 0에서 100 사이의 숫자를 입력하세요.");
       return;
     }
     setError(null);
@@ -101,12 +115,16 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
             role: form.role,
             staffRole: form.staffRole || null,
             isActive: form.isActive,
+            shareRatio: shareRatioNum,
           }),
         });
-        const json = await res.json() as { error?: string };
+        const json = (await res.json()) as { error?: string };
         if (!res.ok) throw new Error(json.error ?? "수정 실패");
-        router.push(`/admin/settings/staff/${data.id}`);
-        router.refresh();
+        setToast("저장되었습니다.");
+        setTimeout(() => {
+          router.push("/admin/settings/staff");
+          router.refresh();
+        }, 800);
       } catch (err) {
         setError(err instanceof Error ? err.message : "수정 실패");
       }
@@ -115,6 +133,11 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
+      {toast && (
+        <div className="rounded-[12px] bg-forest/10 border border-forest/20 px-4 py-3 text-sm text-forest">
+          {toast}
+        </div>
+      )}
       {error && (
         <div className="rounded-[12px] bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           {error}
@@ -188,6 +211,26 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
         </select>
       </div>
 
+      {/* 배분율 */}
+      <div>
+        <label className="block text-sm font-medium text-ink mb-1.5">
+          배분율 (%)
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          step={0.1}
+          value={form.shareRatio}
+          onChange={(e) => setForm((f) => ({ ...f, shareRatio: e.target.value }))}
+          className="w-full rounded-[12px] border border-ink/20 px-4 py-2.5 text-sm text-ink placeholder:text-slate/50 outline-none focus:border-forest focus:ring-1 focus:ring-forest/30 transition"
+          placeholder="예: 70 (0~100)"
+        />
+        <p className="mt-1 text-xs text-slate">
+          강사 수납 배분율 (%). 빈 칸이면 저장하지 않습니다.
+        </p>
+      </div>
+
       {/* 계정 활성화 여부 */}
       <div>
         <label className="block text-sm font-medium text-ink mb-1.5">계정 상태</label>
@@ -228,8 +271,19 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
           {isPending ? (
             <>
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
               저장 중...
             </>
@@ -238,7 +292,7 @@ export function StaffEditForm({ data }: { data: StaffEditData }) {
           )}
         </button>
         <a
-          href={`/admin/settings/staff/${data.id}`}
+          href="/admin/settings/staff"
           className="inline-flex items-center rounded-full border border-ink/20 px-6 py-2.5 text-sm font-medium text-slate transition hover:border-ink/40 hover:text-ink"
         >
           취소

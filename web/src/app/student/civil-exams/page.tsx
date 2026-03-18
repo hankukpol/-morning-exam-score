@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExamType } from "@prisma/client";
-import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
@@ -47,7 +46,6 @@ function computeExamStatus(
   });
   if (allPast) return "CLOSED";
 
-  // If the first date (written) is in the past but something later is future — ONGOING
   if (writtenDate) {
     const w = new Date(writtenDate);
     w.setHours(0, 0, 0, 0);
@@ -84,21 +82,35 @@ function computeDDay(date: Date): {
   today.setHours(0, 0, 0, 0);
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diff = Math.ceil(
+    (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
 
   if (diff < 0) {
     return { label: "완료", pillClass: "border-ink/10 bg-mist text-slate" };
   }
   if (diff === 0) {
-    return { label: "D-Day!", pillClass: "border-ember/30 bg-ember/10 text-ember font-bold" };
+    return {
+      label: "D-Day!",
+      pillClass: "border-ember/30 bg-ember/10 text-ember font-bold",
+    };
   }
   if (diff <= 14) {
-    return { label: `D-${diff}`, pillClass: "border-red-200 bg-red-50 text-red-700" };
+    return {
+      label: `D-${diff}`,
+      pillClass: "border-red-200 bg-red-50 text-red-700",
+    };
   }
   if (diff <= 30) {
-    return { label: `D-${diff}`, pillClass: "border-amber-200 bg-amber-50 text-amber-700" };
+    return {
+      label: `D-${diff}`,
+      pillClass: "border-amber-200 bg-amber-50 text-amber-700",
+    };
   }
-  return { label: `D-${diff}일`, pillClass: "border-forest/20 bg-forest/10 text-forest" };
+  return {
+    label: `D-${diff}일`,
+    pillClass: "border-forest/20 bg-forest/10 text-forest",
+  };
 }
 
 type ExamRow = {
@@ -114,9 +126,15 @@ type ExamRow = {
 
 function ExamCard({ exam }: { exam: ExamRow }) {
   const written = exam.writtenDate ? computeDDay(exam.writtenDate) : null;
-  const interview = exam.interviewDate ? computeDDay(exam.interviewDate) : null;
+  const interview = exam.interviewDate
+    ? computeDDay(exam.interviewDate)
+    : null;
   const result = exam.resultDate ? computeDDay(exam.resultDate) : null;
-  const status = computeExamStatus(exam.writtenDate, exam.interviewDate, exam.resultDate);
+  const status = computeExamStatus(
+    exam.writtenDate,
+    exam.interviewDate,
+    exam.resultDate,
+  );
 
   return (
     <article className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-sm">
@@ -147,7 +165,9 @@ function ExamCard({ exam }: { exam: ExamRow }) {
         {exam.writtenDate && (
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-semibold text-slate">필기시험</span>
+              <span className="w-16 shrink-0 text-xs font-semibold text-slate">
+                필기시험
+              </span>
               <span className="text-sm font-medium text-ink">
                 {formatKoreanDate(exam.writtenDate)}
               </span>
@@ -164,7 +184,9 @@ function ExamCard({ exam }: { exam: ExamRow }) {
         {exam.interviewDate && (
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-semibold text-slate">면접시험</span>
+              <span className="w-16 shrink-0 text-xs font-semibold text-slate">
+                면접시험
+              </span>
               <span className="text-sm font-medium text-ink">
                 {formatKoreanDate(exam.interviewDate)}
               </span>
@@ -181,7 +203,9 @@ function ExamCard({ exam }: { exam: ExamRow }) {
         {exam.resultDate && (
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-semibold text-slate">최종발표</span>
+              <span className="w-16 shrink-0 text-xs font-semibold text-slate">
+                최종발표
+              </span>
               <span className="text-sm font-medium text-ink">
                 {formatKoreanDate(exam.resultDate)}
               </span>
@@ -215,10 +239,13 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
     ? searchParams?.type[0]
     : searchParams?.type;
   const filterType: ExamType | "ALL" =
-    rawType === "GONGCHAE" ? "GONGCHAE"
-    : rawType === "GYEONGCHAE" ? "GYEONGCHAE"
-    : "ALL";
+    rawType === "GONGCHAE"
+      ? "GONGCHAE"
+      : rawType === "GYEONGCHAE"
+        ? "GYEONGCHAE"
+        : "ALL";
 
+  // DB not configured
   if (!hasDatabaseConfig()) {
     return (
       <main className="space-y-6 px-0 py-6">
@@ -242,31 +269,13 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
     );
   }
 
+  // Fetch viewer (may be null for unauthenticated users — that is fine)
   const viewer = await getStudentPortalViewer();
-
-  if (!viewer) {
-    return (
-      <main className="space-y-6 px-0 py-6">
-        <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
-          <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-            Civil Exam Schedule
-          </div>
-          <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-4xl">
-            공채 시험 일정
-          </h1>
-          <p className="mt-4 text-sm leading-7 text-slate sm:text-base">
-            시험 일정 확인은 로그인 후 이용할 수 있습니다.
-          </p>
-        </section>
-        <StudentLookupForm redirectPath="/student/civil-exams" />
-      </main>
-    );
-  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Fetch all active exams
+  // Civil exam data is public — fetch regardless of auth
   const allExams = await getPrisma().civilServiceExam.findMany({
     where: {
       isActive: true,
@@ -285,11 +294,13 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
     },
   });
 
-  // Split into upcoming (at least one future date) and past (all dates in past)
+  // Split into upcoming and past
   const upcomingExams = allExams.filter((exam) => {
-    const dates = [exam.writtenDate, exam.interviewDate, exam.resultDate].filter(
-      Boolean,
-    ) as Date[];
+    const dates = [
+      exam.writtenDate,
+      exam.interviewDate,
+      exam.resultDate,
+    ].filter(Boolean) as Date[];
     if (dates.length === 0) return true;
     return dates.some((d) => {
       const t = new Date(d);
@@ -303,27 +314,29 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
   );
 
   // Group upcoming by year
-  const upcomingYearGroups = upcomingExams.reduce<Record<number, typeof upcomingExams>>(
-    (acc, exam) => {
-      if (!acc[exam.year]) acc[exam.year] = [];
-      acc[exam.year].push(exam);
-      return acc;
-    },
-    {},
-  );
+  const upcomingYearGroups = upcomingExams.reduce<
+    Record<number, typeof upcomingExams>
+  >((acc, exam) => {
+    if (!acc[exam.year]) acc[exam.year] = [];
+    acc[exam.year].push(exam);
+    return acc;
+  }, {});
   const upcomingYears = Object.keys(upcomingYearGroups)
     .map(Number)
     .sort((a, b) => b - a);
 
   // Count per type for filter tabs
   const gongchaeCount = allExams.filter((e) => e.examType === "GONGCHAE").length;
-  const gyeongchaeCount = allExams.filter((e) => e.examType === "GYEONGCHAE").length;
+  const gyeongchaeCount = allExams.filter(
+    (e) => e.examType === "GYEONGCHAE",
+  ).length;
 
-  const filterTabs: { label: string; value: ExamType | "ALL"; count: number }[] = [
-    { label: "전체", value: "ALL", count: allExams.length },
-    { label: "공채", value: "GONGCHAE", count: gongchaeCount },
-    { label: "경채", value: "GYEONGCHAE", count: gyeongchaeCount },
-  ];
+  const filterTabs: { label: string; value: ExamType | "ALL"; count: number }[] =
+    [
+      { label: "전체", value: "ALL", count: allExams.length },
+      { label: "공채", value: "GONGCHAE", count: gongchaeCount },
+      { label: "경채", value: "GYEONGCHAE", count: gyeongchaeCount },
+    ];
 
   return (
     <main className="space-y-6 px-0 py-6">
@@ -365,18 +378,74 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
         <div className="mt-6 grid grid-cols-3 gap-3">
           <article className="rounded-[20px] border border-ink/10 bg-mist p-3 text-center">
             <p className="text-xs text-slate">전체</p>
-            <p className="mt-1 text-lg font-bold text-ink">{allExams.length}</p>
+            <p className="mt-1 text-lg font-bold text-ink">
+              {allExams.length}
+            </p>
           </article>
           <article className="rounded-[20px] border border-forest/20 bg-forest/5 p-3 text-center">
             <p className="text-xs text-slate">예정·진행</p>
-            <p className="mt-1 text-lg font-bold text-forest">{upcomingExams.length}</p>
+            <p className="mt-1 text-lg font-bold text-forest">
+              {upcomingExams.length}
+            </p>
           </article>
           <article className="rounded-[20px] border border-ink/10 bg-mist p-3 text-center">
             <p className="text-xs text-slate">종료</p>
-            <p className="mt-1 text-lg font-bold text-slate">{pastExams.length}</p>
+            <p className="mt-1 text-lg font-bold text-slate">
+              {pastExams.length}
+            </p>
           </article>
         </div>
       </section>
+
+      {/* Login prompt for unauthenticated users */}
+      {!viewer && (
+        <section className="rounded-[28px] border border-forest/20 bg-forest/5 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest/20">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4 text-forest"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-forest">
+                  로그인하면 나의 접수 현황을 확인할 수 있습니다
+                </p>
+                <p className="mt-0.5 text-xs text-slate">
+                  학번과 생년월일 6자리로 로그인하세요. 시험 일정은 로그인 없이도 볼 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/student/login?next=/student/civil-exams"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest/90"
+            >
+              로그인
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Filter tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -412,8 +481,9 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
       {/* Upcoming exams grouped by year */}
       {upcomingExams.length === 0 ? (
         <section className="rounded-[28px] border border-ink/10 bg-white p-8 text-center">
-          <div className="text-4xl mb-4">📅</div>
-          <p className="text-base font-semibold text-ink">예정된 시험이 없습니다</p>
+          <p className="text-base font-semibold text-ink">
+            예정된 시험이 없습니다
+          </p>
           <p className="mt-2 text-sm text-slate">
             {filterType !== "ALL"
               ? `${EXAM_TYPE_LABEL[filterType]} 시험 일정이 아직 등록되지 않았습니다.`
@@ -469,7 +539,6 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
                   {pastExams.length}건
                 </span>
               </div>
-              {/* Chevron rotates when open */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
@@ -497,7 +566,8 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
       {/* Footer note */}
       <section className="rounded-[24px] border border-ink/10 bg-white p-4 text-center">
         <p className="text-xs text-slate">
-          시험 일정은 변경될 수 있습니다. 반드시 공식 경찰청 채용 홈페이지에서 확인하세요.
+          시험 일정은 변경될 수 있습니다. 반드시 공식 경찰청 채용 홈페이지에서
+          확인하세요.
         </p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           <a
@@ -513,9 +583,22 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
             className="inline-flex items-center gap-1 rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-forest/30 hover:text-forest"
           >
             경찰청 채용 홈페이지
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
-              <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" clipRule="evenodd" />
-              <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3 w-3"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z"
+                clipRule="evenodd"
+              />
+              <path
+                fillRule="evenodd"
+                d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z"
+                clipRule="evenodd"
+              />
             </svg>
           </a>
         </div>

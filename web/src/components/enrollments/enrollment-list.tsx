@@ -34,6 +34,7 @@ export type EnrollmentWithRelations = {
   cohort: { name: string; examCategory: ExamCategory } | null;
   product: { name: string } | null;
   specialLecture: { name: string } | null;
+  contract?: { id: string; printedAt: string | Date | null } | null;
 };
 
 type Props = {
@@ -509,6 +510,9 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                   />
                 </th>
                 <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
+                  계약서
+                </th>
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   액션
                 </th>
               </tr>
@@ -516,7 +520,7 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
             <tbody className="divide-y divide-ink/10">
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={canBulkComplete ? 10 : 9}>
+                  <td colSpan={canBulkComplete ? 11 : 10}>
                     <EmptyState
                       title="수강 내역이 없습니다."
                       description="조회 조건을 변경하거나 새 수강을 등록해보세요."
@@ -617,6 +621,38 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                       {enrollment.enrollSource
                         ? ENROLL_SOURCE_LABEL[enrollment.enrollSource]
                         : "-"}
+                    </td>
+
+                    {/* 계약서 상태 */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {!enrollment.contract ? (
+                        <Link
+                          href={`/admin/enrollments/${enrollment.id}/contract`}
+                          className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 transition hover:border-red-400 whitespace-nowrap"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          미생성
+                        </Link>
+                      ) : enrollment.contract.printedAt ? (
+                        <Link
+                          href={`/admin/enrollments/${enrollment.id}/contract`}
+                          className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest transition hover:border-forest/40 whitespace-nowrap"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          발행됨
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/admin/enrollments/${enrollment.id}/contract`}
+                          className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 transition hover:border-amber-400 whitespace-nowrap"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          미출력
+                        </Link>
+                      )}
                     </td>
 
                     {/* 액션 */}

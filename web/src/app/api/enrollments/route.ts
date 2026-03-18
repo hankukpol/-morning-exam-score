@@ -164,6 +164,22 @@ export async function POST(request: Request) {
         });
       }
 
+      // Auto-create contract record if not exists
+      const courseName =
+        created.cohort?.name ??
+        created.product?.name ??
+        created.specialLecture?.name ??
+        "수강";
+      await tx.courseContract.upsert({
+        where: { enrollmentId: created.id },
+        create: {
+          enrollmentId: created.id,
+          items: [{ label: courseName, amount: created.finalFee }],
+          staffId: auth.context.adminUser.id,
+        },
+        update: {}, // don't overwrite if already exists
+      });
+
       await tx.auditLog.create({
         data: {
           adminId: auth.context.adminUser.id,

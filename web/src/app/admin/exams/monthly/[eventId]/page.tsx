@@ -43,6 +43,9 @@ export default async function ExamEventDetailPage({ params }: PageProps) {
               examType: true,
             },
           },
+          score: {
+            select: { score: true },
+          },
         },
         orderBy: { registeredAt: "asc" },
       },
@@ -65,6 +68,21 @@ export default async function ExamEventDetailPage({ params }: PageProps) {
   const totalPaid = activeRegs.filter((r) => r.isPaid).length;
   const totalUnpaid = activeRegs.filter((r) => !r.isPaid).length;
   const totalRevenue = activeRegs.reduce((s, r) => s + r.paidAmount, 0);
+
+  // 성적 현황 집계
+  const allScores = activeRegs
+    .filter((r) => r.score !== null)
+    .map((r) => r.score!.score);
+  const scoredCount = allScores.length;
+  const scoreAvg =
+    scoredCount > 0
+      ? Math.round((allScores.reduce((s, v) => s + v, 0) / scoredCount) * 10) / 10
+      : null;
+  const passCount = allScores.filter((s) => s >= 60).length;
+  const passRate =
+    scoredCount > 0
+      ? Math.round((passCount / scoredCount) * 1000) / 10
+      : null;
 
   return (
     <div className="space-y-8 p-8 sm:p-10">
@@ -189,6 +207,91 @@ export default async function ExamEventDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
+
+      {/* 성적 현황 */}
+      <section>
+        <h2 className="mb-4 text-base font-semibold text-ink">성적 현황</h2>
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            {/* Completion indicator */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+                성적 입력
+              </p>
+              <p className="text-2xl font-bold text-ink">
+                {scoredCount}{" "}
+                <span className="text-base font-normal text-slate">
+                  / {activeRegs.length} 성적 입력됨
+                </span>
+              </p>
+              {activeRegs.length > 0 && (
+                <div className="mt-1 h-2 w-48 overflow-hidden rounded-full bg-ink/10">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      scoredCount === activeRegs.length
+                        ? "bg-forest"
+                        : "bg-amber-400"
+                    }`}
+                    style={{
+                      width: `${Math.round((scoredCount / activeRegs.length) * 100)}%`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Score stats */}
+            {scoredCount > 0 ? (
+              <div className="flex flex-wrap gap-4">
+                <div className="text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+                    평균 점수
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-ember">
+                    {scoreAvg}점
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+                    합격률(60점↑)
+                  </p>
+                  <p
+                    className={`mt-1 text-2xl font-bold ${
+                      (passRate ?? 0) >= 80
+                        ? "text-forest"
+                        : (passRate ?? 0) >= 60
+                          ? "text-ink"
+                          : "text-amber-600"
+                    }`}
+                  >
+                    {passRate}%
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate">
+                    합격 인원
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-forest">
+                    {passCount}명
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate">
+                아직 입력된 성적이 없습니다.
+              </p>
+            )}
+
+            {/* 성적 입력 button */}
+            <Link
+              href={`/admin/exams/monthly/${eventId}/scores`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+            >
+              성적 입력
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* Registrations table */}
       <section>

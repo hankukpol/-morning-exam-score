@@ -52,19 +52,20 @@ export async function PATCH(
   request: NextRequest,
   context: { params: { id: string } },
 ) {
-  const auth = await requireApiAdmin(AdminRole.SUPER_ADMIN);
+  const auth = await requireApiAdmin(AdminRole.DIRECTOR);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { id } = context.params;
 
   try {
     const body = await request.json();
-    const { name, phone, role, isActive, staffRole } = body as {
+    const { name, phone, role, isActive, staffRole, shareRatio } = body as {
       name?: string;
       phone?: string | null;
       role?: AdminRole;
       isActive?: boolean;
       staffRole?: StaffRole | null;
+      shareRatio?: number | null;
     };
 
     const existing = await getPrisma().adminUser.findUnique({
@@ -127,12 +128,31 @@ export async function PATCH(
       },
     });
 
-    // Update Staff.role if staffRole provided and Staff record exists
-    if (staffRole !== undefined && existing.staff) {
-      await prisma.staff.update({
-        where: { id: existing.staff.id },
-        data: { role: staffRole ?? existing.staff.role },
-      });
+    // Update Staff fields if Staff record exists
+    if (existing.staff) {
+      const staffData: Record<string, unknown> = {};
+      if (staffRole !== undefined) {
+        staffData.role = staffRole ?? existing.staff.role;
+      }
+      if (shareRatio !== undefined) {
+        // Store shareRatio in note as JSON since schema doesn't have a dedicated field
+        let noteData: Record<string, unknown> = {};
+        try {
+          noteData = existing.staff.note
+            ? (JSON.parse(existing.staff.note) as Record<string, unknown>)
+            : {};
+        } catch {
+          noteData = {};
+        }
+        noteData.shareRatio = shareRatio;
+        staffData.note = JSON.stringify(noteData);
+      }
+      if (Object.keys(staffData).length > 0) {
+        await prisma.staff.update({
+          where: { id: existing.staff.id },
+          data: staffData,
+        });
+      }
     }
 
     return NextResponse.json({ data: updated });

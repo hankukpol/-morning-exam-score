@@ -16,6 +16,7 @@ export type StaffRow = {
   createdAt: string;
   staffRole: string | null;
   lastLoginAt: string | null;
+  shareRatio: number | null;
 };
 
 export type StaffKpi = {
@@ -48,23 +49,38 @@ export default async function StaffPage() {
         select: {
           role: true,
           lastLoginAt: true,
+          note: true,
         },
       },
     },
     orderBy: [{ role: "desc" }, { name: "asc" }],
   });
 
-  const rows: StaffRow[] = staffList.map((s) => ({
-    id: s.id,
-    name: s.name,
-    email: s.email,
-    phone: s.phone,
-    role: s.role,
-    isActive: s.isActive,
-    createdAt: s.createdAt.toISOString(),
-    staffRole: s.staff?.role ?? null,
-    lastLoginAt: s.staff?.lastLoginAt?.toISOString() ?? null,
-  }));
+  const rows: StaffRow[] = staffList.map((s) => {
+    let shareRatio: number | null = null;
+    if (s.staff?.note) {
+      try {
+        const noteData = JSON.parse(s.staff.note) as Record<string, unknown>;
+        if (typeof noteData.shareRatio === "number") {
+          shareRatio = noteData.shareRatio;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      role: s.role,
+      isActive: s.isActive,
+      createdAt: s.createdAt.toISOString(),
+      staffRole: s.staff?.role ?? null,
+      lastLoginAt: s.staff?.lastLoginAt?.toISOString() ?? null,
+      shareRatio,
+    };
+  });
 
   // KPI
   const total = rows.length;

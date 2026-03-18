@@ -22,6 +22,7 @@ export default async function EnrollmentsPage() {
         cohort: { select: { name: true, examCategory: true } },
         product: { select: { name: true } },
         specialLecture: { select: { name: true } },
+        contract: { select: { id: true, printedAt: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 200,

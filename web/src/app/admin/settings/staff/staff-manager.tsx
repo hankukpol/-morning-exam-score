@@ -265,6 +265,7 @@ export function StaffManager({ initialStaff, isSuperAdmin }: Props) {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate">연락처</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">권한</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">직무</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-slate">배분율</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">상태</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate">마지막 로그인</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate"></th>
@@ -273,7 +274,7 @@ export function StaffManager({ initialStaff, isSuperAdmin }: Props) {
             <tbody className="divide-y divide-ink/5">
               {displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate text-sm">
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate text-sm">
                     직원이 없습니다.
                   </td>
                 </tr>
@@ -340,6 +341,13 @@ export function StaffManager({ initialStaff, isSuperAdmin }: Props) {
                         </span>
                       </td>
 
+                      {/* 배분율 */}
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xs text-slate tabular-nums">
+                          {s.shareRatio !== null ? `${s.shareRatio}%` : "-"}
+                        </span>
+                      </td>
+
                       {/* 상태 — toggle (SUPER_ADMIN only) */}
                       <td className="px-4 py-3 text-center">
                         <button
@@ -360,12 +368,20 @@ export function StaffManager({ initialStaff, isSuperAdmin }: Props) {
                         {formatLastLogin(s.lastLoginAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <a
-                          href={`/admin/settings/staff/${s.id}`}
-                          className="text-xs text-forest hover:text-forest/70 font-medium"
-                        >
-                          상세 →
-                        </a>
+                        <div className="inline-flex items-center gap-2">
+                          <a
+                            href={`/admin/settings/staff/${s.id}/edit`}
+                            className="inline-flex items-center rounded-full border border-ember/20 bg-ember/5 px-2.5 py-1 text-xs font-semibold text-ember transition hover:border-ember/40 hover:bg-ember/10"
+                          >
+                            편집
+                          </a>
+                          <a
+                            href={`/admin/settings/staff/${s.id}`}
+                            className="text-xs text-forest hover:text-forest/70 font-medium"
+                          >
+                            상세 →
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   );
