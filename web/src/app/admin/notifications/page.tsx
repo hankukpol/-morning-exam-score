@@ -141,6 +141,24 @@ export default async function AdminNotificationsPage({ searchParams }: PageProps
             )}
           </div>
         </Link>
+
+        {/* 발송 통계 */}
+        <Link
+          href="/admin/notifications/stats"
+          className="group relative rounded-[28px] border border-amber-200 bg-amber-50/60 p-6 transition hover:border-amber-300 hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">발송 통계</p>
+              <p className="text-xs text-slate">월별 발송량·비용·성공률</p>
+            </div>
+          </div>
+        </Link>
       </div>
 
       <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[160px_minmax(0,1fr)_140px]">

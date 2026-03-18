@@ -231,6 +231,7 @@ export default async function ReportsPage() {
           <Link href="/admin/settlements/daily" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">일계표</Link>
           <Link href="/admin/settlements/monthly" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">월계표</Link>
           <Link href="/admin/payments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수납 내역</Link>
+          <Link href="/admin/payments/aging-report" className="inline-flex items-center gap-1.5 rounded-lg border border-ember/20 bg-ember/5 px-3 py-1.5 text-sm text-ember hover:bg-ember/10">미수금 연령 분석</Link>
           <Link href="/admin/enrollments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강 목록</Link>
           <Link href="/admin/staff-settlements" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">강사 정산</Link>
           <Link href={`/admin/reports/instructor-settlement?month=${monthStr}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember/20 bg-ember/5 px-3 py-1.5 text-sm text-ember hover:bg-ember/10">강사 정산 보고서</Link>

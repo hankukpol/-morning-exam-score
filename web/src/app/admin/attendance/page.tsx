@@ -330,6 +330,32 @@ export default async function AttendanceHubPage() {
               기수별 월간 강의 출석률·저출석 학생·CSV 내보내기
             </p>
           </Link>
+
+          <Link
+            href="/admin/attendance/makeups"
+            className="group rounded-[28px] border border-amber-200 bg-amber-50/40 p-6 shadow-panel transition hover:border-amber-300 hover:shadow-md"
+          >
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 transition group-hover:bg-amber-200">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                />
+              </svg>
+            </div>
+            <p className="font-semibold text-ink">보강 일정 관리</p>
+            <p className="mt-1 text-xs leading-5 text-slate">
+              취소된 강의 보강 날짜 설정 및 완료 현황 관리
+            </p>
+          </Link>
         </div>
       </section>
 

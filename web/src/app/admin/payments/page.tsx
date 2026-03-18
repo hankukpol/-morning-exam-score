@@ -106,6 +106,12 @@ export default async function PaymentsPage() {
         >
           월계표 →
         </Link>
+        <Link
+          href="/admin/payments/aging-report"
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/5 px-4 py-2 text-sm font-medium text-ember transition hover:border-ember/50 hover:bg-ember/10"
+        >
+          미수금 연령 분석 →
+        </Link>
       </div>
 
       <div className="mt-6">
