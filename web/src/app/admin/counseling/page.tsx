@@ -66,6 +66,13 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         >
           후속 연락 대상 확인 →
         </Link>
+        <Link
+          prefetch={false}
+          href="/admin/counseling/pipeline"
+          className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-forest/10 px-5 py-2.5 text-sm font-semibold text-forest transition hover:border-forest/40 hover:bg-forest/20"
+        >
+          파이프라인 보기 →
+        </Link>
       </div>
 
       <section className="mt-8 space-y-4">

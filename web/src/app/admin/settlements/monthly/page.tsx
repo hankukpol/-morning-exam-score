@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -143,6 +144,15 @@ export default async function MonthlySettlementPage({
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         월별 수납 집계 및 일별 수납 추이를 조회합니다.
       </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          prefetch={false}
+          href={`/admin/settlements/reconciliation?month=${monthStr}`}
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-5 py-2.5 text-sm font-semibold text-ember transition hover:border-ember/40 hover:bg-ember/20"
+        >
+          수납 대사 →
+        </Link>
+      </div>
       <div className="mt-8">
         <MonthlySettlementView initialData={initialData} />
       </div>

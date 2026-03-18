@@ -401,6 +401,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             성적통지표
           </Link>
           <Link
+            href={`/admin/students/${params.examNumber}/contact-info`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30"
+          >
+            연락처 정보
+          </Link>
+          <Link
             href={`/admin/students/${params.examNumber}/documents`}
             target="_blank"
             rel="noopener noreferrer"
@@ -413,6 +419,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-400"
           >
             포인트 관리
+          </Link>
+          <Link
+            href={`/admin/students/${params.examNumber}/attendance`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-400"
+          >
+            출결 캘린더
           </Link>
           {canEdit && (
             <Link

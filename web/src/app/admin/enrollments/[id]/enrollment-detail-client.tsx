@@ -304,6 +304,14 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           rel="noopener noreferrer"
           className="inline-flex items-center rounded-full border border-forest/20 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50"
         >
+          수강등록확인서
+        </Link>
+        <Link
+          href={`/admin/enrollments/${enrollment.id}/confirmation`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-full border border-forest/20 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50"
+        >
           수강확인서
         </Link>
         <Link

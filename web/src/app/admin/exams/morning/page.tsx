@@ -65,6 +65,12 @@ export default async function MorningExamPage() {
             회차별 성적 현황 →
           </Link>
           <Link
+            href="/admin/exams/morning/quick-entry"
+            className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20"
+          >
+            빠른 입력
+          </Link>
+          <Link
             href="/admin/scores/input"
             className="inline-flex items-center rounded-full border border-ember/30 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/10"
           >
