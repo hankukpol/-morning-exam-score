@@ -173,6 +173,12 @@ export function InstructorManager({ initialInstructors }: Props) {
                   >
                     상세
                   </Link>
+                  <Link
+                    href={`/admin/settings/instructors/${i.id}/settlements`}
+                    className="text-xs text-slate hover:text-forest"
+                  >
+                    정산
+                  </Link>
                   <button
                     onClick={() => openEdit(i)}
                     className="text-xs text-slate hover:text-ink"

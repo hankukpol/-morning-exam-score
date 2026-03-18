@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AttendStatus, StudentStatus } from "@prisma/client";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { AttendanceSection } from "@/components/student-portal/attendance-section";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { hasDatabaseConfig } from "@/lib/env";
+import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import {
   getStudentPortalAttendancePageData,
@@ -80,8 +82,74 @@ export default async function StudentAttendancePage({ searchParams }: PageProps)
 
   const requestedPeriodId = readPeriodId(searchParams);
 
-  // 출결 페이지 데이터 + 이번 달 캘린더 데이터 병렬 로드
-  const [data, calendarData] = await Promise.all([
+  // Fetch lecture attendance for the student
+  async function getLectureAttendanceData(examNumber: string) {
+    const prisma = getPrisma();
+
+    const activeEnrollment = await prisma.courseEnrollment.findFirst({
+      where: {
+        examNumber,
+        status: "ACTIVE",
+        cohortId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        cohortId: true,
+        cohort: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!activeEnrollment?.cohortId) {
+      return null;
+    }
+
+    const cohortId = activeEnrollment.cohortId;
+
+    const attendances = await prisma.lectureAttendance.findMany({
+      where: {
+        studentId: examNumber,
+        session: {
+          schedule: { cohortId },
+          isCancelled: false,
+        },
+      },
+      include: {
+        session: {
+          include: {
+            schedule: { select: { subjectName: true } },
+          },
+        },
+      },
+      orderBy: { session: { sessionDate: "desc" } },
+      take: 30,
+    });
+
+    const totalSessions = attendances.length;
+    const presentCount = attendances.filter((a) => a.status === AttendStatus.PRESENT).length;
+    const absentCount = attendances.filter((a) => a.status === AttendStatus.ABSENT).length;
+    const lateCount = attendances.filter((a) => a.status === AttendStatus.LATE).length;
+    const attendanceRate = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 100;
+
+    return {
+      cohortName: activeEnrollment.cohort?.name ?? null,
+      stats: { totalSessions, presentCount, absentCount, lateCount, attendanceRate },
+      recentAttendances: attendances.map((a) => ({
+        id: a.id,
+        sessionDate:
+          a.session.sessionDate instanceof Date
+            ? a.session.sessionDate.toISOString()
+            : String(a.session.sessionDate),
+        subjectName: a.session.schedule.subjectName,
+        startTime: a.session.startTime,
+        endTime: a.session.endTime,
+        status: a.status,
+        note: a.note,
+      })),
+    };
+  }
+
+  // 출결 페이지 데이터 + 이번 달 캘린더 데이터 + 강의 출결 데이터 병렬 로드
+  const [data, calendarData, lectureData, studentStatus] = await Promise.all([
     getStudentPortalAttendancePageData({
       examNumber: viewer.examNumber,
       periodId: requestedPeriodId,
@@ -89,6 +157,11 @@ export default async function StudentAttendancePage({ searchParams }: PageProps)
     getStudentPortalAttendanceCalendarData({
       examNumber: viewer.examNumber,
       month: currentMonthKey(),
+    }),
+    getLectureAttendanceData(viewer.examNumber),
+    getPrisma().student.findUnique({
+      where: { examNumber: viewer.examNumber },
+      select: { currentStatus: true },
     }),
   ]);
 
@@ -200,7 +273,212 @@ export default async function StudentAttendancePage({ searchParams }: PageProps)
           recentSessions={data.recentSessions}
           studentName={data.student.name}
         />
+
+        {/* ── 강의 출결 현황 ── */}
+        <LectureAttendanceSection
+          lectureData={lectureData}
+          warningStatus={studentStatus?.currentStatus ?? StudentStatus.NORMAL}
+        />
       </div>
     </main>
+  );
+}
+
+// ─── 강의 출결 섹션 ───────────────────────────────────────────────────────────
+
+type LectureAttendanceSectionProps = {
+  lectureData: {
+    cohortName: string | null;
+    stats: {
+      totalSessions: number;
+      presentCount: number;
+      absentCount: number;
+      lateCount: number;
+      attendanceRate: number;
+    };
+    recentAttendances: Array<{
+      id: string;
+      sessionDate: string;
+      subjectName: string;
+      startTime: string;
+      endTime: string;
+      status: AttendStatus;
+      note: string | null;
+    }>;
+  } | null;
+  warningStatus: StudentStatus;
+};
+
+function getWarningBadge(status: StudentStatus): { label: string; className: string } {
+  if (status === StudentStatus.WARNING_1) {
+    return {
+      label: "경고 1차",
+      className: "border-amber-300 bg-amber-50 text-amber-800",
+    };
+  }
+  if (status === StudentStatus.WARNING_2) {
+    return {
+      label: "경고 2차",
+      className: "border-red-300 bg-red-50 text-red-700",
+    };
+  }
+  if (status === StudentStatus.DROPOUT) {
+    return {
+      label: "수강취소 위기",
+      className: "border-red-800 bg-red-900/10 text-red-900",
+    };
+  }
+  return {
+    label: "정상",
+    className: "border-forest/30 bg-forest/10 text-forest",
+  };
+}
+
+function getAttendStatusLabel(status: AttendStatus): { label: string; className: string } {
+  if (status === AttendStatus.PRESENT) {
+    return { label: "출석", className: "border-forest/30 bg-forest/10 text-forest" };
+  }
+  if (status === AttendStatus.ABSENT) {
+    return { label: "결석", className: "border-red-200 bg-red-50 text-red-700" };
+  }
+  if (status === AttendStatus.LATE) {
+    return { label: "지각", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  }
+  return { label: status, className: "border-ink/20 bg-ink/5 text-slate" };
+}
+
+function formatSessionDate(isoDate: string): string {
+  const d = new Date(isoDate);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const dayLabel = days[d.getDay()];
+  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${ymd}(${dayLabel})`;
+}
+
+function LectureAttendanceSection({ lectureData, warningStatus }: LectureAttendanceSectionProps) {
+  const warningBadge = getWarningBadge(warningStatus);
+
+  return (
+    <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+            Lecture Attendance
+          </div>
+          <h2 className="mt-4 text-xl font-semibold text-ink">
+            강의 출결 현황
+            {lectureData?.cohortName && (
+              <span className="ml-2 text-base font-normal text-slate">({lectureData.cohortName})</span>
+            )}
+          </h2>
+        </div>
+        {/* Warning status badge */}
+        <span
+          className={`inline-flex items-center rounded-full border px-4 py-2 text-sm font-semibold ${warningBadge.className}`}
+        >
+          {warningBadge.label}
+        </span>
+      </div>
+
+      {!lectureData || lectureData.stats.totalSessions === 0 ? (
+        <div className="mt-6 rounded-2xl border border-ink/10 bg-mist px-6 py-10 text-center">
+          <p className="text-sm text-slate">강의 출결 기록이 없습니다.</p>
+          <p className="mt-1 text-xs text-slate/60">수강 중인 기수에 강의가 등록되면 여기에 표시됩니다.</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats row */}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-ink/10 bg-mist p-4 text-center">
+              <p className="text-xs text-slate">총 강의 수</p>
+              <p className="mt-1 text-2xl font-bold text-ink">
+                {lectureData.stats.totalSessions}
+                <span className="ml-0.5 text-sm font-normal text-slate">회</span>
+              </p>
+            </div>
+            <div className="rounded-2xl border border-forest/20 bg-forest/5 p-4 text-center">
+              <p className="text-xs text-slate">출석</p>
+              <p className="mt-1 text-2xl font-bold text-forest">
+                {lectureData.stats.presentCount}
+                <span className="ml-0.5 text-sm font-normal text-slate">회</span>
+              </p>
+            </div>
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-center">
+              <p className="text-xs text-slate">결석</p>
+              <p className={`mt-1 text-2xl font-bold ${lectureData.stats.absentCount > 0 ? "text-red-600" : "text-ink"}`}>
+                {lectureData.stats.absentCount}
+                <span className="ml-0.5 text-sm font-normal text-slate">회</span>
+              </p>
+            </div>
+            <div className="rounded-2xl border border-ink/10 bg-white p-4 text-center">
+              <p className="text-xs text-slate">출석률</p>
+              <p
+                className={`mt-1 text-2xl font-bold ${
+                  lectureData.stats.attendanceRate >= 90
+                    ? "text-forest"
+                    : lectureData.stats.attendanceRate >= 70
+                      ? "text-amber-600"
+                      : "text-red-600"
+                }`}
+              >
+                {lectureData.stats.attendanceRate}
+                <span className="ml-0.5 text-sm font-normal text-slate">%</span>
+              </p>
+              {lectureData.stats.lateCount > 0 && (
+                <p className="mt-0.5 text-xs text-slate/70">
+                  지각 {lectureData.stats.lateCount}회 포함
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Recent sessions table */}
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-ink/10">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-ink/10 bg-mist text-left">
+                  <th className="whitespace-nowrap px-5 py-3 font-semibold text-slate">날짜</th>
+                  <th className="whitespace-nowrap px-5 py-3 font-semibold text-slate">과목</th>
+                  <th className="whitespace-nowrap px-5 py-3 font-semibold text-slate">시간</th>
+                  <th className="whitespace-nowrap px-5 py-3 font-semibold text-slate">출결</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lectureData.recentAttendances.map((a, idx) => {
+                  const statusBadge = getAttendStatusLabel(a.status);
+                  const isEven = idx % 2 === 0;
+                  return (
+                    <tr
+                      key={a.id}
+                      className={`border-b border-ink/5 ${isEven ? "" : "bg-gray-50/40"}`}
+                    >
+                      <td className="whitespace-nowrap px-5 py-3 font-medium text-ink">
+                        {formatSessionDate(a.sessionDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-ink">
+                        {a.subjectName}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-slate">
+                        {a.startTime} ~ {a.endTime}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadge.className}`}
+                        >
+                          {statusBadge.label}
+                        </span>
+                        {a.note && (
+                          <p className="mt-0.5 text-xs text-slate/70">{a.note}</p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

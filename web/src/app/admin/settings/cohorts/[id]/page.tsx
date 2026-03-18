@@ -133,7 +133,6 @@ export default async function CohortDetailPage({ params, searchParams }: PagePro
           </Link>
           <Link
             href={`/admin/settings/cohorts/${cohort.id}/roster`}
-            target="_blank"
             className="inline-flex items-center gap-1.5 rounded-[20px] border border-ink/20 px-4 py-2 text-sm text-slate transition hover:border-ink/40"
           >
             <svg
@@ -148,11 +147,12 @@ export default async function CohortDetailPage({ params, searchParams }: PagePro
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            명단 인쇄
+            수강생 명단
           </Link>
           <Link
             href="/admin/cohorts/waitlist"

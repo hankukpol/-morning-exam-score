@@ -5,6 +5,7 @@ import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import { PrintCertButton } from "./print-cert-button";
+import { TaxYearSelector } from "./tax-year-selector";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,55 @@ function formatKoreanDateRange(
   return end
     ? `${formatKoreanDate(start)} ~ ${formatKoreanDate(end)}`
     : `${formatKoreanDate(start)} ~`;
+}
+
+function formatShortDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}.${m}.${d}`;
+}
+
+/**
+ * Convert a number to Korean reading (e.g. 1200000 → "일백이십만")
+ * Supports up to 100 billion won.
+ */
+function numberToKorean(n: number): string {
+  if (n === 0) return "영";
+  const units = ["", "만", "억", "조"];
+  const digits = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+  const positions = ["", "십", "백", "천"];
+
+  let result = "";
+  let unitIdx = 0;
+  let remaining = Math.abs(n);
+
+  while (remaining > 0) {
+    const chunk = remaining % 10000;
+    if (chunk !== 0) {
+      let chunkStr = "";
+      let tmp = chunk;
+      let posIdx = 0;
+      while (tmp > 0) {
+        const d = tmp % 10;
+        if (d !== 0) {
+          const pos = positions[posIdx] ?? "";
+          const dig = posIdx === 0 ? digits[d] : (d === 1 ? "" : digits[d]);
+          chunkStr = dig + pos + chunkStr;
+        }
+        tmp = Math.floor(tmp / 10);
+        posIdx++;
+      }
+      result = chunkStr + (units[unitIdx] ?? "") + result;
+    }
+    remaining = Math.floor(remaining / 10000);
+    unitIdx++;
+  }
+  return (n < 0 ? "마이너스 " : "") + result;
+}
+
+function formatKoreanAmount(value: number): string {
+  return `금 ${numberToKorean(value)}원정 (₩${value.toLocaleString("ko-KR")})`;
 }
 
 const ENROLLMENT_STATUS_LABEL: Record<EnrollmentStatus, string> = {
@@ -80,7 +130,11 @@ function Row({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default async function StudentDocumentsPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function StudentDocumentsPage({ searchParams }: PageProps) {
   // DB 없는 환경 처리
   if (!hasDatabaseConfig()) {
     return (
@@ -124,8 +178,20 @@ export default async function StudentDocumentsPage() {
     );
   }
 
+  // Resolve search params
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const yearParam = typeof resolvedSearchParams.year === "string" ? resolvedSearchParams.year : null;
+
   const prisma = getPrisma();
   const today = formatKoreanDate(new Date());
+  const issuedDate = formatShortDate(new Date());
+
+  // Current and previous years for tax cert
+  const currentYear = new Date().getFullYear();
+  const prevYear = currentYear - 1;
+
+  // Selected tax year (default: current year)
+  const selectedTaxYear = yearParam ? parseInt(yearParam, 10) : null;
 
   // 수강 내역 조회 (ACTIVE, COMPLETED)
   const enrollments = await prisma.courseEnrollment.findMany({
@@ -189,6 +255,99 @@ export default async function StudentDocumentsPage() {
     }
   }
 
+  // 교육비 납입증명서용: 연도별 수납 내역 조회
+  type TaxPaymentRow = {
+    id: string;
+    enrollmentId: string | null;
+    netAmount: number;
+    processedAt: Date;
+    courseName: string;
+  };
+
+  async function getTaxYearPayments(year: number): Promise<TaxPaymentRow[]> {
+    const yearStart = new Date(`${year}-01-01T00:00:00.000Z`);
+    const yearEnd = new Date(`${year + 1}-01-01T00:00:00.000Z`);
+
+    const rawPayments = await prisma.payment.findMany({
+      where: {
+        examNumber: viewer!.examNumber,
+        status: { in: ["APPROVED", "PARTIAL_REFUNDED"] },
+        processedAt: { gte: yearStart, lt: yearEnd },
+      },
+      select: {
+        id: true,
+        enrollmentId: true,
+        netAmount: true,
+        processedAt: true,
+        items: {
+          select: { itemName: true },
+          take: 1,
+        },
+      },
+      orderBy: { processedAt: "asc" },
+    });
+
+    // Build course name by enrollment lookup
+    const enrollmentIds = rawPayments
+      .map((p) => p.enrollmentId)
+      .filter((eid): eid is string => eid !== null);
+
+    const enrollmentMap = new Map<string, string>();
+    if (enrollmentIds.length > 0) {
+      const enrollmentData = await prisma.courseEnrollment.findMany({
+        where: { id: { in: enrollmentIds } },
+        include: {
+          cohort: { select: { name: true } },
+          specialLecture: { select: { name: true } },
+          product: { select: { name: true } },
+        },
+      });
+      for (const e of enrollmentData) {
+        const courseName =
+          e.cohort?.name ??
+          e.specialLecture?.name ??
+          e.product?.name ??
+          "강좌";
+        enrollmentMap.set(e.id, courseName);
+      }
+    }
+
+    return rawPayments.map((p) => ({
+      id: p.id,
+      enrollmentId: p.enrollmentId,
+      netAmount: p.netAmount,
+      processedAt: p.processedAt,
+      courseName: p.enrollmentId
+        ? (enrollmentMap.get(p.enrollmentId) ?? p.items[0]?.itemName ?? "강좌")
+        : (p.items[0]?.itemName ?? "강좌"),
+    }));
+  }
+
+  // Fetch tax payments for the selected year (or both for display)
+  const [taxPaymentsCurrent, taxPaymentsPrev] = await Promise.all([
+    getTaxYearPayments(currentYear),
+    getTaxYearPayments(prevYear),
+  ]);
+
+  const taxPaymentsMap: Record<number, TaxPaymentRow[]> = {
+    [currentYear]: taxPaymentsCurrent,
+    [prevYear]: taxPaymentsPrev,
+  };
+
+  // Student info
+  const studentInfo = await prisma.student.findUnique({
+    where: { examNumber: viewer.examNumber },
+    select: { name: true, birthDate: true },
+  });
+
+  // Academy settings
+  const academySettings = await prisma.academySettings.findUnique({ where: { id: 1 } });
+  const academyName = academySettings?.name || "한국경찰학원";
+  const academyAddress = academySettings?.address || "대구광역시 중구 중앙대로 390 센트럴엠빌딩";
+  const academyPhone = academySettings?.phone || "053-241-0112";
+  const directorName = academySettings?.directorName || "";
+  const businessRegNo = academySettings?.businessRegNo || "";
+
   // 수강명 계산 헬퍼
   function getCourseName(
     enrollment: (typeof enrollments)[number],
@@ -225,7 +384,9 @@ export default async function StudentDocumentsPage() {
               .no-print { display: none !important; }
               .printable-cert { display: none !important; }
               .print-show { display: block !important; }
-              body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+              .tax-cert-print-area { display: none !important; }
+              .tax-cert-print-active { display: block !important; }
+              body { print-color-adjust: exact; -webkit-print-color-adjust: exact; background: white !important; }
               @page { size: A4 portrait; margin: 15mm; }
             }
           `,
@@ -263,10 +424,278 @@ export default async function StudentDocumentsPage() {
               </div>
               <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">증명서 발급</h1>
               <p className="mt-1 text-sm text-slate">
-                수강확인서 및 납부확인서를 출력할 수 있습니다.
+                수강확인서, 납부확인서, 교육비 납입증명서를 출력할 수 있습니다.
               </p>
             </div>
           </div>
+
+          {/* ── 교육비 납입증명서 (연말정산용) ── */}
+          <section className="no-print rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm sm:p-8">
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                Tax Certificate
+              </p>
+              <h2 className="mt-1 text-xl font-semibold">교육비 납입증명서 (연말정산용)</h2>
+              <p className="mt-1 text-sm text-slate">
+                연말정산 소득공제에 사용할 교육비 납입증명서를 발급합니다.
+              </p>
+            </div>
+
+            {/* Year selector tabs */}
+            <TaxYearSelector
+              currentYear={currentYear}
+              prevYear={prevYear}
+              selectedYear={selectedTaxYear}
+              currentYearTotal={taxPaymentsCurrent.reduce((s, p) => s + p.netAmount, 0)}
+              prevYearTotal={taxPaymentsPrev.reduce((s, p) => s + p.netAmount, 0)}
+            />
+          </section>
+
+          {/* Tax certificate print area — shown when a year is selected */}
+          {selectedTaxYear !== null && (
+            <>
+              {/* Screen preview card */}
+              <section className={`no-print rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm sm:p-8`}>
+                <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                      {selectedTaxYear}년도 교육비 납입증명서
+                    </p>
+                    <h2 className="mt-1 text-xl font-semibold">납입 내역 확인</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
+                      {selectedTaxYear}년도
+                    </span>
+                  </div>
+                </div>
+
+                {(() => {
+                  const yearPayments = taxPaymentsMap[selectedTaxYear] ?? [];
+                  const totalPaid = yearPayments.reduce((s, p) => s + p.netAmount, 0);
+
+                  if (yearPayments.length === 0) {
+                    return (
+                      <div className="rounded-[16px] border border-dashed border-ink/10 px-4 py-8 text-center">
+                        <p className="text-sm font-semibold text-ink">해당 연도 납입 내역이 없습니다</p>
+                        <p className="mt-1.5 text-xs text-slate">
+                          {selectedTaxYear}년에 납부된 수강료 내역이 없습니다.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      <Row label="이름" value={viewer.name} />
+                      <Row label="학번" value={viewer.examNumber} />
+                      {yearPayments.map((p, i) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between rounded-[16px] border border-ink/10 bg-mist/60 px-4 py-3"
+                        >
+                          <span className="text-sm text-slate">
+                            {p.courseName}
+                            <span className="ml-2 text-xs text-slate/60">
+                              ({formatShortDate(p.processedAt)})
+                            </span>
+                          </span>
+                          <span className="text-sm font-semibold text-ink">
+                            {formatAmount(p.netAmount)}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between rounded-[16px] border border-forest/20 bg-forest/5 px-4 py-3">
+                        <span className="text-sm font-semibold text-forest">{selectedTaxYear}년 납입 합계</span>
+                        <span className="text-sm font-bold text-forest">{formatAmount(totalPaid)}</span>
+                      </div>
+                      <div className="mt-1 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p className="text-xs font-semibold text-amber-700">
+                          {formatKoreanAmount(totalPaid)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Print button — only show if there are payments */}
+                {(taxPaymentsMap[selectedTaxYear] ?? []).length > 0 && (
+                  <div className="mt-5">
+                    <PrintCertButton certClass={`tax-cert-${selectedTaxYear}`} label="교육비 납입증명서 인쇄" />
+                  </div>
+                )}
+              </section>
+
+              {/* Printable tax certificate */}
+              {(taxPaymentsMap[selectedTaxYear] ?? []).length > 0 && (() => {
+                const yearPayments = taxPaymentsMap[selectedTaxYear] ?? [];
+                const totalPaid = yearPayments.reduce((s, p) => s + p.netAmount, 0);
+                const certNo = `TAX-${selectedTaxYear}-${viewer.examNumber}`;
+
+                return (
+                  <div className={`printable-cert tax-cert-${selectedTaxYear}`}>
+                    <div
+                      className="mx-auto max-w-[680px] bg-white"
+                      style={{ fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
+                    >
+                      <div className="px-12 py-12">
+                        {/* Issue info */}
+                        <div className="mb-2 flex items-center justify-between text-xs text-slate">
+                          <span>발급번호: {certNo}</span>
+                          <span>발급일: {today}</span>
+                        </div>
+
+                        {/* Title */}
+                        <h1
+                          className="mb-10 mt-4 text-center text-3xl font-bold text-ink"
+                          style={{ letterSpacing: "0.5em" }}
+                        >
+                          교육비 납입증명서
+                        </h1>
+
+                        {/* Academy info */}
+                        <div className="mb-8 border-b-2 border-forest pb-4" style={{ borderColor: "#1F4D3A" }}>
+                          <p className="text-lg font-bold" style={{ color: "#1F4D3A" }}>{academyName}</p>
+                          <p className="mt-0.5 text-sm text-slate">
+                            {academyAddress}&nbsp;|&nbsp;TEL {academyPhone}
+                            {businessRegNo && (
+                              <>&nbsp;|&nbsp;사업자등록번호: {businessRegNo}</>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Student info table */}
+                        <div className="mb-3">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate">
+                            학생 정보
+                          </p>
+                          <table className="w-full border-collapse border border-ink/20 text-sm">
+                            <tbody>
+                              <tr className="border-b border-ink/10">
+                                <th className="w-28 border-r border-ink/10 bg-mist/80 px-4 py-3 text-left font-semibold text-ink">
+                                  성&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;명
+                                </th>
+                                <td className="px-4 py-3 font-medium text-ink">{viewer.name}</td>
+                                <th className="w-28 border-l border-r border-ink/10 bg-mist/80 px-4 py-3 text-left font-semibold text-ink">
+                                  수 험 번 호
+                                </th>
+                                <td className="px-4 py-3 font-medium text-ink">{viewer.examNumber}</td>
+                              </tr>
+                              <tr>
+                                <th className="border-r border-ink/10 bg-mist/80 px-4 py-3 text-left font-semibold text-ink">
+                                  생 년 월 일
+                                </th>
+                                <td className="px-4 py-3 text-ink" colSpan={3}>
+                                  {studentInfo?.birthDate
+                                    ? `${studentInfo.birthDate.getFullYear()}. ${String(studentInfo.birthDate.getMonth() + 1).padStart(2, "0")}. ${String(studentInfo.birthDate.getDate()).padStart(2, "0")}`
+                                    : "—"}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Payment details table */}
+                        <div className="mb-4">
+                          <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-slate">
+                            교육비 납입 내역 ({selectedTaxYear}년)
+                          </p>
+                          <table className="w-full border-collapse border border-ink/20 text-sm">
+                            <thead>
+                              <tr className="bg-mist/80 text-center text-xs font-semibold text-ink">
+                                <th className="border-b border-r border-ink/10 px-4 py-3 text-left">
+                                  과&nbsp;&nbsp;정&nbsp;&nbsp;명
+                                </th>
+                                <th className="border-b border-r border-ink/10 px-4 py-3">
+                                  납입일
+                                </th>
+                                <th className="border-b border-ink/10 px-4 py-3 text-right">
+                                  납입금액
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {yearPayments.map((p) => (
+                                <tr key={p.id} className="border-b border-ink/10">
+                                  <td className="border-r border-ink/10 px-4 py-3 font-medium text-ink">
+                                    {p.courseName}
+                                  </td>
+                                  <td className="border-r border-ink/10 px-4 py-3 text-center text-ink">
+                                    {formatShortDate(p.processedAt)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold text-ink">
+                                    {p.netAmount.toLocaleString("ko-KR")}원
+                                  </td>
+                                </tr>
+                              ))}
+                              {/* Total row */}
+                              <tr className="bg-mist/80 font-semibold text-ink">
+                                <td
+                                  className="border-r border-ink/10 px-4 py-3 text-center"
+                                  colSpan={2}
+                                >
+                                  합&nbsp;&nbsp;&nbsp;&nbsp;계
+                                </td>
+                                <td className="px-4 py-3 text-right" style={{ color: "#1F4D3A" }}>
+                                  {totalPaid.toLocaleString("ko-KR")}원
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Korean amount reading */}
+                        <div className="mb-10 mt-6 border px-6 py-4 text-center" style={{ borderColor: "#1F4D3A", backgroundColor: "rgba(31,77,58,0.04)" }}>
+                          <p className="text-base font-bold text-ink">
+                            {formatKoreanAmount(totalPaid)}
+                          </p>
+                          <p className="mt-3 text-sm leading-relaxed text-ink">
+                            용 도:&nbsp;&nbsp;
+                            <span className="font-semibold">연말정산 소득공제용 (교육비)</span>
+                          </p>
+                          <p className="mt-2 text-sm text-ink">
+                            위와 같이 {selectedTaxYear}년도 교육비를 납입하였음을 증명합니다.
+                          </p>
+                        </div>
+
+                        {/* Issue date */}
+                        <p className="mb-10 text-center text-base text-ink">{today}</p>
+
+                        {/* Academy seal */}
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <p className="text-base font-bold text-ink">{academyName}</p>
+                              <p className="mt-1 text-sm font-semibold text-ink">
+                                원&nbsp;&nbsp;&nbsp;&nbsp;장
+                                {directorName && (
+                                  <span className="ml-2 font-normal">{directorName}</span>
+                                )}
+                              </p>
+                            </div>
+                            {/* Seal circle */}
+                            <div
+                              className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 text-center"
+                              style={{ borderColor: "#C55A11", color: "#C55A11" }}
+                            >
+                              <span className="text-[11px] font-semibold leading-tight">한국경찰</span>
+                              <span className="text-[11px] font-semibold leading-tight">학원</span>
+                              <span className="mt-0.5 text-[10px]">(인)</span>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-slate">{academyAddress}</p>
+                          <p className="text-xs text-slate">TEL {academyPhone}</p>
+                          {businessRegNo && (
+                            <p className="text-xs text-slate">사업자등록번호: {businessRegNo}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
 
           {/* 수강 없는 경우 */}
           {enrollments.length === 0 ? (

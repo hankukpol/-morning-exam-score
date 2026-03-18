@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { NotificationChannel, NotificationType } from "@prisma/client";
+import { RetryButton } from "./retry-button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -141,58 +141,8 @@ function MonthlyBarChart({ data }: { data: MonthlyChartEntry[] }) {
   );
 }
 
-// ─── Retry Button ─────────────────────────────────────────────────────────────
-function RetryButton({ logId, onSuccess }: { logId: number; onSuccess: (logId: number) => void }) {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleRetry = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/notifications/history/${logId}/retry`, {
-        method: "POST",
-      });
-      const json = await res.json() as { error?: string };
-      if (!res.ok || json.error) {
-        setError(json.error ?? "재발송 실패");
-        return;
-      }
-      onSuccess(logId);
-    } catch {
-      setError("네트워크 오류");
-    } finally {
-      setLoading(false);
-    }
-  }, [logId, onSuccess]);
-
-  return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={handleRetry}
-        disabled={loading}
-        className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-medium text-ember transition hover:border-ember hover:bg-ember hover:text-white disabled:opacity-50"
-      >
-        {loading ? "발송 중..." : "재발송"}
-      </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
 // ─── Main Client Component ────────────────────────────────────────────────────
-export function NotificationHistoryClient({ logs: initialLogs, monthlyChart }: Props) {
-  const [logs, setLogs] = useState<NotificationLogRow[]>(initialLogs);
-
-  const handleRetrySuccess = useCallback((logId: number) => {
-    setLogs((prev) =>
-      prev.map((log) =>
-        log.id === logId ? { ...log, status: "retried" } : log,
-      ),
-    );
-  }, []);
-
+export function NotificationHistoryClient({ logs, monthlyChart }: Props) {
   return (
     <div className="space-y-8">
       {/* Monthly chart */}
@@ -300,7 +250,8 @@ export function NotificationHistoryClient({ logs: initialLogs, monthlyChart }: P
                             )}
                             <RetryButton
                               logId={log.id}
-                              onSuccess={handleRetrySuccess}
+                              channel={log.channel}
+                              currentStatus={log.status}
                             />
                           </div>
                         ) : log.failReason ? (

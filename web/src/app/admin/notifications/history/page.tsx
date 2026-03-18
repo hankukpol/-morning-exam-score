@@ -66,7 +66,7 @@ type PageProps = {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default async function NotificationHistoryPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.MANAGER);
+  await requireAdminContext(AdminRole.COUNSELOR);
 
   const sp = searchParams ? await searchParams : {};
 
@@ -82,6 +82,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
   const statusParam = getParam("status")?.trim() || "ALL";
   const dateFromParam = getParam("from")?.trim();
   const dateToParam = getParam("to")?.trim();
+  const searchParam = getParam("search")?.trim() || "";
 
   const typeFilter =
     typeParam !== "ALL" &&
@@ -101,19 +102,41 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(statusFilter ? { status: statusFilter } : {}),
     ...(sentAtFilter ? { sentAt: sentAtFilter } : {}),
+    ...(searchParam
+      ? {
+          student: {
+            name: { contains: searchParam },
+          },
+        }
+      : {}),
   };
 
   const prisma = getPrisma();
 
-  // Current month KPI
+  // Last 7 days KPI
   const now = new Date();
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(now.getDate() - 6);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  // Current month KPI
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   // Last 6 months for chart
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0);
 
-  const [filteredTotal, logs, monthTotal, monthFail, chartRawLogs] = await Promise.all([
+  const [
+    filteredTotal,
+    logs,
+    week7Total,
+    week7Sent,
+    week7Failed,
+    week7Pending,
+    monthTotal,
+    monthFail,
+    chartRawLogs,
+  ] = await Promise.all([
     prisma.notificationLog.count({ where }),
     prisma.notificationLog.findMany({
       where,
@@ -130,6 +153,20 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
       skip: (page - 1) * limit,
       take: limit,
     }),
+    // 7-day KPIs
+    prisma.notificationLog.count({
+      where: { sentAt: { gte: sevenDaysAgo, lte: now } },
+    }),
+    prisma.notificationLog.count({
+      where: { sentAt: { gte: sevenDaysAgo, lte: now }, status: "sent" },
+    }),
+    prisma.notificationLog.count({
+      where: { sentAt: { gte: sevenDaysAgo, lte: now }, status: "failed" },
+    }),
+    prisma.notificationLog.count({
+      where: { sentAt: { gte: sevenDaysAgo, lte: now }, status: "pending" },
+    }),
+    // Month stats for chart context
     prisma.notificationLog.count({
       where: { sentAt: { gte: monthStart, lte: monthEnd } },
     }),
@@ -148,6 +185,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
 
   const monthSuccess = monthTotal - monthFail;
   const successRate = monthTotal > 0 ? Math.round((monthSuccess / monthTotal) * 100) : 100;
+  const week7FailRate = week7Total > 0 ? Math.round((week7Failed / week7Total) * 100) : 0;
   const totalPages = Math.ceil(filteredTotal / limit);
 
   // Build monthly chart data
@@ -178,6 +216,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
     if (statusParam !== "ALL") params.set("status", statusParam);
     if (dateFromParam) params.set("from", dateFromParam);
     if (dateToParam) params.set("to", dateToParam);
+    if (searchParam) params.set("search", searchParam);
     params.set("page", String(p));
     return `/admin/notifications/history?${params.toString()}`;
   }
@@ -222,54 +261,84 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
         </Link>
       </div>
 
-      {/* KPI Cards — Delivery Success Rate */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      {/* KPI Cards — 최근 7일 */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 총 발송 */}
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">{korMonth} 총 발송</p>
+          <p className="text-sm text-slate">최근 7일 총 발송</p>
           <p className="mt-2 text-3xl font-bold text-ink">
-            {monthTotal.toLocaleString("ko-KR")}
+            {week7Total.toLocaleString("ko-KR")}
             <span className="ml-1 text-base font-normal text-slate">건</span>
           </p>
+          <p className="mt-1 text-xs text-slate/70">{toDateStr(sevenDaysAgo)} ~ {toDateStr(now)}</p>
         </div>
+
+        {/* 성공 */}
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">{korMonth} 발송 성공률</p>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              successRate >= 95
-                ? "text-forest"
-                : successRate >= 80
-                  ? "text-amber-600"
-                  : "text-red-600"
-            }`}
-          >
-            {successRate}
-            <span className="ml-0.5 text-base font-normal text-slate">%</span>
-          </p>
-          <p className="mt-1 text-xs text-slate">
-            성공 {monthSuccess.toLocaleString("ko-KR")}건 / 실패 {monthFail.toLocaleString("ko-KR")}건
-          </p>
-        </div>
-        <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">{korMonth} 발송 실패</p>
-          <p
-            className={`mt-2 text-3xl font-bold ${monthFail > 0 ? "text-red-600" : "text-ink"}`}
-          >
-            {monthFail.toLocaleString("ko-KR")}
+          <p className="text-sm text-slate">최근 7일 성공</p>
+          <p className="mt-2 text-3xl font-bold text-forest">
+            {week7Sent.toLocaleString("ko-KR")}
             <span className="ml-1 text-base font-normal text-slate">건</span>
           </p>
-          {monthFail > 0 && (
-            <p className="mt-1 text-xs text-red-500">상태 필터 "실패"로 확인하세요</p>
+          <p className="mt-1 text-xs text-slate/70">
+            {week7Total > 0 ? `성공률 ${Math.round((week7Sent / week7Total) * 100)}%` : "발송 없음"}
+          </p>
+        </div>
+
+        {/* 실패 */}
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <p className="text-sm text-slate">최근 7일 실패</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className={`text-3xl font-bold ${week7Failed > 0 ? "text-red-600" : "text-ink"}`}>
+              {week7Failed.toLocaleString("ko-KR")}
+              <span className="ml-1 text-base font-normal text-slate">건</span>
+            </p>
+            {week7FailRate > 5 && (
+              <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                실패율 {week7FailRate}%
+              </span>
+            )}
+          </div>
+          {week7Failed > 0 && week7FailRate <= 5 && (
+            <p className="mt-1 text-xs text-slate/70">실패율 {week7FailRate}%</p>
           )}
+        </div>
+
+        {/* 대기중 */}
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <p className="text-sm text-slate">최근 7일 대기중</p>
+          <p className={`mt-2 text-3xl font-bold ${week7Pending > 0 ? "text-amber-600" : "text-ink"}`}>
+            {week7Pending.toLocaleString("ko-KR")}
+            <span className="ml-1 text-base font-normal text-slate">건</span>
+          </p>
+          <p className="mt-1 text-xs text-slate/70">
+            {korMonth} 성공률 {successRate}%
+          </p>
         </div>
       </div>
 
-      {/* Filter Bar — date range (last 7 days default, up to 30 days) */}
+      {/* Filter Bar */}
       <form
         method="GET"
         action="/admin/notifications/history"
         className="mt-8 rounded-[28px] border border-ink/10 bg-mist p-6"
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {/* Student name search */}
+          <div className="lg:col-span-2">
+            <label htmlFor="search" className="mb-2 block text-sm font-medium">
+              학생 이름 검색
+            </label>
+            <input
+              id="search"
+              type="text"
+              name="search"
+              defaultValue={searchParam}
+              placeholder="학생 이름"
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            />
+          </div>
+
           {/* Type filter */}
           <div>
             <label htmlFor="type" className="mb-2 block text-sm font-medium">
@@ -303,6 +372,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
               <option value="ALL">전체 상태</option>
               <option value="sent">성공</option>
               <option value="failed">실패</option>
+              <option value="pending">대기중</option>
               <option value="skipped">제외</option>
             </select>
           </div>
@@ -334,9 +404,19 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
             />
           </div>
+        </div>
 
-          {/* Submit area */}
-          <div className="flex items-end gap-3">
+        {/* Submit row */}
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-slate">
+            {filteredTotal.toLocaleString("ko-KR")}건 조회됨
+            {sentAtFilter?.gte && sentAtFilter?.lte && (
+              <span className="ml-2 text-xs text-slate/70">
+                ({toDateStr(sentAtFilter.gte)} ~ {toDateStr(sentAtFilter.lte instanceof Date ? sentAtFilter.lte : new Date(sentAtFilter.lte))})
+              </span>
+            )}
+          </p>
+          <div className="flex gap-3">
             <a
               href="/admin/notifications/history"
               className="inline-flex items-center rounded-full border border-ink/20 bg-white px-5 py-3 text-sm font-medium text-slate transition hover:border-ink/40"
@@ -351,15 +431,6 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
             </button>
           </div>
         </div>
-
-        <p className="mt-4 text-sm text-slate">
-          {filteredTotal.toLocaleString("ko-KR")}건 조회됨
-          {sentAtFilter?.gte && sentAtFilter?.lte && (
-            <span className="ml-2 text-xs text-slate/70">
-              ({toDateStr(sentAtFilter.gte)} ~ {toDateStr(sentAtFilter.lte instanceof Date ? sentAtFilter.lte : new Date(sentAtFilter.lte))})
-            </span>
-          )}
-        </p>
       </form>
 
       {/* Client section: Chart + Table */}

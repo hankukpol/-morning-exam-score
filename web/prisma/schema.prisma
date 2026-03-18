@@ -833,9 +833,29 @@ model Instructor {
   updatedAt   DateTime @updatedAt
 
   lectureSubjects SpecialLectureSubject[]
+  settlements     InstructorSettlement[]
 
   @@index([isActive])
   @@map("instructors")
+}
+
+// 강사 월별 정산
+model InstructorSettlement {
+  id            String    @id @default(cuid())
+  instructorId  String
+  month         String    // YYYY-MM format
+  totalSessions Int       @default(0)
+  totalAmount   Int       @default(0)
+  isPaid        Boolean   @default(false)
+  paidAt        DateTime?
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  instructor Instructor @relation(fields: [instructorId], references: [id])
+
+  @@unique([instructorId, month])
+  @@map("instructor_settlements")
 }
 
 // 종합반 상품 마스터
