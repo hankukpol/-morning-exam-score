@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -121,6 +122,22 @@ export default async function DailySettlementPage() {
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         날짜별 수납 집계 및 현금 시재 마감을 처리합니다.
       </p>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Link
+          prefetch={false}
+          href={`/admin/payments/reconciliation?month=${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`}
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-5 py-2.5 text-sm font-semibold text-ember transition hover:border-ember/40 hover:bg-ember/20"
+        >
+          대사 확인 →
+        </Link>
+        <Link
+          prefetch={false}
+          href="/admin/settlements/monthly"
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ink/30"
+        >
+          월계표 →
+        </Link>
+      </div>
       <div className="mt-8">
         <DailySettlementView initialData={initialData} />
       </div>

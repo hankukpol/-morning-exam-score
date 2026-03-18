@@ -189,6 +189,14 @@ const SETTINGS_CARDS: SettingsCard[] = [
   },
   // 알림·계정
   {
+    href: "/admin/settings/notification-rules",
+    label: "알림 발송 규칙",
+    description: "이벤트별 자동·수동 알림 규칙 확인 및 자동 트리거 ON/OFF 관리",
+    group: "알림·계정",
+    minRole: AdminRole.MANAGER,
+    badgeColor: "border-ink/20 bg-ink/5 text-slate",
+  },
+  {
     href: "/admin/settings/notifications",
     label: "SMS 알림 설정",
     description: "Solapi 키와 발신 번호 설정",

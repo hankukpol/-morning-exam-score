@@ -150,7 +150,14 @@ export default async function MonthlySettlementPage({
           href={`/admin/settlements/reconciliation?month=${monthStr}`}
           className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-5 py-2.5 text-sm font-semibold text-ember transition hover:border-ember/40 hover:bg-ember/20"
         >
-          수납 대사 →
+          수납 대사 (수강료) →
+        </Link>
+        <Link
+          prefetch={false}
+          href={`/admin/payments/reconciliation?month=${monthStr}`}
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ember/30 hover:text-ember"
+        >
+          대사 보고서 (일별) →
         </Link>
         <Link
           prefetch={false}

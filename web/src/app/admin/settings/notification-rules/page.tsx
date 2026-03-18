@@ -294,6 +294,21 @@ export default async function NotificationRulesPage() {
             </svg>
           </Link>
           <Link
+            href="/admin/settings/notifications/auto-triggers"
+            className="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+          >
+            자동 트리거 ON/OFF 설정
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M3 11L11 3M11 3H6M11 3v5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+          <Link
             href="/admin/settings/notifications"
             className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-mist shadow-panel"
           >

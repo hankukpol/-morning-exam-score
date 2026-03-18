@@ -86,7 +86,29 @@ export default async function PaymentsPage() {
         </Link>
       </div>
 
-      <div className="mt-8">
+      {/* Quick links */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href="/admin/payments/reconciliation"
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ember/30 hover:text-ember"
+        >
+          일별 수납 대사 →
+        </Link>
+        <Link
+          href="/admin/settlements/daily"
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/30"
+        >
+          일계표 →
+        </Link>
+        <Link
+          href="/admin/settlements/monthly"
+          className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/30"
+        >
+          월계표 →
+        </Link>
+      </div>
+
+      <div className="mt-6">
         <PaymentList initialPayments={payments as unknown as PaymentWithRelations[]} />
       </div>
     </div>

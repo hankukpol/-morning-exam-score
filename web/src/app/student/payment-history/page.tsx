@@ -295,6 +295,12 @@ export default async function StudentPaymentHistoryPage() {
                         </p>
                       )}
                     </div>
+                    <Link
+                      href={`/student/payments/${payment.id}`}
+                      className="shrink-0 inline-flex items-center rounded-xl border border-forest/30 bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest transition hover:bg-forest/20"
+                    >
+                      영수증 보기 →
+                    </Link>
                   </div>
 
                   {/* Payment items */}

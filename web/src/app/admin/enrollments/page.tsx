@@ -72,6 +72,12 @@ export default async function EnrollmentsPage() {
           >
             일괄 상태 변경
           </Link>
+          <Link
+            href="/admin/enrollments/audit"
+            className="shrink-0 rounded-xl border border-ink/10 bg-mist px-4 py-2.5 text-sm font-semibold text-slate hover:border-ink/30 hover:text-ink transition-colors"
+          >
+            감사 로그
+          </Link>
         </div>
       </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
