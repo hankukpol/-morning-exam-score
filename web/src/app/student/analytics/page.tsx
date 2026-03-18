@@ -98,6 +98,7 @@ export default async function StudentAnalyticsPage() {
       include: {
         session: {
           select: {
+            id: true,
             examDate: true,
             subject: true,
             displaySubjectName: true,
@@ -130,6 +131,24 @@ export default async function StudentAnalyticsPage() {
       },
     }),
   ]);
+
+  // ── 최근 석차 계산 ──
+  // Find the most recent score with a finalScore
+  const latestScoredRow = scores.find((s) => s.finalScore !== null);
+  let latestRank: number | null = null;
+  let latestRankTotal: number | null = null;
+
+  if (latestScoredRow) {
+    const sessionId = latestScoredRow.session.id;
+    const cohortSessionScores = await prisma.score.findMany({
+      where: { sessionId, finalScore: { not: null } },
+      select: { finalScore: true },
+    });
+    const allScores = cohortSessionScores.map((s) => s.finalScore as number);
+    const myScore = latestScoredRow.finalScore as number;
+    latestRank = allScores.filter((s) => s > myScore).length + 1;
+    latestRankTotal = allScores.length;
+  }
 
   // ── 성적 KPI ──
   const scoredRows = scores.filter((s) => s.finalScore !== null);
@@ -229,8 +248,8 @@ export default async function StudentAnalyticsPage() {
             </div>
           </div>
 
-          {/* 성적 KPI 3개 */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {/* 성적 KPI 4개 */}
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className={`rounded-[24px] border border-ink/10 p-4 ${scoreBgClass(maxScore)}`}>
               <p className="text-sm text-slate">최고 점수</p>
               <p className={`mt-3 text-2xl font-bold ${scoreColorClass(maxScore)}`}>
@@ -251,6 +270,38 @@ export default async function StudentAnalyticsPage() {
                 {formatScore(latestScore)}
               </p>
               <p className="mt-1 text-xs text-slate">가장 최근 시험</p>
+            </article>
+            <article className={`rounded-[24px] border border-ink/10 p-4 ${
+              latestRank !== null && latestRankTotal !== null && latestRankTotal > 0
+                ? latestRank / latestRankTotal <= 0.1
+                  ? "bg-green-50"
+                  : latestRank / latestRankTotal <= 0.3
+                  ? "bg-amber-50"
+                  : "bg-mist"
+                : "bg-mist"
+            }`}>
+              <p className="text-sm text-slate">최근 석차</p>
+              {latestRank !== null && latestRankTotal !== null && latestRankTotal > 0 ? (
+                <>
+                  <p className={`mt-3 text-2xl font-bold ${
+                    latestRank / latestRankTotal <= 0.1
+                      ? "text-forest"
+                      : latestRank / latestRankTotal <= 0.3
+                      ? "text-amber-600"
+                      : "text-ink"
+                  }`}>
+                    {latestRank}위
+                  </p>
+                  <p className="mt-1 text-xs text-slate">
+                    {latestRankTotal}명 중 · 상위 {Math.ceil((latestRank / latestRankTotal) * 100)}%
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 text-2xl font-bold text-slate">-</p>
+                  <p className="mt-1 text-xs text-slate">가장 최근 시험</p>
+                </>
+              )}
             </article>
           </div>
         </section>

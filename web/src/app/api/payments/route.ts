@@ -104,6 +104,9 @@ export async function POST(request: Request) {
       netAmount,
       note,
       items,
+      cashReceiptType,
+      cashReceiptNo,
+      cashReceiptIssuedAt,
     } = body;
 
     if (!category) throw new Error("수납 유형을 선택하세요.");
@@ -136,6 +139,9 @@ export async function POST(request: Request) {
           pointAmount: 0,
           netAmount: Number(netAmount),
           note: note?.trim() || null,
+          cashReceiptType: typeof cashReceiptType === "string" && cashReceiptType !== "NONE" ? cashReceiptType : null,
+          cashReceiptNo: typeof cashReceiptNo === "string" && cashReceiptNo.trim() ? cashReceiptNo.trim() : null,
+          cashReceiptIssuedAt: cashReceiptIssuedAt ? new Date(cashReceiptIssuedAt as string) : null,
           processedBy: auth.context.adminUser.id,
           processedAt: new Date(),
           items: {

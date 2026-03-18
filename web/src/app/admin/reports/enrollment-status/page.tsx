@@ -146,8 +146,8 @@ export default async function EnrollmentStatusReportPage({
         </Link>
       </div>
 
-      {/* Month filter */}
-      <div className="mt-6 flex items-center gap-3">
+      {/* Month filter + export */}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <Link
           href={`/admin/reports/enrollment-status?month=${prevMonth}`}
           className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1.5 text-sm text-ink transition hover:border-ink/30"
@@ -165,6 +165,17 @@ export default async function EnrollmentStatusReportPage({
         >
           다음달 →
         </Link>
+        <div className="ml-auto">
+          <a
+            href={`/api/reports/enrollment-status?month=${monthStr}`}
+            className="inline-flex items-center gap-2 rounded-full bg-forest px-4 py-2 text-sm font-medium text-white transition hover:bg-forest/90"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Excel 내보내기
+          </a>
+        </div>
       </div>
 
       {/* KPI row */}

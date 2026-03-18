@@ -35,6 +35,14 @@ function scoreColorClass(score: number | null | undefined): string {
   return "text-forest font-semibold";
 }
 
+function rankColorClass(rank: number, total: number): string {
+  if (total === 0) return "text-slate";
+  const pct = rank / total;
+  if (pct <= 0.1) return "text-forest font-semibold";
+  if (pct <= 0.3) return "text-amber-600 font-semibold";
+  return "text-slate";
+}
+
 function scoreBgClass(score: number | null | undefined): string {
   if (score === null || score === undefined) return "bg-mist";
   if (score < 60) return "bg-red-50";
@@ -149,26 +157,65 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">조회 기간</p>
-              <p className="mt-3 text-xl font-semibold">{data.selectedPeriod?.name ?? "기간 미선택"}</p>
-            </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">성적 카드 수</p>
-              <p className="mt-3 text-xl font-semibold">{data.summary.totalRows}건</p>
-            </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">평균 점수</p>
-              <p className="mt-3 text-xl font-semibold">{formatScore(data.summary.averageScore)}</p>
-            </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">최근 시험일</p>
-              <p className="mt-3 text-xl font-semibold">
-                {data.summary.latestExamDate ? formatDateWithWeekday(data.summary.latestExamDate) : "-"}
-              </p>
-            </article>
-          </div>
+          {(() => {
+            // Compute latest session rank summary
+            const latestSessionIds = data.latestSummary?.subjects.map(
+              (s) => {
+                const row = data.scoreRows.find(
+                  (r) => r.session.subject === s.subject && data.latestSummary && formatDate(r.session.examDate) === data.latestSummary.dateKey
+                );
+                return row?.session.id;
+              }
+            ).filter((id): id is number => id !== undefined) ?? [];
+
+            const latestRanks = latestSessionIds
+              .map((id) => data.rankBySession[id])
+              .filter((r): r is { rank: number; total: number } => r !== undefined);
+
+            const bestLatestRank = latestRanks.length > 0
+              ? latestRanks.reduce((best, r) => r.rank < best.rank ? r : best)
+              : null;
+
+            return (
+              <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-sm text-slate">조회 기간</p>
+                  <p className="mt-3 text-xl font-semibold">{data.selectedPeriod?.name ?? "기간 미선택"}</p>
+                </article>
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-sm text-slate">성적 카드 수</p>
+                  <p className="mt-3 text-xl font-semibold">{data.summary.totalRows}건</p>
+                </article>
+                <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
+                  <p className="text-sm text-slate">평균 점수</p>
+                  <p className="mt-3 text-xl font-semibold">{formatScore(data.summary.averageScore)}</p>
+                </article>
+                <article className={`rounded-[24px] border border-ink/10 p-4 ${
+                  bestLatestRank && bestLatestRank.total > 0
+                    ? bestLatestRank.rank / bestLatestRank.total <= 0.1
+                      ? "bg-green-50"
+                      : bestLatestRank.rank / bestLatestRank.total <= 0.3
+                      ? "bg-amber-50"
+                      : "bg-mist"
+                    : "bg-mist"
+                }`}>
+                  <p className="text-sm text-slate">최근 내 석차</p>
+                  {bestLatestRank && bestLatestRank.total > 0 ? (
+                    <>
+                      <p className={`mt-3 text-xl ${rankColorClass(bestLatestRank.rank, bestLatestRank.total)}`}>
+                        {bestLatestRank.rank}위 / {bestLatestRank.total}명
+                      </p>
+                      <p className="mt-1 text-xs text-slate">
+                        상위 {Math.ceil((bestLatestRank.rank / bestLatestRank.total) * 100)}%
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-xl font-semibold text-slate">-</p>
+                  )}
+                </article>
+              </div>
+            );
+          })()}
         </section>
 
         {/* 기간 선택 폼 */}
@@ -394,6 +441,18 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
                                 <span>원점수 {formatScore(row.rawScore)}</span>
                                 <span>OX {formatScore(row.oxScore)}</span>
                               </div>
+                              {(() => {
+                                const rankInfo = data.rankBySession[row.session.id];
+                                if (rankInfo && rankInfo.total > 0) {
+                                  return (
+                                    <div className={`mt-2 text-xs ${rankColorClass(rankInfo.rank, rankInfo.total)}`}>
+                                      내 석차 {rankInfo.rank}위 / {rankInfo.total}명
+                                      {" · "}상위 {Math.ceil((rankInfo.rank / rankInfo.total) * 100)}%
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                               <div className="mt-2 text-xs text-slate">
                                 출결 {ATTEND_TYPE_LABEL[row.attendType]} · {SCORE_SOURCE_LABEL[row.sourceType]}
                               </div>

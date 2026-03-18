@@ -90,6 +90,9 @@ export type PaymentDetailData = {
   pointAmount: number;
   netAmount: number;
   note: string | null;
+  cashReceiptNo: string | null;
+  cashReceiptType: string | null;
+  cashReceiptIssuedAt: string | null;
   processedAt: string;
   student: { name: string; phone: string | null } | null;
   processor: { name: string };
@@ -134,6 +137,8 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
   const fieldClass = "flex justify-between py-2.5 border-b border-ink/5 last:border-0";
   const keyClass = "text-sm text-slate";
   const valClass = "text-sm font-medium text-ink text-right";
+
+  const isCashOrTransfer = payment.method === "CASH" || payment.method === "TRANSFER";
 
   return (
     <>
@@ -340,6 +345,54 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
             </div>
           ) : null}
         </div>
+
+        {/* ── 현금영수증 ────────────────────────────────────────
+            Only shown for CASH or TRANSFER payments.
+            Spans both columns so it doesn't create an orphan column.        */}
+        {isCashOrTransfer ? (
+          <div className="rounded-[28px] border border-amber-200 bg-amber-50/40 p-6 md:col-span-2">
+            <h2 className="mb-4 text-base font-semibold text-amber-800">현금영수증</h2>
+            <div className="grid gap-0 md:max-w-md">
+              {/* 발급 유형 */}
+              <div className={fieldClass}>
+                <span className={keyClass}>발급 유형</span>
+                <span className={valClass}>
+                  {payment.cashReceiptType === "INCOME_DEDUCTION" ? (
+                    <span className="inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      소득공제
+                    </span>
+                  ) : payment.cashReceiptType === "EXPENSE_PROOF" ? (
+                    <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700">
+                      지출증빙
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full border border-ink/20 bg-ink/5 px-2 py-0.5 text-xs font-semibold text-slate">
+                      미발급
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {/* 승인번호 */}
+              {payment.cashReceiptNo ? (
+                <div className={fieldClass}>
+                  <span className={keyClass}>승인번호</span>
+                  <span className={`${valClass} font-mono tracking-wider`}>
+                    {payment.cashReceiptNo}
+                  </span>
+                </div>
+              ) : null}
+
+              {/* 발급일시 */}
+              {payment.cashReceiptIssuedAt ? (
+                <div className={fieldClass}>
+                  <span className={keyClass}>발급일시</span>
+                  <span className={valClass}>{formatDateTime(payment.cashReceiptIssuedAt)}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {/* ── 분할납부 일정 ──────────────────────────────────── */}
         {payment.installments.length > 0 ? (

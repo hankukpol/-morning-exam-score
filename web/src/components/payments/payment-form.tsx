@@ -147,6 +147,14 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
   const [discountAmount, setDiscountAmount] = useState(0);
   const [note, setNote] = useState("");
 
+  // Cash receipt
+  type CashReceiptType = "NONE" | "INCOME_DEDUCTION" | "EXPENSE_PROOF";
+  const [cashReceiptType, setCashReceiptType] = useState<CashReceiptType>("NONE");
+  const [cashReceiptNo, setCashReceiptNo] = useState("");
+  const [cashReceiptIssuedAt, setCashReceiptIssuedAt] = useState<string>(
+    new Date().toISOString().slice(0, 16),
+  );
+
   // Submit
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -362,6 +370,9 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
           netAmount,
           note: note.trim() || null,
           items: buildItems(),
+          cashReceiptType: cashReceiptType !== "NONE" ? cashReceiptType : null,
+          cashReceiptNo: cashReceiptType !== "NONE" && cashReceiptNo.trim() ? cashReceiptNo.trim() : null,
+          cashReceiptIssuedAt: cashReceiptType !== "NONE" ? new Date(cashReceiptIssuedAt).toISOString() : null,
         }),
       });
       router.push("/admin/payments");
@@ -697,6 +708,67 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
             className="w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm outline-none focus:border-ember/40"
           />
         </div>
+
+        {/* Cash receipt section — only for CASH / TRANSFER */}
+        {(method === "CASH" || method === "TRANSFER") && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-4">
+            <p className="text-sm font-semibold text-amber-800">현금영수증</p>
+
+            {/* Radio group */}
+            <div className="flex flex-wrap gap-4">
+              {(
+                [
+                  { value: "NONE", label: "발급 안함" },
+                  { value: "INCOME_DEDUCTION", label: "소득공제" },
+                  { value: "EXPENSE_PROOF", label: "지출증빙" },
+                ] as { value: "NONE" | "INCOME_DEDUCTION" | "EXPENSE_PROOF"; label: string }[]
+              ).map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink"
+                >
+                  <input
+                    type="radio"
+                    name="cashReceiptType"
+                    value={opt.value}
+                    checked={cashReceiptType === opt.value}
+                    onChange={() => setCashReceiptType(opt.value)}
+                    className="h-4 w-4 accent-amber-500"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+
+            {/* Approval number + issued datetime */}
+            {cashReceiptType !== "NONE" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate">
+                    KSNET POS 승인번호
+                  </label>
+                  <input
+                    type="text"
+                    value={cashReceiptNo}
+                    onChange={(e) => setCashReceiptNo(e.target.value)}
+                    maxLength={20}
+                    placeholder="승인번호 (10자리)"
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm font-mono outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate">발급일시</label>
+                  <input
+                    type="datetime-local"
+                    value={cashReceiptIssuedAt}
+                    onChange={(e) => setCashReceiptIssuedAt(e.target.value)}
+                    className="w-full rounded-2xl border border-ink/10 px-4 py-2.5 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Card payment widget overlay */}

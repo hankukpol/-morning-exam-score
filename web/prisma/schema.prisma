@@ -591,6 +591,7 @@ enum NotificationType {
   ENROLLMENT_COMPLETE
   PAYMENT_COMPLETE
   REFUND_COMPLETE
+  PAYMENT_OVERDUE
 }
 
 enum NotificationChannel {
@@ -1179,7 +1180,10 @@ model Payment {
   couponAmount   Int             @default(0)
   pointAmount    Int             @default(0)
   netAmount      Int
-  note           String?
+  note                  String?
+  cashReceiptNo         String?   // KSNET POS 승인번호
+  cashReceiptType       String?   // INCOME_DEDUCTION | EXPENSE_PROOF | NONE
+  cashReceiptIssuedAt   DateTime?
   processedBy    String          @db.Uuid
   processedAt    DateTime        @default(now())
   createdAt      DateTime        @default(now())

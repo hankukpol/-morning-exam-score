@@ -199,6 +199,12 @@ export default async function AnnualReportPage({
             label="인쇄"
             className="no-print rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-mist"
           />
+          <a
+            href={`/api/reports/annual/export?year=${year}`}
+            className="no-print rounded-xl bg-forest px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-forest/90"
+          >
+            Excel 내보내기
+          </a>
         </div>
       </div>
 

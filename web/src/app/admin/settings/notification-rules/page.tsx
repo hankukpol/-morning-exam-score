@@ -43,6 +43,14 @@ const RULE_DEFINITIONS: RuleDef[] = [
     channel: "카카오 알림톡",
     category: "수납 관련",
   },
+  {
+    type: "PAYMENT_OVERDUE",
+    label: "미납 독촉 알림",
+    trigger: "미납 관리 화면에서 건별 또는 일괄 수동 발송",
+    channel: "카카오/SMS",
+    category: "수납 관련",
+    note: "분납 기한이 지난 학생 대상",
+  },
   // 출결 관련
   {
     type: "WARNING_1",

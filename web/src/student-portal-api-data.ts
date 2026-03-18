@@ -965,25 +965,19 @@ export async function getStudentPortalScorePageData(input: {
     })),
   }));
 
-  // Compute rank for the most recent exam sessions (per session, among same examType)
-  // Fetch cohort scores for the latest date's sessions to compute rank
+  // Compute rank for all exam sessions (per session, among same examType)
   const latestDateKey = allDates[0]?.dateKey ?? null;
-  const latestSessionIds = latestDateKey
-    ? scoreRows
-        .filter((row) => formatDate(row.session.examDate) === latestDateKey)
-        .map((row) => row.session.id)
-    : [];
+  const allSessionIds = Array.from(new Set(scoreRows.map((row) => row.session.id)));
 
-  const cohortScoresForLatest =
-    latestSessionIds.length > 0
+  const cohortScoresForAll =
+    allSessionIds.length > 0
       ? await prisma.score.findMany({
           where: {
-            sessionId: { in: latestSessionIds },
+            sessionId: { in: allSessionIds },
             finalScore: { not: null },
           },
           select: {
             sessionId: true,
-            examNumber: true,
             finalScore: true,
           },
         })
@@ -991,8 +985,8 @@ export async function getStudentPortalScorePageData(input: {
 
   // Build rank map: sessionId -> { rank, total }
   const rankBySession = new Map<number, { rank: number; total: number }>();
-  for (const sessionId of latestSessionIds) {
-    const sessionScores = cohortScoresForLatest
+  for (const sessionId of allSessionIds) {
+    const sessionScores = cohortScoresForAll
       .filter((s) => s.sessionId === sessionId && s.finalScore !== null)
       .map((s) => s.finalScore as number)
       .sort((a, b) => b - a);
@@ -1002,6 +996,13 @@ export async function getStudentPortalScorePageData(input: {
       rankBySession.set(sessionId, { rank, total: sessionScores.length });
     }
   }
+
+  // Latest session IDs (for latestSummary — same as before)
+  const latestSessionIds = latestDateKey
+    ? scoreRows
+        .filter((row) => formatDate(row.session.examDate) === latestDateKey)
+        .map((row) => row.session.id)
+    : [];
 
   // Latest exam summary cards: scores from the most recent date
   const latestExamRows = latestDateKey
@@ -1033,6 +1034,14 @@ export async function getStudentPortalScorePageData(input: {
 
   // Unused variable guard — recentSessionIds used for potential future use
   void recentSessionIds;
+  // Unused variable guard — latestSessionIds used for latestSummary computation reference
+  void latestSessionIds;
+
+  // Convert rankBySession Map to a plain record for serialization
+  const rankBySessionRecord: Record<number, { rank: number; total: number }> = {};
+  for (const [sessionId, rankInfo] of rankBySession.entries()) {
+    rankBySessionRecord[sessionId] = rankInfo;
+  }
 
   return {
     student,
@@ -1049,6 +1058,7 @@ export async function getStudentPortalScorePageData(input: {
     subjectCrossTable,
     crossTableDates: allDates.map((d) => d.dateKey),
     latestSummary,
+    rankBySession: rankBySessionRecord,
   };
 }
 

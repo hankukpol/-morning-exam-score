@@ -84,6 +84,7 @@ const TIMELINE_NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   ENROLLMENT_COMPLETE: "\uC218\uAC15 \uB4F1\uB85D",
   PAYMENT_COMPLETE: "\uC218\uB0A9 \uC644\uB8CC",
   REFUND_COMPLETE: "\uD658\uBD88 \uC644\uB8CC",
+  PAYMENT_OVERDUE: "\uBBF8\uB0A9 \uB3C5\uCD09",
 };
 
 function normalizeTimelineDays(days?: number) {

@@ -158,13 +158,34 @@ export default async function ScoreSessionDetailPage({ params }: PageProps) {
                 {hasAnyScore ? `${formatScore(data.totalScore)}점` : "-"}
               </p>
             </article>
-            <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
-              <p className="text-sm text-slate">전체 석차</p>
-              <p className="mt-3 text-2xl font-bold text-ink">
-                {data.overallRank !== null && data.overallTotal > 0
-                  ? `${data.overallRank}위 / ${data.overallTotal}명`
-                  : "-"}
-              </p>
+            <article className={`rounded-[24px] border border-ink/10 p-4 ${
+              data.overallRank !== null && data.overallTotal > 0
+                ? data.overallRank / data.overallTotal <= 0.1
+                  ? "bg-green-50"
+                  : data.overallRank / data.overallTotal <= 0.3
+                  ? "bg-amber-50"
+                  : "bg-mist"
+                : "bg-mist"
+            }`}>
+              <p className="text-sm text-slate">내 석차</p>
+              {data.overallRank !== null && data.overallTotal > 0 ? (
+                <>
+                  <p className={`mt-3 text-2xl font-bold ${
+                    data.overallRank / data.overallTotal <= 0.1
+                      ? "text-forest"
+                      : data.overallRank / data.overallTotal <= 0.3
+                      ? "text-amber-600"
+                      : "text-ink"
+                  }`}>
+                    {data.overallRank}위 / {data.overallTotal}명 중
+                  </p>
+                  <p className="mt-1 text-xs text-slate">
+                    상위 {Math.ceil((data.overallRank / data.overallTotal) * 100)}%
+                  </p>
+                </>
+              ) : (
+                <p className="mt-3 text-2xl font-bold text-slate">-</p>
+              )}
             </article>
             <article className="rounded-[24px] border border-ink/10 bg-mist p-4">
               <p className="text-sm text-slate">과목 수</p>

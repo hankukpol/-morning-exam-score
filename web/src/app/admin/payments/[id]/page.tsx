@@ -19,7 +19,23 @@ export default async function PaymentDetailPage({
 
   const payment = await getPrisma().payment.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      examNumber: true,
+      enrollmentId: true,
+      category: true,
+      method: true,
+      status: true,
+      grossAmount: true,
+      discountAmount: true,
+      couponAmount: true,
+      pointAmount: true,
+      netAmount: true,
+      note: true,
+      cashReceiptNo: true,
+      cashReceiptType: true,
+      cashReceiptIssuedAt: true,
+      processedAt: true,
       student: { select: { name: true, phone: true } },
       processor: { select: { name: true } },
       items: { orderBy: { id: "asc" } },

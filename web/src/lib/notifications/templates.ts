@@ -191,6 +191,21 @@ const DEFAULT_TEMPLATE_DEFINITIONS: Record<NotificationType, NotificationTemplat
     },
     envKey: "SOLAPI_TEMPLATE_REFUND_COMPLETE",
   },
+  PAYMENT_OVERDUE: {
+    label: "미납 독촉 알림",
+    description: "분납 기한이 지난 학생에게 발송하는 독촉 알림.",
+    content:
+      "[한국경찰학원] {studentName}님, {courseName} 수강료 {unpaidAmount}원이 납부 기한({dueDate})을 초과하였습니다. 빠른 시일 내 납부 부탁드립니다.\n\n문의: 053-241-0112",
+    variables: ["studentName", "courseName", "unpaidAmount", "dueDate"],
+    sampleValues: {
+      name: "홍길동",
+      studentName: "홍길동",
+      courseName: "27년 1차 대비 종합반 52기",
+      unpaidAmount: "200,000",
+      dueDate: "2026-03-10",
+    },
+    envKey: "SOLAPI_TEMPLATE_PAYMENT_OVERDUE",
+  },
 };
 
 export function notificationTypeFromStatus(status: StudentStatus) {

@@ -24,6 +24,7 @@ const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   ENROLLMENT_COMPLETE: "수강 등록",
   PAYMENT_COMPLETE: "수납",
   REFUND_COMPLETE: "환불",
+  PAYMENT_OVERDUE: "미납 독촉",
 };
 
 const NOTIFICATION_TYPE_COLOR: Record<NotificationType, string> = {
@@ -37,6 +38,7 @@ const NOTIFICATION_TYPE_COLOR: Record<NotificationType, string> = {
   ENROLLMENT_COMPLETE: "border-forest/20 bg-forest/10 text-forest",
   PAYMENT_COMPLETE: "border-blue-200 bg-blue-50 text-blue-700",
   REFUND_COMPLETE: "border-purple-200 bg-purple-50 text-purple-700",
+  PAYMENT_OVERDUE: "border-red-200 bg-red-50 text-red-700",
 };
 
 function formatDateTime(date: Date): string {

@@ -135,6 +135,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   ENROLLMENT_COMPLETE: "수강 등록 완료",
   PAYMENT_COMPLETE: "수납 완료",
   REFUND_COMPLETE: "환불 완료",
+  PAYMENT_OVERDUE: "미납 독촉",
 };
 
 export const NOTICE_TARGET_LABEL: Record<NoticeTargetType, string> = {
