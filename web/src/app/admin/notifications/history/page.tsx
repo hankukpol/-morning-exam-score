@@ -10,6 +10,40 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function toDateRangeFilter(
+  dateFrom: string | undefined,
+  dateTo: string | undefined
+): { gte?: Date; lte?: Date } | undefined {
+  const now = new Date();
+
+  if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+    const from = new Date(dateFrom + "T00:00:00");
+    let to: Date;
+    if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      // Clamp: max 30 days from `from`
+      const requested = new Date(dateTo + "T23:59:59");
+      const maxTo = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
+      to = requested < maxTo ? requested : maxTo;
+    } else {
+      to = new Date(from.getTime() + 6 * 24 * 60 * 60 * 1000);
+      to.setHours(23, 59, 59, 999);
+    }
+    return { gte: from, lte: to };
+  }
+
+  // Default: last 7 days
+  const from = new Date(now);
+  from.setDate(now.getDate() - 6);
+  from.setHours(0, 0, 0, 0);
+  return { gte: from, lte: now };
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // ─── Type filter values ───────────────────────────────────────────────────────
 const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "ALL", label: "전체 유형" },
@@ -27,24 +61,27 @@ const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 
 // ─── Page Props ───────────────────────────────────────────────────────────────
 type PageProps = {
-  searchParams?: {
-    page?: string;
-    type?: string;
-    status?: string;
-    date?: string;
-  };
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default async function NotificationHistoryPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.COUNSELOR);
+  await requireAdminContext(AdminRole.MANAGER);
 
-  const page = Math.max(1, parseInt(searchParams?.page ?? "1", 10));
-  const limit = 20;
+  const sp = searchParams ? await searchParams : {};
 
-  const typeParam = searchParams?.type?.trim() || "ALL";
-  const statusParam = searchParams?.status?.trim() || "ALL";
-  const dateParam = searchParams?.date?.trim() || "";
+  function getParam(key: string): string | undefined {
+    const v = sp[key];
+    return Array.isArray(v) ? v[0] : v;
+  }
+
+  const page = Math.max(1, parseInt(getParam("page") ?? "1", 10));
+  const limit = 50;
+
+  const typeParam = getParam("type")?.trim() || "ALL";
+  const statusParam = getParam("status")?.trim() || "ALL";
+  const dateFromParam = getParam("from")?.trim();
+  const dateToParam = getParam("to")?.trim();
 
   const typeFilter =
     typeParam !== "ALL" &&
@@ -54,14 +91,11 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
 
   const statusFilter = statusParam !== "ALL" ? statusParam : undefined;
 
-  let sentAtFilter: { gte?: Date; lte?: Date } | undefined;
-  if (dateParam && /^\d{4}-\d{2}$/.test(dateParam)) {
-    const [year, month] = dateParam.split("-").map(Number);
-    sentAtFilter = {
-      gte: new Date(year, month - 1, 1, 0, 0, 0),
-      lte: new Date(year, month, 0, 23, 59, 59),
-    };
-  }
+  const sentAtFilter = toDateRangeFilter(dateFromParam, dateToParam);
+
+  // Default dates for the filter form (display)
+  const defaultFrom = sentAtFilter?.gte ? toDateStr(sentAtFilter.gte) : "";
+  const defaultTo = sentAtFilter?.lte ? toDateStr(sentAtFilter.lte instanceof Date ? sentAtFilter.lte : new Date(sentAtFilter.lte)) : "";
 
   const where = {
     ...(typeFilter ? { type: typeFilter } : {}),
@@ -142,7 +176,8 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
     const params = new URLSearchParams();
     if (typeParam !== "ALL") params.set("type", typeParam);
     if (statusParam !== "ALL") params.set("status", statusParam);
-    if (dateParam) params.set("date", dateParam);
+    if (dateFromParam) params.set("from", dateFromParam);
+    if (dateToParam) params.set("to", dateToParam);
     params.set("page", String(p));
     return `/admin/notifications/history?${params.toString()}`;
   }
@@ -162,6 +197,8 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
       phone: log.student.phone,
     },
   }));
+
+  const korMonth = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
 
   return (
     <div className="p-8 sm:p-10">
@@ -185,17 +222,17 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
         </Link>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — Delivery Success Rate */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">이번 달 총 발송</p>
+          <p className="text-sm text-slate">{korMonth} 총 발송</p>
           <p className="mt-2 text-3xl font-bold text-ink">
             {monthTotal.toLocaleString("ko-KR")}
             <span className="ml-1 text-base font-normal text-slate">건</span>
           </p>
         </div>
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">이번 달 성공률</p>
+          <p className="text-sm text-slate">{korMonth} 발송 성공률</p>
           <p
             className={`mt-2 text-3xl font-bold ${
               successRate >= 95
@@ -208,25 +245,31 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
             {successRate}
             <span className="ml-0.5 text-base font-normal text-slate">%</span>
           </p>
+          <p className="mt-1 text-xs text-slate">
+            성공 {monthSuccess.toLocaleString("ko-KR")}건 / 실패 {monthFail.toLocaleString("ko-KR")}건
+          </p>
         </div>
         <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">이번 달 실패</p>
+          <p className="text-sm text-slate">{korMonth} 발송 실패</p>
           <p
             className={`mt-2 text-3xl font-bold ${monthFail > 0 ? "text-red-600" : "text-ink"}`}
           >
             {monthFail.toLocaleString("ko-KR")}
             <span className="ml-1 text-base font-normal text-slate">건</span>
           </p>
+          {monthFail > 0 && (
+            <p className="mt-1 text-xs text-red-500">상태 필터 "실패"로 확인하세요</p>
+          )}
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter Bar — date range (last 7 days default, up to 30 days) */}
       <form
         method="GET"
         action="/admin/notifications/history"
         className="mt-8 rounded-[28px] border border-ink/10 bg-mist p-6"
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Type filter */}
           <div>
             <label htmlFor="type" className="mb-2 block text-sm font-medium">
@@ -264,16 +307,30 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
             </select>
           </div>
 
-          {/* Date filter (yyyy-MM) */}
+          {/* Date from */}
           <div>
-            <label htmlFor="date" className="mb-2 block text-sm font-medium">
-              발송 월
+            <label htmlFor="from" className="mb-2 block text-sm font-medium">
+              시작일
             </label>
             <input
-              id="date"
-              type="month"
-              name="date"
-              defaultValue={dateParam}
+              id="from"
+              type="date"
+              name="from"
+              defaultValue={defaultFrom}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
+            />
+          </div>
+
+          {/* Date to */}
+          <div>
+            <label htmlFor="to" className="mb-2 block text-sm font-medium">
+              종료일 <span className="text-xs font-normal text-slate">(최대 30일)</span>
+            </label>
+            <input
+              id="to"
+              type="date"
+              name="to"
+              defaultValue={defaultTo}
               className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm"
             />
           </div>
@@ -297,6 +354,11 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
 
         <p className="mt-4 text-sm text-slate">
           {filteredTotal.toLocaleString("ko-KR")}건 조회됨
+          {sentAtFilter?.gte && sentAtFilter?.lte && (
+            <span className="ml-2 text-xs text-slate/70">
+              ({toDateStr(sentAtFilter.gte)} ~ {toDateStr(sentAtFilter.lte instanceof Date ? sentAtFilter.lte : new Date(sentAtFilter.lte))})
+            </span>
+          )}
         </p>
       </form>
 
@@ -313,7 +375,7 @@ export default async function NotificationHistoryPage({ searchParams }: PageProp
         <div className="mt-6 flex items-center justify-between rounded-[28px] border border-ink/10 bg-white px-6 py-4">
           <p className="text-sm text-slate">
             {page} / {totalPages} 페이지 &nbsp;·&nbsp;{" "}
-            {filteredTotal.toLocaleString("ko-KR")}건
+            {filteredTotal.toLocaleString("ko-KR")}건 &nbsp;·&nbsp; 페이지당 50건
           </p>
           <div className="flex gap-2">
             {page > 1 ? (

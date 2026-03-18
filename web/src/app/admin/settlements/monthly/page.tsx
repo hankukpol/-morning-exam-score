@@ -152,6 +152,13 @@ export default async function MonthlySettlementPage({
         >
           수납 대사 →
         </Link>
+        <Link
+          prefetch={false}
+          href={`/admin/reports/monthly/details?month=${monthStr}`}
+          className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-mist"
+        >
+          상세 분석 보고서 →
+        </Link>
       </div>
       <div className="mt-8">
         <MonthlySettlementView initialData={initialData} />

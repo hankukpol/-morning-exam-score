@@ -56,7 +56,7 @@ export default async function WeeklyReportPage() {
         </ul>
         <p className="mt-4 text-xs text-slate">
           보고서는 활성 기간 기준으로 생성됩니다. 기간 설정은{" "}
-          <Link href="/admin/settings/periods" className="text-ember underline hover:text-ember/80">
+          <Link href="/admin/periods" className="text-ember underline hover:text-ember/80">
             기간 설정
           </Link>{" "}
           페이지에서 확인하세요.

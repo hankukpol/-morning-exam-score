@@ -77,12 +77,13 @@ export default async function FacilitiesStudyRoomsPage() {
               (b) => b.roomId === room.id && b.status === "CONFIRMED",
             ).length;
             return (
-              <div
+              <Link
                 key={room.id}
-                className={`rounded-[20px] border px-4 py-3 text-sm ${
+                href={`/admin/facilities/study-rooms/${room.id}`}
+                className={`rounded-[20px] border px-4 py-3 text-sm transition hover:shadow-md ${
                   count > 0
-                    ? "border-ember/30 bg-ember/5"
-                    : "border-forest/20 bg-forest/5"
+                    ? "border-ember/30 bg-ember/5 hover:border-ember/50"
+                    : "border-forest/20 bg-forest/5 hover:border-forest/40"
                 }`}
               >
                 <p className="font-semibold text-ink">{room.name}</p>
@@ -94,7 +95,7 @@ export default async function FacilitiesStudyRoomsPage() {
                     <span className="text-forest">여유</span>
                   )}
                 </p>
-              </div>
+              </Link>
             );
           })}
         </div>
