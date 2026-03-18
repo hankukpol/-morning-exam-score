@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { ExamEventRow } from "./page";
 
@@ -33,12 +34,20 @@ export function ExternalExamManager({ initialEvents }: { initialEvents: ExamEven
                 <th className="px-6 py-3 text-xs font-medium text-slate">장소</th>
                 <th className="px-6 py-3 text-xs font-medium text-slate">응시 등록</th>
                 <th className="px-6 py-3 text-xs font-medium text-slate">상태</th>
+                <th className="px-6 py-3 text-xs font-medium text-slate"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/5">
               {events.map((e) => (
                 <tr key={e.id} className="hover:bg-mist/50">
-                  <td className="px-6 py-3 font-medium text-ink">{e.title}</td>
+                  <td className="px-6 py-3 font-medium text-ink">
+                    <Link
+                      href={`/admin/exams/external/${e.id}`}
+                      className="text-forest hover:underline"
+                    >
+                      {e.title}
+                    </Link>
+                  </td>
                   <td className="px-6 py-3 text-slate">
                     {new Date(e.examDate).toLocaleDateString("ko-KR")}
                   </td>
@@ -54,6 +63,14 @@ export function ExternalExamManager({ initialEvents }: { initialEvents: ExamEven
                     >
                       {e.isActive ? "활성" : "비활성"}
                     </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <Link
+                      href={`/admin/exams/external/${e.id}`}
+                      className="inline-flex items-center rounded-full border border-purple-200 px-3 py-1 text-xs font-semibold text-purple-700 transition hover:bg-purple-50"
+                    >
+                      상세보기
+                    </Link>
                   </td>
                 </tr>
               ))}

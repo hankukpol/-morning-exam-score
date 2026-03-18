@@ -6,6 +6,88 @@ import { getPrisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 /**
+ * POST /api/exams/morning/subscriptions
+ *
+ * 아침모의고사 수강생 등록
+ * Body: { periodId: number, examNumber?: string, examNumbers?: string[] }
+ */
+export async function POST(request: NextRequest) {
+  const auth = await requireApiAdmin(AdminRole.TEACHER);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  let body: { periodId?: unknown; examNumber?: unknown; examNumbers?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "잘못된 요청 형식입니다." }, { status: 400 });
+  }
+
+  const periodId = Number(body.periodId);
+  if (!periodId || Number.isNaN(periodId) || periodId <= 0) {
+    return NextResponse.json({ error: "유효한 periodId가 필요합니다." }, { status: 400 });
+  }
+
+  // Collect examNumbers from either single or batch field
+  let examNumbers: string[] = [];
+  if (Array.isArray(body.examNumbers)) {
+    examNumbers = (body.examNumbers as unknown[])
+      .map((n) => String(n).trim())
+      .filter(Boolean);
+  } else if (typeof body.examNumber === "string" && body.examNumber.trim()) {
+    examNumbers = [body.examNumber.trim()];
+  }
+
+  if (examNumbers.length === 0) {
+    return NextResponse.json({ error: "등록할 학번을 입력하세요." }, { status: 400 });
+  }
+
+  const prisma = getPrisma();
+
+  // Validate period exists
+  const period = await prisma.examPeriod.findUnique({ where: { id: periodId } });
+  if (!period) {
+    return NextResponse.json({ error: "존재하지 않는 시험 기간입니다." }, { status: 404 });
+  }
+
+  // Find students
+  const students = await prisma.student.findMany({
+    where: { examNumber: { in: examNumbers }, isActive: true },
+    select: { examNumber: true },
+  });
+
+  const foundNumbers = new Set(students.map((s) => s.examNumber));
+  const notFound = examNumbers.filter((n) => !foundNumbers.has(n));
+
+  // Check existing enrollments to count skipped
+  const existing = await prisma.periodEnrollment.findMany({
+    where: {
+      periodId,
+      examNumber: { in: Array.from(foundNumbers) },
+    },
+    select: { examNumber: true },
+  });
+  const alreadyEnrolled = new Set(existing.map((e) => e.examNumber));
+
+  const toEnroll = Array.from(foundNumbers).filter((n) => !alreadyEnrolled.has(n));
+  const skipped = alreadyEnrolled.size;
+
+  if (toEnroll.length > 0) {
+    await prisma.periodEnrollment.createMany({
+      data: toEnroll.map((examNumber) => ({ periodId, examNumber })),
+      skipDuplicates: true,
+    });
+  }
+
+  return NextResponse.json({
+    data: {
+      enrolled: toEnroll.length,
+      skipped,
+      notFound,
+    },
+  });
+}
+
+/**
  * GET /api/exams/morning/subscriptions
  *
  * 아침모의고사 수강생 목록 조회

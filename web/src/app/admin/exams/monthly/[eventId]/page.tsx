@@ -80,8 +80,16 @@ export default async function ExamEventDetailPage({ params }: PageProps) {
 
       {/* Header */}
       <div>
-        <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
-          월말평가 접수
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
+            월말평가 접수
+          </div>
+          <Link
+            href={`/admin/exams/monthly/${eventId}/scores`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            성적 입력
+          </Link>
         </div>
         <h1 className="mt-4 text-3xl font-semibold text-ink">{event.title}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-slate">

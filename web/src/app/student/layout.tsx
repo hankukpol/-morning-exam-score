@@ -6,6 +6,7 @@ import { StudentLogoutButton } from "@/components/student-portal/student-logout-
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
+import { getOrCreatePointBalance } from "@/lib/points/balance";
 
 export const metadata: Metadata = {
   title: {
@@ -16,11 +17,10 @@ export const metadata: Metadata = {
 
 async function getPointBalance(examNumber: string): Promise<number> {
   try {
-    const result = await getPrisma().pointLog.aggregate({
-      where: { examNumber },
-      _sum: { amount: true },
-    });
-    return result._sum.amount ?? 0;
+    // Try fast path: read from point_balances table, falling back to log aggregation
+    const row = await getPrisma().pointBalance.findUnique({ where: { examNumber } });
+    if (row) return row.balance;
+    return await getOrCreatePointBalance(examNumber);
   } catch {
     return 0;
   }

@@ -63,6 +63,7 @@ model Student {
   lectureAttendances         LectureAttendance[]
   paymentLinks               PaymentLink[]
   documentIssuances          DocumentIssuance[]
+  pointBalance               PointBalance?
 
   @@index([examType, isActive])
   @@index([examType, isActive, currentStatus])
@@ -385,6 +386,17 @@ model PointLog {
   @@map("point_logs")
 }
 
+model PointBalance {
+  id          String   @id @default(cuid())
+  examNumber  String   @unique
+  balance     Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  student     Student  @relation(fields: [examNumber], references: [examNumber])
+
+  @@map("point_balances")
+}
+
 model AdminUser {
   id        String    @id @db.Uuid
   email     String    @unique
@@ -592,6 +604,11 @@ enum PointType {
   SCORE_EXCELLENCE
   ESSAY_EXCELLENCE
   MANUAL
+  USE_PAYMENT
+  USE_RENTAL
+  ADJUST
+  EXPIRE
+  REFUND_CANCEL
 }
 
 enum ScoreSource {
@@ -1858,12 +1875,29 @@ model ExamRegistration {
   registeredAt  DateTime      @default(now())
   cancelledAt   DateTime?
 
-  examEvent ExamEvent @relation(fields: [examEventId], references: [id], onDelete: Cascade)
-  student   Student?  @relation(fields: [examNumber], references: [examNumber], onDelete: SetNull)
+  examEvent ExamEvent  @relation(fields: [examEventId], references: [id], onDelete: Cascade)
+  student   Student?   @relation(fields: [examNumber], references: [examNumber], onDelete: SetNull)
+  score     ExamScore?
 
   @@index([examEventId, division])
   @@index([examNumber])
   @@map("exam_registrations")
+}
+
+// 월말평가 성적 (ExamRegistration 1:1)
+model ExamScore {
+  id             String   @id @default(cuid())
+  registrationId String   @unique
+  score          Float    // 점수
+  rank           Int?     // 구분 내 순위 (자동 계산 후 저장)
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  registration ExamRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("exam_scores")
 }
 
 // ─── 강의 출결 관리 ────────────────────────────────────────────────────────────

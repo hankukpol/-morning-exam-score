@@ -211,6 +211,16 @@ export function MorningExamManager({ periods }: { periods: PeriodOption[] }) {
 
   return (
     <div className="space-y-6">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Link
+          href="/admin/exams/morning/enroll"
+          className="inline-flex items-center gap-1.5 rounded-full bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+        >
+          + 수강생 등록
+        </Link>
+      </div>
+
       {/* Period Selector */}
       <div className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-center gap-3">

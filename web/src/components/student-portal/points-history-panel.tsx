@@ -45,6 +45,11 @@ const POINT_TYPE_ICON: Record<PointType, string> = {
   SCORE_EXCELLENCE: "A",
   ESSAY_EXCELLENCE: "E",
   MANUAL: "M",
+  USE_PAYMENT: "-",
+  USE_RENTAL: "-",
+  ADJUST: "~",
+  EXPIRE: "x",
+  REFUND_CANCEL: "R",
 };
 
 const POINT_TYPE_COLOR: Record<PointType, string> = {
@@ -52,6 +57,11 @@ const POINT_TYPE_COLOR: Record<PointType, string> = {
   SCORE_EXCELLENCE: "border-forest/20 bg-forest/10 text-forest",
   ESSAY_EXCELLENCE: "border-blue-200 bg-blue-50 text-blue-700",
   MANUAL: "border-ember/20 bg-ember/10 text-ember",
+  USE_PAYMENT: "border-red-200 bg-red-50 text-red-700",
+  USE_RENTAL: "border-red-200 bg-red-50 text-red-700",
+  ADJUST: "border-slate/20 bg-slate/10 text-slate",
+  EXPIRE: "border-ink/20 bg-ink/5 text-slate",
+  REFUND_CANCEL: "border-purple-200 bg-purple-50 text-purple-700",
 };
 
 function MonthlyBarChart({ stats }: { stats: MonthlyStat[] }) {

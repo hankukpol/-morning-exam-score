@@ -21,6 +21,11 @@ const POINT_TYPE_LABEL: Record<PointType, string> = {
   SCORE_EXCELLENCE: "성적 우수",
   ESSAY_EXCELLENCE: "에세이 우수",
   MANUAL: "수동 지급",
+  USE_PAYMENT: "사용(수강료)",
+  USE_RENTAL: "사용(대여)",
+  ADJUST: "포인트 조정",
+  EXPIRE: "만료",
+  REFUND_CANCEL: "취소/환불",
 };
 
 const POINT_TYPE_COLOR: Record<PointType, string> = {
@@ -28,6 +33,11 @@ const POINT_TYPE_COLOR: Record<PointType, string> = {
   SCORE_EXCELLENCE: "border-blue-200 bg-blue-50 text-blue-700",
   ESSAY_EXCELLENCE: "border-purple-200 bg-purple-50 text-purple-700",
   MANUAL: "border-amber-200 bg-amber-50 text-amber-700",
+  USE_PAYMENT: "border-red-200 bg-red-50 text-red-700",
+  USE_RENTAL: "border-red-200 bg-red-50 text-red-700",
+  ADJUST: "border-slate/20 bg-slate/10 text-slate",
+  EXPIRE: "border-ink/20 bg-ink/5 text-slate",
+  REFUND_CANCEL: "border-purple-200 bg-purple-50 text-purple-700",
 };
 
 function formatDatetime(iso: string) {

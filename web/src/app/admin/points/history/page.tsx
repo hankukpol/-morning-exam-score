@@ -11,6 +11,11 @@ export const POINT_TYPE_LABEL: Record<PointType, string> = {
   SCORE_EXCELLENCE: "성적 우수",
   ESSAY_EXCELLENCE: "논술 우수",
   MANUAL: "수동 지급",
+  USE_PAYMENT: "사용(수강료)",
+  USE_RENTAL: "사용(대여)",
+  ADJUST: "포인트 조정",
+  EXPIRE: "만료",
+  REFUND_CANCEL: "취소/환불",
 };
 
 type PageProps = {

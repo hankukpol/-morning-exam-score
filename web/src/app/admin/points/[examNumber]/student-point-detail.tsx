@@ -27,6 +27,11 @@ const POINT_TYPE_COLOR: Record<PointType, string> = {
   SCORE_EXCELLENCE: "border-sky-200 bg-sky-50 text-sky-700",
   ESSAY_EXCELLENCE: "border-amber-200 bg-amber-50 text-amber-700",
   MANUAL: "border-ember/30 bg-ember/10 text-ember",
+  USE_PAYMENT: "border-red-200 bg-red-50 text-red-700",
+  USE_RENTAL: "border-red-200 bg-red-50 text-red-700",
+  ADJUST: "border-slate/20 bg-slate/10 text-slate",
+  EXPIRE: "border-ink/20 bg-ink/5 text-slate",
+  REFUND_CANCEL: "border-purple-200 bg-purple-50 text-purple-700",
 };
 
 export function StudentPointDetail({
