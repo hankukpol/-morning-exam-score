@@ -1,161 +1,122 @@
 import Link from "next/link";
-import { AdminRole } from "@prisma/client";
+import { AdminRole, ProspectStage } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { FollowUpActions } from "./follow-up-actions";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+type SearchParams = {
+  counselorId?: string | string[];
+  status?: string | string[];
+  days?: string | string[];
+};
+
+function readParam(sp: SearchParams, key: keyof SearchParams): string {
+  const v = sp[key];
+  if (!v) return "";
+  return Array.isArray(v) ? v[0] : v;
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+function diffDays(from: Date, to: Date): number {
+  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export default async function CounselingFollowUpsPage() {
+function formatRelative(date: Date, now: Date): string {
+  const d = diffDays(date, now);
+  if (d === 0) return "오늘";
+  if (d === 1) return "1일 전";
+  return `${d}일 전`;
+}
+
+const STAGE_LABELS: Record<ProspectStage, string> = {
+  INQUIRY: "문의",
+  VISITING: "내방상담",
+  DECIDING: "검토중",
+  REGISTERED: "등록완료",
+  DROPPED: "이탈",
+};
+
+const STAGE_BADGE_CLASS: Record<ProspectStage, string> = {
+  INQUIRY: "border-slate-200 bg-slate-50 text-slate-600",
+  VISITING: "border-blue-200 bg-blue-50 text-blue-700",
+  DECIDING: "border-amber-200 bg-amber-50 text-amber-700",
+  REGISTERED: "border-forest/20 bg-forest/10 text-forest",
+  DROPPED: "border-red-200 bg-red-50 text-red-600",
+};
+
+const NEXT_STAGE: Partial<Record<ProspectStage, ProspectStage>> = {
+  INQUIRY: "VISITING",
+  VISITING: "DECIDING",
+  DECIDING: "REGISTERED",
+};
+
+type PageProps = {
+  searchParams?: SearchParams;
+};
+
+export default async function CounselingFollowUpsPage({ searchParams }: PageProps) {
+  const sp = searchParams ?? {};
   await requireAdminContext(AdminRole.COUNSELOR);
 
+  const counselorId = readParam(sp, "counselorId");
+  const statusFilter = readParam(sp, "status");
+  const daysFilter = parseInt(readParam(sp, "days") || "0", 10);
+
   const prisma = getPrisma();
-
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
-  const weekEnd = new Date(now);
-  weekEnd.setDate(now.getDate() + 7);
-  weekEnd.setHours(23, 59, 59, 999);
 
-  // Records where nextSchedule is set and falls within today + 7 days (includes overdue)
-  const followUpRecords = await prisma.counselingRecord.findMany({
-    where: {
-      nextSchedule: {
-        not: null,
-        lte: weekEnd,
+  // Active stages only (not REGISTERED or DROPPED)
+  const activeStages: ProspectStage[] = ["INQUIRY", "VISITING", "DECIDING"];
+  const stageFilter: ProspectStage[] =
+    statusFilter && activeStages.includes(statusFilter as ProspectStage)
+      ? [statusFilter as ProspectStage]
+      : activeStages;
+
+  const cutoff =
+    daysFilter > 0
+      ? new Date(now.getTime() - daysFilter * 24 * 60 * 60 * 1000)
+      : null;
+
+  const [prospects, staffList] = await Promise.all([
+    prisma.consultationProspect.findMany({
+      where: {
+        stage: { in: stageFilter },
+        ...(counselorId ? { staffId: counselorId } : {}),
+        ...(cutoff ? { updatedAt: { lte: cutoff } } : {}),
       },
-    },
-    include: {
-      student: {
-        select: {
-          examNumber: true,
-          name: true,
-          phone: true,
-          examType: true,
-        },
+      orderBy: { updatedAt: "asc" }, // oldest first = needs most attention
+      include: {
+        staff: { select: { id: true, name: true } },
       },
-    },
-    orderBy: { nextSchedule: "asc" },
-  });
+    }),
+    prisma.adminUser.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  // Also include records with nextSchedule past 7 days if overdue (extra safety: already covered by lte weekEnd with no gte)
-  // Actually we need overdue too: get all with nextSchedule < todayStart that are NOT in followUpRecords
-  const overdueRecords = await prisma.counselingRecord.findMany({
-    where: {
-      nextSchedule: {
-        not: null,
-        lt: todayStart,
-      },
-    },
-    include: {
-      student: {
-        select: {
-          examNumber: true,
-          name: true,
-          phone: true,
-          examType: true,
-        },
-      },
-    },
-    orderBy: { nextSchedule: "asc" },
-  });
-
-  // Combine: overdue + within-7-days (from followUpRecords, which already includes today and next 7 days from now)
-  // followUpRecords has nextSchedule <= weekEnd (includes overdue before now as well if lte weekEnd includes past dates)
-  // Re-query cleanly: all records with nextSchedule set, split by category
-  const allFollowUpIds = new Set<number>();
-
-  type FollowUpRecord = {
-    id: number;
-    examNumber: string;
-    counselorName: string;
-    content: string;
-    counseledAt: Date;
-    nextSchedule: Date;
-    student: {
-      examNumber: string;
-      name: string;
-      phone: string | null;
-      examType: string;
-    };
-  };
-
-  // Build distinct lists
-  const overdueList: FollowUpRecord[] = [];
-  const todayList: FollowUpRecord[] = [];
-  const thisWeekList: FollowUpRecord[] = [];
-
-  // Process overdue (nextSchedule < todayStart)
-  for (const rec of overdueRecords) {
-    if (!rec.nextSchedule) continue;
-    if (allFollowUpIds.has(rec.id)) continue;
-    allFollowUpIds.add(rec.id);
-    overdueList.push({
-      id: rec.id,
-      examNumber: rec.examNumber,
-      counselorName: rec.counselorName,
-      content: rec.content,
-      counseledAt: rec.counseledAt,
-      nextSchedule: rec.nextSchedule,
-      student: rec.student,
-    });
-  }
-
-  // Process today and this-week
-  for (const rec of followUpRecords) {
-    if (!rec.nextSchedule) continue;
-    if (allFollowUpIds.has(rec.id)) continue;
-    allFollowUpIds.add(rec.id);
-    const entry: FollowUpRecord = {
-      id: rec.id,
-      examNumber: rec.examNumber,
-      counselorName: rec.counselorName,
-      content: rec.content,
-      counseledAt: rec.counseledAt,
-      nextSchedule: rec.nextSchedule,
-      student: rec.student,
-    };
-    if (isSameDay(rec.nextSchedule, now)) {
-      todayList.push(entry);
-    } else if (rec.nextSchedule >= todayStart) {
-      thisWeekList.push(entry);
-    }
-    // nextSchedule < todayStart already handled via overdueRecords
-  }
-
-  const totalCount = overdueList.length + todayList.length + thisWeekList.length;
+  // KPI calculations
+  const totalNeedingFollowUp = prospects.length;
+  const longContact7Days = prospects.filter(
+    (p) => diffDays(p.updatedAt, now) >= 7,
+  ).length;
+  const todayContact = prospects.filter(
+    (p) => diffDays(p.updatedAt, now) === 0,
+  ).length;
 
   return (
     <div className="p-8 sm:p-10">
       {/* Header */}
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
-        상담 관리
+        상담 팔로업
       </div>
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">후속 연락 대상</h1>
+          <h1 className="text-3xl font-semibold">상담 팔로업 현황</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate">
-            연락 예정 또는 기한이 지난 상담 내역을 확인합니다. 면담 기록의
-            &apos;다음 면담 예정일&apos;이 설정된 건을 기준으로 오늘 기준 7일
-            이내와 기한 초과 항목을 표시합니다.
+            문의·내방·검토 단계에 머물러 있는 예비 원생을 오래된 순으로 표시합니다.
+            등록 완료 또는 이탈 처리된 항목은 제외됩니다.
           </p>
         </div>
         <Link
@@ -170,256 +131,234 @@ export default async function CounselingFollowUpsPage() {
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
         <article
           className={`rounded-[28px] border p-6 ${
-            overdueList.length > 0
-              ? "border-red-200 bg-red-50"
-              : "border-ink/10 bg-white"
-          }`}
-        >
-          <p className="text-sm text-slate">기한 초과</p>
-          <p
-            className={`mt-3 text-3xl font-semibold ${
-              overdueList.length > 0 ? "text-red-600" : ""
-            }`}
-          >
-            {overdueList.length}
-            <span className="ml-1 text-base font-normal text-slate">건</span>
-          </p>
-          <p className="mt-2 text-xs text-slate">
-            예정일이 지났지만 아직 미완료
-          </p>
-        </article>
-
-        <article
-          className={`rounded-[28px] border p-6 ${
-            todayList.length > 0
+            totalNeedingFollowUp > 0
               ? "border-amber-200 bg-amber-50"
               : "border-ink/10 bg-white"
           }`}
         >
-          <p className="text-sm text-slate">오늘 연락 예정</p>
+          <p className="text-sm text-slate">팔로업 필요</p>
           <p
             className={`mt-3 text-3xl font-semibold ${
-              todayList.length > 0 ? "text-amber-700" : ""
+              totalNeedingFollowUp > 0 ? "text-amber-700" : ""
             }`}
           >
-            {todayList.length}
-            <span className="ml-1 text-base font-normal text-slate">건</span>
+            {totalNeedingFollowUp}
+            <span className="ml-1 text-base font-normal text-slate">명</span>
           </p>
-          <p className="mt-2 text-xs text-slate">오늘 연락 예정된 상담 건수</p>
+          <p className="mt-2 text-xs text-slate">등록·이탈 전 단계 전체</p>
         </article>
 
         <article className="rounded-[28px] border border-ink/10 bg-white p-6">
-          <p className="text-sm text-slate">이번 주 예정</p>
+          <p className="text-sm text-slate">오늘 연락 예정</p>
           <p className="mt-3 text-3xl font-semibold">
-            {thisWeekList.length}
-            <span className="ml-1 text-base font-normal text-slate">건</span>
+            {todayContact}
+            <span className="ml-1 text-base font-normal text-slate">명</span>
           </p>
-          <p className="mt-2 text-xs text-slate">7일 내 예정된 후속 연락</p>
+          <p className="mt-2 text-xs text-slate">오늘 업데이트된 항목 수</p>
+        </article>
+
+        <article
+          className={`rounded-[28px] border p-6 ${
+            longContact7Days > 0
+              ? "border-red-200 bg-red-50"
+              : "border-ink/10 bg-white"
+          }`}
+        >
+          <p className="text-sm text-slate">장기 미연락 (7일+)</p>
+          <p
+            className={`mt-3 text-3xl font-semibold ${
+              longContact7Days > 0 ? "text-red-600" : ""
+            }`}
+          >
+            {longContact7Days}
+            <span className="ml-1 text-base font-normal text-slate">명</span>
+          </p>
+          <p className="mt-2 text-xs text-slate">7일 이상 변동 없는 항목</p>
         </article>
       </section>
 
-      {totalCount === 0 ? (
+      {/* Filters */}
+      <form className="mt-6 flex flex-wrap items-end gap-4 rounded-[28px] border border-ink/10 bg-white p-5">
+        {/* Counselor filter */}
+        <div className="flex-1 min-w-[160px]">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate">
+            담당자
+          </label>
+          <select
+            name="counselorId"
+            defaultValue={counselorId}
+            className="w-full rounded-2xl border border-ink/10 bg-mist px-3 py-2 text-sm"
+          >
+            <option value="">전체</option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status filter */}
+        <div className="flex-1 min-w-[160px]">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate">
+            단계
+          </label>
+          <select
+            name="status"
+            defaultValue={statusFilter}
+            className="w-full rounded-2xl border border-ink/10 bg-mist px-3 py-2 text-sm"
+          >
+            <option value="">전체</option>
+            <option value="INQUIRY">문의</option>
+            <option value="VISITING">내방상담</option>
+            <option value="DECIDING">검토중</option>
+          </select>
+        </div>
+
+        {/* Days filter */}
+        <div className="flex-1 min-w-[160px]">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate">
+            미연락 기간
+          </label>
+          <select
+            name="days"
+            defaultValue={daysFilter > 0 ? String(daysFilter) : ""}
+            className="w-full rounded-2xl border border-ink/10 bg-mist px-3 py-2 text-sm"
+          >
+            <option value="">전체</option>
+            <option value="3">3일 이상</option>
+            <option value="7">7일 이상</option>
+            <option value="14">14일 이상</option>
+            <option value="30">30일 이상</option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          className="rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white transition hover:bg-forest"
+        >
+          필터 적용
+        </button>
+        <Link
+          href="/admin/counseling/follow-ups"
+          className="rounded-full border border-ink/10 px-5 py-2 text-sm font-semibold text-slate transition hover:border-ink/30"
+        >
+          초기화
+        </Link>
+      </form>
+
+      {/* List */}
+      {prospects.length === 0 ? (
         <div className="mt-10 rounded-[28px] border border-dashed border-ink/10 p-12 text-center text-sm text-slate">
-          후속 연락이 필요한 상담 기록이 없습니다.
+          팔로업이 필요한 상담 방문자가 없습니다.
         </div>
       ) : (
-        <div className="mt-10 space-y-10">
-          {/* Overdue section */}
-          {overdueList.length > 0 ? (
-            <section>
-              <div className="mb-4 flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-red-600">
-                  기한 초과
-                </h2>
-                <span className="rounded-full border border-red-200 bg-red-50 px-3 py-0.5 text-xs font-semibold text-red-600">
-                  {overdueList.length}건
-                </span>
-              </div>
-              <p className="mb-5 text-sm text-slate">
-                예정일이 지났지만 아직 후속 면담이 이루어지지 않은 건입니다.
-                빠르게 연락해 주세요.
-              </p>
-              <div className="space-y-3">
-                {overdueList.map((rec) => (
-                  <FollowUpCard
-                    key={rec.id}
-                    rec={rec}
-                    variant="overdue"
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+        <div className="mt-8 overflow-hidden rounded-[28px] border border-ink/10 bg-white">
+          {/* Table header */}
+          <div className="hidden border-b border-ink/10 bg-mist/60 px-6 py-3 sm:grid sm:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto] sm:gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">이름</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">단계</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">마지막 연락</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">담당자</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">연락처</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate">조치</span>
+          </div>
 
-          {/* Today section */}
-          {todayList.length > 0 ? (
-            <section>
-              <div className="mb-4 flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-amber-700">
-                  오늘 연락 예정
-                </h2>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-0.5 text-xs font-semibold text-amber-700">
-                  {todayList.length}건
-                </span>
-              </div>
-              <p className="mb-5 text-sm text-slate">
-                오늘 연락하기로 예정된 후속 상담 건입니다.
-              </p>
-              <div className="space-y-3">
-                {todayList.map((rec) => (
-                  <FollowUpCard
-                    key={rec.id}
-                    rec={rec}
-                    variant="today"
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <div className="divide-y divide-ink/10">
+            {prospects.map((p) => {
+              const daysSince = diffDays(p.updatedAt, now);
+              const isLong = daysSince >= 7;
+              const nextStage = NEXT_STAGE[p.stage];
 
-          {/* This week section */}
-          {thisWeekList.length > 0 ? (
-            <section>
-              <div className="mb-4 flex items-center gap-3">
-                <h2 className="text-xl font-semibold">이번 주 예정</h2>
-                <span className="rounded-full border border-ink/10 bg-mist px-3 py-0.5 text-xs font-semibold text-slate">
-                  {thisWeekList.length}건
-                </span>
-              </div>
-              <p className="mb-5 text-sm text-slate">
-                7일 이내 후속 연락이 예정된 상담 건입니다.
-              </p>
-              <div className="space-y-3">
-                {thisWeekList.map((rec) => (
-                  <FollowUpCard
-                    key={rec.id}
-                    rec={rec}
-                    variant="week"
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+              return (
+                <div
+                  key={p.id}
+                  className={`grid gap-4 px-6 py-4 transition sm:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto] sm:items-center ${
+                    isLong ? "bg-red-50/30" : ""
+                  }`}
+                >
+                  {/* Name */}
+                  <div>
+                    <p className="font-semibold text-ink">{p.name}</p>
+                    {p.note && (
+                      <p className="mt-0.5 truncate text-xs text-slate" title={p.note}>
+                        {p.note.length > 40 ? p.note.slice(0, 40) + "…" : p.note}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Stage badge */}
+                  <div>
+                    <span
+                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                        STAGE_BADGE_CLASS[p.stage]
+                      }`}
+                    >
+                      {STAGE_LABELS[p.stage]}
+                    </span>
+                  </div>
+
+                  {/* Last contact */}
+                  <div>
+                    <p
+                      className={`text-sm font-medium ${
+                        isLong ? "text-red-600" : "text-ink"
+                      }`}
+                    >
+                      {formatRelative(p.updatedAt, now)}
+                    </p>
+                    <p className="text-xs text-slate">
+                      {p.updatedAt.toLocaleDateString("ko-KR", {
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Counselor */}
+                  <div>
+                    {p.staff?.name ? (
+                      <p className="text-sm text-ink">{p.staff.name}</p>
+                    ) : (
+                      <p className="text-sm text-slate">-</p>
+                    )}
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    {p.phone ? (
+                      <p className="text-sm text-ink">{p.phone}</p>
+                    ) : (
+                      <p className="text-sm text-slate/50">없음</p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2">
+                    {nextStage && (
+                      <FollowUpActions
+                        prospectId={p.id}
+                        prospectName={p.name}
+                        currentStage={p.stage}
+                        nextStage={nextStage}
+                        nextStageLabel={STAGE_LABELS[nextStage]}
+                      />
+                    )}
+                    <FollowUpActions
+                      prospectId={p.id}
+                      prospectName={p.name}
+                      currentStage={p.stage}
+                      nextStage="DROPPED"
+                      nextStageLabel="이탈 처리"
+                      variant="danger"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Sub-component ──────────────────────────────────────────
-
-type FollowUpCardProps = {
-  rec: {
-    id: number;
-    examNumber: string;
-    counselorName: string;
-    content: string;
-    counseledAt: Date;
-    nextSchedule: Date;
-    student: {
-      examNumber: string;
-      name: string;
-      phone: string | null;
-      examType: string;
-    };
-  };
-  variant: "overdue" | "today" | "week";
-};
-
-function FollowUpCard({ rec, variant }: FollowUpCardProps) {
-  const borderClass =
-    variant === "overdue"
-      ? "border-red-200 bg-red-50/40 hover:border-red-400"
-      : variant === "today"
-        ? "border-amber-200 bg-amber-50/40 hover:border-amber-400"
-        : "border-ink/10 bg-white hover:border-ink/20";
-
-  const badgeClass =
-    variant === "overdue"
-      ? "border-red-200 bg-red-100 text-red-700"
-      : variant === "today"
-        ? "border-amber-200 bg-amber-100 text-amber-700"
-        : "border-ink/10 bg-mist text-slate";
-
-  const badgeLabel =
-    variant === "overdue"
-      ? "기한 초과"
-      : variant === "today"
-        ? "오늘 예정"
-        : "이번 주";
-
-  const snippet =
-    rec.content.length > 80 ? rec.content.slice(0, 80) + "..." : rec.content;
-
-  return (
-    <div
-      className={`rounded-[24px] border p-5 transition ${borderClass}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          {/* Top row: name, badge, phone */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/admin/students/${rec.student.examNumber}`}
-              className="text-base font-semibold text-ink transition hover:text-ember"
-            >
-              {rec.student.name}
-            </Link>
-            <span className="text-sm text-slate">
-              ({rec.student.examNumber})
-            </span>
-            <span
-              className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}
-            >
-              {badgeLabel}
-            </span>
-            {rec.student.phone ? (
-              <span className="text-sm text-slate">{rec.student.phone}</span>
-            ) : (
-              <span className="text-sm text-slate/50">연락처 없음</span>
-            )}
-          </div>
-
-          {/* Meta row */}
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate">
-            <span>
-              상담일:{" "}
-              <span className="font-medium text-ink">
-                {formatDate(rec.counseledAt)}
-              </span>
-            </span>
-            <span>
-              후속 예정:{" "}
-              <span
-                className={`font-semibold ${
-                  variant === "overdue"
-                    ? "text-red-600"
-                    : variant === "today"
-                      ? "text-amber-700"
-                      : "text-ink"
-                }`}
-              >
-                {formatDate(rec.nextSchedule)}
-              </span>
-            </span>
-            <span>
-              담당:{" "}
-              <span className="font-medium text-ink">{rec.counselorName}</span>
-            </span>
-          </div>
-
-          {/* Content snippet */}
-          <p className="mt-3 text-sm leading-6 text-slate">{snippet}</p>
-        </div>
-
-        {/* Action button */}
-        <Link
-          href={`/admin/counseling/${rec.id}`}
-          className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-ember/30 hover:text-ember"
-        >
-          상담 상세
-        </Link>
-      </div>
     </div>
   );
 }

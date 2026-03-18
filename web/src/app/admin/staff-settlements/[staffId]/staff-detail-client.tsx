@@ -57,11 +57,13 @@ function formatYearMonth(y: number, m: number) {
 // ─── Commission panel (shared across tabs) ───────────────────────────────────
 
 function CommissionPanel({
+  staffId,
   adminUserId,
   year,
   month,
   totalRevenue,
 }: {
+  staffId: string;
   adminUserId: string;
   year: number;
   month: number;
@@ -69,6 +71,7 @@ function CommissionPanel({
 }) {
   const [rateStr, setRateStr] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [csvDownloading, setCsvDownloading] = useState(false);
 
   const rate = rateStr === "" ? 0 : parseFloat(rateStr);
   const validRate = isNaN(rate) ? 0 : Math.max(0, Math.min(100, rate));
@@ -109,6 +112,36 @@ function CommissionPanel({
     }
   }
 
+  async function handleCsvDownload() {
+    setCsvDownloading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("month", `${year}-${String(month).padStart(2, "0")}`);
+      if (validRate > 0) {
+        params.set("rate", String(validRate));
+      }
+      const res = await fetch(
+        `/api/staff-settlements/${staffId}/export?${params.toString()}`
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error((json as { error?: string }).error ?? "CSV 다운로드에 실패했습니다.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `직원정산상세_${year}년${String(month).padStart(2, "0")}월.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setCsvDownloading(false);
+    }
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       {/* Commission rate input */}
@@ -129,6 +162,38 @@ function CommissionPanel({
           </span>
         )}
       </div>
+
+      {/* CSV export (per-staff detail) */}
+      <button
+        onClick={handleCsvDownload}
+        disabled={csvDownloading}
+        className="inline-flex items-center gap-2 rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-medium text-ember transition hover:bg-ember/20 disabled:opacity-50"
+      >
+        {csvDownloading ? (
+          <>
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-ember/40 border-t-ember" />
+            다운로드 중...
+          </>
+        ) : (
+          <>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            CSV 내보내기
+          </>
+        )}
+      </button>
 
       {/* Excel download */}
       <button
@@ -589,6 +654,7 @@ export function StaffDetailClient({
                 </span>
               </h2>
               <CommissionPanel
+                staffId={staffId}
                 adminUserId={adminUserId}
                 year={year}
                 month={month}
