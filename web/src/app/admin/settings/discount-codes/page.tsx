@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -84,7 +85,15 @@ export default async function DiscountCodesSettingsPage() {
       <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
         P1-12 할인코드
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">할인 코드 관리</h1>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-3xl font-semibold">할인 코드 관리</h1>
+        <Link
+          href="/admin/settings/discount-codes/analytics"
+          className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
+        >
+          사용 현황 분석 →
+        </Link>
+      </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         수강료 할인 코드를 생성하고 관리합니다. 비율(%) 또는 정액(원) 할인을 설정하고 유효 기간과 사용 횟수를 제한할 수 있습니다.
       </p>

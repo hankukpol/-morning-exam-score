@@ -47,7 +47,7 @@ export default async function ReportsPage() {
       </div>
       <h1 className="mt-5 text-3xl font-semibold">보고서 센터</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        수납 실적 및 수강 현황을 월별·연간 단위로 조회합니다.
+        수납 실적, 수강 현황, 출결 현황을 월별·연간·기간별로 조회합니다.
       </p>
 
       {/* Quick KPI */}
@@ -111,7 +111,7 @@ export default async function ReportsPage() {
 
         <Link
           href="/admin/reports/weekly"
-          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ink/30 hover:shadow-lg transition-all sm:col-span-2 lg:col-span-1"
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ink/30 hover:shadow-lg transition-all"
         >
           <div className="flex items-start justify-between">
             <div>
@@ -127,6 +127,44 @@ export default async function ReportsPage() {
           </div>
           <div className="mt-6 text-xs text-slate">Excel(.xlsx) 다운로드 →</div>
         </Link>
+
+        <Link
+          href="/admin/reports/enrollment-status"
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-forest/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">수강생</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">수강생 현황 보고서</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                수강반별 활성·대기·휴원·수료·퇴원 인원 분포를 월별로 조회합니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-forest transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">반별 등록 현황 →</div>
+        </Link>
+
+        <Link
+          href="/admin/reports/attendance"
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ember/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">출결</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">출결 현황 보고서</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                시험 기간별 회차 출석·결시 현황과 출석률을 조회합니다. 80% 미만 회차를 자동으로 표시합니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-ember transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">기간별 출석률 분석 →</div>
+        </Link>
       </div>
 
       {/* Quick Navigation */}
@@ -138,6 +176,8 @@ export default async function ReportsPage() {
           <Link href="/admin/payments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수납 내역</Link>
           <Link href="/admin/enrollments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강 목록</Link>
           <Link href="/admin/staff-settlements" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">강사 정산</Link>
+          <Link href="/admin/reports/enrollment-status" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강생 현황</Link>
+          <Link href="/admin/reports/attendance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">출결 현황</Link>
         </div>
       </div>
     </div>

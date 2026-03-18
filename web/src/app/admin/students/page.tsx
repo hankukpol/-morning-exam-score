@@ -54,26 +54,48 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
       </div>
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <h1 className="text-3xl font-semibold">수강생 관리</h1>
-        <Link
-          href="/admin/students/bulk-archive"
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-slate shadow-sm transition hover:border-ember/30 hover:text-ember"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/students/bulk-operations"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ember/20 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember shadow-sm transition hover:bg-ember/20"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-            />
-          </svg>
-          일괄 비활성화
-        </Link>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+              />
+            </svg>
+            일괄 작업
+          </Link>
+          <Link
+            href="/admin/students/bulk-archive"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-slate shadow-sm transition hover:border-ember/30 hover:text-ember"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+              />
+            </svg>
+            일괄 비활성화
+          </Link>
+        </div>
       </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         공채와 경채 수강생을 구분해 조회하고, 개별 등록과 수정, 비활성화, 학생 상세 이력 조회를 이 화면에서 처리합니다.
