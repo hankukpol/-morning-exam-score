@@ -87,6 +87,19 @@ export default async function ScoreCorrectionsPage() {
                 const summary =
                   firstLine.length > 80 ? firstLine.slice(0, 80) + "…" : firstLine;
 
+                const statusLabel =
+                  memo.status === "DONE"
+                    ? "처리 완료"
+                    : memo.status === "IN_PROGRESS"
+                      ? "처리 중"
+                      : "검토 중";
+                const statusClass =
+                  memo.status === "DONE"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : memo.status === "IN_PROGRESS"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700";
+
                 return (
                   <tr key={memo.id} className="hover:bg-mist/40">
                     <td className="px-5 py-4 text-slate">{formatDate(memo.createdAt)}</td>
@@ -103,23 +116,38 @@ export default async function ScoreCorrectionsPage() {
                       )}
                     </td>
                     <td className="px-5 py-4 font-medium">{studentName}</td>
-                    <td className="px-5 py-4 text-slate">{summary}</td>
+                    <td className="px-5 py-4 text-slate">
+                      <Link
+                        href={`/admin/score-corrections/${memo.id}`}
+                        className="block hover:text-ink"
+                      >
+                        {summary}
+                      </Link>
+                    </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                        검토 중
+                      <span
+                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
+                      >
+                        {statusLabel}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      {examNumber ? (
+                      <div className="flex items-center justify-end gap-2">
                         <Link
-                          href={`/admin/scores/edit?examNumber=${encodeURIComponent(examNumber)}`}
-                          className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-3 py-1.5 text-xs font-semibold text-forest transition hover:bg-forest/10"
+                          href={`/admin/score-corrections/${memo.id}`}
+                          className="inline-flex items-center rounded-full border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist"
                         >
-                          수정
+                          상세
                         </Link>
-                      ) : (
-                        <span className="text-slate text-xs">-</span>
-                      )}
+                        {examNumber && (
+                          <Link
+                            href={`/admin/scores/edit?examNumber=${encodeURIComponent(examNumber)}`}
+                            className="inline-flex items-center rounded-full border border-forest/20 bg-forest/5 px-3 py-1.5 text-xs font-semibold text-forest transition hover:bg-forest/10"
+                          >
+                            수정
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

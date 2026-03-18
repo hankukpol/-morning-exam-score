@@ -14,6 +14,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { GraduateDetail } from "./page";
+import { GraduateEditForm } from "./graduate-edit-form";
 
 const PASS_TYPE_LABEL: Record<PassType, string> = {
   WRITTEN_PASS: "필기합격",
@@ -62,6 +63,7 @@ export function GraduateDetailClient({ detail }: Props) {
   );
   const [creatingType, setCreatingType] = useState<PassType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const activeSnapshot = detail.scoreSnapshots.find((s) => s.snapshotType === activeTab) ?? null;
   const existingTypes = new Set(detail.scoreSnapshots.map((s) => s.snapshotType));
@@ -104,9 +106,27 @@ export function GraduateDetailClient({ detail }: Props) {
 
   return (
     <div className="mt-8 space-y-6">
+      {/* 수정 폼 */}
+      {editOpen && (
+        <GraduateEditForm
+          detail={detail}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+
       {/* 기본 정보 카드 */}
       <div className="rounded-[28px] border border-ink/10 bg-white p-6">
-        <h2 className="text-base font-semibold mb-4">기본 정보</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold">기본 정보</h2>
+          {!editOpen && (
+            <button
+              onClick={() => setEditOpen(true)}
+              className="rounded-[16px] border border-ink/20 px-3 py-1.5 text-xs font-medium text-slate transition-colors hover:border-forest hover:text-forest"
+            >
+              수정
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <InfoItem
             label="학번"
