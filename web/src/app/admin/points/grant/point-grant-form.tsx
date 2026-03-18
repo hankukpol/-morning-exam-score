@@ -24,6 +24,13 @@ type SearchResult = {
   phone: string;
 };
 
+type PointPolicy = {
+  id: number;
+  name: string;
+  description: string | null;
+  defaultAmount: number;
+};
+
 // ───────────────────────────────────────────────────────────────────────
 // Helpers
 // ───────────────────────────────────────────────────────────────────────
@@ -164,6 +171,43 @@ export function PointGrantForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, startSubmit] = useTransition();
 
+  // Policy selector state
+  const [policies, setPolicies] = useState<PointPolicy[]>([]);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<number | "manual">("manual");
+  const [policiesLoaded, setPoliciesLoaded] = useState(false);
+
+  // Load active policies once
+  useEffect(() => {
+    async function loadPolicies() {
+      try {
+        const res = await fetch("/api/points/policies");
+        if (res.ok) {
+          const data = await res.json() as { policies: PointPolicy[] };
+          setPolicies((data.policies ?? []).filter((p: PointPolicy & { isActive?: boolean }) => p.isActive !== false));
+        }
+      } catch {
+        // silently ignore — policy selector is optional UX
+      } finally {
+        setPoliciesLoaded(true);
+      }
+    }
+    void loadPolicies();
+  }, []);
+
+  function handlePolicySelect(value: string) {
+    if (value === "manual") {
+      setSelectedPolicyId("manual");
+      return;
+    }
+    const id = Number(value);
+    const policy = policies.find((p) => p.id === id);
+    if (!policy) return;
+    setSelectedPolicyId(id);
+    setAmount(String(policy.defaultAmount));
+    setReason(policy.name + (policy.description ? ` — ${policy.description}` : ""));
+    setError(null);
+  }
+
   function handleStudentSelect(data: StudentData) {
     setStudentData(data);
     setAmount("");
@@ -176,6 +220,7 @@ export function PointGrantForm() {
     setAmount("");
     setReason("");
     setPeriodName("");
+    setSelectedPolicyId("manual");
     setError(null);
   }
 
@@ -300,6 +345,29 @@ export function PointGrantForm() {
             </div>
 
             <div className="space-y-4">
+              {/* 포인트 정책 선택 (지급 모드에서만 표시) */}
+              {mode === "grant" && policiesLoaded && policies.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-[#4B5563] mb-1">
+                    지급 정책 선택{" "}
+                    <span className="text-[#9CA3AF] font-normal">(선택하면 금액·사유 자동 입력)</span>
+                  </label>
+                  <select
+                    value={String(selectedPolicyId)}
+                    onChange={(e) => handlePolicySelect(e.target.value)}
+                    className="w-full border border-[#D1D5DB] rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C55A11]/40"
+                  >
+                    <option value="manual">직접 입력</option>
+                    {policies.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.name} — {p.defaultAmount.toLocaleString()}P
+                        {p.description ? ` (${p.description})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* 포인트 금액 */}
               <div>
                 <label className="block text-xs font-medium text-[#4B5563] mb-1">

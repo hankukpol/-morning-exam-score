@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
   const auth = await requireApiAdmin(AdminRole.MANAGER);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
-    const id = Number(params.id);
+    const { id: rawId } = await context.params;
+    const id = Number(rawId);
     if (isNaN(id)) return NextResponse.json({ error: "잘못된 ID" }, { status: 400 });
 
     const body = await request.json();
@@ -34,12 +37,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, context: RouteContext) {
   const auth = await requireApiAdmin(AdminRole.MANAGER);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
-    const id = Number(params.id);
+    const { id: rawId } = await context.params;
+    const id = Number(rawId);
     if (isNaN(id)) return NextResponse.json({ error: "잘못된 ID" }, { status: 400 });
 
     await getPrisma().pointPolicy.delete({ where: { id } });

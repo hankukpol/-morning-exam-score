@@ -1,6 +1,6 @@
-import { ExamType } from "@prisma/client";
+import { EnrollmentStatus, ExamType } from "@prisma/client";
 import { sanitizeAbsenceNoteDisplay } from "@/lib/absence-notes/system-note";
-import { ATTEND_TYPE_LABEL, EXAM_TYPE_LABEL, SCORE_SOURCE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { ATTEND_TYPE_LABEL, ENROLLMENT_STATUS_LABEL, EXAM_TYPE_LABEL, SCORE_SOURCE_LABEL, STUDENT_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate, formatFileDate } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { NON_PLACEHOLDER_STUDENT_FILTER } from "@/lib/students/placeholder";
@@ -134,6 +134,100 @@ export async function getStudentExportRows(filters: StudentExportFilters) {
       activeCourse: enrollmentMap.get(student.examNumber) ?? "",
       pointBalance: pointMap.get(student.examNumber) ?? 0,
     })),
+  };
+}
+
+// ----- 수강 등록 기반 학생 내보내기 -----
+
+export type EnrollmentStudentExportFilters = {
+  cohortId?: string;
+  enrollmentStatus?: EnrollmentStatus;
+  startDateFrom?: string; // YYYY-MM-DD
+  startDateTo?: string;   // YYYY-MM-DD
+};
+
+export async function getEnrollmentStudentExportRows(filters: EnrollmentStudentExportFilters) {
+  const prisma = getPrisma();
+
+  // 수강 등록 조회
+  const enrollments = await prisma.courseEnrollment.findMany({
+    where: {
+      cohortId: filters.cohortId ?? undefined,
+      status: filters.enrollmentStatus ?? undefined,
+      startDate: {
+        gte: filters.startDateFrom ? new Date(filters.startDateFrom) : undefined,
+        lte: filters.startDateTo ? new Date(filters.startDateTo + "T23:59:59") : undefined,
+      },
+      student: NON_PLACEHOLDER_STUDENT_FILTER,
+    },
+    orderBy: [{ createdAt: "desc" }],
+    include: {
+      student: {
+        select: {
+          examNumber: true,
+          name: true,
+          phone: true,
+          generation: true,
+          className: true,
+          examType: true,
+          studentType: true,
+          isActive: true,
+        },
+      },
+      cohort: {
+        select: { name: true },
+      },
+    },
+  });
+
+  // 납부액: 해당 수강 등록의 Payment(취소 제외) netAmount 합산
+  const enrollmentIds = enrollments.map((e) => e.id);
+  const paymentRows =
+    enrollmentIds.length > 0
+      ? await prisma.payment.groupBy({
+          by: ["enrollmentId"],
+          where: {
+            enrollmentId: { in: enrollmentIds },
+            status: { not: "CANCELLED" },
+          },
+          _sum: { netAmount: true },
+        })
+      : [];
+  const paidAmountMap = new Map<string, number>();
+  for (const row of paymentRows) {
+    if (row.enrollmentId) {
+      paidAmountMap.set(row.enrollmentId, row._sum.netAmount ?? 0);
+    }
+  }
+
+  return {
+    fileName: `수강등록명단_${formatFileDate()}`,
+    sheetName: "Enrollments",
+    rows: enrollments.map((e) => {
+      const paidAmount = paidAmountMap.get(e.id) ?? 0;
+      return {
+        examNumber: e.student.examNumber,
+        name: e.student.name,
+        phone: e.student.phone ?? "",
+        generation: e.student.generation ?? "",
+        className: e.student.className ?? "",
+        examType: EXAM_TYPE_LABEL[e.student.examType],
+        studentType: STUDENT_TYPE_LABEL[e.student.studentType],
+        isActive: e.student.isActive ? "활성" : "비활성",
+        cohortName: e.cohort?.name ?? "",
+        courseType: e.courseType,
+        enrollmentStatus: ENROLLMENT_STATUS_LABEL[e.status],
+        startDate: e.startDate ? formatDate(e.startDate) : "",
+        endDate: e.endDate ? formatDate(e.endDate) : "",
+        regularFee: e.regularFee,
+        discountAmount: e.discountAmount,
+        finalFee: e.finalFee,
+        paidAmount,
+        unpaidAmount: Math.max(0, e.finalFee - paidAmount),
+        waitlistOrder: e.waitlistOrder ?? "",
+        enrolledAt: formatDate(e.createdAt),
+      };
+    }),
   };
 }
 

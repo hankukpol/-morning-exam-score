@@ -1,4 +1,5 @@
 import { AdminRole } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { TextbookSalesManagerFull } from "./textbook-sales-manager";
@@ -21,6 +22,18 @@ export type TextbookWithStats = {
   totalSaleAmount: number;
 };
 
+export type RecentSaleRow = {
+  id: number;
+  soldAt: string;
+  textbookId: number;
+  textbookTitle: string;
+  examNumber: string | null;
+  staffName: string;
+  quantity: number;
+  totalPrice: number;
+  note: string | null;
+};
+
 export default async function TextbookSalesPage() {
   await requireAdminContext(AdminRole.COUNSELOR);
 
@@ -29,7 +42,7 @@ export default async function TextbookSalesPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  const [textbooks, monthlySales, allTimeSales] = await prisma.$transaction([
+  const [textbooks, monthlySales, allTimeSales, recentSalesRaw] = await prisma.$transaction([
     prisma.textbook.findMany({
       orderBy: [{ subject: "asc" }, { title: "asc" }],
     }),
@@ -44,6 +57,14 @@ export default async function TextbookSalesPage() {
       by: ["textbookId"],
       _sum: { quantity: true, totalPrice: true },
       orderBy: { textbookId: "asc" },
+    }),
+    prisma.textbookSale.findMany({
+      orderBy: { soldAt: "desc" },
+      take: 20,
+      include: {
+        textbook: { select: { title: true } },
+        staff: { select: { name: true } },
+      },
     }),
   ]);
 
@@ -97,15 +118,38 @@ export default async function TextbookSalesPage() {
 
   const yearLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
 
+  const recentSales: RecentSaleRow[] = recentSalesRaw.map((s) => ({
+    id: s.id,
+    soldAt: s.soldAt.toISOString(),
+    textbookId: s.textbookId,
+    textbookTitle: s.textbook.title,
+    examNumber: s.examNumber,
+    staffName: s.staff.name,
+    quantity: s.quantity,
+    totalPrice: s.totalPrice,
+    note: s.note,
+  }));
+
   return (
     <div className="p-8 sm:p-10">
-      <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
-        교재 판매 관리
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
+            교재 판매 관리
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold text-ink">교재 판매 현황</h1>
+          <p className="mt-2 text-sm text-slate">
+            교재 재고·판매 통계를 확인하고 현장 판매를 등록합니다.
+          </p>
+        </div>
+        <Link
+          href="/admin/settings/textbooks"
+          className="mt-1 flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-4 py-2 text-xs font-medium text-slate transition hover:border-ink/30 hover:text-ink"
+        >
+          교재 등록·관리 →
+        </Link>
       </div>
-      <h1 className="mt-4 text-3xl font-semibold text-ink">교재 판매 현황</h1>
-      <p className="mt-2 text-sm text-slate">
-        교재 재고·판매 통계를 확인하고 현장 판매를 등록합니다.
-      </p>
 
       {/* KPI Cards */}
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -140,6 +184,7 @@ export default async function TextbookSalesPage() {
         <TextbookSalesManagerFull
           textbooks={textbooksWithStats}
           yearLabel={yearLabel}
+          recentSales={recentSales}
         />
       </div>
     </div>

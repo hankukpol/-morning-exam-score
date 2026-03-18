@@ -3,16 +3,23 @@ import { ExportPanel } from "@/components/export/export-panel";
 import { WeeklyReportGeneratePanel } from "@/components/export/weekly-report-archive-panel";
 import { PaymentExportPanel } from "@/components/export/payment-export-panel";
 import { AttendanceExportPanel } from "@/components/export/attendance-export-panel";
+import { StudentEnrollmentExportPanel } from "@/components/export/student-enrollment-export-panel";
 import { requireAdminContext } from "@/lib/auth";
 import { getActiveWeeklyReportSurfaceState } from "@/lib/export/weekly-report-archive";
 import { listPeriods } from "@/lib/periods/service";
+import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminExportPage() {
-  const [context, periods] = await Promise.all([
+  const prisma = getPrisma();
+  const [context, periods, cohorts] = await Promise.all([
     requireAdminContext(AdminRole.VIEWER),
     listPeriods(),
+    prisma.cohort.findMany({
+      orderBy: [{ startDate: "desc" }],
+      select: { id: true, name: true },
+    }),
   ]);
   const canGenerateWeeklyReport = context.adminUser.role !== AdminRole.VIEWER;
   const weeklyReportSurface = canGenerateWeeklyReport
@@ -40,6 +47,7 @@ export default async function AdminExportPage() {
             isActive: period.isActive,
           }))}
         />
+        <StudentEnrollmentExportPanel cohorts={cohorts} />
         <PaymentExportPanel />
         <AttendanceExportPanel />
       </div>

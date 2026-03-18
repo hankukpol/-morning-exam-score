@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ActionModal } from "@/components/ui/action-modal";
-import { type TextbookWithStats } from "./page";
+import { type TextbookWithStats, type RecentSaleRow } from "./page";
 
 export const SUBJECT_LABELS: Record<string, string> = {
   CONSTITUTIONAL_LAW: "헌법",
@@ -37,9 +37,18 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+const PAYMENT_NOTE_PATTERN = /결제:\s*(현금|카드|계좌이체|포인트)/;
+
+function extractPaymentMethod(note: string | null): string {
+  if (!note) return "현금";
+  const match = note.match(PAYMENT_NOTE_PATTERN);
+  return match ? match[1] : "현금";
+}
+
 type Props = {
   textbooks: TextbookWithStats[];
   yearLabel: string;
+  recentSales: RecentSaleRow[];
 };
 
 type ActiveFilter = "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK";
@@ -51,7 +60,7 @@ const PAYMENT_METHOD_LABELS = {
   POINT: "포인트",
 };
 
-export function TextbookSalesManagerFull({ textbooks, yearLabel }: Props) {
+export function TextbookSalesManagerFull({ textbooks, yearLabel, recentSales }: Props) {
   const [localTextbooks, setLocalTextbooks] = useState<TextbookWithStats[]>(textbooks);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("ALL");
   const [sellModalOpen, setSellModalOpen] = useState<boolean>(false);
@@ -558,6 +567,101 @@ export function TextbookSalesManagerFull({ textbooks, yearLabel }: Props) {
           </div>
         </div>
       </ActionModal>
+
+      {/* Recent Sales Section */}
+      <div className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-ink">최근 판매 내역 (20건)</h2>
+        </div>
+        <div className="overflow-hidden rounded-[28px] border border-ink/10 bg-white">
+          <table className="min-w-full divide-y divide-ink/8 text-sm">
+            <thead>
+              <tr className="bg-mist/50">
+                {["판매 일시", "교재명", "수험번호", "수량", "금액", "결제", "처리자"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink/8">
+              {recentSales.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-sm text-slate">
+                    판매 내역이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                recentSales.map((s) => {
+                  const paymentMethod = extractPaymentMethod(s.note);
+                  const soldDate = new Date(s.soldAt);
+                  return (
+                    <tr key={s.id} className="transition hover:bg-mist/30">
+                      <td className="px-4 py-3 tabular-nums text-slate">
+                        <div>
+                          {soldDate.toLocaleDateString("ko-KR", {
+                            month: "2-digit",
+                            day: "2-digit",
+                          })}
+                        </div>
+                        <div className="text-xs text-slate/70">
+                          {soldDate.toLocaleTimeString("ko-KR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/textbooks/${s.textbookId}/sales`}
+                          className="font-medium text-ink hover:text-ember hover:underline"
+                        >
+                          {s.textbookTitle}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        {s.examNumber ? (
+                          <Link
+                            href={`/admin/students/${s.examNumber}`}
+                            className="font-medium text-ember hover:underline"
+                          >
+                            {s.examNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-slate">외부 구매</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-ink">{s.quantity}권</td>
+                      <td className="px-4 py-3 tabular-nums font-semibold text-ink">
+                        {s.totalPrice.toLocaleString()}원
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            paymentMethod === "현금"
+                              ? "bg-amber-50 text-amber-700"
+                              : paymentMethod === "카드"
+                              ? "bg-sky-50 text-sky-700"
+                              : paymentMethod === "계좌이체"
+                              ? "bg-forest/10 text-forest"
+                              : "bg-purple-50 text-purple-700"
+                          }`}
+                        >
+                          {paymentMethod}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate">{s.staffName}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Stock Adjust Modal */}
       <ActionModal

@@ -107,7 +107,13 @@ export default async function SeatingPage({ params }: PageProps) {
           <p className="text-2xl font-bold text-forest">{total}</p>
           <p className="text-xs text-slate-500 mt-1">배정됨</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <Link
+            href={`/admin/classrooms/${id}/seating/heatmap`}
+            className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+          >
+            출석 현황
+          </Link>
           <PrintSeatingButton />
         </div>
       </div>

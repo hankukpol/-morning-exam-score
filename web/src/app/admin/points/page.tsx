@@ -120,6 +120,12 @@ export default async function AdminPointsPage() {
           >
             포인트 직접 관리
           </Link>
+          <Link
+            href="/admin/points/policies"
+            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-mist"
+          >
+            지급 정책
+          </Link>
         </div>
       </div>
 
