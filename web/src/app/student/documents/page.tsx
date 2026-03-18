@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CourseType, EnrollmentStatus, PaymentStatus } from "@prisma/client";
+import { CourseType, DocumentType, EnrollmentStatus, PaymentStatus } from "@prisma/client";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
@@ -105,6 +105,14 @@ const ENROLLMENT_STATUS_COLOR: Record<EnrollmentStatus, string> = {
 const COURSE_TYPE_LABEL: Record<CourseType, string> = {
   COMPREHENSIVE: "종합반",
   SPECIAL_LECTURE: "특강",
+};
+
+const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
+  ENROLLMENT_CERT: "수강확인서",
+  TAX_CERT: "교육비 납입증명서",
+  SCORE_REPORT: "성적증명서",
+  ATTENDANCE_CERT: "출석확인서",
+  CUSTOM: "기타 서류",
 };
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
@@ -347,6 +355,22 @@ export default async function StudentDocumentsPage({ searchParams }: PageProps) 
   const academyPhone = academySettings?.phone || "053-241-0112";
   const directorName = academySettings?.directorName || "";
   const businessRegNo = academySettings?.businessRegNo || "";
+
+  // 서류 발급 이력 조회
+  const documentIssuances = await prisma.documentIssuance.findMany({
+    where: { examNumber: viewer.examNumber },
+    orderBy: { issuedAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      docType: true,
+      note: true,
+      issuedAt: true,
+      issuedByUser: {
+        select: { name: true },
+      },
+    },
+  });
 
   // 수강명 계산 헬퍼
   function getCourseName(
@@ -1075,6 +1099,64 @@ export default async function StudentDocumentsPage({ searchParams }: PageProps) 
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* ── 서류 발급 이력 ── */}
+          <section className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm sm:p-8 no-print">
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+                Issuance History
+              </p>
+              <h2 className="mt-1 text-xl font-semibold">서류 발급 이력</h2>
+              <p className="mt-1 text-sm text-slate">
+                관리자가 발급한 서류 이력을 확인할 수 있습니다.
+              </p>
+            </div>
+
+            {documentIssuances.length === 0 ? (
+              <div className="rounded-[16px] border border-dashed border-ink/10 px-4 py-8 text-center">
+                <p className="text-sm text-slate">발급된 서류 이력이 없습니다.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-[20px] border border-ink/10">
+                <table className="min-w-full divide-y divide-ink/10 text-sm">
+                  <thead className="bg-mist/80 text-left">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-slate">서류 종류</th>
+                      <th className="px-4 py-3 font-semibold text-slate">발급일</th>
+                      <th className="px-4 py-3 font-semibold text-slate">발급 담당자</th>
+                      <th className="px-4 py-3 font-semibold text-slate">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/10">
+                    {documentIssuances.map((item) => {
+                      const y = item.issuedAt.getFullYear();
+                      const m = String(item.issuedAt.getMonth() + 1).padStart(2, "0");
+                      const d = String(item.issuedAt.getDate()).padStart(2, "0");
+                      const issuedDateStr = `${y}.${m}.${d}`;
+                      return (
+                        <tr key={item.id} className="hover:bg-mist/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
+                              {DOCUMENT_TYPE_LABEL[item.docType] ?? item.docType}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate">
+                            {issuedDateStr}
+                          </td>
+                          <td className="px-4 py-3 text-slate">
+                            {item.issuedByUser.name}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate">
+                            {item.note ?? "-"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {/* 안내 */}
