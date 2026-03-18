@@ -54,11 +54,19 @@ export default async function RefundsPendingPage() {
             승인 대기 중인 환불 요청을 검토하고 승인 또는 거절하세요.
           </p>
         </div>
-        {serialized.length > 0 ? (
-          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-            {serialized.length}건 대기 중
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {serialized.length > 0 ? (
+            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+              {serialized.length}건 대기 중
+            </span>
+          ) : null}
+          <a
+            href="/admin/payments/refund-calculator"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ember/20 bg-ember/5 px-4 py-1.5 text-xs font-semibold text-ember transition hover:bg-ember/10"
+          >
+            환불 계산기 →
+          </a>
+        </div>
       </div>
 
       <div className="mt-8">

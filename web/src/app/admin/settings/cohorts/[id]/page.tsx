@@ -120,6 +120,12 @@ export default async function CohortDetailPage({ params, searchParams }: PagePro
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Link
+            href={`/admin/settings/cohorts/${cohort.id}/analytics`}
+            className="inline-flex items-center gap-1.5 rounded-[20px] border border-forest/30 bg-forest/5 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/10"
+          >
+            통계 분석
+          </Link>
+          <Link
             href={`/admin/settings/cohorts/${cohort.id}/enrollments`}
             className="inline-flex items-center gap-1.5 rounded-[20px] border border-ink/20 px-4 py-2 text-sm text-slate transition hover:border-ink/40"
           >
