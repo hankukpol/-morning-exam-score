@@ -1,4 +1,5 @@
 import { AdminRole } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { BookingManager } from "../../study-rooms/booking-manager";
@@ -45,10 +46,20 @@ export default async function FacilitiesStudyRoomsPage() {
       <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-800">
         시설 관리
       </div>
-      <h1 className="mt-5 text-3xl font-semibold text-ink">스터디룸 예약</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        날짜별 스터디룸 예약 현황을 확인하고 직원이 직접 배정합니다.
-      </p>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold text-ink">스터디룸 예약</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+            날짜별 스터디룸 예약 현황을 확인하고 직원이 직접 배정합니다.
+          </p>
+        </div>
+        <Link
+          href="/admin/facilities/study-rooms/calendar"
+          className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-100"
+        >
+          주간 캘린더
+        </Link>
+      </div>
 
       {/* KPI cards */}
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">

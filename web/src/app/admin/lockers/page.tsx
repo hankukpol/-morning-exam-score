@@ -82,6 +82,12 @@ export default async function LockersPage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
+            href="/admin/lockers/analytics"
+            className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-100"
+          >
+            분석
+          </Link>
+          <Link
             href="/admin/lockers/expiring"
             className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
           >
