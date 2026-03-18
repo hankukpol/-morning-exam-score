@@ -86,11 +86,16 @@ function enrollmentLabel(e: EnrollmentOption): string {
 
 const SUPPORTED_CATEGORIES: PaymentCategory[] = [
   "TUITION",
+  "SINGLE_COURSE",
   "TEXTBOOK",
   "FACILITY",
   "MATERIAL",
   "ETC",
 ];
+
+const CATEGORY_LABEL_OVERRIDE: Partial<Record<PaymentCategory, string>> = {
+  SINGLE_COURSE: "단과",
+};
 
 const SUPPORTED_METHODS: Array<{ value: PaymentMethod; label: string; disabled?: boolean }> = [
   { value: "CASH", label: "현금" },
@@ -277,7 +282,7 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
         amount: l.price * l.quantity,
       }));
     }
-    // FACILITY / MATERIAL / ETC: single item
+    // SINGLE_COURSE / FACILITY / MATERIAL / ETC: single item
     return [
       {
         itemType: category,
@@ -451,7 +456,7 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
               }`}
             >
               <span className="text-xl">{CATEGORY_ICONS[cat]}</span>
-              <span>{PAYMENT_CATEGORY_LABEL[cat]}</span>
+              <span>{CATEGORY_LABEL_OVERRIDE[cat] ?? PAYMENT_CATEGORY_LABEL[cat]}</span>
             </button>
           ))}
         </div>
@@ -568,8 +573,8 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
           </div>
         )}
 
-        {/* FACILITY / MATERIAL / ETC: free amount */}
-        {(category === "FACILITY" || category === "MATERIAL" || category === "ETC") && (
+        {/* SINGLE_COURSE / FACILITY / MATERIAL / ETC: free amount */}
+        {(category === "SINGLE_COURSE" || category === "FACILITY" || category === "MATERIAL" || category === "ETC") && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-ink">금액 입력</label>
             <input

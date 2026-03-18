@@ -36,6 +36,7 @@ import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 import { ConsentToggle } from "./consent-toggle";
 import { SuspendButton } from "./suspend-button";
+import { ToggleActiveButton } from "./toggle-active-button";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 import { WrongNotesAdminView } from "./wrong-notes-admin-view";
 
@@ -409,6 +410,9 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           </Link>
           {canManageSuspension && (
             <SuspendButton examNumber={params.examNumber} suspendStatus={suspendStatus} />
+          )}
+          {canManageSuspension && (
+            <ToggleActiveButton examNumber={params.examNumber} isActive={student.isActive} />
           )}
         </div>
       </div>

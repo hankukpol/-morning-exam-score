@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type TodoItem = {
   id: string;
-  type: "OVERDUE_INSTALLMENT" | "PENDING_REFUND" | "DUE_MEMO";
+  type: "OVERDUE_INSTALLMENT" | "PENDING_REFUND" | "DUE_MEMO" | "EXPIRING_ENROLLMENT";
   label: string;
   subLabel: string;
   urgency: "high" | "medium" | "low";
@@ -20,6 +20,7 @@ type TodosResponse = {
       overdueInstallments: number;
       pendingRefunds: number;
       dueMemos: number;
+      expiringEnrollments: number;
     };
   };
 };
@@ -37,12 +38,17 @@ const TYPE_STYLE: Record<TodoItem["type"], { icon: string; badge: string }> = {
     icon: "📌",
     badge: "border-sky-200 bg-sky-50 text-sky-700",
   },
+  EXPIRING_ENROLLMENT: {
+    icon: "🕐",
+    badge: "border-orange-200 bg-orange-50 text-orange-700",
+  },
 };
 
 const TYPE_LABEL: Record<TodoItem["type"], string> = {
   OVERDUE_INSTALLMENT: "미납",
   PENDING_REFUND: "환불 대기",
   DUE_MEMO: "메모 마감",
+  EXPIRING_ENROLLMENT: "만료 임박",
 };
 
 export function TodayTodosPanel() {
@@ -72,7 +78,7 @@ export function TodayTodosPanel() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-ink">오늘의 할 일</h2>
-          <p className="mt-1 text-xs text-slate">미납 마감 · 환불 대기 · 메모 마감 자동 집계</p>
+          <p className="mt-1 text-xs text-slate">미납 마감 · 환불 대기 · 메모 마감 · 만료 임박 자동 집계</p>
         </div>
         <Link
           href="/admin/memos"

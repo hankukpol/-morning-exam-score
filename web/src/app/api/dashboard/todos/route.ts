@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
-import { AdminRole } from "@prisma/client";
+import { AdminRole, EnrollmentStatus } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +18,9 @@ export async function GET() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
   const in3Days = new Date(todayStart.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  const [overdueInstallments, pendingRefunds, dueMemos] = await Promise.all([
+  const [overdueInstallments, pendingRefunds, dueMemos, expiringEnrollments] = await Promise.all([
     // 오늘 마감 분할납부 미납 건
     prisma.installment.findMany({
       where: {
@@ -62,11 +63,30 @@ export async function GET() {
       orderBy: { dueAt: "asc" },
       take: 10,
     }),
+
+    // 7일 이내 만료 예정 수강 (ACTIVE 상태)
+    prisma.courseEnrollment.findMany({
+      where: {
+        status: EnrollmentStatus.ACTIVE,
+        endDate: {
+          lte: in7Days,
+          gte: new Date(),
+        },
+      },
+      select: {
+        id: true,
+        endDate: true,
+        student: { select: { name: true, examNumber: true } },
+        cohort: { select: { name: true } },
+      },
+      orderBy: { endDate: "asc" },
+      take: 10,
+    }),
   ]);
 
   type TodoItem = {
     id: string;
-    type: "OVERDUE_INSTALLMENT" | "PENDING_REFUND" | "DUE_MEMO";
+    type: "OVERDUE_INSTALLMENT" | "PENDING_REFUND" | "DUE_MEMO" | "EXPIRING_ENROLLMENT";
     label: string;
     subLabel: string;
     urgency: "high" | "medium" | "low";
@@ -119,6 +139,24 @@ export async function GET() {
     });
   }
 
+  for (const enroll of expiringEnrollments) {
+    const studentName = enroll.student.name;
+    const examNumber = enroll.student.examNumber;
+    const cohortName = enroll.cohort?.name ?? "";
+    const endText = enroll.endDate
+      ? new Date(enroll.endDate).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })
+      : "";
+    todos.push({
+      id: `expiring-${enroll.id}`,
+      type: "EXPIRING_ENROLLMENT",
+      label: `${studentName} 수강 만료 예정`,
+      subLabel: cohortName ? `${cohortName} / 만료일: ${endText} / ${examNumber}` : `만료일: ${endText} / ${examNumber}`,
+      urgency: "medium",
+      href: `/admin/enrollments/${enroll.id}`,
+      dueDate: enroll.endDate?.toISOString(),
+    });
+  }
+
   return NextResponse.json({
     data: {
       todos,
@@ -126,6 +164,7 @@ export async function GET() {
         overdueInstallments: overdueInstallments.length,
         pendingRefunds: pendingRefunds.length,
         dueMemos: dueMemos.length,
+        expiringEnrollments: expiringEnrollments.length,
       },
     },
   });
