@@ -13,6 +13,7 @@ import {
 import { formatDateTime, todayDateInputValue } from "@/lib/format";
 import { FilterPresetBar } from "@/components/ui/filter-preset-bar";
 import { useFilterPresets } from "@/hooks/use-filter-presets";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export type PaymentItemSnapshot = {
   id: string;
@@ -312,8 +313,12 @@ export function PaymentList({ initialPayments }: Props) {
             <tbody className={`divide-y divide-ink/10 ${loading ? "opacity-60" : ""}`}>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-10 text-center text-sm text-slate">
-                    수납 내역이 없습니다.
+                  <td colSpan={11}>
+                    <EmptyState
+                      title="수납 내역이 없습니다."
+                      description="조회 조건을 변경하거나 새 수납을 등록해보세요."
+                      action={{ label: "수납 등록", href: "/admin/payments/new" }}
+                    />
                   </td>
                 </tr>
               ) : null}

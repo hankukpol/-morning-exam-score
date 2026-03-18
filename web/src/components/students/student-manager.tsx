@@ -17,6 +17,7 @@ import {
   STUDENT_TYPE_VALUES,
 } from "@/lib/constants";
 import { toDateInputValue, todayDateInputValue } from "@/lib/format";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type StudentRow = {
   examNumber: string;
@@ -1039,8 +1040,11 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
               })}
               {filters.totalCount === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate">
-                    조건에 맞는 수강생이 없습니다.
+                  <td colSpan={11}>
+                    <EmptyState
+                      title="등록된 수강생이 없습니다."
+                      description="검색 조건을 변경하거나 새 학생을 등록해보세요."
+                    />
                   </td>
                 </tr>
               ) : null}

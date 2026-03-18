@@ -15,6 +15,7 @@ import {
 import { formatDate } from "@/lib/format";
 import { FilterPresetBar } from "@/components/ui/filter-preset-bar";
 import { useFilterPresets } from "@/hooks/use-filter-presets";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export type EnrollmentWithRelations = {
   id: string;
@@ -515,8 +516,12 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
             <tbody className="divide-y divide-ink/10">
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={canBulkComplete ? 10 : 9} className="px-4 py-10 text-center text-sm text-slate">
-                    조건에 맞는 수강 내역이 없습니다.
+                  <td colSpan={canBulkComplete ? 10 : 9}>
+                    <EmptyState
+                      title="수강 내역이 없습니다."
+                      description="조회 조건을 변경하거나 새 수강을 등록해보세요."
+                      action={{ label: "수강 등록", href: "/admin/enrollments/new" }}
+                    />
                   </td>
                 </tr>
               ) : null}

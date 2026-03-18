@@ -271,30 +271,57 @@ table tbody tr:hover td {
   }
 }
 
+/* ─── Print styles ──────────────────────────────────────────────────────────── */
 @media print {
+  /* Hide non-essential UI elements */
   aside,
   nav,
+  [data-sidebar],
   .no-print,
   button:not(.print-show),
   .pagination-controls,
-  [data-sidebar],
+  [class*="TopLoader"],
+  [role="navigation"],
   header:not(.print-header) {
     display: none !important;
   }
 
-  html,
+  /* Reset page layout */
   body {
+    background: white !important;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  html {
     background: white !important;
   }
 
   main {
-    margin: 0 !important;
     padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
     background: white !important;
   }
 
+  /* Remove shadows and decorative borders */
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Cards: keep borders, remove shadow/rounded */
+  [class*="rounded"] {
+    border-radius: 0 !important;
+  }
+
+  /* Table print optimization */
   table {
     page-break-inside: auto;
+    width: 100%;
+    border-collapse: collapse;
   }
 
   tr {
@@ -303,22 +330,55 @@ table tbody tr:hover td {
   }
 
   thead {
-    display: table-header-group;
+    display: table-header-group; /* Repeat header on every page */
   }
 
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  tfoot {
+    display: table-footer-group;
   }
 
+  th, td {
+    padding: 4pt 6pt !important;
+    font-size: 9pt !important;
+  }
+
+  /* Ensure text colors print correctly */
+  .text-forest, [class*="text-forest"] { color: #1F4D3A !important; }
+  .text-ember, [class*="text-ember"] { color: #C55A11 !important; }
+  .text-slate, [class*="text-slate"] { color: #4B5563 !important; }
+  .text-ink { color: #111827 !important; }
+
+  /* Ensure background colors print */
+  .bg-mist, [class*="bg-mist"] { background-color: #F7F4EF !important; }
+  .bg-forest\/10 { background-color: rgba(31, 77, 58, 0.1) !important; }
+
+  /* Page break helpers */
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+  .no-page-break { page-break-inside: avoid; }
+
+  /* Print title */
   .print-title::before {
     content: attr(data-print-title);
     display: block;
-    margin-bottom: 16px;
-    font-size: 18px;
-    font-weight: 700;
-    color: #111827;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 12pt;
+    border-bottom: 1pt solid #111827;
+    padding-bottom: 6pt;
   }
+
+  /* Links: suppress URL expansion for internal admin links */
+  a[href^="/admin"]::after {
+    content: none;
+  }
+
+  /* Keep badge/tag colors */
+  [class*="bg-amber"] { background-color: rgba(217, 119, 6, 0.15) !important; }
+  [class*="bg-red"] { background-color: rgba(239, 68, 68, 0.15) !important; }
+  [class*="bg-green"], [class*="bg-forest"] { background-color: rgba(31, 77, 58, 0.15) !important; }
+  [class*="bg-sky"] { background-color: rgba(14, 165, 233, 0.15) !important; }
+  [class*="bg-purple"] { background-color: rgba(124, 58, 237, 0.15) !important; }
 
   .print-sheet-heading {
     display: none !important;
