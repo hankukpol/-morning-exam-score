@@ -72,7 +72,15 @@ export default async function StudyRoomsPage() {
       <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-800">
         시설 관리
       </div>
-      <h1 className="mt-5 text-3xl font-semibold text-ink">스터디룸 관리</h1>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-3xl font-semibold text-ink">스터디룸 관리</h1>
+        <Link
+          href="/admin/study-rooms/calendar"
+          className="inline-flex items-center gap-2 rounded-full border border-forest/30 bg-forest/5 px-5 py-2.5 text-sm font-semibold text-forest transition hover:bg-forest/10"
+        >
+          주간 캘린더
+        </Link>
+      </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         날짜별 스터디룸 예약 현황을 확인하고 직원이 직접 배정합니다.
       </p>

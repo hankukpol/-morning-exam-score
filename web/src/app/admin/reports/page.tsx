@@ -165,6 +165,25 @@ export default async function ReportsPage() {
           </div>
           <div className="mt-6 text-xs text-slate">기간별 출석률 분석 →</div>
         </Link>
+
+        <Link
+          href="/admin/reports/operations"
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-forest/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">운영</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">운영 현황 요약</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                이번 주 강의, 이달 수납, 수강생 카테고리별 현황, 처리 필요 알림을 한 화면에서 확인합니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-forest transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">실시간 운영 현황 →</div>
+        </Link>
       </div>
 
       {/* Quick Navigation */}
@@ -178,6 +197,8 @@ export default async function ReportsPage() {
           <Link href="/admin/staff-settlements" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">강사 정산</Link>
           <Link href="/admin/reports/enrollment-status" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강생 현황</Link>
           <Link href="/admin/reports/attendance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">출결 현황</Link>
+          <Link href="/admin/reports/operations" className="inline-flex items-center gap-1.5 rounded-lg border border-forest/20 bg-forest/5 px-3 py-1.5 text-sm text-forest hover:bg-forest/10">운영 현황 요약</Link>
+          <Link href="/admin/reports/monthly-briefing" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">월간 브리핑</Link>
         </div>
       </div>
     </div>

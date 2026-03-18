@@ -8,6 +8,7 @@ type Props = {
   rentalId: string;
   lockerNumber: string;
   studentName: string;
+  examNumber: string;
 };
 
 function addMonths(date: Date, months: number): string {
@@ -16,17 +17,26 @@ function addMonths(date: Date, months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function ExpiringActions({ rentalId, lockerNumber, studentName }: Props) {
+export function ExpiringActions({
+  rentalId,
+  lockerNumber,
+  studentName,
+  examNumber,
+}: Props) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"extend" | "return" | null>(null);
+  const [busy, setBusy] = useState<"extend" | "return" | "notify" | null>(null);
   const [showExtend, setShowExtend] = useState(false);
   const [newEndDate, setNewEndDate] = useState<string>(() => {
-    // Default: 1 month from today
     return addMonths(new Date(), 1);
   });
 
   async function handleReturn() {
-    if (!confirm(`사물함 ${lockerNumber}을(를) ${studentName} 학생으로부터 반납 처리할까요?`)) return;
+    if (
+      !confirm(
+        `사물함 ${lockerNumber}을(를) ${studentName} 학생으로부터 반납 처리할까요?`,
+      )
+    )
+      return;
     setBusy("return");
     try {
       const res = await fetch(`/api/lockers/rentals/${rentalId}`, {
@@ -35,7 +45,7 @@ export function ExpiringActions({ rentalId, lockerNumber, studentName }: Props) 
         body: JSON.stringify({ status: "RETURNED" }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
         toast.error(data.error ?? "반납 처리 실패");
       } else {
         toast.success("반납 처리 완료");
@@ -61,12 +71,43 @@ export function ExpiringActions({ rentalId, lockerNumber, studentName }: Props) 
         body: JSON.stringify({ endDate: newEndDate }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
         toast.error(data.error ?? "연장 처리 실패");
       } else {
         toast.success("연장 처리 완료");
         setShowExtend(false);
         router.refresh();
+      }
+    } catch {
+      toast.error("네트워크 오류");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleNotify() {
+    if (
+      !confirm(
+        `${studentName} 학생에게 사물함 ${lockerNumber} 만료 안내 알림을 발송할까요?`,
+      )
+    )
+      return;
+    setBusy("notify");
+    try {
+      const res = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target: "student",
+          examNumbers: [examNumber],
+          message: `[사물함 만료 안내] ${lockerNumber}번 사물함 대여 기간이 곧 만료됩니다. 연장 또는 반납 처리를 해주세요.`,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error ?? "알림 발송 실패");
+      } else {
+        toast.success("알림 발송 완료");
       }
     } catch {
       toast.error("네트워크 오류");
@@ -115,6 +156,14 @@ export function ExpiringActions({ rentalId, lockerNumber, studentName }: Props) 
             className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
           >
             {busy === "return" ? "처리 중..." : "반납"}
+          </button>
+          <button
+            onClick={handleNotify}
+            disabled={busy !== null}
+            className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+            title="카카오 알림톡 발송"
+          >
+            {busy === "notify" ? "발송 중..." : "알림 발송"}
           </button>
         </>
       )}

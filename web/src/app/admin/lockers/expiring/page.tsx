@@ -53,9 +53,9 @@ export default async function ExpiringLockersPage() {
   today.setHours(0, 0, 0, 0);
 
   const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() + 14);
+  cutoff.setDate(cutoff.getDate() + 30);
 
-  // Fetch rentals expiring within 14 days (includes already-expired ACTIVE/EXPIRED)
+  // Fetch rentals expiring within 30 days (includes already-expired ACTIVE/EXPIRED)
   const rentals = await prisma.lockerRental.findMany({
     where: {
       status: { in: ["ACTIVE", "EXPIRED"] },
@@ -109,7 +109,7 @@ export default async function ExpiringLockersPage() {
         <div>
           <h1 className="text-3xl font-semibold">사물함 만료 임박</h1>
           <p className="mt-2 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-            대여 종료일이 14일 이내인 사물함 목록입니다. 연장 또는 반납을 처리하세요.
+            대여 종료일이 30일 이내인 사물함 목록입니다. 연장·반납 처리 또는 알림을 발송하세요.
           </p>
         </div>
         <Link
@@ -124,7 +124,7 @@ export default async function ExpiringLockersPage() {
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-[20px] border border-ink/10 bg-white p-5 text-center shadow-sm">
           <p className="text-2xl font-bold text-ink">{totalCount}</p>
-          <p className="mt-1 text-xs text-slate">총 만료 임박</p>
+          <p className="mt-1 text-xs text-slate">30일 이내 만료</p>
         </div>
         <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-center">
           <p className="text-2xl font-bold text-red-700">{expiredCount}</p>
@@ -223,6 +223,7 @@ export default async function ExpiringLockersPage() {
                           rentalId={rental.id}
                           lockerNumber={rental.locker.lockerNumber}
                           studentName={rental.student.name}
+                          examNumber={rental.student.examNumber}
                         />
                       </td>
                     </tr>
@@ -237,7 +238,7 @@ export default async function ExpiringLockersPage() {
       {/* Expiring soon section */}
       <section className="mt-8">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">14일 이내 만료 예정</h2>
+          <h2 className="text-lg font-semibold">30일 이내 만료 예정</h2>
           <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
             {expiringSoon.length}건
           </span>
@@ -245,7 +246,7 @@ export default async function ExpiringLockersPage() {
 
         {expiringSoon.length === 0 ? (
           <div className="mt-4 rounded-[20px] border border-dashed border-ink/10 py-10 text-center text-sm text-slate">
-            14일 이내 만료 예정인 사물함이 없습니다.
+            30일 이내 만료 예정인 사물함이 없습니다.
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-[20px] border border-ink/10">
@@ -323,6 +324,7 @@ export default async function ExpiringLockersPage() {
                           rentalId={rental.id}
                           lockerNumber={rental.locker.lockerNumber}
                           studentName={rental.student.name}
+                          examNumber={rental.student.examNumber}
                         />
                       </td>
                     </tr>
@@ -337,7 +339,7 @@ export default async function ExpiringLockersPage() {
       {/* Empty state */}
       {totalCount === 0 && (
         <div className="mt-8 rounded-[28px] border border-dashed border-ink/10 py-16 text-center text-sm text-slate">
-          현재 14일 이내 만료되는 사물함이 없습니다.
+          현재 30일 이내 만료되는 사물함이 없습니다.
         </div>
       )}
     </div>

@@ -94,6 +94,12 @@ export default async function LockersPage() {
             만료 임박
           </Link>
           <Link
+            href="/admin/lockers/init"
+            className="inline-flex items-center gap-2 rounded-full border border-ink/20 bg-mist px-5 py-3 text-sm font-semibold text-ink transition hover:bg-ink/5"
+          >
+            일괄 초기화
+          </Link>
+          <Link
             href="/admin/lockers/new"
             className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
           >
