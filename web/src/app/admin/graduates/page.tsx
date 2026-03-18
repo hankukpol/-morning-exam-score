@@ -1,6 +1,7 @@
 import { AdminRole, PassType } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import Link from "next/link";
 import { GraduateManager } from "./graduate-manager";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,28 @@ export default async function GraduatesPage() {
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         필기합격·최종합격 기록을 관리하고 합격자 성적 데이터를 보관합니다.
       </p>
+
+      {/* 관련 페이지 링크 */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href="/admin/graduates/stats"
+          className="inline-flex items-center gap-1.5 rounded-[28px] border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+        >
+          합격자 통계
+        </Link>
+        <Link
+          href="/admin/graduates/benchmark"
+          className="inline-flex items-center gap-1.5 rounded-[28px] border border-ink/20 px-4 py-2 text-xs font-semibold text-slate transition-colors hover:border-forest hover:text-forest"
+        >
+          합격자 벤치마크
+        </Link>
+        <Link
+          href="/admin/graduates/written-pass"
+          className="inline-flex items-center gap-1.5 rounded-[28px] border border-ink/20 px-4 py-2 text-xs font-semibold text-slate transition-colors hover:border-forest hover:text-forest"
+        >
+          필기합격 관리
+        </Link>
+      </div>
 
       {/* KPI 카드 */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

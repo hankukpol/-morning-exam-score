@@ -35,6 +35,7 @@ import { CounselingBriefingCard } from "@/components/students/counseling-briefin
 import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 import { ConsentToggle } from "./consent-toggle";
+import { SuspendButton } from "./suspend-button";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 import { WrongNotesAdminView } from "./wrong-notes-admin-view";
 
@@ -91,6 +92,24 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   ]);
   if (!student) notFound();
   const canEdit = roleAtLeast(context.adminUser.role, AdminRole.TEACHER);
+  const canManageSuspension = roleAtLeast(context.adminUser.role, AdminRole.COUNSELOR);
+
+  // 수강 등록 상태 조회 (휴원/복교 버튼 표시 여부 결정)
+  let suspendStatus: "active" | "suspended" | "none" = "none";
+  if (canManageSuspension) {
+    const enrollmentCounts = await getPrisma().courseEnrollment.groupBy({
+      by: ["status"],
+      where: {
+        examNumber: params.examNumber,
+        status: { in: ["ACTIVE", "SUSPENDED"] },
+      },
+      _count: true,
+    });
+    const hasActive = enrollmentCounts.some((e) => e.status === "ACTIVE");
+    const hasSuspended = enrollmentCounts.some((e) => e.status === "SUSPENDED");
+    if (hasSuspended) suspendStatus = "suspended";
+    else if (hasActive) suspendStatus = "active";
+  }
 
   let cumulativeData = null;
   let analysisData = null;
@@ -365,6 +384,11 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
               비활성
             </span>
           )}
+          {suspendStatus === "suspended" && (
+            <span className="ml-2 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+              휴원 중
+            </span>
+          )}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
@@ -383,6 +407,9 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           >
             공식 서류
           </Link>
+          {canManageSuspension && (
+            <SuspendButton examNumber={params.examNumber} suspendStatus={suspendStatus} />
+          )}
         </div>
       </div>
 

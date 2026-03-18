@@ -228,6 +228,8 @@ model NotificationLog {
   channel           NotificationChannel
   message           String
   status            String              @default("sent")
+  isRead            Boolean             @default(false)
+  readAt            DateTime?
   sentAt            DateTime            @default(now())
   failReason        String?
   templateVariables Json?
@@ -236,6 +238,7 @@ model NotificationLog {
   student Student @relation(fields: [examNumber], references: [examNumber], onDelete: Cascade)
 
   @@index([examNumber, type])
+  @@index([examNumber, isRead])
   @@index([status, sentAt])
   @@map("notification_logs")
 }
