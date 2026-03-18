@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminRole, AttendType } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import DailyAttendanceOverview from "@/components/attendance/daily-attendance-overview";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,9 @@ export default async function AttendanceHubPage() {
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         오늘의 담임반 출결 현황을 확인하고, 출결 캘린더·강의 출결·분석·경고 판정 페이지로 이동합니다.
       </p>
+
+      {/* ── 오늘 시험 출결 현황 (동적) ──────────────────────────────── */}
+      <DailyAttendanceOverview />
 
       {/* ── 오늘 출결 현황 KPI ────────────────────────────────────────── */}
       <section className="mt-8">

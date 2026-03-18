@@ -4,6 +4,7 @@ import { ExamType, ProspectSource, ProspectStage } from "@prisma/client";
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ActionModal } from "@/components/ui/action-modal";
+import { ProspectFunnel, type FunnelStage } from "@/components/analytics/prospect-funnel";
 import type { ProspectRow } from "./page";
 
 const SOURCE_LABELS: Record<ProspectSource, string> = {
@@ -118,6 +119,9 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
 
   const [prospects, setProspects] = useState<ProspectRow[]>(initialProspects);
 
+  // Funnel data (fetched from API, all-time stage counts)
+  const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+
   // Month filter (URL-synced)
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
 
@@ -146,6 +150,44 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
     const t = setTimeout(() => setSuccessMessage(null), 3000);
     return () => clearTimeout(t);
   }, [successMessage]);
+
+  // Fetch funnel data from API
+  const fetchFunnel = useCallback(async () => {
+    try {
+      const res = await fetch("/api/analytics/prospects");
+      if (!res.ok) return;
+      const json = (await res.json()) as { data: { stages: { stage: string; count: number }[] } };
+      const raw = json.data.stages;
+
+      // Compute conversion rates (relative to previous non-DROPPED stage)
+      const funnelFlow = raw.filter((s) => s.stage !== "DROPPED");
+      const built: FunnelStage[] = raw.map((s, i) => {
+        const isDropped = s.stage === "DROPPED";
+        if (isDropped) {
+          return { stage: s.stage, label: STAGE_LABELS[s.stage as ProspectStage] ?? s.stage, count: s.count, conversionRate: null };
+        }
+        const flowIdx = funnelFlow.findIndex((f) => f.stage === s.stage);
+        const prev = flowIdx > 0 ? funnelFlow[flowIdx - 1] : null;
+        const rate =
+          prev && prev.count > 0
+            ? Math.round((s.count / prev.count) * 100)
+            : null;
+        return {
+          stage: s.stage,
+          label: STAGE_LABELS[s.stage as ProspectStage] ?? s.stage,
+          count: s.count,
+          conversionRate: i === 0 ? null : rate,
+        };
+      });
+      setFunnelStages(built);
+    } catch {
+      // silently ignore fetch errors for funnel
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchFunnel();
+  }, [fetchFunnel]);
 
   // Month change: update URL
   const handleMonthChange = useCallback(
@@ -271,6 +313,7 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
         setSuccessMessage("상담 방문자를 등록했습니다.");
         closeAdd();
         router.refresh();
+        void fetchFunnel();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "등록 실패");
       }
@@ -300,6 +343,7 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
         setSuccessMessage("상담 방문자 정보를 수정했습니다.");
         closeEdit();
         router.refresh();
+        void fetchFunnel();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "수정 실패");
       }
@@ -317,6 +361,7 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
         setProspects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
         setSuccessMessage("상담 방문자 기록을 삭제했습니다.");
         setDeleteTarget(null);
+        void fetchFunnel();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "삭제 실패");
         setDeleteTarget(null);
@@ -338,6 +383,7 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
         );
         setQuickConvertTarget(null);
         router.refresh();
+        void fetchFunnel();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "단계 변경 실패");
         setQuickConvertTarget(null);
@@ -383,6 +429,17 @@ export function ProspectManager({ initialProspects, initialMonth }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Funnel visualization */}
+      {funnelStages.length > 0 && (
+        <ProspectFunnel
+          stages={funnelStages}
+          activeStage={filterStage === "ALL" ? null : filterStage}
+          onStageClick={(stage) =>
+            setFilterStage((stage as ProspectStage | null) ?? "ALL")
+          }
+        />
+      )}
 
       {/* Stage summary badges (based on selected month) */}
       <div className="flex flex-wrap gap-2">
