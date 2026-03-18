@@ -700,6 +700,84 @@ export function StudentCumulativeAnalysis({ data }: Props) {
         </div>
       </section>
 
+      {/* Goal progress section */}
+      <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <p className="text-sm font-semibold text-ink mb-4">과목별 목표 달성 현황</p>
+        {goalProgressRows.length === 0 ? (
+          <p className="text-sm text-slate">
+            <Link
+              prefetch={false}
+              href={`/admin/students/${student.examNumber}?tab=counseling`}
+              className="underline hover:text-ember"
+            >
+              면담 탭
+            </Link>
+            에서 과목별 목표 점수를 설정하면 달성률이 표시됩니다.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {goalProgressRows.map((row) => {
+              const achievementRate = row.avg !== null && row.target ? (row.avg / row.target) * 100 : null;
+              const cappedWidth = achievementRate !== null ? Math.max(0, Math.min(achievementRate, 100)) : 0;
+              const gap = row.avg !== null && row.target !== null ? row.avg - row.target : null;
+              const isAchieved = achievementRate !== null && achievementRate >= 100;
+              const isNear = achievementRate !== null && achievementRate >= 80 && achievementRate < 100;
+              const barClass =
+                achievementRate === null
+                  ? "bg-slate/20"
+                  : isAchieved
+                  ? "bg-forest"
+                  : isNear
+                  ? "bg-amber-500"
+                  : "bg-ember";
+
+              return (
+                <div key={row.subject}>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">{SUBJECT_LABEL[row.subject]}</span>
+                      {isAchieved ? (
+                        <span className="rounded-full border border-forest/20 bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest">
+                          달성
+                        </span>
+                      ) : isNear ? (
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          거의
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-ember/20 bg-ember/10 px-2 py-0.5 text-[11px] font-semibold text-ember">
+                          ⚠ 주의
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate">
+                      <span>현재 {row.avg !== null ? row.avg.toFixed(1) : "-"}점</span>
+                      <span>목표 {row.target !== null ? row.target : "-"}점</span>
+                      <span className="font-semibold">
+                        {achievementRate !== null ? `${achievementRate.toFixed(1)}%` : "-"}
+                      </span>
+                      <span className={gap !== null && gap >= 0 ? "font-semibold text-forest" : "font-semibold text-ember"}>
+                        {gap === null
+                          ? ""
+                          : gap >= 0
+                          ? `+${gap.toFixed(1)}점 초과`
+                          : `-${Math.abs(gap).toFixed(1)}점 부족`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-ink/8">
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-500 ${barClass}`}
+                      style={{ width: `${cappedWidth}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {/* Weak point analysis */}
       {weakStats.length > 0 && (
         <section className="rounded-[28px] border border-red-100 bg-red-50/30 p-6">

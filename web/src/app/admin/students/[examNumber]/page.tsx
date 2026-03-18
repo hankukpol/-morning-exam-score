@@ -28,7 +28,7 @@ import { StudentScoreChart, type ScoreChartPoint } from "./student-score-chart";
 import { getPrisma } from "@/lib/prisma";
 import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
-import { BarComparisonChart, RadarComparisonChart, TrendLineChart } from "@/components/analytics/charts";
+import { BarComparisonChart, PercentileLineChart, RadarComparisonChart, TrendLineChart } from "@/components/analytics/charts";
 import { SubjectScoreHeatmap } from "@/components/analytics/subject-score-heatmap";
 import { SubjectHeatmap } from "@/components/analytics/subject-heatmap";
 import { CounselingBriefingCard } from "@/components/students/counseling-briefing-card";
@@ -563,6 +563,23 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                   </section>
 
                   <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+                    <h2 className="text-xl font-semibold">백분위 추이 <span className="text-sm font-normal text-slate">(낮을수록 상위권)</span></h2>
+                    <p className="mt-1 text-sm text-slate">
+                      점선: 상위 10% / 30% / 50% 기준선
+                    </p>
+                    <div className="mt-4">
+                      <PercentileLineChart
+                        data={analysisData.trendData.map((row) => ({
+                          label: row.label,
+                          percentile: row.percentile,
+                          studentRank: row.studentRank,
+                          participantCount: row.participantCount,
+                        }))}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="rounded-[28px] border border-ink/10 bg-white p-6">
                     <h2 className="text-xl font-semibold">과목별 비교 테이블</h2>
                     <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
                       <table className="min-w-full divide-y divide-ink/10 text-sm">
@@ -608,19 +625,20 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                   </section>
 
                   {analysisData.monthlyBreakdown.length > 0 && (
-                    <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+                    <section className="rounded-[28px] border border-ink/10 bg-white overflow-hidden p-6">
                       <h2 className="text-xl font-semibold">월별 성적 요약</h2>
                       <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
                         <table className="min-w-full divide-y divide-ink/10 text-sm">
                           <thead className="bg-mist/80 text-left">
                             <tr>
                               <th className="px-4 py-3 font-semibold">월</th>
-                              <th className="px-4 py-3 font-semibold">응시/전체</th>
-                              <th className="px-4 py-3 font-semibold">개인 평균</th>
-                              <th className="px-4 py-3 font-semibold">전체 평균</th>
-                              <th className="px-4 py-3 font-semibold">석차(%)</th>
+                              <th className="px-4 py-3 font-semibold">응시</th>
                               <th className="px-4 py-3 font-semibold">무단결시</th>
-                              <th className="px-4 py-3 font-semibold">전월 대비</th>
+                              <th className="px-4 py-3 font-semibold">사유결시</th>
+                              <th className="px-4 py-3 font-semibold">개인평균</th>
+                              <th className="px-4 py-3 font-semibold">석차</th>
+                              <th className="px-4 py-3 font-semibold">전체평균</th>
+                              <th className="px-4 py-3 font-semibold">전월비</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-ink/10">
@@ -631,25 +649,42 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                                   {row.attendedCount}/{row.sessionCount}
                                 </td>
                                 <td className="px-4 py-3">
-                                  {row.studentAverage !== null ? row.studentAverage.toFixed(1) : "-"}
+                                  {row.absentCount > 0 ? (
+                                    <span className="text-ember font-medium">{row.absentCount}회</span>
+                                  ) : (
+                                    <span className="text-slate">0회</span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3">
-                                  {row.cohortAverage !== null ? row.cohortAverage.toFixed(1) : "-"}
+                                  {row.excusedCount > 0 ? (
+                                    <span className="font-medium">{row.excusedCount}회</span>
+                                  ) : (
+                                    <span className="text-slate">0회</span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3">
-                                  {row.studentRank !== null ? `상위 ${row.studentRank.toFixed(1)}%` : "-"}
+                                  {row.studentAverage !== null ? row.studentAverage.toFixed(1) : <span className="text-slate">-</span>}
                                 </td>
-                                <td className="px-4 py-3">{row.absentCount}회</td>
+                                <td className="px-4 py-3">
+                                  {row.studentRank !== null ? (
+                                    `${row.studentRank}위 / ${row.totalParticipants}명`
+                                  ) : (
+                                    <span className="text-slate">-</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {row.cohortAverage !== null ? row.cohortAverage.toFixed(1) : <span className="text-slate">-</span>}
+                                </td>
                                 <td className="px-4 py-3">
                                   {row.changeFromPrevMonth === null ? (
-                                    "-"
+                                    <span className="text-slate">-</span>
                                   ) : (
                                     <span
                                       className={
                                         row.changeFromPrevMonth > 0
-                                          ? "font-semibold text-forest"
+                                          ? "text-forest font-medium"
                                           : row.changeFromPrevMonth < 0
-                                            ? "font-semibold text-ember"
+                                            ? "text-ember"
                                             : "text-slate"
                                       }
                                     >

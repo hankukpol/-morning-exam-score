@@ -2436,3 +2436,69 @@ export async function getStudentCounselingBriefing(
     sinceLastCounseling,
   };
 }
+
+export async function getStudentMonthlyBreakdown(input: {
+  examNumber: string;
+  periodId: number;
+}): Promise<MonthlyBreakdownRow[]> {
+  const prisma = getPrisma();
+  const tomorrow = startOfTomorrow();
+
+  const student = await prisma.student.findUnique({
+    where: { examNumber: input.examNumber },
+    select: { examNumber: true, examType: true },
+  });
+
+  if (!student) {
+    return [];
+  }
+
+  const sessions = await prisma.examSession.findMany({
+    where: {
+      periodId: input.periodId,
+      examType: student.examType,
+      isCancelled: false,
+      examDate: { lt: tomorrow },
+    },
+    select: { id: true, examDate: true },
+    orderBy: { examDate: "asc" },
+  });
+
+  if (sessions.length === 0) {
+    return [];
+  }
+
+  const sessionIds = sessions.map((s) => s.id);
+
+  const [scores, approvedAbsences] = await Promise.all([
+    prisma.score.findMany({
+      where: { sessionId: { in: sessionIds } },
+      select: {
+        examNumber: true,
+        sessionId: true,
+        rawScore: true,
+        oxScore: true,
+        finalScore: true,
+        attendType: true,
+      },
+    }),
+    prisma.absenceNote.findMany({
+      where: {
+        status: "APPROVED",
+        sessionId: { in: sessionIds },
+      },
+      select: {
+        examNumber: true,
+        sessionId: true,
+        attendCountsAsAttendance: true,
+      },
+    }),
+  ]);
+
+  return buildMonthlyBreakdown({
+    examNumber: input.examNumber,
+    sessions,
+    scores,
+    approvedAbsences,
+  });
+}
