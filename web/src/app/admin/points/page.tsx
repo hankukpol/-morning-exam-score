@@ -97,6 +97,12 @@ export default async function AdminPointsPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Link
+            href="/admin/points/grant"
+            className="inline-flex items-center gap-2 rounded-full border border-ember/30 bg-ember px-4 py-2 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            포인트 지급
+          </Link>
+          <Link
             href="/admin/points/leaderboard"
             className="inline-flex items-center gap-2 rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-medium text-ember transition hover:bg-ember/20"
           >

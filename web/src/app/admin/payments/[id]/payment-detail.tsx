@@ -462,6 +462,12 @@ export function PaymentDetail({ payment: initial }: { payment: PaymentDetailData
         >
           ← 목록으로
         </a>
+        <Link
+          href={`/admin/payments/${payment.id}/edit`}
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/5 px-5 py-2.5 text-sm font-semibold text-ember transition hover:border-ember/50 hover:bg-ember/10"
+        >
+          수정
+        </Link>
         <a
           href={`/admin/payments/${payment.id}/receipt`}
           target="_blank"

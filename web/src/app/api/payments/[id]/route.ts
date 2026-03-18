@@ -1,4 +1,4 @@
-import { AdminRole, PaymentStatus } from "@prisma/client";
+import { AdminRole, PaymentCategory, PaymentStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
@@ -34,12 +34,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const auth = await requireApiAdmin(AdminRole.COUNSELOR);
+  const auth = await requireApiAdmin(AdminRole.MANAGER);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
     const body = await request.json();
-    const { note, status, examNumber } = body;
+    const { note, status, examNumber, category, processedAt, grossAmount } = body;
 
     const existing = await getPrisma().payment.findUnique({
       where: { id: params.id },
@@ -60,10 +60,26 @@ export async function PATCH(
       }
     }
 
+    // Only allow amount change on PENDING payments
+    if (grossAmount !== undefined && existing.status !== "PENDING") {
+      return NextResponse.json(
+        { error: "승인된 수납의 금액은 수정할 수 없습니다. 환불 처리를 사용해주세요." },
+        { status: 400 },
+      );
+    }
+
     const updateData: Record<string, unknown> = {};
     if (note !== undefined) updateData.note = note?.trim() || null;
     if (status !== undefined) updateData.status = status as PaymentStatus;
     if (examNumber !== undefined) updateData.examNumber = examNumber ?? null;
+    if (category !== undefined) updateData.category = category as PaymentCategory;
+    if (processedAt !== undefined) updateData.processedAt = processedAt ? new Date(processedAt as string) : undefined;
+    if (grossAmount !== undefined && existing.status === "PENDING") {
+      const grossNum = Number(grossAmount);
+      updateData.grossAmount = grossNum;
+      // Recalculate netAmount when grossAmount changes
+      updateData.netAmount = grossNum - (existing.discountAmount + existing.couponAmount + existing.pointAmount);
+    }
 
     const payment = await getPrisma().$transaction(async (tx) => {
       const updated = await tx.payment.update({
@@ -82,11 +98,17 @@ export async function PATCH(
             note: existing.note,
             status: existing.status,
             examNumber: existing.examNumber,
+            category: existing.category,
+            processedAt: existing.processedAt,
+            grossAmount: existing.grossAmount,
           },
           after: {
             note: updated.note,
             status: updated.status,
             examNumber: updated.examNumber,
+            category: updated.category,
+            processedAt: updated.processedAt,
+            grossAmount: updated.grossAmount,
           },
           ipAddress: request.headers.get("x-forwarded-for"),
         },

@@ -274,6 +274,12 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
       {/* 수강증 */}
       <div className="flex flex-wrap items-center gap-3">
         <Link
+          href={`/admin/enrollments/${enrollment.id}/edit`}
+          className="inline-flex items-center rounded-full border border-ember/20 bg-ember/5 px-4 py-2 text-sm font-semibold text-ember transition hover:border-ember/50 hover:bg-ember/10"
+        >
+          수정
+        </Link>
+        <Link
           href={`/admin/enrollments/${enrollment.id}/card`}
           target="_blank"
           rel="noopener noreferrer"

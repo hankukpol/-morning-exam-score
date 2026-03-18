@@ -84,6 +84,11 @@ export async function PUT(request: Request, { params }: RouteContext) {
   }
 }
 
+// PATCH is an alias for PUT — same business logic, both verbs accepted
+export async function PATCH(request: Request, context: RouteContext) {
+  return PUT(request, context);
+}
+
 export async function DELETE(request: Request, { params }: RouteContext) {
   const auth = await requireApiAdmin(AdminRole.TEACHER);
 

@@ -134,6 +134,12 @@ export default async function ScoreSessionDetailPage({ params }: PageProps) {
         >
           ← 성적 허브
         </Link>
+        <Link
+          href={`/admin/scores/sessions/${session.id}/edit`}
+          className="inline-flex items-center rounded-full border border-ink/20 px-4 py-1.5 text-xs font-semibold text-slate transition hover:border-ember/30 hover:text-ember"
+        >
+          회차 수정
+        </Link>
       </div>
 
       <h1 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">

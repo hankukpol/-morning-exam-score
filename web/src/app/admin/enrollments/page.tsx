@@ -44,7 +44,7 @@ export default async function EnrollmentsPage() {
       </div>
       <div className="mt-5 flex items-start justify-between gap-4">
         <h1 className="text-3xl font-semibold">수강 등록 목록</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {expiringCount > 0 && (
             <Link
               href="/admin/enrollments/expiring"
@@ -59,6 +59,12 @@ export default async function EnrollmentsPage() {
             className="shrink-0 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
           >
             휴원 현황 보기
+          </Link>
+          <Link
+            href="/admin/enrollments/bulk-status"
+            className="shrink-0 rounded-xl border border-forest/30 bg-forest/10 px-4 py-2.5 text-sm font-semibold text-forest hover:bg-forest/20 transition-colors"
+          >
+            일괄 상태 변경
           </Link>
         </div>
       </div>

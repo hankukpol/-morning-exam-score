@@ -14,10 +14,23 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (!id) throw new Error("잘못된 수강 ID");
 
     const body = await request.json();
-    const { status, endDate, discountAmount, finalFee, enrollSource, extraData } = body;
+    const { status, endDate, discountAmount, finalFee, enrollSource, extraData, cohortId, note } = body;
 
     const enrollment = await getPrisma().$transaction(async (tx) => {
       const existing = await tx.courseEnrollment.findUniqueOrThrow({ where: { id } });
+
+      // If cohortId is provided, validate it exists
+      if (cohortId !== undefined && cohortId !== null) {
+        await tx.cohort.findUniqueOrThrow({ where: { id: cohortId as string } });
+      }
+
+      // Merge note into extraData
+      let mergedExtraData = extraData;
+      if (note !== undefined) {
+        const existingExtra = (existing.extraData as Record<string, unknown> | null) ?? {};
+        mergedExtraData = { ...existingExtra, note: note?.trim() || null };
+      }
+
       const updated = await tx.courseEnrollment.update({
         where: { id },
         data: {
@@ -28,7 +41,8 @@ export async function PATCH(request: Request, context: RouteContext) {
           ...(enrollSource !== undefined
             ? { enrollSource: (enrollSource as EnrollSource) ?? null }
             : {}),
-          ...(extraData !== undefined ? { extraData } : {}),
+          ...(mergedExtraData !== undefined ? { extraData: mergedExtraData } : {}),
+          ...(cohortId !== undefined ? { cohortId: (cohortId as string) ?? null } : {}),
         },
         include: {
           student: { select: { name: true, phone: true } },
@@ -43,8 +57,8 @@ export async function PATCH(request: Request, context: RouteContext) {
           action: "UPDATE_ENROLLMENT",
           targetType: "courseEnrollment",
           targetId: id,
-          before: { status: existing.status, finalFee: existing.finalFee },
-          after: { status: updated.status, finalFee: updated.finalFee },
+          before: { status: existing.status, finalFee: existing.finalFee, cohortId: existing.cohortId },
+          after: { status: updated.status, finalFee: updated.finalFee, cohortId: updated.cohortId },
           ipAddress: request.headers.get("x-forwarded-for"),
         },
       });
