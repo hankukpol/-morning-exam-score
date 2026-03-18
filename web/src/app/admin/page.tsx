@@ -8,7 +8,7 @@ import { AdminMemoDashboardPanel } from "@/components/memos/admin-memo-dashboard
 import { Sparkline } from "@/components/ui/sparkline";
 import { getDashboardSummary } from "@/lib/analytics/service";
 import { requireAdminContext } from "@/lib/auth";
-import { EXAM_CATEGORY_LABEL, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
+import { EXAM_CATEGORY_LABEL, EXAM_TYPE_LABEL, ROLE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { listDashboardInboxData } from "@/lib/dashboard/inbox";
 import {
   getDisplayErrorDetails,
@@ -178,6 +178,55 @@ export default async function AdminDashboardPage() {
       })
       .catch(() => [] as never[]),
   ]);
+
+  // 직원별 오늘 실적: 수납 처리 건수 + 수강 등록 건수
+  const todayStaffPerformance = await (async () => {
+    const [paymentsByStaff, enrollmentsByStaff, staffList] = await Promise.all([
+      getPrisma().payment.groupBy({
+        by: ["processedBy"],
+        where: { processedAt: { gte: todayStart, lte: todayEnd } },
+        _count: { id: true },
+        _sum: { netAmount: true },
+      }),
+      getPrisma().courseEnrollment.groupBy({
+        by: ["staffId"],
+        where: { createdAt: { gte: todayStart, lte: todayEnd } },
+        _count: { id: true },
+      }),
+      getPrisma().adminUser.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, role: true },
+      }),
+    ]);
+
+    // Merge into per-staff rows
+    const staffMap = new Map<string, { name: string; role: string; payments: number; paymentNet: number; enrollments: number }>();
+    for (const s of staffList) {
+      staffMap.set(s.id, { name: s.name, role: s.role, payments: 0, paymentNet: 0, enrollments: 0 });
+    }
+    for (const p of paymentsByStaff) {
+      const entry = staffMap.get(p.processedBy);
+      if (entry) {
+        entry.payments = p._count.id;
+        entry.paymentNet = p._sum.netAmount ?? 0;
+      } else {
+        staffMap.set(p.processedBy, { name: p.processedBy, role: "", payments: p._count.id, paymentNet: p._sum.netAmount ?? 0, enrollments: 0 });
+      }
+    }
+    for (const e of enrollmentsByStaff) {
+      const entry = staffMap.get(e.staffId);
+      if (entry) {
+        entry.enrollments = e._count.id;
+      } else {
+        staffMap.set(e.staffId, { name: e.staffId, role: "", payments: 0, paymentNet: 0, enrollments: e._count.id });
+      }
+    }
+    // Only staff with at least 1 activity today
+    return Array.from(staffMap.entries())
+      .map(([id, v]) => ({ id, ...v }))
+      .filter((s) => s.payments > 0 || s.enrollments > 0)
+      .sort((a, b) => (b.payments + b.enrollments) - (a.payments + a.enrollments));
+  })().catch(() => [] as Array<{ id: string; name: string; role: string; payments: number; paymentNet: number; enrollments: number }>);
 
   // 최근 활동 피드 (병렬 페치)
   const [recentEnrollments, recentPayments, recentAttendance] = await Promise.all([
@@ -933,6 +982,64 @@ export default async function AdminDashboardPage() {
           recentAttendance,
         }}
       />
+
+      {/* 직원별 오늘 실적 */}
+      {todayStaffPerformance.length > 0 && (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">직원별 오늘 실적</h2>
+              <p className="mt-1 text-xs text-slate">오늘 수납·등록 처리 건수 (활동 있는 직원만 표시)</p>
+            </div>
+            <Link
+              href="/admin/dashboard/staff-performance"
+              className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest transition hover:bg-forest/20"
+            >
+              자세히 보기 →
+            </Link>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink/10 text-left text-xs font-semibold uppercase tracking-wide text-slate">
+                  <th className="pb-3 pr-4">직원명</th>
+                  <th className="pb-3 pr-4">역할</th>
+                  <th className="pb-3 pr-4 text-right">수납 처리</th>
+                  <th className="pb-3 pr-4 text-right">수납 금액</th>
+                  <th className="pb-3 text-right">수강 등록</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {todayStaffPerformance.map((s) => (
+                  <tr key={s.id} className="hover:bg-mist/50">
+                    <td className="py-3 pr-4 font-medium text-ink">{s.name}</td>
+                    <td className="py-3 pr-4 text-slate text-xs">
+                      {s.role ? (ROLE_LABEL[s.role as keyof typeof ROLE_LABEL] ?? s.role) : "-"}
+                    </td>
+                    <td className="py-3 pr-4 text-right">
+                      {s.payments > 0 ? (
+                        <span className="font-semibold text-ember">{s.payments}건</span>
+                      ) : (
+                        <span className="text-slate">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-xs text-slate">
+                      {s.paymentNet > 0 ? `${s.paymentNet.toLocaleString()}원` : "-"}
+                    </td>
+                    <td className="py-3 text-right">
+                      {s.enrollments > 0 ? (
+                        <span className="font-semibold text-forest">{s.enrollments}건</span>
+                      ) : (
+                        <span className="text-slate">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
         <h2 className="text-lg font-semibold">바로가기</h2>

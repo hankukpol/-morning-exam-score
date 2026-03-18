@@ -9,9 +9,9 @@ import { getStudentPortalViewer } from "@/lib/student-portal/service";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 const TARGET_TYPE_LABEL: Record<string, string> = {
@@ -60,6 +60,8 @@ function formatFullDateTime(value: Date | null | undefined): string {
 }
 
 export default async function StudentNoticeDetailPage({ params }: PageProps) {
+  const { id } = await params;
+
   if (!hasDatabaseConfig()) {
     return (
       <main className="min-h-screen bg-mist px-4 py-6 text-ink sm:px-6 lg:px-8">
@@ -92,13 +94,13 @@ export default async function StudentNoticeDetailPage({ params }: PageProps) {
             </h1>
           </section>
 
-          <StudentLookupForm redirectPath={`/student/notices/${params.id}`} />
+          <StudentLookupForm redirectPath={`/student/notices/${id}`} />
         </div>
       </main>
     );
   }
 
-  const noticeId = Number(params.id);
+  const noticeId = Number(id);
 
   if (!Number.isInteger(noticeId) || noticeId <= 0) {
     notFound();

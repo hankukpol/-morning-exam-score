@@ -1,6 +1,15 @@
 import { getPrisma } from "@/lib/prisma";
 import { PassType } from "@prisma/client";
 
+export type CounselingBenchmarkPoint = {
+  passType: PassType;
+  label: string;
+  count: number;
+  pct: number; // percentage of totalGraduates
+  avgEnrolledMonths: number;
+  subjectAverages: Record<string, number>;
+};
+
 export type GraduateBenchmarkData = {
   totalGraduates: number;
   writtenPassCount: number;
@@ -12,6 +21,9 @@ export type GraduateBenchmarkData = {
   subjectAverages: Record<string, number>; // subject -> avg score at time of pass
   monthlyPassCounts: Array<{ year: number; month: number; count: number; passType: string }>;
   enrolledMonthsDistribution: Array<{ months: string; count: number }>; // histogram
+  // counseling-specific extras
+  passTypeBreakdown: CounselingBenchmarkPoint[];
+  durationBrackets: Array<{ label: string; count: number; pct: number }>; // 3/6/12 month brackets
   recentGraduates: Array<{
     id: string;
     name: string;
@@ -30,6 +42,33 @@ function calcMedian(sortedArr: number[]): number {
     return ((sortedArr[mid - 1] ?? 0) + (sortedArr[mid] ?? 0)) / 2;
   }
   return sortedArr[mid] ?? 0;
+}
+
+function calcSubjectAveragesForRecords(
+  records: Array<{
+    passType: PassType;
+    scoreSnapshots: Array<{ snapshotType: PassType; subjectAverages: unknown }>;
+  }>
+): Record<string, number> {
+  const sums: Record<string, { sum: number; count: number }> = {};
+  for (const record of records) {
+    const snap =
+      record.scoreSnapshots.find((s) => s.snapshotType === record.passType) ??
+      record.scoreSnapshots[0];
+    if (!snap) continue;
+    const subj = snap.subjectAverages as Record<string, number>;
+    for (const [subject, avg] of Object.entries(subj)) {
+      if (typeof avg !== "number") continue;
+      if (!sums[subject]) sums[subject] = { sum: 0, count: 0 };
+      sums[subject].sum += avg;
+      sums[subject].count += 1;
+    }
+  }
+  const result: Record<string, number> = {};
+  for (const [subject, { sum, count }] of Object.entries(sums)) {
+    result[subject] = Math.round((sum / count) * 10) / 10;
+  }
+  return result;
 }
 
 export async function getGraduateBenchmarkData(): Promise<GraduateBenchmarkData> {
@@ -70,26 +109,8 @@ export async function getGraduateBenchmarkData(): Promise<GraduateBenchmarkData>
       : 0;
   const medianEnrolledMonths = Math.round(calcMedian(sortedMonths));
 
-  // Subject averages from snapshots (use FINAL_PASS or APPOINTED snapshots first, fallback all)
-  const subjectSums: Record<string, { sum: number; count: number }> = {};
-  for (const record of records) {
-    // Prefer the snapshot matching the passType; fallback to any
-    const snap =
-      record.scoreSnapshots.find((s) => s.snapshotType === record.passType) ??
-      record.scoreSnapshots[0];
-    if (!snap) continue;
-    const subj = snap.subjectAverages as Record<string, number>;
-    for (const [subject, avg] of Object.entries(subj)) {
-      if (typeof avg !== "number") continue;
-      if (!subjectSums[subject]) subjectSums[subject] = { sum: 0, count: 0 };
-      subjectSums[subject].sum += avg;
-      subjectSums[subject].count += 1;
-    }
-  }
-  const subjectAverages: Record<string, number> = {};
-  for (const [subject, { sum, count }] of Object.entries(subjectSums)) {
-    subjectAverages[subject] = Math.round((sum / count) * 10) / 10;
-  }
+  // Subject averages (all records)
+  const subjectAverages = calcSubjectAveragesForRecords(records);
 
   // Monthly pass counts by createdAt
   const monthlyMap: Record<string, Record<string, number>> = {};
@@ -127,6 +148,64 @@ export async function getGraduateBenchmarkData(): Promise<GraduateBenchmarkData>
     else buckets[4].count += 1;
   }
 
+  // ── Counseling-specific: passType breakdown ───────────────────────────────
+  const PASS_TYPE_LABEL_MAP: Record<PassType, string> = {
+    WRITTEN_PASS: "필기합격",
+    FINAL_PASS: "최종합격",
+    APPOINTED: "임용",
+    WRITTEN_FAIL: "필기불합격",
+    FINAL_FAIL: "최종불합격",
+  };
+
+  const passTypeBreakdown: CounselingBenchmarkPoint[] = [];
+  const passTypeOrder: PassType[] = [PassType.WRITTEN_PASS, PassType.FINAL_PASS, PassType.APPOINTED];
+  for (const pt of passTypeOrder) {
+    const group = records.filter((r) => r.passType === pt);
+    if (group.length === 0) continue;
+    const groupMonths = group.map((r) => r.enrolledMonths).filter((m): m is number => typeof m === "number");
+    const groupAvgMonths =
+      groupMonths.length > 0
+        ? Math.round(groupMonths.reduce((s, m) => s + m, 0) / groupMonths.length)
+        : 0;
+    passTypeBreakdown.push({
+      passType: pt,
+      label: PASS_TYPE_LABEL_MAP[pt],
+      count: group.length,
+      pct: totalGraduates > 0 ? Math.round((group.length / totalGraduates) * 100) : 0,
+      avgEnrolledMonths: groupAvgMonths,
+      subjectAverages: calcSubjectAveragesForRecords(group),
+    });
+  }
+
+  // ── Counseling-specific: study duration brackets (3 simple brackets) ──────
+  const bracket3 = monthsArr.filter((m) => m <= 3).length;
+  const bracket6 = monthsArr.filter((m) => m > 3 && m <= 6).length;
+  const bracket12 = monthsArr.filter((m) => m > 6 && m <= 12).length;
+  const bracketOver12 = monthsArr.filter((m) => m > 12).length;
+  const totalWithMonths = monthsArr.length;
+  const durationBrackets: GraduateBenchmarkData["durationBrackets"] = [
+    {
+      label: "3개월 이하",
+      count: bracket3,
+      pct: totalWithMonths > 0 ? Math.round((bracket3 / totalWithMonths) * 100) : 0,
+    },
+    {
+      label: "4~6개월",
+      count: bracket6,
+      pct: totalWithMonths > 0 ? Math.round((bracket6 / totalWithMonths) * 100) : 0,
+    },
+    {
+      label: "7~12개월",
+      count: bracket12,
+      pct: totalWithMonths > 0 ? Math.round((bracket12 / totalWithMonths) * 100) : 0,
+    },
+    {
+      label: "12개월 초과",
+      count: bracketOver12,
+      pct: totalWithMonths > 0 ? Math.round((bracketOver12 / totalWithMonths) * 100) : 0,
+    },
+  ];
+
   // Recent graduates (last 20)
   const recentGraduates: GraduateBenchmarkData["recentGraduates"] = records.slice(0, 20).map((r) => {
     const passDate =
@@ -156,6 +235,8 @@ export async function getGraduateBenchmarkData(): Promise<GraduateBenchmarkData>
     subjectAverages,
     monthlyPassCounts,
     enrolledMonthsDistribution: buckets,
+    passTypeBreakdown,
+    durationBrackets,
     recentGraduates,
   };
 }

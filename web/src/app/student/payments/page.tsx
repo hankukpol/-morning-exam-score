@@ -294,6 +294,12 @@ export default async function StudentPaymentsPage() {
               포털로 돌아가기
             </Link>
             <Link
+              href="/student/payment-schedule"
+              className="inline-flex items-center rounded-full border border-ember/20 bg-ember/5 px-5 py-3 text-sm font-semibold text-ember transition hover:bg-ember/10"
+            >
+              납부 일정
+            </Link>
+            <Link
               href="/student/payment-history"
               className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
             >

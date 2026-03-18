@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -71,6 +72,17 @@ export default async function SpecialLecturesPage() {
       <p className="mt-2 max-w-3xl text-sm leading-7 text-slate">
         특강·단과 강좌를 등록하고 수강생 현황을 조회합니다.
       </p>
+
+      {/* Quick-access shortcuts */}
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/admin/special-lectures/interview-coaching"
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-5 py-2.5 text-sm font-semibold text-ember transition hover:bg-ember/20"
+        >
+          면접 코칭반 대시보드
+        </Link>
+      </div>
+
       <div className="mt-8">
         <SpecialLectureManager
           initialLectures={serialized}

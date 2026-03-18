@@ -234,6 +234,12 @@ export default async function StudentAnalyticsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
+                href="/student/analytics/subject-comparison"
+                className="inline-flex items-center rounded-full border border-forest/20 bg-forest/10 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-forest/20"
+              >
+                과목별 비교 분석
+              </Link>
+              <Link
                 href="/student/scores"
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
