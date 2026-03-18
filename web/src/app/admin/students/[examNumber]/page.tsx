@@ -30,6 +30,7 @@ import { EXAM_TYPE_SUBJECTS, EXAM_TYPE_LABEL, SUBJECT_LABEL } from "@/lib/consta
 import { formatDate } from "@/lib/format";
 import { BarComparisonChart, RadarComparisonChart, TrendLineChart } from "@/components/analytics/charts";
 import { SubjectScoreHeatmap } from "@/components/analytics/subject-score-heatmap";
+import { SubjectHeatmap } from "@/components/analytics/subject-heatmap";
 import { CounselingBriefingCard } from "@/components/students/counseling-briefing-card";
 import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
@@ -592,6 +593,19 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                   </section>
 
                   <SubjectScoreHeatmap data={analysisData.subjectHeatmap} />
+
+                  <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+                    <h2 className="text-xl font-semibold">과목 × 주차 성적 히트맵</h2>
+                    <p className="mt-2 text-sm text-slate">
+                      각 과목의 주차별 평균 점수를 색상으로 표시합니다.
+                    </p>
+                    <div className="mt-4">
+                      <SubjectHeatmap
+                        examNumber={params.examNumber}
+                        periodId={analysisData.selectedPeriod.id}
+                      />
+                    </div>
+                  </section>
 
                   {analysisData.monthlyBreakdown.length > 0 && (
                     <section className="rounded-[28px] border border-ink/10 bg-white p-6">

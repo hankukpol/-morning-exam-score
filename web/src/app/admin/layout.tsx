@@ -6,6 +6,7 @@ import { SetupPanel } from "@/components/setup-panel";
 import { AdminShortcutReference } from "@/components/ui/admin-shortcut-reference";
 import { ADMIN_NAV_ITEMS, ROLE_LABEL } from "@/lib/constants";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
+import { GlobalSearchBar } from "@/components/admin/global-search-bar";
 import { MobileNavWrapper } from "@/components/admin/mobile-nav-wrapper";
 import { SidebarCollapseToggle } from "@/components/admin/sidebar-collapse-toggle";
 import { TopModuleNav } from "@/components/admin/top-module-nav";
@@ -140,6 +141,7 @@ export default async function AdminLayout({
       <div className="flex flex-1">
         <MobileNavWrapper>
           <aside className="flex h-full min-h-[calc(100vh-3.5rem)] w-56 flex-shrink-0 flex-col bg-[#0B1120] text-gray-300 lg:sticky lg:top-14">
+            <GlobalSearchBar />
             <AdminNavLinks items={permittedItems} />
 
             <div className="mt-auto border-t border-white/5 bg-[#0B1120] p-3 space-y-2">
