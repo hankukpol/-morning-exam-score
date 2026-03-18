@@ -32,6 +32,15 @@ const EXAM_TYPE_LABELS: Record<string, string> = {
   GYEONGCHAE: "경채",
 };
 
+/** D-day presets — which days trigger automatic cron notifications */
+const ALERT_PRESETS = [
+  { label: "D-30", days: 30, description: "시험 30일 전 — 원서 접수 마감 안내" },
+  { label: "D-14", days: 14, description: "시험 2주 전 — 최종 정리 시작 독려" },
+  { label: "D-7", days: 7, description: "시험 1주 전 — 집중 복습 독려" },
+  { label: "D-3", days: 3, description: "시험 3일 전 — 마무리 확인 안내" },
+  { label: "D-1", days: 1, description: "시험 전날 — 최종 점검 알림" },
+];
+
 function calcDaysUntil(date: Date | null): number | null {
   if (!date) return null;
   const today = new Date();
@@ -137,6 +146,17 @@ export default async function CivilExamScheduleAlertsPage() {
 
   const hasUpcoming = upcomingExams.length > 0;
 
+  // Determine which preset D-days are "active" (i.e., an upcoming exam hits that threshold today)
+  const activeTodayPresets = new Set<number>();
+  for (const exam of upcomingExams) {
+    const d = exam.daysUntilWritten;
+    if (d !== null) {
+      for (const preset of ALERT_PRESETS) {
+        if (d === preset.days) activeTodayPresets.add(preset.days);
+      }
+    }
+  }
+
   return (
     <div className="p-8 sm:p-10">
       {/* Breadcrumb badge */}
@@ -152,7 +172,13 @@ export default async function CivilExamScheduleAlertsPage() {
             30일 이내 예정된 공무원 시험 일정을 확인하고 수강생들에게 알림을 발송합니다.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/civil-exams"
+            className="inline-flex items-center rounded-full border border-ink/20 bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:border-forest/40 hover:text-forest"
+          >
+            ← 시험 관리 홈
+          </Link>
           <Link
             href="/admin/settings/civil-exams"
             className="inline-flex items-center rounded-full border border-ink/20 bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:border-forest/40 hover:text-forest"
@@ -165,8 +191,72 @@ export default async function CivilExamScheduleAlertsPage() {
         </div>
       </div>
 
-      {/* Upcoming Exams */}
+      {/* Alert Presets Table */}
       <section className="mt-8">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">알림 발송 기준 설정</h2>
+          <span className="inline-flex rounded-full bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
+            Cron 자동화
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs text-slate">
+          Cron 스케줄러가 매일 00:00에 아래 D-day에 해당하는 시험이 있으면 자동으로 카카오 알림톡을 발송합니다.
+        </p>
+        <div className="mt-4 overflow-hidden rounded-[24px] border border-ink/10 bg-white">
+          <table className="min-w-full divide-y divide-ink/10 text-sm">
+            <thead className="bg-mist/80 text-left">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold text-ink">D-day 기준</th>
+                <th className="px-5 py-3.5 font-semibold text-ink">알림 내용</th>
+                <th className="px-5 py-3.5 font-semibold text-ink">오늘 해당 여부</th>
+                <th className="px-5 py-3.5 font-semibold text-ink">상태</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink/5 bg-white">
+              {ALERT_PRESETS.map((preset) => {
+                const isToday = activeTodayPresets.has(preset.days);
+                return (
+                  <tr
+                    key={preset.days}
+                    className={`transition-colors ${isToday ? "bg-ember/5" : "hover:bg-mist/30"}`}
+                  >
+                    <td className="px-5 py-3.5">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-sm font-bold ${
+                          isToday
+                            ? "bg-ember text-white"
+                            : "border border-ink/10 bg-mist text-ink"
+                        }`}
+                      >
+                        {preset.label}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate">{preset.description}</td>
+                    <td className="px-5 py-3.5">
+                      {isToday ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ember" />
+                          오늘 발송 대상
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">
+                        활성
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Upcoming Exams */}
+      <section className="mt-10">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">30일 이내 예정 시험</h2>
           <span

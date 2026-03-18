@@ -2,11 +2,21 @@ import Link from "next/link";
 import { Subject } from "@prisma/client";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { WrongNoteManager } from "@/components/student-portal/wrong-note-manager";
+import { PrintButton } from "@/components/student-portal/print-button";
 import { SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getStudentPortalViewer, listStudentWrongNotes } from "@/lib/student-portal/service";
 
 export const dynamic = "force-dynamic";
+
+/** Format ISO date as YYYY.MM.DD */
+function fmtDate(isoOrDate: string | Date): string {
+  const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
 
 export default async function StudentWrongNotesPage() {
   if (!hasDatabaseConfig()) {
@@ -91,9 +101,209 @@ export default async function StudentWrongNotesPage() {
   // 메모가 있는 노트 수
   const notesWithMemo = notes.filter((note) => note.memo && note.memo.trim()).length;
 
+  // Build grouped data for print layout: subject → notes sorted by repeat count desc
+  // Count how many times each questionId appears across all notes
+  const questionRepeatMap: Record<number, number> = {};
+  for (const n of notes) {
+    questionRepeatMap[n.questionId] = (questionRepeatMap[n.questionId] ?? 0) + 1;
+  }
+
+  // Group notes by subject, sorted by subject total count desc
+  const printGroups = subjectSummary.map(({ subject, label }) => {
+    const subjectNotes = notes
+      .filter((n) => n.subject === subject)
+      .slice()
+      .sort((a, b) => (questionRepeatMap[b.questionId] ?? 1) - (questionRepeatMap[a.questionId] ?? 1));
+    return { subject, label, subjectNotes };
+  });
+
+  const printDate = fmtDate(new Date());
+
+  const mappedNotes = notes.map((note) => ({
+    id: note.id,
+    questionId: note.questionId,
+    memo: note.memo,
+    createdAt: note.createdAt.toISOString(),
+    updatedAt: note.updatedAt.toISOString(),
+    examDate: note.examDate.toISOString(),
+    subject: note.subject,
+    sessionId: note.sessionId,
+    questionNo: note.questionNo,
+    correctAnswer: note.correctAnswer,
+    correctRate: note.correctRate,
+    difficulty: note.difficulty,
+    studentAnswer: note.studentAnswer,
+  }));
+
   return (
     <main className="min-h-screen bg-mist px-4 py-6 text-ink sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+      {/* ── Print-only layout ─────────────────────────────────────────────────── */}
+      {/* Hidden on screen, shown only when window.print() is called */}
+      <div className="hidden print:block">
+        {/* Print header */}
+        <div
+          style={{
+            borderBottom: "2pt solid #1F4D3A",
+            paddingBottom: "8pt",
+            marginBottom: "12pt",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "8pt", color: "#4B5563", marginBottom: "3pt" }}>
+              한국경찰학원
+            </div>
+            <div style={{ fontSize: "14pt", fontWeight: "700", color: "#111827" }}>
+              {student.examNumber} {student.name}의 오답 노트
+            </div>
+          </div>
+          <div style={{ fontSize: "8pt", color: "#4B5563", textAlign: "right" }}>
+            <div>출력일: {printDate}</div>
+            <div>총 {notes.length}문항 · {subjectSummary.length}과목</div>
+          </div>
+        </div>
+
+        {notes.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "24pt", color: "#4B5563", fontSize: "10pt" }}>
+            저장된 오답이 없습니다.
+          </div>
+        ) : (
+          printGroups.map(({ subject, label, subjectNotes }) => (
+            <div key={subject} style={{ marginBottom: "14pt", pageBreakInside: "avoid" }}>
+              {/* Subject header */}
+              <div
+                style={{
+                  borderBottom: "1pt solid #111827",
+                  paddingBottom: "3pt",
+                  marginBottom: "6pt",
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: "6pt",
+                }}
+              >
+                <span style={{ fontSize: "11pt", fontWeight: "700", color: "#111827" }}>
+                  {label}
+                </span>
+                <span style={{ fontSize: "8pt", color: "#4B5563" }}>
+                  {subjectNotes.length}문항
+                </span>
+              </div>
+
+              {/* Notes table */}
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "8.5pt",
+                }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: "#F7F4EF" }}>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb", width: "40pt" }}>
+                      번호
+                    </th>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb", width: "55pt" }}>
+                      기록일
+                    </th>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb", width: "30pt" }}>
+                      횟수
+                    </th>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb", width: "30pt" }}>
+                      정답
+                    </th>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb", width: "30pt" }}>
+                      내 답
+                    </th>
+                    <th style={{ padding: "3pt 5pt", textAlign: "left", fontWeight: "600", border: "0.5pt solid #e5e7eb" }}>
+                      메모
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subjectNotes.map((note, idx) => {
+                    const repeatCount = questionRepeatMap[note.questionId] ?? 1;
+                    return (
+                      <tr
+                        key={note.id}
+                        style={{
+                          backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fafafa",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "3pt 5pt",
+                            border: "0.5pt solid #e5e7eb",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {note.questionNo}번
+                        </td>
+                        <td style={{ padding: "3pt 5pt", border: "0.5pt solid #e5e7eb", color: "#4B5563" }}>
+                          {fmtDate(note.examDate)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "3pt 5pt",
+                            border: "0.5pt solid #e5e7eb",
+                            fontWeight: "600",
+                            color: repeatCount > 1 ? "#b91c1c" : "#111827",
+                          }}
+                        >
+                          {repeatCount}회
+                        </td>
+                        <td
+                          style={{
+                            padding: "3pt 5pt",
+                            border: "0.5pt solid #e5e7eb",
+                            fontWeight: "700",
+                            color: "#1F4D3A",
+                          }}
+                        >
+                          {note.correctAnswer}
+                        </td>
+                        <td
+                          style={{
+                            padding: "3pt 5pt",
+                            border: "0.5pt solid #e5e7eb",
+                            fontWeight: "700",
+                            color: "#b91c1c",
+                          }}
+                        >
+                          {note.studentAnswer ?? "-"}
+                        </td>
+                        <td style={{ padding: "3pt 5pt", border: "0.5pt solid #e5e7eb", color: "#4B5563" }}>
+                          {note.memo ? note.memo.substring(0, 80) + (note.memo.length > 80 ? "…" : "") : ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ))
+        )}
+
+        {/* Print footer */}
+        <div
+          style={{
+            marginTop: "12pt",
+            borderTop: "0.5pt solid #e5e7eb",
+            paddingTop: "5pt",
+            fontSize: "7pt",
+            color: "#9ca3af",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>한국경찰학원 | 대구광역시 중구 중앙대로 390 센트럴엠빌딩 | 053-241-0112</span>
+          <span>본 자료는 학원 내부 학습용입니다.</span>
+        </div>
+      </div>
+
+      {/* ── Screen layout ─────────────────────────────────────────────────────── */}
+      <div className="mx-auto max-w-5xl space-y-6 print:hidden">
         {/* 헤더 */}
         <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -109,6 +319,9 @@ export default async function StudentWrongNotesPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
+              {notes.length > 0 && (
+                <PrintButton label="오답노트 인쇄" />
+              )}
               <Link
                 href="/student"
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
@@ -178,23 +391,7 @@ export default async function StudentWrongNotesPage() {
           redirectPath="/student/wrong-notes"
         />
 
-        <WrongNoteManager
-          initialNotes={notes.map((note) => ({
-            id: note.id,
-            questionId: note.questionId,
-            memo: note.memo,
-            createdAt: note.createdAt.toISOString(),
-            updatedAt: note.updatedAt.toISOString(),
-            examDate: note.examDate.toISOString(),
-            subject: note.subject,
-            sessionId: note.sessionId,
-            questionNo: note.questionNo,
-            correctAnswer: note.correctAnswer,
-            correctRate: note.correctRate,
-            difficulty: note.difficulty,
-            studentAnswer: note.studentAnswer,
-          }))}
-        />
+        <WrongNoteManager initialNotes={mappedNotes} />
       </div>
     </main>
   );

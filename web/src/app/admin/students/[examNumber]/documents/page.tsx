@@ -170,6 +170,12 @@ export default async function StudentDocumentsPage({ params, searchParams }: Pag
             examNumber={examNumber}
             docType={docType === "attendance" ? "ATTENDANCE_CERT" : "ENROLLMENT_CERT"}
           />
+          <Link
+            href={`/admin/reports/score-notices?examNumber=${examNumber}`}
+            className="inline-flex items-center gap-2 rounded-full border border-[#1F4D3A]/20 bg-[#1F4D3A]/5 px-4 py-2 text-sm font-medium text-[#1F4D3A] transition hover:bg-[#1F4D3A]/10"
+          >
+            성적 통지표
+          </Link>
           <PrintButton />
         </div>
       </div>

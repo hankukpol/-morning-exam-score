@@ -77,6 +77,7 @@ function formatKoreanDate(date: Date): string {
 function computeDDay(date: Date): {
   label: string;
   pillClass: string;
+  days: number;
 } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -87,29 +88,33 @@ function computeDDay(date: Date): {
   );
 
   if (diff < 0) {
-    return { label: "완료", pillClass: "border-ink/10 bg-mist text-slate" };
+    return { label: "완료", pillClass: "border-ink/10 bg-mist text-slate", days: diff };
   }
   if (diff === 0) {
     return {
       label: "D-Day!",
       pillClass: "border-ember/30 bg-ember/10 text-ember font-bold",
+      days: 0,
     };
   }
   if (diff <= 14) {
     return {
       label: `D-${diff}`,
       pillClass: "border-red-200 bg-red-50 text-red-700",
+      days: diff,
     };
   }
   if (diff <= 30) {
     return {
       label: `D-${diff}`,
       pillClass: "border-amber-200 bg-amber-50 text-amber-700",
+      days: diff,
     };
   }
   return {
     label: `D-${diff}일`,
     pillClass: "border-forest/20 bg-forest/10 text-forest",
+    days: diff,
   };
 }
 
@@ -124,7 +129,7 @@ type ExamRow = {
   description: string | null;
 };
 
-function ExamCard({ exam }: { exam: ExamRow }) {
+function ExamCard({ exam, isNextHero = false }: { exam: ExamRow; isNextHero?: boolean }) {
   const written = exam.writtenDate ? computeDDay(exam.writtenDate) : null;
   const interview = exam.interviewDate
     ? computeDDay(exam.interviewDate)
@@ -135,6 +140,87 @@ function ExamCard({ exam }: { exam: ExamRow }) {
     exam.interviewDate,
     exam.resultDate,
   );
+
+  // Hero banner: the single most urgent upcoming written exam
+  if (isNextHero && written && written.days >= 0) {
+    const isVeryUrgent = written.days <= 7;
+    const isUrgent = written.days <= 14;
+    return (
+      <article
+        className={`overflow-hidden rounded-[28px] p-6 sm:p-8 ${
+          isVeryUrgent
+            ? "bg-red-600 text-white"
+            : isUrgent
+              ? "bg-amber-500 text-white"
+              : "bg-forest text-white"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-xs font-semibold">
+                {EXAM_TYPE_LABEL[exam.examType]}
+              </span>
+              <span className="rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-xs font-semibold">
+                {exam.year}년
+              </span>
+              <span className="rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-xs font-semibold">
+                {EXAM_STATUS_LABEL[status]}
+              </span>
+            </div>
+            <h2 className="mt-3 text-xl font-bold sm:text-2xl">{exam.name}</h2>
+            {exam.writtenDate && (
+              <p className="mt-1.5 text-sm opacity-80">
+                필기시험: {formatKoreanDate(exam.writtenDate)}
+              </p>
+            )}
+            {exam.description && (
+              <p className="mt-2 text-xs opacity-70 leading-relaxed max-w-md">
+                {exam.description}
+              </p>
+            )}
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-semibold opacity-80">필기시험까지</p>
+            <p className={`mt-1 text-5xl font-black leading-none ${written.days === 0 ? "animate-pulse" : ""}`}>
+              {written.days === 0 ? "D-Day!" : `D-${written.days}`}
+            </p>
+            <p className="mt-2 text-xs opacity-70">
+              {exam.writtenDate ? formatKoreanDate(exam.writtenDate) : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* Date progress row */}
+        {(exam.interviewDate || exam.resultDate) && (
+          <div className="mt-5 flex flex-wrap gap-3 border-t border-white/20 pt-4">
+            {exam.interviewDate && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-70">면접</span>
+                <span className="text-xs font-semibold">{formatKoreanDate(exam.interviewDate)}</span>
+                {interview && (
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${interview.days < 0 ? "border-white/20 bg-white/10 text-white/70" : "border-white/30 bg-white/20 text-white"}`}>
+                    {interview.label}
+                  </span>
+                )}
+              </div>
+            )}
+            {exam.resultDate && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-70">최종발표</span>
+                <span className="text-xs font-semibold">{formatKoreanDate(exam.resultDate)}</span>
+                {result && (
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${result.days < 0 ? "border-white/20 bg-white/10 text-white/70" : "border-white/30 bg-white/20 text-white"}`}>
+                    {result.label}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </article>
+    );
+  }
 
   return (
     <article className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-sm">
@@ -313,6 +399,18 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
     (exam) => !upcomingExams.some((u) => u.id === exam.id),
   );
 
+  // Find the "hero" exam — the upcoming exam with the nearest written date
+  let heroExam: (typeof upcomingExams)[0] | null = null;
+  let heroWrittenDays: number | null = null;
+  for (const exam of upcomingExams) {
+    if (!exam.writtenDate) continue;
+    const d = computeDDay(exam.writtenDate);
+    if (d.days >= 0 && (heroWrittenDays === null || d.days < heroWrittenDays)) {
+      heroWrittenDays = d.days;
+      heroExam = exam;
+    }
+  }
+
   // Group upcoming by year
   const upcomingYearGroups = upcomingExams.reduce<
     Record<number, typeof upcomingExams>
@@ -397,8 +495,50 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      {/* Login prompt for unauthenticated users */}
-      {!viewer && (
+      {/* D-Day Hero Banner — most imminent upcoming exam */}
+      {heroExam && (
+        <ExamCard exam={heroExam} isNextHero />
+      )}
+
+      {/* Notification opt-in banner for logged-in students */}
+      {viewer ? (
+        <section className="rounded-[28px] border border-forest/20 bg-forest/5 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest/20">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4 text-forest"
+                >
+                  <path d="M4.214 3.227a.75.75 0 0 0-1.156-.956 8.97 8.97 0 0 0-1.856 3.826.75.75 0 0 0 1.466.316 7.47 7.47 0 0 1 1.546-3.186ZM16.942 2.271a.75.75 0 0 0-1.157.956 7.47 7.47 0 0 1 1.547 3.186.75.75 0 0 0 1.466-.316 8.971 8.971 0 0 0-1.856-3.826Z" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 2a6 6 0 0 0-6 6c0 1.887-.454 3.665-1.257 5.234a.75.75 0 0 0 .515 1.076 32.91 32.91 0 0 0 3.256.508 3.5 3.5 0 0 0 6.972 0 32.903 32.903 0 0 0 3.256-.508.75.75 0 0 0 .515-1.076A11.448 11.448 0 0 1 16 8a6 6 0 0 0-6-6Zm0 14.5a2 2 0 0 1-1.95-1.557 33.54 33.54 0 0 0 3.9 0A2 2 0 0 1 10 16.5Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-forest">
+                  카카오 알림톡 수신 설정
+                </p>
+                <p className="mt-0.5 text-xs text-slate leading-5">
+                  D-30, D-14, D-7, D-3, D-1에 시험 일정 알림이 자동 발송됩니다.
+                  수강 등록 시 동의한 경우 자동으로 수신됩니다.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-white px-3 py-1.5 text-xs font-semibold text-forest">
+                <span className="h-1.5 w-1.5 rounded-full bg-forest" />
+                {viewer.name}님 알림 수신 중
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : (
         <section className="rounded-[28px] border border-forest/20 bg-forest/5 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -418,7 +558,7 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-forest">
-                  로그인하면 나의 접수 현황을 확인할 수 있습니다
+                  로그인하면 카카오 알림 수신 현황을 확인할 수 있습니다
                 </p>
                 <p className="mt-0.5 text-xs text-slate">
                   학번과 생년월일 6자리로 로그인하세요. 시험 일정은 로그인 없이도 볼 수 있습니다.
@@ -478,7 +618,7 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
         })}
       </div>
 
-      {/* Upcoming exams grouped by year */}
+      {/* Upcoming exams grouped by year — skip hero exam to avoid duplication */}
       {upcomingExams.length === 0 ? (
         <section className="rounded-[28px] border border-ink/10 bg-white p-8 text-center">
           <p className="text-base font-semibold text-ink">
@@ -517,7 +657,10 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
               </span>
             </div>
             {upcomingYearGroups[year]?.map((exam) => (
-              <ExamCard key={exam.id} exam={exam} />
+              // Skip heroExam since it's shown at top
+              exam.id === heroExam?.id ? null : (
+                <ExamCard key={exam.id} exam={exam} />
+              )
             ))}
           </section>
         ))

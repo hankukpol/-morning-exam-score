@@ -203,6 +203,25 @@ export default async function ReportsPage() {
           </div>
           <div className="mt-6 text-xs text-slate">현재: {year}년 {month}월 →</div>
         </Link>
+
+        <Link
+          href={`/admin/reports/score-notices?month=${monthStr}`}
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-forest/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">성적</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">성적 통지표</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                월별 수강생 성적 통지표를 개별로 출력합니다. 과목별 평균, 석차, 출결 현황, 담임 코멘트가 포함된 A4 인쇄용 문서입니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-forest transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">현재: {year}년 {month}월 →</div>
+        </Link>
       </div>
 
       {/* Quick Navigation */}
@@ -219,6 +238,7 @@ export default async function ReportsPage() {
           <Link href="/admin/reports/attendance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">출결 현황</Link>
           <Link href="/admin/reports/operations" className="inline-flex items-center gap-1.5 rounded-lg border border-forest/20 bg-forest/5 px-3 py-1.5 text-sm text-forest hover:bg-forest/10">운영 현황 요약</Link>
           <Link href="/admin/reports/monthly-briefing" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">월간 브리핑</Link>
+          <Link href={`/admin/reports/score-notices?month=${monthStr}`} className="inline-flex items-center gap-1.5 rounded-lg border border-forest/20 bg-forest/5 px-3 py-1.5 text-sm text-forest hover:bg-forest/10">성적 통지표</Link>
         </div>
       </div>
     </div>

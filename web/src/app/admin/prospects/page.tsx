@@ -91,12 +91,20 @@ export default async function ProspectsPage({ searchParams }: PageProps) {
       </div>
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <h1 className="text-3xl font-semibold">상담 방문자</h1>
-        <Link
-          href="/admin/prospects/stats"
-          className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
-        >
-          전환 통계 보기 →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/prospects/stats"
+            className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
+          >
+            전환 통계 보기 →
+          </Link>
+          <Link
+            href="/admin/counseling/conversion-stats"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ember/20 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20"
+          >
+            전환율 분석 대시보드 →
+          </Link>
+        </div>
       </div>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         미등록 예비 원생의 상담 기록을 관리합니다. 등록 완료 후 수강 연결은 수강 등록 메뉴에서 처리하세요.

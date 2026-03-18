@@ -73,6 +73,13 @@ export default async function AdminCounselingPage({ searchParams }: PageProps) {
         >
           파이프라인 보기 →
         </Link>
+        <Link
+          prefetch={false}
+          href="/admin/counseling/conversion-stats"
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-5 py-2.5 text-sm font-semibold text-ember transition hover:border-ember/40 hover:bg-ember/20"
+        >
+          전환율 분석 →
+        </Link>
       </div>
 
       <section className="mt-8 space-y-4">
