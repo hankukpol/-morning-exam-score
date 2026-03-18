@@ -117,7 +117,7 @@ export function RefundApproveManager({ refunds: initial }: { refunds: PendingRef
           <table className="min-w-full text-sm divide-y divide-ink/10">
             <thead>
               <tr>
-                {["요청일시", "학생", "수납 내역", "환불 금액", "환불 유형", "환불 사유", "요청자", "처리"].map(
+                {["요청일시", "학생", "수납 내역", "환불 금액", "환불 유형", "환불 사유", "요청자", "처리", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -191,6 +191,14 @@ export function RefundApproveManager({ refunds: initial }: { refunds: PendingRef
                           거절
                         </button>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`/admin/payments/refunds/${r.id}`}
+                        className="whitespace-nowrap rounded-full border border-ink/10 px-3 py-1 text-xs font-medium text-slate transition hover:border-ink/30 hover:text-ink"
+                      >
+                        상세보기
+                      </a>
                     </td>
                   </tr>
                 );

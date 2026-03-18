@@ -4,6 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { ContactInfoForm } from "./contact-info-form";
+import { EmergencyContactForm } from "./emergency-contact-form";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,11 @@ export default async function StudentContactInfoPage({
       onlineId: true,
       registeredAt: true,
       note: true,
+      emergencyContactName: true,
+      emergencyContactPhone: true,
+      emergencyContactRelation: true,
+      address: true,
+      zipCode: true,
     },
   });
 
@@ -125,50 +131,18 @@ export default async function StudentContactInfoPage({
           />
         </div>
 
-        {/* 비상연락처 — 미구현 안내 */}
-        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6">
-          <h2 className="mb-2 flex items-center gap-2 text-base font-semibold text-amber-800">
-            <span>비상연락처 / 주소 (미구현)</span>
-            <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-              DB 스키마 추가 필요
-            </span>
-          </h2>
-          <p className="mb-4 text-sm text-amber-700">
-            현재 학생 테이블에는 아래 필드가 존재하지 않습니다. 필요하다면 DB 스키마 마이그레이션을 통해 추가해야 합니다.
-          </p>
-          <ul className="space-y-2 text-sm text-amber-800">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
-              <span>
-                <strong>긴급연락처 이름</strong> —{" "}
-                <code className="rounded bg-amber-100 px-1 font-mono text-xs">emergencyContactName String?</code>
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
-              <span>
-                <strong>긴급연락처 전화번호</strong> —{" "}
-                <code className="rounded bg-amber-100 px-1 font-mono text-xs">emergencyContactPhone String?</code>
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
-              <span>
-                <strong>관계</strong> —{" "}
-                <code className="rounded bg-amber-100 px-1 font-mono text-xs">emergencyContactRelation String?</code>
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
-              <span>
-                <strong>주소</strong> —{" "}
-                <code className="rounded bg-amber-100 px-1 font-mono text-xs">address String?</code>
-              </span>
-            </li>
-          </ul>
-          <p className="mt-4 text-xs text-amber-600">
-            스키마 추가 후 이 페이지의 폼을 확장하면 해당 필드를 수정·저장할 수 있습니다.
-          </p>
+        {/* 비상연락처 / 주소 */}
+        <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+          <h2 className="mb-1 text-base font-semibold text-ink">비상연락처 / 주소</h2>
+          <p className="mb-5 text-sm text-slate">비상시 연락 가능한 보호자 정보와 주소를 입력합니다.</p>
+          <EmergencyContactForm
+            examNumber={student.examNumber}
+            initialEmergencyContactName={student.emergencyContactName}
+            initialEmergencyContactPhone={student.emergencyContactPhone}
+            initialEmergencyContactRelation={student.emergencyContactRelation}
+            initialAddress={student.address}
+            initialZipCode={student.zipCode}
+          />
         </div>
       </div>
     </div>

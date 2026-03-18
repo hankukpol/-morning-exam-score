@@ -30,6 +30,12 @@ model Student {
   parentName          String?
   parentRelation      String?       // 어머니/아버지/기타
   parentMobile        String?
+  // 비상연락처 / 주소 (2026-03 추가)
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  address                  String?
+  zipCode                  String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

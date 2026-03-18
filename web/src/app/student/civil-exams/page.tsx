@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExamType } from "@prisma/client";
+import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
+import { getStudentPortalViewer } from "@/lib/student-portal/service";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +238,27 @@ export default async function CivilExamsPage({ searchParams }: PageProps) {
             </Link>
           </div>
         </section>
+      </main>
+    );
+  }
+
+  const viewer = await getStudentPortalViewer();
+
+  if (!viewer) {
+    return (
+      <main className="space-y-6 px-0 py-6">
+        <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
+          <div className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-forest">
+            Civil Exam Schedule
+          </div>
+          <h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-4xl">
+            공채 시험 일정
+          </h1>
+          <p className="mt-4 text-sm leading-7 text-slate sm:text-base">
+            시험 일정 확인은 로그인 후 이용할 수 있습니다.
+          </p>
+        </section>
+        <StudentLookupForm redirectPath="/student/civil-exams" />
       </main>
     );
   }
