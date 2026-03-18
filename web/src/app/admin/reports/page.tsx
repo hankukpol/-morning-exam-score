@@ -184,6 +184,25 @@ export default async function ReportsPage() {
           </div>
           <div className="mt-6 text-xs text-slate">실시간 운영 현황 →</div>
         </Link>
+
+        <Link
+          href={`/admin/reports/instructor-settlement?month=${monthStr}`}
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ember/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">강사</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">강사 정산 보고서</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                월별 강사·직원의 수납 처리 건수, 정산금액, 세금(3.3%) 공제, 실수령액을 한눈에 확인합니다.
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-ember transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">현재: {year}년 {month}월 →</div>
+        </Link>
       </div>
 
       {/* Quick Navigation */}
@@ -195,6 +214,7 @@ export default async function ReportsPage() {
           <Link href="/admin/payments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수납 내역</Link>
           <Link href="/admin/enrollments" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강 목록</Link>
           <Link href="/admin/staff-settlements" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">강사 정산</Link>
+          <Link href={`/admin/reports/instructor-settlement?month=${monthStr}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ember/20 bg-ember/5 px-3 py-1.5 text-sm text-ember hover:bg-ember/10">강사 정산 보고서</Link>
           <Link href="/admin/reports/enrollment-status" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">수강생 현황</Link>
           <Link href="/admin/reports/attendance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-1.5 text-sm text-slate hover:bg-mist">출결 현황</Link>
           <Link href="/admin/reports/operations" className="inline-flex items-center gap-1.5 rounded-lg border border-forest/20 bg-forest/5 px-3 py-1.5 text-sm text-forest hover:bg-forest/10">운영 현황 요약</Link>

@@ -2,6 +2,7 @@
 
 import { Subject } from "@prisma/client";
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { SUBJECT_LABEL } from "@/lib/constants";
@@ -39,6 +40,29 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
   );
   const [isPending, startTransition] = useTransition();
   const confirmModal = useActionModalState();
+
+  // Compute per-subject counts across all notes (for tab badges)
+  const subjectCounts = useMemo(() => {
+    return notes.reduce<Partial<Record<Subject | "ALL", number>>>((acc, note) => {
+      acc["ALL"] = (acc["ALL"] ?? 0) + 1;
+      acc[note.subject] = (acc[note.subject] ?? 0) + 1;
+      return acc;
+    }, { ALL: 0 });
+  }, [notes]);
+
+  // Unique subjects present in notes, sorted by count descending
+  const activeSubjects = useMemo(() => {
+    return Object.values(Subject).filter((s) => (subjectCounts[s] ?? 0) > 0);
+  }, [subjectCounts]);
+
+  // Compute duplicate question counts: questionId → number of times it appears
+  const questionRepeatCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const note of notes) {
+      counts[note.questionId] = (counts[note.questionId] ?? 0) + 1;
+    }
+    return counts;
+  }, [notes]);
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
@@ -190,7 +214,7 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
           <div>
             <h2 className="text-xl font-semibold">오답 노트 필터</h2>
             <p className="mt-3 text-sm leading-7 text-slate">
-              과목과 날짜 범위로 저장한 오답을 빠르게 정리할 수 있습니다.
+              과목 탭 또는 날짜 범위로 저장한 오답을 빠르게 정리할 수 있습니다.
             </p>
           </div>
           <button
@@ -214,31 +238,74 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <select
-            value={subject}
-            onChange={(event) => setSubject(event.target.value as Subject | "ALL")}
-            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-          >
-            <option value="ALL">전체 과목</option>
-            {Object.values(Subject).map((value) => (
-              <option key={value} value={value}>
-                {SUBJECT_LABEL[value]}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
-          />
+        {/* Subject filter tabs */}
+        {activeSubjects.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate">과목 필터</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSubject("ALL")}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  subject === "ALL"
+                    ? "border-ink/30 bg-ink text-white"
+                    : "border-ink/10 bg-mist text-slate hover:border-ink/30 hover:text-ink"
+                }`}
+              >
+                전체
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-xs ${
+                    subject === "ALL" ? "bg-white/20 text-white" : "bg-ink/10 text-slate"
+                  }`}
+                >
+                  {subjectCounts["ALL"] ?? 0}
+                </span>
+              </button>
+              {activeSubjects.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSubject(s)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    subject === s
+                      ? "border-forest/40 bg-forest text-white"
+                      : "border-ink/10 bg-mist text-slate hover:border-forest/30 hover:text-forest"
+                  }`}
+                >
+                  {SUBJECT_LABEL[s]}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-xs ${
+                      subject === s ? "bg-white/20 text-white" : "bg-ember/10 text-ember"
+                    }`}
+                  >
+                    {subjectCounts[s] ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Date range filters */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate">시작 날짜</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate">종료 날짜</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="w-full rounded-2xl border border-ink/10 px-4 py-3 text-sm"
+            />
+          </div>
         </div>
       </section>
 
@@ -274,7 +341,11 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
             </div>
           ) : null}
 
-          {filteredNotes.map((note) => (
+          {filteredNotes.map((note) => {
+            const dateKey = formatDate(note.examDate);
+            const sessionHref = `/student/scores/${encodeURIComponent(dateKey)}`;
+            const repeatCount = questionRepeatCounts[note.questionId] ?? 1;
+            return (
             <article key={note.id} className="rounded-[24px] border border-ink/10 p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -282,14 +353,51 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
                     <span className="inline-flex rounded-full border border-forest/20 bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
                       {SUBJECT_LABEL[note.subject]}
                     </span>
-                    <span className="inline-flex rounded-full border border-ink/10 bg-mist px-3 py-1 text-xs font-semibold text-slate">
-                      {formatDate(note.examDate)}
-                    </span>
+                    <Link
+                      href={sessionHref}
+                      className="inline-flex items-center gap-1 rounded-full border border-ember/20 bg-ember/5 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/10"
+                      title="해당 시험 성적 조회"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      {dateKey} 성적 보기
+                    </Link>
                     {note.difficulty ? (
                       <span className="inline-flex rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate">
                         난이도: {note.difficulty}
                       </span>
                     ) : null}
+                    {repeatCount > 1 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"
+                          />
+                        </svg>
+                        다시 틀린 문제 {repeatCount}회
+                      </span>
+                    )}
                   </div>
                   <h3 className="mt-3 text-lg font-semibold">{note.questionNo}번 문항</h3>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm">
@@ -362,7 +470,8 @@ export function WrongNoteManager({ initialNotes }: WrongNoteManagerProps) {
                 </button>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
       <ActionModal

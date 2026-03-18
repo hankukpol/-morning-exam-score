@@ -8,6 +8,7 @@ type StudentSettings = {
   examNumber: string;
   name: string;
   mobile: string | null;
+  birthDate: string | null;
   notificationConsent: boolean;
   consentedAt: Date | null;
   registeredAt: Date | null;
@@ -204,6 +205,12 @@ export function SettingsClient({ student }: Props) {
           )}
           {!isEditingPhone && phoneSaveStatus === "saved" && (
             <div className="px-5 pb-3 text-xs text-forest">연락처가 저장되었습니다.</div>
+          )}
+          {student.birthDate && (
+            <div className="flex items-center justify-between gap-4 px-5 py-4">
+              <dt className="min-w-[100px] font-medium text-slate">생년월일</dt>
+              <dd className="font-semibold">{formatDate(student.birthDate)}</dd>
+            </div>
           )}
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <dt className="min-w-[100px] font-medium text-slate">직렬</dt>
