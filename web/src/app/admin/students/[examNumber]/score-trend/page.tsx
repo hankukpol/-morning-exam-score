@@ -446,6 +446,249 @@ export default async function StudentScoreTrendPage({ params, searchParams }: Pa
         </section>
       ) : (
         <>
+          {/* ── SVG 추이 라인 차트 ────────────────────────────────────── */}
+          {(() => {
+            // Use last 40 attended rows for the line chart
+            const chartRows = attendedRows.slice(-40);
+            if (chartRows.length < 2) return null;
+
+            const chartW = 600;
+            const chartH = 160;
+            const padL = 36;
+            const padR = 12;
+            const padT = 12;
+            const padB = 28;
+            const innerW = chartW - padL - padR;
+            const innerH = chartH - padT - padB;
+
+            // Y domain: 0–100
+            const yMin = 0;
+            const yMax = 100;
+            const yScale = (v: number) =>
+              padT + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+            const xScale = (i: number) =>
+              padL + (i / (chartRows.length - 1)) * innerW;
+
+            // Build points string
+            const linePoints = chartRows
+              .map((r, i) => `${xScale(i).toFixed(1)},${yScale(r.finalScore ?? 0).toFixed(1)}`)
+              .join(" ");
+
+            // Reference lines at 60, 70, 80
+            const refLines = [60, 70, 80];
+
+            // Dot color per score
+            const dotColor = (score: number | null) => {
+              if (score === null) return "#9CA3AF";
+              if (score >= 80) return "#1F4D3A";
+              if (score >= 60) return "#D97706";
+              return "#C55A11";
+            };
+
+            // Y axis tick labels
+            const yTicks = [0, 20, 40, 60, 80, 100];
+
+            // X axis: show first, last, and every ~10th label
+            const xLabelIndices = new Set<number>();
+            xLabelIndices.add(0);
+            xLabelIndices.add(chartRows.length - 1);
+            for (let i = Math.floor(chartRows.length / 5); i < chartRows.length - 1; i += Math.max(1, Math.floor(chartRows.length / 5))) {
+              xLabelIndices.add(i);
+            }
+
+            return (
+              <section className="mt-8">
+                <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-base font-semibold text-ink">
+                      성적 추이 라인 차트
+                      {selectedSubject && (
+                        <span className="ml-2 text-sm font-normal text-slate">
+                          — {SUBJECT_LABEL[selectedSubject] ?? selectedSubject}
+                        </span>
+                      )}
+                    </h2>
+                    <div className="flex flex-wrap gap-4 text-xs text-slate">
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-forest" />
+                        80점 이상
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        60~79점
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-ember" />
+                        60점 미만
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-5 overflow-x-auto">
+                    <svg
+                      viewBox={`0 0 ${chartW} ${chartH}`}
+                      className="w-full min-w-[400px]"
+                      aria-label="성적 추이 라인 차트"
+                    >
+                      {/* Y grid lines + labels */}
+                      {yTicks.map((tick) => {
+                        const y = yScale(tick);
+                        return (
+                          <g key={tick}>
+                            <line
+                              x1={padL}
+                              y1={y}
+                              x2={chartW - padR}
+                              y2={y}
+                              stroke={tick === 0 ? "#9CA3AF" : "#E5E7EB"}
+                              strokeWidth={tick === 0 ? 1 : 0.8}
+                            />
+                            <text
+                              x={padL - 4}
+                              y={y + 4}
+                              textAnchor="end"
+                              fontSize={9}
+                              fill="#6B7280"
+                            >
+                              {tick}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Reference lines at 60, 70, 80 */}
+                      {refLines.map((ref) => {
+                        const y = yScale(ref);
+                        const color =
+                          ref === 80 ? "#1F4D3A" : ref === 70 ? "#D97706" : "#C55A11";
+                        return (
+                          <g key={ref}>
+                            <line
+                              x1={padL}
+                              y1={y}
+                              x2={chartW - padR}
+                              y2={y}
+                              stroke={color}
+                              strokeWidth={0.8}
+                              strokeDasharray="4 3"
+                              opacity={0.45}
+                            />
+                            <text
+                              x={chartW - padR + 2}
+                              y={y + 3}
+                              fontSize={8}
+                              fill={color}
+                              opacity={0.8}
+                            >
+                              {ref}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Trend line */}
+                      <polyline
+                        points={linePoints}
+                        fill="none"
+                        stroke="#C55A11"
+                        strokeWidth={2}
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                      />
+
+                      {/* Dots */}
+                      {chartRows.map((r, i) => {
+                        if (r.finalScore === null) return null;
+                        const cx = xScale(i);
+                        const cy = yScale(r.finalScore);
+                        return (
+                          <circle
+                            key={r.scoreId}
+                            cx={cx.toFixed(1)}
+                            cy={cy.toFixed(1)}
+                            r={3.5}
+                            fill={dotColor(r.finalScore)}
+                            stroke="white"
+                            strokeWidth={1.5}
+                          />
+                        );
+                      })}
+
+                      {/* X axis labels */}
+                      {chartRows.map((r, i) => {
+                        if (!xLabelIndices.has(i)) return null;
+                        const dateStr = r.examDate;
+                        const mo = String(dateStr.getMonth() + 1).padStart(2, "0");
+                        const dd = String(dateStr.getDate()).padStart(2, "0");
+                        return (
+                          <text
+                            key={r.scoreId}
+                            x={xScale(i).toFixed(1)}
+                            y={chartH - 4}
+                            textAnchor="middle"
+                            fontSize={8.5}
+                            fill="#6B7280"
+                          >
+                            {`${mo}/${dd}`}
+                          </text>
+                        );
+                      })}
+                    </svg>
+                  </div>
+
+                  {/* Latest score annotation */}
+                  {(() => {
+                    const last = chartRows[chartRows.length - 1];
+                    if (!last || last.finalScore === null) return null;
+                    const prev = chartRows[chartRows.length - 2];
+                    const diff =
+                      prev && prev.finalScore !== null
+                        ? last.finalScore - prev.finalScore
+                        : null;
+                    return (
+                      <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-ink/5 pt-4">
+                        <div>
+                          <p className="text-xs text-slate">최근 점수</p>
+                          <p
+                            className={`text-xl font-semibold ${
+                              last.finalScore >= 80
+                                ? "text-forest"
+                                : last.finalScore >= 60
+                                  ? "text-amber-600"
+                                  : "text-ember"
+                            }`}
+                          >
+                            {last.finalScore}점
+                          </p>
+                        </div>
+                        {diff !== null && (
+                          <div>
+                            <p className="text-xs text-slate">전회 대비</p>
+                            <p
+                              className={`text-xl font-semibold ${
+                                diff > 0
+                                  ? "text-forest"
+                                  : diff < 0
+                                    ? "text-ember"
+                                    : "text-slate"
+                              }`}
+                            >
+                              {diff > 0 ? "+" : ""}
+                              {diff.toFixed(1)}점
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-slate">표시 회차</p>
+                          <p className="text-xl font-semibold text-ink">{chartRows.length}회</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </section>
+            );
+          })()}
+
           {/* ── 시각적 바 차트 ────────────────────────────────────────── */}
           <section className="mt-8">
             <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel">

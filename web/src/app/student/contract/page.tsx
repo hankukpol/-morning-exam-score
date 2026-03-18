@@ -302,9 +302,27 @@ export default async function StudentContractPage() {
                         </div>
                       </div>
 
-                      {/* Contract view button */}
-                      {contract && (
-                        <div className="flex-shrink-0">
+                      {/* Contract view buttons */}
+                      <div className="flex flex-shrink-0 flex-wrap gap-2">
+                        <Link
+                          href={`/student/contract/${enrollment.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-forest/30 bg-forest/5 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/10"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 6 10Zm.75 2.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          상세 보기
+                        </Link>
+                        {contract && (
                           <Link
                             href={`/admin/enrollments/${enrollment.id}/contract`}
                             target="_blank"
@@ -326,8 +344,8 @@ export default async function StudentContractPage() {
                             </svg>
                             계약서 보기
                           </Link>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* Contract detail — issued date / printed date */}

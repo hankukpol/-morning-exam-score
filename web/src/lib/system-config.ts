@@ -17,6 +17,8 @@ export type SystemConfigData = {
   refundBefore1Third: number;
   refundBefore1Half: number;
   refundAfter1Half: number;
+  // 메타
+  updatedAt: string | null;
 };
 
 export const DEFAULT_SYSTEM_CONFIG: SystemConfigData = {
@@ -33,6 +35,7 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigData = {
   refundBefore1Third: 67,
   refundBefore1Half: 50,
   refundAfter1Half: 0,
+  updatedAt: null,
 };
 
 export async function getSystemConfig(): Promise<SystemConfigData> {
@@ -68,6 +71,7 @@ export async function getSystemConfig(): Promise<SystemConfigData> {
         typeof raw.refundAfter1Half === "number"
           ? raw.refundAfter1Half
           : DEFAULT_SYSTEM_CONFIG.refundAfter1Half,
+      updatedAt: row.updatedAt?.toISOString() ?? null,
     };
   } catch {
     return { ...DEFAULT_SYSTEM_CONFIG };

@@ -20,6 +20,7 @@ interface Props {
   legalMinimums: PolicyValues;
   currentPolicies: { id: number; refund: number }[];
   stages: StageInfo[];
+  initialUpdatedAt: string | null;
 }
 
 const FIELD_KEYS: (keyof PolicyValues)[] = [
@@ -29,15 +30,36 @@ const FIELD_KEYS: (keyof PolicyValues)[] = [
   "refundAfter1Half",
 ];
 
-export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Props) {
+function formatDate(iso: string | null): string {
+  if (!iso) return "저장된 기록 없음";
+  try {
+    return new Date(iso).toLocaleString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+export function RefundPolicyEditor({
+  initialValues,
+  legalMinimums,
+  stages,
+  initialUpdatedAt,
+}: Props) {
   const [values, setValues] = useState<PolicyValues>(initialValues);
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(initialUpdatedAt);
 
   function showToast(type: "ok" | "err", msg: string) {
     setToast({ type, msg });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   }
 
   function handleChange(field: keyof PolicyValues, raw: string) {
@@ -82,14 +104,14 @@ export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Pro
 
     startTransition(async () => {
       try {
-        // Merge into the full SystemConfig via PATCH /api/settings/system
-        const res = await fetch("/api/settings/system", {
+        const res = await fetch("/api/settings/refund-policies", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: values }),
+          body: JSON.stringify(values),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "저장 실패");
+        setLastUpdatedAt(data.data?.updatedAt ?? null);
         showToast("ok", "환불 정책이 저장되었습니다.");
         setIsDirty(false);
       } catch (e) {
@@ -99,9 +121,21 @@ export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Pro
   }
 
   const legalMinMap: Record<keyof PolicyValues, number> = legalMinimums;
+  const hasViolation = FIELD_KEYS.some((f) => values[f] < legalMinMap[f]);
 
   return (
     <div className="space-y-5">
+      {/* 마지막 수정일 */}
+      <div className="flex items-center gap-2 text-xs text-slate">
+        <svg className="w-3.5 h-3.5 shrink-0 text-slate/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>
+          마지막 수정:{" "}
+          <span className="font-medium text-ink">{formatDate(lastUpdatedAt)}</span>
+        </span>
+      </div>
+
       {/* 토스트 알림 */}
       {toast && (
         <div
@@ -196,11 +230,11 @@ export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Pro
       </div>
 
       {/* 경고: 법정 기준 위반 시 */}
-      {FIELD_KEYS.some((f) => values[f] < legalMinMap[f]) && (
+      {hasViolation && (
         <div className="rounded-[20px] border border-red-200 bg-red-50 px-5 py-4">
           <p className="text-sm font-semibold text-red-700">법정 기준 위반 경고</p>
           <p className="mt-1 text-sm text-red-600">
-            일부 항목이 법정 최저 환불 비율보다 낮습니다. 저장 전에 수정하세요.
+            일부 항목이 법정 최저 환불 비율보다 낮습니다. 저장 전에 수정하거나 &apos;법정 기준으로 초기화&apos;를 사용하세요.
           </p>
         </div>
       )}
@@ -209,14 +243,17 @@ export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Pro
       <div className="flex items-center justify-between pt-2">
         <button
           onClick={handleReset}
-          className="rounded-xl border border-ink/15 px-4 py-2 text-sm text-slate hover:border-ink/30 hover:text-ink"
+          type="button"
+          className="rounded-xl border border-ink/15 px-4 py-2 text-sm text-slate hover:border-ink/30 hover:text-ink transition"
         >
           법정 기준으로 초기화
         </button>
         <button
           onClick={handleSave}
-          disabled={isPending || !isDirty}
-          className="rounded-xl bg-ember px-6 py-2 text-sm font-medium text-white hover:bg-ember/90 disabled:opacity-50"
+          type="button"
+          disabled={isPending || !isDirty || hasViolation}
+          title={hasViolation ? "법정 기준을 위반한 항목이 있어 저장할 수 없습니다." : undefined}
+          className="rounded-xl bg-ember px-6 py-2 text-sm font-medium text-white hover:bg-ember/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           {isPending ? "저장 중..." : "저장"}
         </button>
@@ -243,8 +280,8 @@ export function RefundPolicyEditor({ initialValues, legalMinimums, stages }: Pro
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-ember">·</span>
             <span>
-              동일한 설정은 <strong className="text-ink">시스템 설정 &gt; 수납 설정</strong>
-              탭에서도 관리할 수 있습니다.
+              법정 위반 상태에서는 <strong className="text-ink">저장 버튼이 비활성화</strong>됩니다.
+              법정 기준 이상으로 수정 후 저장하세요.
             </span>
           </li>
         </ul>

@@ -9,7 +9,13 @@ import {
 import { sendQueuedNotifications } from "@/lib/notifications/service";
 import { normalizePhone } from "@/lib/excel/workbook";
 
-type RecipientGroup = "all_active" | "cohort" | "exam_category" | "custom";
+type RecipientGroup =
+  | "all_active"
+  | "cohort"
+  | "exam_category"
+  | "overdue_installment"
+  | "absent_3plus"
+  | "custom";
 
 type RequestBody = {
   templateId: string;
@@ -30,7 +36,7 @@ async function resolveBroadcastRecipients(
     examCategory?: string;
     examNumbers?: string[];
   },
-) {
+): Promise<{ students: Array<{ examNumber: string; name: string; phone: string | null; notificationConsent: boolean }>; missingNumbers: string[] }> {
   const prisma = getPrisma();
 
   if (recipientGroup === "custom" && opts.examNumbers?.length) {
@@ -103,6 +109,101 @@ async function resolveBroadcastRecipients(
         courseEnrollments: {
           some: { status: { in: ["ACTIVE", "PENDING"] } },
         },
+      },
+      select: {
+        examNumber: true,
+        name: true,
+        phone: true,
+        notificationConsent: true,
+      },
+    });
+
+    return { students, missingNumbers: [] };
+  }
+
+  if (recipientGroup === "overdue_installment") {
+    // Students with at least one UNPAID installment past due date
+    const today = new Date();
+    const overdueInstallments = await prisma.installment.findMany({
+      where: {
+        dueDate: { lt: today },
+        paidAt: null,
+        payment: {
+          examNumber: { not: null },
+          student: {
+            isActive: true,
+            notificationConsent: true,
+          },
+        },
+      },
+      select: {
+        payment: {
+          select: {
+            examNumber: true,
+          },
+        },
+      },
+    });
+
+    const overdueExamNumbers = [
+      ...new Set(
+        overdueInstallments
+          .map((i) => i.payment.examNumber)
+          .filter((n): n is string => n !== null),
+      ),
+    ];
+
+    if (overdueExamNumbers.length === 0) {
+      return { students: [], missingNumbers: [] };
+    }
+
+    const students = await prisma.student.findMany({
+      where: {
+        examNumber: { in: overdueExamNumbers },
+        isActive: true,
+        notificationConsent: true,
+      },
+      select: {
+        examNumber: true,
+        name: true,
+        phone: true,
+        notificationConsent: true,
+      },
+    });
+
+    return { students, missingNumbers: [] };
+  }
+
+  if (recipientGroup === "absent_3plus") {
+    // Students with 3 or more ABSENT scores in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const absentScores = await prisma.score.groupBy({
+      by: ["examNumber"],
+      where: {
+        attendType: "ABSENT",
+        session: {
+          examDate: { gte: thirtyDaysAgo },
+        },
+      },
+      _count: { examNumber: true },
+      having: {
+        examNumber: { _count: { gte: 3 } },
+      },
+    });
+
+    const absentExamNumbers = absentScores.map((s) => s.examNumber);
+
+    if (absentExamNumbers.length === 0) {
+      return { students: [], missingNumbers: [] };
+    }
+
+    const students = await prisma.student.findMany({
+      where: {
+        examNumber: { in: absentExamNumbers },
+        isActive: true,
+        notificationConsent: true,
       },
       select: {
         examNumber: true,

@@ -87,6 +87,12 @@ export default async function SpecialLectureDetailPage({ params }: PageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <Link
+            href={`/admin/settings/special-lectures/${id}/revenue`}
+            className="rounded-[20px] border border-ember/30 bg-ember/5 px-4 py-2 text-sm font-medium text-ember transition hover:bg-ember/10"
+          >
+            수익 분석
+          </Link>
+          <Link
             href={`/admin/settings/special-lectures/${id}/edit`}
             className="rounded-[20px] border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/20"
           >

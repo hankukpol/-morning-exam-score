@@ -183,6 +183,7 @@ export default async function RefundPoliciesPage() {
               stage: p.stage,
               condition: p.condition,
             }))}
+            initialUpdatedAt={config.updatedAt}
           />
         </div>
       </div>

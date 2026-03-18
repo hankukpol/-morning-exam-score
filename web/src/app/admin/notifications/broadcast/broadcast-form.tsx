@@ -19,7 +19,13 @@ type CohortOption = {
   endDate: string;
 };
 
-type RecipientGroup = "all_active" | "cohort" | "exam_category" | "custom";
+type RecipientGroup =
+  | "all_active"
+  | "cohort"
+  | "exam_category"
+  | "overdue_installment"
+  | "absent_3plus"
+  | "custom";
 
 type CountResult = {
   count: number;
@@ -386,6 +392,42 @@ export function BroadcastForm({ templates, cohorts }: Props) {
               </div>
             </label>
 
+            {/* Overdue installment students */}
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-ink/10 p-4 transition hover:border-ember/30 hover:bg-ember/5">
+              <input
+                type="radio"
+                name="recipientGroup"
+                value="overdue_installment"
+                checked={recipientGroup === "overdue_installment"}
+                onChange={() => setRecipientGroup("overdue_installment")}
+                className="mt-0.5 accent-ember"
+              />
+              <div className="flex-1">
+                <p className="font-medium text-ink">분납 미납 학생</p>
+                <p className="text-xs text-slate">
+                  납부 기한이 지난 분납 미납 건이 있는 재원생 (수신 동의 필터 포함)
+                </p>
+              </div>
+            </label>
+
+            {/* Absent 3+ times in last 30 days */}
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-ink/10 p-4 transition hover:border-ember/30 hover:bg-ember/5">
+              <input
+                type="radio"
+                name="recipientGroup"
+                value="absent_3plus"
+                checked={recipientGroup === "absent_3plus"}
+                onChange={() => setRecipientGroup("absent_3plus")}
+                className="mt-0.5 accent-ember"
+              />
+              <div className="flex-1">
+                <p className="font-medium text-ink">결석 3회 이상 (최근 30일)</p>
+                <p className="text-xs text-slate">
+                  최근 30일 내 무단 결시가 3회 이상인 재원생 (수신 동의 필터 포함)
+                </p>
+              </div>
+            </label>
+
             {/* Custom exam numbers */}
             <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-ink/10 p-4 transition hover:border-ember/30 hover:bg-ember/5">
               <input
@@ -518,7 +560,11 @@ export function BroadcastForm({ templates, cohorts }: Props) {
                     ? `기수: ${cohorts.find((c) => c.id === selectedCohortId)?.name ?? selectedCohortId}`
                     : recipientGroup === "exam_category"
                       ? `직렬: ${selectedExamCategory === "GONGCHAE" ? "공채" : "경채"}`
-                      : "직접 입력 학번"}
+                      : recipientGroup === "overdue_installment"
+                        ? "분납 미납 학생"
+                        : recipientGroup === "absent_3plus"
+                          ? "결석 3회 이상 (최근 30일)"
+                          : "직접 입력 학번"}
               </span>
             </p>
             {countResult && (
