@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdminContext } from "@/lib/auth";
 import { EXAM_CATEGORY_LABEL } from "@/lib/constants";
 import { getPrisma } from "@/lib/prisma";
+import { getCohortAnalytics } from "@/lib/analytics/cohort-analytics";
 import { CohortDetailClient } from "./cohort-detail-client";
 import { CohortEditPanel } from "./cohort-edit-panel";
 
@@ -11,12 +12,14 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function CohortDetailPage({ params }: PageProps) {
+export default async function CohortDetailPage({ params, searchParams }: PageProps) {
   await requireAdminContext(AdminRole.COUNSELOR);
 
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
 
   const rawCohort = await getPrisma().cohort.findUnique({
     where: { id },
@@ -32,6 +35,10 @@ export default async function CohortDetailPage({ params }: PageProps) {
   });
 
   if (!rawCohort) notFound();
+
+  const activeTab = typeof resolvedSearchParams?.tab === "string" ? resolvedSearchParams.tab : "ACTIVE";
+  const analyticsData =
+    activeTab === "analytics" ? await getCohortAnalytics(id) : null;
 
   const activeCount = rawCohort.enrollments.filter(
     (e) => e.status === "PENDING" || e.status === "ACTIVE",
@@ -159,7 +166,7 @@ export default async function CohortDetailPage({ params }: PageProps) {
       />
 
       {/* Client-side detail (tabs, end date edit) */}
-      <CohortDetailClient cohort={cohort} />
+      <CohortDetailClient cohort={cohort} analyticsData={analyticsData} />
     </div>
   );
 }

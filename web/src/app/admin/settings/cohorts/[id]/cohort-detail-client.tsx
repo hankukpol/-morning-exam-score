@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useState, useTransition, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { EXAM_CATEGORY_LABEL, ENROLLMENT_STATUS_COLOR, ENROLLMENT_STATUS_LABEL } from "@/lib/constants";
+import type { CohortAnalyticsData } from "@/lib/analytics/cohort-analytics";
 
 type EnrollmentStatus =
   | "PENDING"
@@ -46,30 +47,48 @@ type CohortData = {
 
 type Props = {
   cohort: CohortData;
+  analyticsData?: CohortAnalyticsData | null;
 };
 
-type TabKey = "ACTIVE" | "WAITING" | "WITHDRAWN";
+type TabKey = "ACTIVE" | "WAITING" | "WITHDRAWN" | "ANALYTICS";
 
-const TAB_CONFIG: { key: TabKey; label: string; statuses: EnrollmentStatus[] }[] = [
+const ENROLLMENT_TAB_CONFIG: { key: Exclude<TabKey, "ANALYTICS">; label: string; statuses: EnrollmentStatus[] }[] = [
   { key: "ACTIVE", label: "재원", statuses: ["PENDING", "ACTIVE", "SUSPENDED"] },
   { key: "WAITING", label: "대기", statuses: ["WAITING"] },
   { key: "WITHDRAWN", label: "퇴원·완료·취소", statuses: ["WITHDRAWN", "COMPLETED", "CANCELLED"] },
 ];
 
-export function CohortDetailClient({ cohort: initialCohort }: Props) {
+export function CohortDetailClient({ cohort: initialCohort, analyticsData }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [cohort, setCohort] = useState<CohortData>(initialCohort);
-  const [activeTab, setActiveTab] = useState<TabKey>("ACTIVE");
+  const rawTab = searchParams.get("tab")?.toUpperCase();
+  const activeTab: TabKey =
+    rawTab === "ANALYTICS" ? "ANALYTICS" :
+    rawTab === "WAITING" ? "WAITING" :
+    rawTab === "WITHDRAWN" ? "WITHDRAWN" :
+    "ACTIVE";
   const [isEditingEndDate, setIsEditingEndDate] = useState<boolean>(false);
   const [endDateInput, setEndDateInput] = useState<string>(initialCohort.endDate.slice(0, 10));
   const [isSaving, startSaving] = useTransition();
 
-  const currentTabConfig = TAB_CONFIG.find((t) => t.key === activeTab)!;
-  const filteredEnrollments = cohort.enrollments.filter((e) =>
-    currentTabConfig.statuses.includes(e.status),
-  );
+  const setActiveTab = useCallback((tab: TabKey) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "ACTIVE") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab.toLowerCase());
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }, [router, pathname, searchParams]);
 
-  const tabCounts: Record<TabKey, number> = {
+  const currentEnrollmentTabConfig = ENROLLMENT_TAB_CONFIG.find((t) => t.key === activeTab);
+  const filteredEnrollments = currentEnrollmentTabConfig
+    ? cohort.enrollments.filter((e) => currentEnrollmentTabConfig.statuses.includes(e.status))
+    : [];
+
+  const tabCounts: Record<Exclude<TabKey, "ANALYTICS">, number> = {
     ACTIVE: cohort.enrollments.filter((e) =>
       ["PENDING", "ACTIVE", "SUSPENDED"].includes(e.status),
     ).length,
@@ -232,8 +251,8 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
 
       {/* Tabs */}
       <div className="mt-8">
-        <div className="flex gap-1 rounded-[20px] border border-ink/10 bg-white p-1.5 w-fit">
-          {TAB_CONFIG.map((tab) => (
+        <div className="flex gap-1 rounded-[20px] border border-ink/10 bg-white p-1.5 w-fit flex-wrap">
+          {ENROLLMENT_TAB_CONFIG.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -256,11 +275,25 @@ export function CohortDetailClient({ cohort: initialCohort }: Props) {
               </span>
             </button>
           ))}
+          {/* Analytics tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("ANALYTICS")}
+            className={`flex items-center gap-2 rounded-[14px] px-4 py-2 text-sm font-medium transition ${
+              activeTab === "ANALYTICS"
+                ? "bg-ember text-white shadow-sm"
+                : "text-slate hover:bg-mist hover:text-ink"
+            }`}
+          >
+            분석
+          </button>
         </div>
 
-        {/* Table */}
+        {/* Tab panels */}
         <div className="mt-4">
-          {filteredEnrollments.length === 0 ? (
+          {activeTab === "ANALYTICS" ? (
+            <AnalyticsPanel data={analyticsData ?? null} cohortId={cohort.id} />
+          ) : filteredEnrollments.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-ink/10 bg-white px-6 py-10 text-center text-sm text-slate">
               {activeTab === "ACTIVE"
                 ? "재원 중인 수강생이 없습니다."
@@ -391,4 +424,237 @@ function WaitlistPromoteInline({ enrollmentId }: { enrollmentId: string }) {
       {isPending ? "처리 중..." : "수강 확정"}
     </button>
   );
+}
+
+// ─────────────────────────────────────────────
+// Analytics Panel
+// ─────────────────────────────────────────────
+
+type SortKey = "avgScore" | "attendanceRate" | "name";
+type SortDir = "asc" | "desc";
+
+function AnalyticsPanel({
+  data,
+  cohortId,
+}: {
+  data: CohortAnalyticsData | null;
+  cohortId: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [sortKey, setSortKey] = useState<SortKey>("avgScore");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // When analytics tab is first shown with no data, trigger navigation to load it
+  if (!data) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-ink/10 bg-white px-6 py-12 text-center">
+        <p className="text-sm text-slate">분석 데이터를 불러오는 중...</p>
+        <AnalyticsLoader cohortId={cohortId} />
+      </div>
+    );
+  }
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  const sortedStudents = [...data.students].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "avgScore") {
+      if (a.avgScore === null && b.avgScore === null) cmp = 0;
+      else if (a.avgScore === null) cmp = 1;
+      else if (b.avgScore === null) cmp = -1;
+      else cmp = a.avgScore - b.avgScore;
+    } else if (sortKey === "attendanceRate") {
+      cmp = a.attendanceRate - b.attendanceRate;
+    } else {
+      cmp = a.name.localeCompare(b.name, "ko-KR");
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const maxDistCount = Math.max(1, ...data.scoreDistribution.map((d) => d.count));
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <span className="ml-0.5 text-slate/40">↕</span>;
+    return <span className="ml-0.5 text-forest">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  };
+
+  function scoreColor(avg: number | null): string {
+    if (avg === null) return "text-slate";
+    if (avg >= 80) return "text-[#1F4D3A] font-semibold"; // forest
+    if (avg >= 60) return "text-ink";
+    return "text-[#C55A11] font-semibold"; // ember
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate">총 등록</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-ink">{data.totalEnrolled}<span className="ml-1 text-sm font-normal text-slate">명</span></p>
+        </div>
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate">활성 수강생</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-ink">{data.activeCount}<span className="ml-1 text-sm font-normal text-slate">명</span></p>
+        </div>
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate">평균 성적</p>
+          <p className={`mt-2 text-2xl font-bold tabular-nums ${data.avgScore === null ? "text-slate" : data.avgScore >= 80 ? "text-[#1F4D3A]" : data.avgScore >= 60 ? "text-ink" : "text-[#C55A11]"}`}>
+            {data.avgScore !== null ? data.avgScore.toFixed(1) : "-"}
+            {data.avgScore !== null && <span className="ml-1 text-sm font-normal text-slate">점</span>}
+          </p>
+          {data.passRate > 0 && (
+            <p className="mt-1 text-xs text-slate">합격선(80점↑) {data.passRate}%</p>
+          )}
+        </div>
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate">출석률</p>
+          <p className={`mt-2 text-2xl font-bold tabular-nums ${data.attendanceRate >= 80 ? "text-[#1F4D3A]" : data.attendanceRate >= 60 ? "text-ink" : "text-[#C55A11]"}`}>
+            {data.attendanceRate.toFixed(1)}<span className="ml-0.5 text-sm font-normal text-slate">%</span>
+          </p>
+        </div>
+      </div>
+
+      {/* Score Distribution */}
+      <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <h3 className="text-base font-semibold text-ink">점수 분포</h3>
+        <p className="mt-0.5 text-xs text-slate">수강생 평균 점수 기준</p>
+        <div className="mt-5 space-y-3">
+          {data.scoreDistribution.map((item) => (
+            <div key={item.range} className="flex items-center gap-3">
+              <span className="w-14 text-right text-xs tabular-nums text-slate">{item.range}</span>
+              <div className="flex-1 h-5 rounded-full bg-ink/5 overflow-hidden">
+                <div
+                  className="h-5 rounded-full bg-forest/70 transition-all"
+                  style={{ width: `${item.count === 0 ? 0 : Math.max(2, (item.count / maxDistCount) * 100)}%` }}
+                />
+              </div>
+              <span className="w-8 text-right text-xs tabular-nums text-slate font-medium">{item.count}명</span>
+            </div>
+          ))}
+        </div>
+        {data.totalEnrolled === 0 && (
+          <p className="mt-4 text-center text-xs text-slate">등록된 수강생이 없습니다.</p>
+        )}
+        {data.totalEnrolled > 0 && data.scoreDistribution.every((d) => d.count === 0) && (
+          <p className="mt-4 text-center text-xs text-slate">이 기수 기간 내 성적 데이터가 없습니다.</p>
+        )}
+      </div>
+
+      {/* Student Performance Table */}
+      <div className="rounded-[28px] border border-ink/10 bg-white overflow-hidden">
+        <div className="px-6 py-4 border-b border-ink/5">
+          <h3 className="text-base font-semibold text-ink">수강생 성적 현황</h3>
+          <p className="mt-0.5 text-xs text-slate">기수 기간 내 응시한 성적 기준</p>
+        </div>
+        {sortedStudents.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-slate">수강생이 없습니다.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-ink/5 text-sm">
+              <thead>
+                <tr>
+                  <th className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap">#</th>
+                  <th
+                    className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap cursor-pointer hover:text-ink select-none"
+                    onClick={() => handleSort("name")}
+                  >
+                    이름 <SortIcon k="name" />
+                  </th>
+                  <th className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap">학번</th>
+                  <th className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap">상태</th>
+                  <th
+                    className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap cursor-pointer hover:text-ink select-none"
+                    onClick={() => handleSort("avgScore")}
+                  >
+                    평균점수 <SortIcon k="avgScore" />
+                  </th>
+                  <th className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap">응시횟수</th>
+                  <th
+                    className="bg-mist/50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate whitespace-nowrap cursor-pointer hover:text-ink select-none"
+                    onClick={() => handleSort("attendanceRate")}
+                  >
+                    출석률 <SortIcon k="attendanceRate" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {sortedStudents.map((s, i) => (
+                  <tr key={s.examNumber} className="transition hover:bg-mist/20">
+                    <td className="px-4 py-3 text-xs text-slate tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">
+                      <Link href={`/admin/students/${s.examNumber}`} className="hover:text-forest hover:underline">
+                        {s.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate text-xs">{s.examNumber}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={s.enrollmentStatus} />
+                    </td>
+                    <td className={`px-4 py-3 tabular-nums text-sm ${scoreColor(s.avgScore)}`}>
+                      {s.avgScore !== null ? `${s.avgScore.toFixed(1)}점` : "-"}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate text-xs">{s.attendedCount}회</td>
+                    <td className={`px-4 py-3 tabular-nums text-sm ${s.sessionCount === 0 ? "text-slate" : s.attendanceRate >= 80 ? "text-[#1F4D3A]" : s.attendanceRate >= 60 ? "text-ink" : "text-[#C55A11]"}`}>
+                      {s.sessionCount === 0 ? "-" : `${s.attendanceRate.toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    ACTIVE: "bg-forest/10 text-forest border-forest/20",
+    PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+    SUSPENDED: "bg-slate/10 text-slate border-slate/20",
+    COMPLETED: "bg-ink/10 text-ink border-ink/20",
+    WITHDRAWN: "bg-red-50 text-red-600 border-red-200",
+    CANCELLED: "bg-ink/5 text-slate border-ink/10",
+    WAITING: "bg-amber-50 text-amber-700 border-amber-200",
+  };
+  const labelMap: Record<string, string> = {
+    ACTIVE: "재원",
+    PENDING: "대기중",
+    SUSPENDED: "휴원",
+    COMPLETED: "수료",
+    WITHDRAWN: "퇴원",
+    CANCELLED: "취소",
+    WAITING: "대기",
+  };
+  const cls = map[status] ?? "bg-slate/10 text-slate border-slate/20";
+  const label = labelMap[status] ?? status;
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function AnalyticsLoader({ cohortId }: { cohortId: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Trigger a navigation to ?tab=analytics so the server fetches the data
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("tab", "analytics");
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
+
+  return null;
 }

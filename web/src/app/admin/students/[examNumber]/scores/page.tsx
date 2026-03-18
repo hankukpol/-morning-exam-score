@@ -108,29 +108,38 @@ export default async function StudentScoresPage({ params }: PageProps) {
   return (
     <div className="p-8 sm:p-10">
       {/* ── 헤더 ────────────────────────────────────────────────────────── */}
-      <div>
-        <Link
-          href={`/admin/students/${examNumber}`}
-          className="text-sm text-slate transition hover:text-ember"
-        >
-          ← {student.name} ({examNumber})
-        </Link>
-        <h1 className="mt-3 text-3xl font-semibold">
-          {student.name}
-          <span className="ml-3 text-xl font-normal text-slate">
-            {examNumber}
-          </span>
-        </h1>
-        <p className="mt-1 text-sm text-slate">
-          {EXAM_TYPE_LABEL[student.examType]}
-          {student.className ? ` · ${student.className}반` : ""}
-          {student.generation ? ` · ${student.generation}기` : ""}
-          {!student.isActive && (
-            <span className="ml-2 rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-xs font-semibold">
-              비활성
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link
+            href={`/admin/students/${examNumber}`}
+            className="text-sm text-slate transition hover:text-ember"
+          >
+            ← {student.name} ({examNumber})
+          </Link>
+          <h1 className="mt-3 text-3xl font-semibold">
+            {student.name}
+            <span className="ml-3 text-xl font-normal text-slate">
+              {examNumber}
             </span>
-          )}
-        </p>
+          </h1>
+          <p className="mt-1 text-sm text-slate">
+            {EXAM_TYPE_LABEL[student.examType]}
+            {student.className ? ` · ${student.className}반` : ""}
+            {student.generation ? ` · ${student.generation}기` : ""}
+            {!student.isActive && (
+              <span className="ml-2 rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-xs font-semibold">
+                비활성
+              </span>
+            )}
+          </p>
+        </div>
+        <a
+          href={`/api/students/${examNumber}/scores/export`}
+          download
+          className="mt-6 inline-flex items-center rounded-full border border-ink/20 px-4 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/40 hover:bg-ink/5"
+        >
+          Excel 내보내기
+        </a>
       </div>
 
       {/* ── 서브 내비게이션 ──────────────────────────────────────────────── */}
