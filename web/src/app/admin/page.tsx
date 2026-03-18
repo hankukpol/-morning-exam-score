@@ -399,6 +399,7 @@ export default async function AdminDashboardPage() {
 
   const quickLinks = [
     { href: "/admin/memos", title: "운영 메모", description: "오늘의 메모 스트림과 작업 보드" },
+    { href: "/admin/calendar", title: "통합 캘린더", description: "시험 회차·면담 예약 월간 일정표" },
     { href: "/admin/scores/input", title: "성적 입력", description: "오프라인과 온라인 업로드" },
     { href: "/admin/scores/edit", title: "성적 수정", description: "기록 조회, 수정, 삭제" },
     { href: "/admin/dropout", title: "경고 · 탈락", description: "위험 학생 필터와 안내 발송" },

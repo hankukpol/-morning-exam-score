@@ -1043,6 +1043,36 @@ export async function getStudentPortalScorePageData(input: {
     rankBySessionRecord[sessionId] = rankInfo;
   }
 
+  // Compute per-score delta from previous session score of same subject.
+  // scoreRows sorted desc by date: for index i, previous same-subject is found at a later index.
+  const deltaByScoreId: Record<number, number | null> = {};
+  // Build subject -> sorted-asc array of {id, finalScore}
+  const subjectScoreHistory = new Map<string, Array<{ id: number; finalScore: number | null; examDate: string }>>();
+  for (const row of scoreRows) {
+    const dateKey = formatDate(row.session.examDate);
+    const key = row.session.subject;
+    const arr = subjectScoreHistory.get(key) ?? [];
+    arr.push({ id: row.id, finalScore: row.finalScore, examDate: dateKey });
+    subjectScoreHistory.set(key, arr);
+  }
+  // scoreRows is desc sorted, so each subject array is also desc — reverse to get asc
+  for (const arr of subjectScoreHistory.values()) {
+    const ascArr = [...arr].reverse(); // ascending by date (oldest first)
+    for (let i = 0; i < ascArr.length; i++) {
+      const curr = ascArr[i]!;
+      if (i === 0) {
+        deltaByScoreId[curr.id] = null; // first occurrence: no previous
+      } else {
+        const prev = ascArr[i - 1]!;
+        if (curr.finalScore !== null && prev.finalScore !== null) {
+          deltaByScoreId[curr.id] = Math.round((curr.finalScore - prev.finalScore) * 10) / 10;
+        } else {
+          deltaByScoreId[curr.id] = null;
+        }
+      }
+    }
+  }
+
   return {
     student,
     periods,
@@ -1059,6 +1089,7 @@ export async function getStudentPortalScorePageData(input: {
     crossTableDates: allDates.map((d) => d.dateKey),
     latestSummary,
     rankBySession: rankBySessionRecord,
+    deltaByScoreId,
   };
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
+import { DeltaBadge } from "@/components/ui/delta-badge";
 import { formatScore } from "@/lib/analytics/presentation";
 import { ATTEND_TYPE_LABEL, SCORE_SOURCE_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { hasDatabaseConfig } from "@/lib/env";
@@ -434,8 +435,17 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
                                   </span>
                                 )}
                               </div>
-                              <div className={`mt-2 text-xl ${scoreColorClass(row.finalScore)}`}>
-                                {row.finalScore !== null ? `${formatScore(row.finalScore)}점` : "-"}
+                              <div className="mt-2 flex items-baseline gap-2">
+                                <span className={`text-xl ${scoreColorClass(row.finalScore)}`}>
+                                  {row.finalScore !== null ? `${formatScore(row.finalScore)}점` : "-"}
+                                </span>
+                                {row.finalScore !== null && (
+                                  <DeltaBadge
+                                    delta={data.deltaByScoreId[row.id] ?? null}
+                                    decimals={1}
+                                    size="sm"
+                                  />
+                                )}
                               </div>
                               <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-slate">
                                 <span>원점수 {formatScore(row.rawScore)}</span>

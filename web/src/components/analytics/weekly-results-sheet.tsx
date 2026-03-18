@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AttendType, Subject, StudentStatus, type ExamType } from "@prisma/client";
 import { type TuesdayWeekSummary, type WeeklyResultsSheetRow } from "@/lib/analytics/service";
 import { STATUS_LABEL, STATUS_ROW_CLASS, formatRank, formatScore } from "@/lib/analytics/presentation";
+import { DeltaBadge } from "@/components/ui/delta-badge";
 import { getSubjectDisplayLabel } from "@/lib/constants";
 import { buildSessionDisplayColumns } from "@/lib/exam-session-rules";
 import { formatDateWithWeekday } from "@/lib/format";
@@ -254,7 +255,14 @@ export function WeeklyResultsSheet({
                     </td>
                   );
                 })}
-                <td className="border border-ink/10 px-3 py-3 font-semibold">{Math.round(row.mockAverage)}</td>
+                <td className="border border-ink/10 px-3 py-3 font-semibold">
+                  <span>{Math.round(row.mockAverage)}</span>
+                  {row.mockAverageDelta !== undefined && row.mockAverageDelta !== null && (
+                    <span className="ml-1 no-print">
+                      <DeltaBadge delta={row.mockAverageDelta} size="sm" />
+                    </span>
+                  )}
+                </td>
                 <td className="border border-ink/10 px-3 py-3 font-semibold text-red-500">{formatRank(row.mockRank)}</td>
                 <td className="border border-ink/10 px-3 py-3 font-semibold">
                   {row.policeOxAverage === null ? "-" : Math.round(row.policeOxAverage)}

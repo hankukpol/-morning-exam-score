@@ -470,6 +470,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'members',
   },
   {
+    href: "/admin/calendar",
+    label: "통합 캘린더",
+    description: "시험 회차와 면담 예약을 한눈에 보는 월간 통합 일정표",
+    minRole: AdminRole.TEACHER,
+    group: "학사 관리",
+    module: 'scores',
+  },
+  {
     href: "/admin/absence-notes",
     label: "사유서 관리",
     description: "사유 결시 등록, 승인 및 반려, 소급 처리",

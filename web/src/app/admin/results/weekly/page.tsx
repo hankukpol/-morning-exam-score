@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { AdminRole } from "@prisma/client";
 import { WeeklyResultsSheet } from "@/components/analytics/weekly-results-sheet";
 import { PrintButton } from "@/components/ui/print-button";
@@ -34,12 +34,51 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
     weekOptions[weekOptions.length - 1] ??
     null;
   const view = readStringParam(searchParams, "view") === "new" ? "new" : "overall";
-  const data =
+
+  // Find previous week (the week before selected in weekOptions)
+  const selectedWeekIndex = selectedWeek
+    ? weekOptions.findIndex((w) => w.key === selectedWeek.key)
+    : -1;
+  const prevWeek =
+    selectedWeekIndex > 0 ? weekOptions[selectedWeekIndex - 1] : null;
+
+  const [data, prevData] = await Promise.all([
     selectedPeriod && selectedWeek
-      ? await getWeeklyResults(selectedPeriod.id, examType, selectedWeek.key, view, {
+      ? getWeeklyResults(selectedPeriod.id, examType, selectedWeek.key, view, {
           includeRankingRows: false,
         })
-      : null;
+      : Promise.resolve(null),
+    selectedPeriod && prevWeek
+      ? getWeeklyResults(selectedPeriod.id, examType, prevWeek.key, view, {
+          includeRankingRows: false,
+        })
+      : Promise.resolve(null),
+  ]);
+
+  // Build prev-week mockAverage lookup
+  const prevMockAvgByExamNumber = new Map<string, number>();
+  if (prevData) {
+    for (const row of prevData.sheetRows) {
+      if (row.mockAverage > 0) {
+        prevMockAvgByExamNumber.set(row.examNumber, row.mockAverage);
+      }
+    }
+  }
+
+  // Inject delta into current rows
+  const sheetRowsWithDelta = data
+    ? data.sheetRows.map((row) => {
+        const prevAvg = prevMockAvgByExamNumber.get(row.examNumber);
+        return {
+          ...row,
+          mockAverageDelta:
+            prevAvg !== undefined && row.mockAverage > 0
+              ? Math.round((row.mockAverage - prevAvg) * 10) / 10
+              : null,
+        };
+      })
+    : [];
+
   const downloadHref =
     selectedPeriod && selectedWeek
       ? buildHref("/api/export/results-print", {
@@ -65,6 +104,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
         <h1 className="mt-5 text-3xl font-semibold">주간 성적 / 출감표</h1>
         <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
           선택한 시험 기간과 주차를 기준으로 주간 성적표를 확인하고, 인쇄용 표도 바로 내려받을 수 있습니다.
+          모의고사 평균 열에 전 주차 대비 ▲▼ 변화 배지가 함께 표시됩니다.
         </p>
 
         <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-4">
@@ -163,11 +203,20 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
           </div>
 
           <section className="no-print mt-6 rounded-[28px] border border-ink/10 bg-white p-6">
-            <h2 className="text-xl font-semibold">선택한 주차</h2>
-            <p className="mt-2 text-sm text-slate">
-              {data.week.label}
-              {data.week.legacyWeeks.length > 0 ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}` : ""}
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">선택한 주차</h2>
+                <p className="mt-2 text-sm text-slate">
+                  {data.week.label}
+                  {data.week.legacyWeeks.length > 0 ? ` / 기존 week ${data.week.legacyWeeks.join(", ")}` : ""}
+                </p>
+              </div>
+              {prevWeek && (
+                <div className="rounded-[16px] border border-ink/10 bg-mist px-4 py-2 text-xs text-slate">
+                  <span className="font-medium">비교 기준:</span> {prevWeek.label} (전 주차)
+                </div>
+              )}
+            </div>
             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate">
               {displayColumns.map((column) => (
                 <span key={column.key} className="rounded-full border border-ink/10 px-3 py-2">
@@ -182,7 +231,7 @@ export default async function AdminWeeklyResultsPage({ searchParams }: PageProps
             <WeeklyResultsSheet
               week={data.week}
               sessions={data.sessions}
-              rows={data.sheetRows}
+              rows={sheetRowsWithDelta}
               className="print-title"
               printTitle={printTitle}
             />

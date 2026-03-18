@@ -126,6 +126,7 @@ export type WeeklyResultsSheetRow = {
   perfectAttendance: boolean;
   mockAverage: number;
   mockRank: number | null;
+  mockAverageDelta?: number | null; // delta from previous week (optional)
   policeOxAverage: number | null;
   policeOxRank: number | null;
   cells: WeeklyResultsSheetCell[];

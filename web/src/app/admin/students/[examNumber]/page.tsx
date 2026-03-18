@@ -594,6 +594,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
               알림 내역
             </Link>
           )}
+          <Link
+            href={`/admin/students/compare?a=${params.examNumber}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/5 px-3 py-1.5 text-xs font-semibold text-forest transition hover:border-forest/40 hover:bg-forest/10"
+          >
+            다른 학생과 비교 →
+          </Link>
           {canManageSuspension && (
             <Link
               href={`/admin/students/${params.examNumber}/leave`}

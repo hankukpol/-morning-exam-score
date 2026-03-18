@@ -1,12 +1,20 @@
-import { AdminRole } from "@prisma/client";
-import { requireAdminContext } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { AdminRole, ExamType } from "@prisma/client";
+import { requireApiAdmin } from "@/lib/api-auth";
 import { getPrisma } from "@/lib/prisma";
-import { UnifiedCalendar } from "./unified-calendar";
-import type { CalendarEvent } from "@/app/api/admin/calendar/events/route";
 
 export const dynamic = "force-dynamic";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+export interface CalendarEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  type: "EXAM_SESSION" | "COUNSELING_APPOINTMENT";
+  title: string;
+  color: "ember" | "forest" | "sky" | "gray";
+  status: string;
+  link: string;
+  meta?: Record<string, unknown>;
+}
 
 function padZero(n: number) {
   return String(n).padStart(2, "0");
@@ -16,46 +24,27 @@ function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
 }
 
-function parseParams(searchParams?: Record<string, string | string[] | undefined>) {
-  const yearRaw = Array.isArray(searchParams?.year)
-    ? searchParams.year[0]
-    : searchParams?.year;
-  const monthRaw = Array.isArray(searchParams?.month)
-    ? searchParams.month[0]
-    : searchParams?.month;
+export async function GET(req: NextRequest) {
+  const auth = await requireApiAdmin(AdminRole.TEACHER);
+  if (!auth.ok) {
+    return Response.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const yearParam = searchParams.get("year");
+  const monthParam = searchParams.get("month");
 
   const now = new Date();
-  const year = yearRaw ? parseInt(yearRaw, 10) : now.getFullYear();
-  const month = monthRaw ? parseInt(monthRaw, 10) : now.getMonth() + 1;
+  const year = yearParam ? parseInt(yearParam, 10) : now.getFullYear();
+  const month = monthParam ? parseInt(monthParam, 10) : now.getMonth() + 1;
 
-  if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
-    return { year, month };
+  if (
+    isNaN(year) || isNaN(month) ||
+    month < 1 || month > 12 ||
+    year < 2000 || year > 2100
+  ) {
+    return Response.json({ error: "유효하지 않은 year/month 파라미터입니다." }, { status: 400 });
   }
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
-}
-
-function getSubjectLabel(subject: string): string {
-  const labels: Record<string, string> = {
-    POLICE_SCIENCE: "경찰학",
-    CONSTITUTIONAL_LAW: "헌법",
-    CRIMINOLOGY: "범죄학",
-    CRIMINAL_PROCEDURE: "형사소송법",
-    CRIMINAL_LAW: "형법",
-    CUMULATIVE: "누적",
-  };
-  return labels[subject] ?? subject;
-}
-
-// ── page ─────────────────────────────────────────────────────────────────────
-
-type PageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
-};
-
-export default async function AdminCalendarPage({ searchParams }: PageProps) {
-  await requireAdminContext(AdminRole.TEACHER);
-
-  const { year, month } = parseParams(searchParams);
 
   const monthStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
   const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
@@ -93,26 +82,30 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         scheduledAt: true,
         status: true,
         counselorName: true,
+        student: {
+          select: {
+            examNumber: true,
+            name: true,
+          },
+        },
       },
       orderBy: { scheduledAt: "asc" },
     }),
   ]);
 
-  // ── Build CalendarEvent array ─────────────────────────────────────────────
-
   const events: CalendarEvent[] = [];
 
-  // ExamSession events
+  // ── ExamSession events ────────────────────────────────────────────────────
   for (const session of examSessions) {
     const dateKey = toDateKey(session.examDate);
-    const examTypeLabel = session.examType === "GONGCHAE" ? "공채" : "경채";
+    const examTypeLabel = session.examType === ExamType.GONGCHAE ? "공채" : "경채";
     const subjectLabel = session.displaySubjectName?.trim() || getSubjectLabel(session.subject);
     const title = `${session.period.name} ${examTypeLabel} ${session.week}회차 (${subjectLabel})`;
 
     let color: CalendarEvent["color"];
     if (session.isCancelled) {
       color = "gray";
-    } else if (session.examType === "GONGCHAE") {
+    } else if (session.examType === ExamType.GONGCHAE) {
       color = "ember";
     } else {
       color = "forest";
@@ -139,8 +132,12 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     });
   }
 
-  // CounselingAppointment events — grouped by date
-  const appointmentsByDate: Record<string, typeof appointments> = {};
+  // ── CounselingAppointment events ─────────────────────────────────────────
+  // Group appointments by date for "상담 N건" display
+  const appointmentsByDate: Record<
+    string,
+    typeof appointments
+  > = {};
   for (const appt of appointments) {
     const dateKey = toDateKey(appt.scheduledAt);
     if (!appointmentsByDate[dateKey]) appointmentsByDate[dateKey] = [];
@@ -151,8 +148,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     const activeCount = appts.filter((a) => a.status !== "CANCELLED").length;
     const totalCount = appts.length;
     const displayCount = activeCount > 0 ? activeCount : totalCount;
-    const label =
-      activeCount > 0 ? `상담 ${displayCount}건` : `상담 ${totalCount}건 (취소포함)`;
+    const label = activeCount > 0 ? `상담 ${displayCount}건` : `상담 ${totalCount}건 (취소포함)`;
 
     events.push({
       id: `counseling-${dateKey}`,
@@ -170,8 +166,20 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     });
   }
 
-  // Sort by date
+  // Sort all events by date
   events.sort((a, b) => a.date.localeCompare(b.date));
 
-  return <UnifiedCalendar year={year} month={month} initialEvents={events} />;
+  return Response.json({ data: events });
+}
+
+function getSubjectLabel(subject: string): string {
+  const labels: Record<string, string> = {
+    POLICE_SCIENCE: "경찰학",
+    CONSTITUTIONAL_LAW: "헌법",
+    CRIMINOLOGY: "범죄학",
+    CRIMINAL_PROCEDURE: "형사소송법",
+    CRIMINAL_LAW: "형법",
+    CUMULATIVE: "누적",
+  };
+  return labels[subject] ?? subject;
 }

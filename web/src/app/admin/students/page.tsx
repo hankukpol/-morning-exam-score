@@ -56,6 +56,26 @@ export default async function AdminStudentsPage({ searchParams }: StudentsPagePr
         <h1 className="text-3xl font-semibold">수강생 관리</h1>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/admin/students/compare"
+            className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/5 px-4 py-2 text-sm font-semibold text-forest shadow-sm transition hover:bg-forest/10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+              />
+            </svg>
+            비교 분석
+          </Link>
+          <Link
             href="/admin/students/bulk-operations"
             className="inline-flex items-center gap-1.5 rounded-full border border-ember/20 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember shadow-sm transition hover:bg-ember/20"
           >
