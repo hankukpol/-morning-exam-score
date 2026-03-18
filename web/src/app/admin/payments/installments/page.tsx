@@ -3,6 +3,11 @@ import { AdminRole } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { InstallmentManager, type InstallmentItem } from "./installment-manager";
+import {
+  InstallmentClient,
+  type InstallmentDashboardRow,
+  type InstallmentDashboardStats,
+} from "./installment-client";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +18,100 @@ export default async function InstallmentsPage() {
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const weekLater = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Initial data: overdue items
+  // ── Dashboard data ────────────────────────────────────────────────────────
+  // Fetch all installments (with enrollment/cohort info)
+  const allInstallments = await prisma.installment.findMany({
+    include: {
+      payment: {
+        select: {
+          id: true,
+          examNumber: true,
+          enrollmentId: true,
+          student: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: [{ dueDate: "asc" }, { seq: "asc" }],
+    take: 500,
+  });
+
+  // Collect enrollmentIds to look up cohort info
+  const enrollmentIds = [
+    ...new Set(
+      allInstallments
+        .map((i) => i.payment.enrollmentId)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  const enrollments = await prisma.courseEnrollment.findMany({
+    where: { id: { in: enrollmentIds } },
+    select: {
+      id: true,
+      cohort: { select: { name: true } },
+    },
+  });
+
+  const enrollmentMap: Record<string, string | null> = {};
+  for (const e of enrollments) {
+    enrollmentMap[e.id] = e.cohort?.name ?? null;
+  }
+
+  // Build dashboard rows
+  const dashboardRows: InstallmentDashboardRow[] = allInstallments.map((item) => {
+    const dueDate = item.dueDate;
+    const isOverdue = item.paidAt === null && dueDate < todayStart;
+    const daysOverdue = isOverdue
+      ? Math.floor((todayStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const cohortName = item.payment.enrollmentId
+      ? (enrollmentMap[item.payment.enrollmentId] ?? null)
+      : null;
+
+    return {
+      id: item.id,
+      paymentId: item.paymentId,
+      seq: item.seq,
+      amount: item.amount,
+      dueDate: item.dueDate.toISOString(),
+      paidAt: item.paidAt?.toISOString() ?? null,
+      examNumber: item.payment.examNumber ?? null,
+      studentName: item.payment.student?.name ?? null,
+      cohortName,
+      daysOverdue,
+    };
+  });
+
+  // Stats
+  const unpaidRows = dashboardRows.filter((r) => r.paidAt === null);
+  const overdueRows = dashboardRows.filter(
+    (r) => r.paidAt === null && new Date(r.dueDate) < todayStart,
+  );
+  const upcomingRows = dashboardRows.filter(
+    (r) =>
+      r.paidAt === null &&
+      new Date(r.dueDate) >= todayStart &&
+      new Date(r.dueDate) <= weekLater,
+  );
+  const paidRows = dashboardRows.filter((r) => r.paidAt !== null);
+
+  const totalOutstanding = unpaidRows.reduce((s, r) => s + r.amount, 0);
+  const collectionRate =
+    dashboardRows.length > 0
+      ? (paidRows.length / dashboardRows.length) * 100
+      : 0;
+
+  const stats: InstallmentDashboardStats = {
+    totalOutstanding,
+    overdueCount: overdueRows.length,
+    upcomingWeekCount: upcomingRows.length,
+    collectionRate,
+  };
+
+  // ── Management data (initial overdue items) ───────────────────────────────
   const initialItems = await prisma.installment.findMany({
     where: { paidAt: null, dueDate: { lt: todayStart } },
     include: {
@@ -34,7 +131,6 @@ export default async function InstallmentsPage() {
     take: 100,
   });
 
-  // Summary counts
   const [overdueCount, upcomingCount, paidCount] = await Promise.all([
     prisma.installment.count({
       where: { paidAt: null, dueDate: { lt: todayStart } },
@@ -47,7 +143,6 @@ export default async function InstallmentsPage() {
     }),
   ]);
 
-  // Serialize: convert Date objects to ISO strings for client component
   const serialized: InstallmentItem[] = initialItems.map((item) => ({
     id: item.id,
     paymentId: item.paymentId,
@@ -69,15 +164,17 @@ export default async function InstallmentsPage() {
 
   return (
     <div className="p-8 sm:p-10">
-      {/* Header */}
+      {/* Badge */}
       <div className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-ember">
-        수강 관리
+        수납 관리
       </div>
+
+      {/* Header */}
       <div className="mt-5 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-semibold">할부 관리</h1>
+          <h1 className="text-3xl font-semibold">분납 관리 대시보드</h1>
           <p className="mt-1 text-sm text-slate">
-            분할납부 약정 회차별 납부 현황 조회 및 납부 처리
+            분할납부 약정 현황 조회 및 수납 처리
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -107,35 +204,30 @@ export default async function InstallmentsPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-red-600">연체</p>
-          <p className="mt-2 text-3xl font-semibold text-red-700">
-            {overdueCount.toLocaleString()}
-          </p>
-          <p className="mt-1 text-xs text-red-500">건 — 예정일 초과, 미납</p>
-        </div>
+      {/* Breadcrumb */}
+      <nav className="mt-4 flex items-center gap-1.5 text-xs text-slate">
+        <Link href="/admin/payments" className="hover:text-ember hover:underline">
+          수납 관리
+        </Link>
+        <span>/</span>
+        <span className="font-medium text-ink">분납 관리</span>
+      </nav>
 
-        <div className="rounded-[28px] border border-ink/10 bg-white p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate">예정</p>
-          <p className="mt-2 text-3xl font-semibold text-ink">
-            {upcomingCount.toLocaleString()}
-          </p>
-          <p className="mt-1 text-xs text-slate">건 — 오늘 이후 납부 예정</p>
-        </div>
-
-        <div className="rounded-[28px] border border-forest/20 bg-forest/5 p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-widest text-forest">완납</p>
-          <p className="mt-2 text-3xl font-semibold text-forest">
-            {paidCount.toLocaleString()}
-          </p>
-          <p className="mt-1 text-xs text-forest/60">건 — 납부 완료</p>
-        </div>
+      {/* ── Dashboard (stats + table with filter tabs) ── */}
+      <div className="mt-8">
+        <InstallmentClient rows={dashboardRows} stats={stats} />
       </div>
 
-      {/* Client component (filter tabs + table + actions) */}
-      <div className="mt-8">
+      {/* Divider */}
+      <div className="mt-12 border-t border-ink/10 pt-8">
+        <h2 className="text-xl font-semibold text-ink">납부 처리</h2>
+        <p className="mt-1 text-sm text-slate">
+          개별 분납 회차 납부 처리 및 상태 관리
+        </p>
+      </div>
+
+      {/* Legacy management table */}
+      <div className="mt-6">
         <InstallmentManager
           initialItems={serialized}
           initialStatus="overdue"
@@ -144,12 +236,12 @@ export default async function InstallmentsPage() {
       </div>
 
       <div className="mt-6">
-        <a
+        <Link
           href="/admin/payments"
           className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-5 py-2.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"
         >
           &larr; 수납 이력으로
-        </a>
+        </Link>
       </div>
     </div>
   );
