@@ -148,7 +148,7 @@ export default async function AttendanceHubPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-slate">
           빠른 이동
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Link
             href="/admin/attendance/calendar"
             className="group rounded-[28px] border border-ink/10 bg-white p-6 shadow-panel transition hover:border-forest/30 hover:shadow-md"
@@ -224,6 +224,32 @@ export default async function AttendanceHubPage() {
             <p className="font-semibold text-ink">출결 분석</p>
             <p className="mt-1 text-xs leading-5 text-slate">
               월별 출석률 추이 및 반별 비교 분석
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/attendance/excused"
+            className="group rounded-[28px] border border-amber-100 bg-amber-50/40 p-6 shadow-panel transition hover:border-amber-300 hover:shadow-md"
+          >
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 transition group-hover:bg-amber-200">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                />
+              </svg>
+            </div>
+            <p className="font-semibold text-ink">공결 처리 내역</p>
+            <p className="mt-1 text-xs leading-5 text-slate">
+              승인된 결석계 및 공결 처리된 출석 내역 조회
             </p>
           </Link>
 
