@@ -34,17 +34,22 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { title, examDate, venue } = body;
+    const { title, examDate, venue, registrationFee } = body;
 
     if (!title?.trim()) throw new Error("시험명을 입력하세요.");
     if (!examDate) throw new Error("시험일을 입력하세요.");
+
+    const fee =
+      typeof registrationFee === "number" && registrationFee >= 0
+        ? Math.floor(registrationFee)
+        : 0;
 
     const event = await getPrisma().examEvent.create({
       data: {
         title: title.trim(),
         eventType: ExamEventType.EXTERNAL,
         examDate: new Date(examDate),
-        registrationFee: 0,
+        registrationFee: fee,
         venue: venue?.trim() || null,
       },
     });

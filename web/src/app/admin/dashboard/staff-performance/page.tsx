@@ -183,6 +183,16 @@ export default async function StaffPerformancePage({
         </p>
       </div>
 
+      {/* Quick link to workload */}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link
+          href="/admin/dashboard/staff-workload"
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20"
+        >
+          직원 부하 현황 →
+        </Link>
+      </div>
+
       {/* 기간 선택 */}
       <div className="mt-6 flex flex-wrap gap-2">
         {PERIODS.map((p) => (

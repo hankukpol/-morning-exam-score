@@ -176,8 +176,24 @@ export default async function StaffSettlementsPage({ searchParams }: PageProps) 
         </div>
       </div>
 
+      {/* Quick links */}
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/admin/dashboard/staff-workload"
+          className="inline-flex items-center gap-2 rounded-full border border-ember/20 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20"
+        >
+          직원 부하 현황 →
+        </Link>
+        <Link
+          href="/admin/dashboard/staff-performance"
+          className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-forest/10 px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest/20"
+        >
+          직원 실적 →
+        </Link>
+      </div>
+
       {/* Period summary badge */}
-      <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-forest/20 bg-forest/5 px-4 py-2 text-sm font-medium text-forest">
+      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-forest/20 bg-forest/5 px-4 py-2 text-sm font-medium text-forest">
         <span>
           {year}년 {month}월 정산
         </span>

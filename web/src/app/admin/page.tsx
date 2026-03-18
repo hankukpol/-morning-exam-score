@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminRole, ExamType } from "@prisma/client";
 import { DashboardActivityFeed } from "@/app/admin/dashboard-activity-feed";
+import { DashboardInbox } from "@/components/admin/dashboard-inbox";
 import { DashboardInboxPanel } from "@/components/dashboard/dashboard-inbox-panel";
 import { TodayTodosPanel } from "@/components/dashboard/today-todos-panel";
 import { WeeklyPaymentChart } from "@/components/dashboard/weekly-payment-chart";
@@ -536,6 +537,9 @@ export default async function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* 수신함 — 클라이언트 실시간 폴링 (60초 간격) */}
+      <DashboardInbox />
 
       {dashboardInbox ? (
         <DashboardInboxPanel
