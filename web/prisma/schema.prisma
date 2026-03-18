@@ -26,6 +26,10 @@ model Student {
   targetScores        Json?
   currentStatus       StudentStatus @default(NORMAL)
   statusUpdatedAt     DateTime?
+  // 보호자 정보 (2026-03 추가)
+  parentName          String?
+  parentRelation      String?       // 어머니/아버지/기타
+  parentMobile        String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -1543,10 +1547,15 @@ model AcademySettings {
   academyRegNo  String   @default("")
   address       String   @default("")
   phone         String   @default("")
+  faxNumber     String   @default("")
   bankName      String   @default("")
   bankAccount   String   @default("")
   bankHolder    String   @default("")
   websiteUrl    String   @default("")
+  // 문서 발급 설정
+  documentIssuer  String   @default("") // 발급 담당자명
+  sealImagePath   String   @default("") // 직인 이미지 경로 (예: /images/seal.png)
+  logoImagePath   String   @default("") // 로고 이미지 경로 (예: /images/logo.png)
   // 승인 라인 설정 (단위: 원)
   refundApprovalThreshold   Int @default(200000) // 환불 승인 기준 (원장 승인)
   discountApprovalThreshold Int @default(50000)  // 할인 승인 기준 (교무 이상 승인)

@@ -128,6 +128,21 @@ export default async function ClassroomDetailPage({
         {" · "}재적 {classroom.students.length}명
       </p>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href={`/admin/classrooms/${params.id}/seating`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 px-3 py-1.5 text-xs font-semibold text-forest transition hover:border-forest/50 hover:bg-forest/5"
+        >
+          좌석 배정표
+        </Link>
+        <Link
+          href={`/admin/classrooms/${params.id}/attendance`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-ink/30"
+        >
+          출결 내역
+        </Link>
+      </div>
+
       <div className="mt-8">
         <ClassroomDetail
           classroom={classroomData}

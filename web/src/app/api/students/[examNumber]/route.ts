@@ -73,6 +73,29 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ student });
     }
 
+    if ("parentName" in body || "parentRelation" in body || "parentMobile" in body) {
+      // Parent/guardian info update
+      const parentName = body.parentName !== undefined
+        ? (typeof body.parentName === "string" ? body.parentName.trim() || null : null)
+        : undefined;
+      const parentRelation = body.parentRelation !== undefined
+        ? (typeof body.parentRelation === "string" ? body.parentRelation.trim() || null : null)
+        : undefined;
+      const parentMobile = body.parentMobile !== undefined
+        ? (typeof body.parentMobile === "string" ? body.parentMobile.trim() || null : null)
+        : undefined;
+
+      const student = await getPrisma().student.update({
+        where: { examNumber: params.examNumber },
+        data: {
+          ...(parentName !== undefined && { parentName }),
+          ...(parentRelation !== undefined && { parentRelation }),
+          ...(parentMobile !== undefined && { parentMobile }),
+        },
+      });
+      return NextResponse.json({ student });
+    }
+
     // Default: reactivation
     const student = await reactivateStudent({
       adminId: auth.context.adminUser.id,

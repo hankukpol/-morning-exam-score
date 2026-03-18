@@ -418,6 +418,14 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
           >
             연락처 정보
           </Link>
+          {canManageSuspension && (
+            <Link
+              href={`/admin/students/${params.examNumber}/parent-info`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30"
+            >
+              보호자 정보
+            </Link>
+          )}
           <Link
             href={`/admin/students/${params.examNumber}/documents`}
             target="_blank"

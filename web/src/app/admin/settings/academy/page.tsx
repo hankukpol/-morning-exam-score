@@ -12,16 +12,22 @@ export type AcademySettingsRow = {
   academyRegNo: string;
   address: string;
   phone: string;
+  faxNumber: string;
   bankName: string;
   bankAccount: string;
   bankHolder: string;
   websiteUrl: string;
+  // 문서 발급 설정
+  documentIssuer: string;
+  sealImagePath: string;
+  logoImagePath: string;
 };
 
 export default async function AcademySettingsPage() {
   await requireAdminContext(AdminRole.MANAGER);
 
-  const settings = await getPrisma().academySettings.findUnique({ where: { id: 1 } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const settings: any = await getPrisma().academySettings.findUnique({ where: { id: 1 } });
 
   const row: AcademySettingsRow = {
     name: settings?.name ?? "",
@@ -30,10 +36,14 @@ export default async function AcademySettingsPage() {
     academyRegNo: settings?.academyRegNo ?? "",
     address: settings?.address ?? "",
     phone: settings?.phone ?? "",
+    faxNumber: settings?.faxNumber ?? "",
     bankName: settings?.bankName ?? "",
     bankAccount: settings?.bankAccount ?? "",
     bankHolder: settings?.bankHolder ?? "",
     websiteUrl: settings?.websiteUrl ?? "",
+    documentIssuer: settings?.documentIssuer ?? "",
+    sealImagePath: settings?.sealImagePath ?? "",
+    logoImagePath: settings?.logoImagePath ?? "",
   };
 
   return (
@@ -44,7 +54,7 @@ export default async function AcademySettingsPage() {
       <h1 className="mt-5 text-3xl font-semibold">학원 기본 정보</h1>
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         학원 이름, 원장 정보, 사업자 등록번호 등 기본 정보를 설정합니다.
-        저장된 정보는 영수증, 보고서 등 출력물에 자동으로 사용됩니다.
+        저장된 정보는 영수증, 수강확인서, 교육비 납입증명서 등 출력물에 자동으로 사용됩니다.
       </p>
       <div className="mt-8 max-w-2xl">
         <AcademySettingsForm initialSettings={row} />

@@ -24,23 +24,32 @@ export async function PUT(request: NextRequest) {
       academyRegNo,
       address,
       phone,
+      faxNumber,
       bankName,
       bankAccount,
       bankHolder,
       websiteUrl,
+      documentIssuer,
+      sealImagePath,
+      logoImagePath,
     } = body;
 
-    const data = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Record<string, any> = {
       name: name?.trim() ?? "",
       directorName: directorName?.trim() ?? "",
       businessRegNo: businessRegNo?.trim() ?? "",
       academyRegNo: academyRegNo?.trim() ?? "",
       address: address?.trim() ?? "",
       phone: phone?.trim() ?? "",
+      faxNumber: faxNumber?.trim() ?? "",
       bankName: bankName?.trim() ?? "",
       bankAccount: bankAccount?.trim() ?? "",
       bankHolder: bankHolder?.trim() ?? "",
       websiteUrl: websiteUrl?.trim() ?? "",
+      documentIssuer: documentIssuer?.trim() ?? "",
+      sealImagePath: sealImagePath?.trim() ?? "",
+      logoImagePath: logoImagePath?.trim() ?? "",
     };
 
     const settings = await getPrisma().academySettings.upsert({

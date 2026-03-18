@@ -118,6 +118,15 @@ export default async function EnrollmentDocumentsPage({ params }: PageProps) {
       icon: "📚",
       isAvailable: true,
     },
+    {
+      key: "tax-certificate",
+      title: "교육비 납입증명서",
+      titleKo: "EDUCATION FEE TAX CERTIFICATE",
+      description: "연말정산 소득공제용 교육비 납입증명서. 과세연도별 발급 지원. A4 인쇄.",
+      href: `/admin/enrollments/${id}/tax-certificate`,
+      icon: "🧾",
+      isAvailable: true,
+    },
   ];
 
   return (

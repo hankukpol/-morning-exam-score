@@ -12,6 +12,7 @@ import {
 import { formatDate } from "@/lib/format";
 import type { EnrollmentDetailData, LeaveRecordRow } from "./page";
 import { EnrollmentHistorySection } from "./enrollment-history-section";
+import { EnrollmentHistoryTimeline } from "./enrollment-history-timeline";
 
 type CohortOption = {
   id: string;
@@ -741,6 +742,23 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           </p>
         </div>
       </ActionModal>
+
+      {/* 수강 이력 타임라인 */}
+      <div className="rounded-[28px] border border-ink/10 bg-white p-6">
+        <EnrollmentHistoryTimeline
+          createdAt={enrollment.createdAt}
+          startDate={enrollment.startDate}
+          endDate={enrollment.endDate}
+          status={enrollment.status}
+          leaveRecords={enrollment.leaveRecords}
+          courseName={
+            enrollment.cohortName ??
+            enrollment.specialLectureName ??
+            enrollment.productName ??
+            "수강"
+          }
+        />
+      </div>
 
       {/* 변경 이력 */}
       <EnrollmentHistorySection logs={enrollment.auditLogs} />
