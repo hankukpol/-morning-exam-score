@@ -48,10 +48,16 @@ function parsePublished(value?: string) {
 export default async function AdminNoticesPage({ searchParams }: PageProps) {
   const targetType = parseTargetType(readStringParam(searchParams, "targetType"));
   const published = parsePublished(readStringParam(searchParams, "published"));
-  const [, notices] = await Promise.all([
+  const [, notices, allNotices] = await Promise.all([
     requireAdminContext(AdminRole.TEACHER),
     listNotices({ targetType, published }),
+    listNotices({}),
   ]);
+
+  const totalCount = allNotices.length;
+  const publishedCount = allNotices.filter((n) => n.isPublished).length;
+  const pinnedCount = allNotices.filter((n) => n.isPinned).length;
+  const draftCount = allNotices.filter((n) => !n.isPublished).length;
 
   return (
     <div className="p-8 sm:p-10">
@@ -72,7 +78,27 @@ export default async function AdminNoticesPage({ searchParams }: PageProps) {
         보드에서 관리하고, 여기서는 학생 대상 전달 내용만 분리해 다룹니다.
       </p>
 
-      <form className="mt-8 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[220px_220px_140px]">
+      {/* Stats summary */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-[20px] border border-ink/10 bg-white p-4 text-center">
+          <p className="text-2xl font-bold text-ink">{totalCount}</p>
+          <p className="mt-1 text-xs text-slate">전체 공지</p>
+        </div>
+        <div className="rounded-[20px] border border-forest/20 bg-forest/5 p-4 text-center">
+          <p className="text-2xl font-bold text-forest">{publishedCount}</p>
+          <p className="mt-1 text-xs text-slate">게시 중</p>
+        </div>
+        <div className="rounded-[20px] border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="text-2xl font-bold text-amber-700">{draftCount}</p>
+          <p className="mt-1 text-xs text-slate">임시저장</p>
+        </div>
+        <div className="rounded-[20px] border border-ember/20 bg-ember/5 p-4 text-center">
+          <p className="text-2xl font-bold text-ember">{pinnedCount}</p>
+          <p className="mt-1 text-xs text-slate">고정 공지</p>
+        </div>
+      </div>
+
+      <form className="mt-6 grid gap-4 rounded-[28px] border border-ink/10 bg-mist p-6 md:grid-cols-[220px_220px_140px]">
         <div>
           <label className="mb-2 block text-sm font-medium">대상</label>
           <select

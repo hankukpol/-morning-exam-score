@@ -6,7 +6,9 @@ import { hasDatabaseConfig } from "@/lib/env";
 import { formatDateWithWeekday } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
+import { ExamCalendar } from "./exam-calendar";
 import { ScheduleClient } from "./schedule-client";
+import { SubjectChecklist } from "./subject-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -65,8 +67,8 @@ export default async function StudentSchedulePage() {
 
   const now = new Date();
 
-  // Find the student's active course enrollment and its cohort; also fetch upcoming exam sessions
-  const [activeEnrollment, upcomingExams] = await Promise.all([
+  // Fetch schedule data, upcoming exams (wider range for calendar), and recent scores
+  const [activeEnrollment, upcomingExamSessions, recentScores] = await Promise.all([
     getPrisma().courseEnrollment.findFirst({
       where: {
         examNumber: viewer.examNumber,
@@ -98,14 +100,18 @@ export default async function StudentSchedulePage() {
         },
       },
     }),
+    // Fetch upcoming exams for next 3 months (for calendar)
     getPrisma().examSession.findMany({
       where: {
         examType: viewer.examType,
         isCancelled: false,
-        examDate: { gte: now },
+        examDate: {
+          gte: now,
+          lte: new Date(now.getFullYear(), now.getMonth() + 3, 0),
+        },
       },
       orderBy: { examDate: "asc" },
-      take: 5,
+      take: 30,
       select: {
         id: true,
         examDate: true,
@@ -116,15 +122,41 @@ export default async function StudentSchedulePage() {
         },
       },
     }),
+    // Fetch last 3 exam dates with scores for this student
+    getPrisma().score.findMany({
+      where: {
+        examNumber: viewer.examNumber,
+        finalScore: { not: null },
+      },
+      orderBy: {
+        session: { examDate: "desc" },
+      },
+      take: 15, // take more, then deduplicate by date below
+      select: {
+        finalScore: true,
+        attendType: true,
+        session: {
+          select: {
+            id: true,
+            examDate: true,
+            subject: true,
+            week: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const schedules = activeEnrollment?.cohort?.lectureSchedules ?? [];
   const cohortName = activeEnrollment?.cohort?.name ?? null;
   const cohortEndDate = activeEnrollment?.cohort?.endDate ?? null;
 
-  // Group upcoming exams by date
-  const examDateMap = new Map<string, { examDate: Date; subjects: string[]; week: number | null; periodName: string | null }>();
-  for (const exam of upcomingExams) {
+  // ── Upcoming exam dates for list (next 5) ───────────────────────────────
+  const examDateMap = new Map<
+    string,
+    { examDate: Date; subjects: string[]; week: number | null; periodName: string | null }
+  >();
+  for (const exam of upcomingExamSessions) {
     const dateKey = exam.examDate.toISOString().slice(0, 10);
     const entry = examDateMap.get(dateKey);
     if (entry) {
@@ -138,13 +170,47 @@ export default async function StudentSchedulePage() {
       });
     }
   }
-  const upcomingExamDates = Array.from(examDateMap.values());
+  const upcomingExamDates = Array.from(examDateMap.values()).slice(0, 5);
 
-  // Countdown to next exam (in days, rounded down)
+  // ── Calendar: all upcoming exam date strings ────────────────────────────
+  const calendarExamDates = Array.from(examDateMap.keys());
+
+  // ── Countdown ──────────────────────────────────────────────────────────
   const nextExamDate = upcomingExamDates[0]?.examDate ?? null;
+  const nextExamDateKey = nextExamDate
+    ? nextExamDate.toISOString().slice(0, 10)
+    : null;
   const daysUntilNextExam = nextExamDate
     ? Math.max(0, Math.floor((nextExamDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
     : null;
+
+  // ── Subjects for next exam (checklist) ─────────────────────────────────
+  const nextExamSubjects = nextExamDateKey
+    ? (examDateMap.get(nextExamDateKey)?.subjects ?? [])
+    : [];
+
+  // ── Recent scores: deduplicate by date, take last 3 dates ───────────────
+  const recentDateMap = new Map<string, { date: Date; week: number | null; subjects: Array<{ label: string; score: number | null }> }>();
+  for (const row of recentScores) {
+    const dateKey = row.session.examDate.toISOString().slice(0, 10);
+    const entry = recentDateMap.get(dateKey);
+    const subLabel = SUBJECT_LABEL[row.session.subject] ?? row.session.subject;
+    if (entry) {
+      entry.subjects.push({ label: subLabel, score: row.finalScore });
+    } else {
+      recentDateMap.set(dateKey, {
+        date: row.session.examDate,
+        week: row.session.week,
+        subjects: [{ label: subLabel, score: row.finalScore }],
+      });
+    }
+  }
+
+  // Sort by date desc, take 3
+  const recentExamDates = Array.from(recentDateMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, 3)
+    .map(([dateKey, val]) => ({ dateKey, ...val }));
 
   return (
     <main className="space-y-6 px-0 py-6">
@@ -185,19 +251,21 @@ export default async function StudentSchedulePage() {
         </div>
       </section>
 
-      {/* Upcoming exam dates */}
+      {/* Upcoming exam dates + D-day */}
       <section className="rounded-[28px] border border-ember/20 bg-white p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-ink">예정된 시험 일정</h2>
           {daysUntilNextExam !== null && (
-            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
-              daysUntilNextExam === 0
-                ? "border-red-200 bg-red-50 text-red-700"
-                : daysUntilNextExam <= 3
-                ? "border-ember/30 bg-ember/10 text-ember"
-                : "border-forest/20 bg-forest/10 text-forest"
-            }`}>
-              {daysUntilNextExam === 0 ? "오늘 시험" : `다음 시험까지 ${daysUntilNextExam}일`}
+            <span
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+                daysUntilNextExam === 0
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : daysUntilNextExam <= 3
+                  ? "border-ember/30 bg-ember/10 text-ember"
+                  : "border-forest/20 bg-forest/10 text-forest"
+              }`}
+            >
+              {daysUntilNextExam === 0 ? "오늘 시험" : `다음 시험까지 D-${daysUntilNextExam}`}
             </span>
           )}
         </div>
@@ -242,7 +310,7 @@ export default async function StudentSchedulePage() {
                       {item.periodName}
                     </span>
                   )}
-                  <div className="flex flex-wrap gap-1.5 ml-auto">
+                  <div className="ml-auto flex flex-wrap gap-1.5">
                     {item.subjects.map((sub) => (
                       <span
                         key={sub}
@@ -263,6 +331,129 @@ export default async function StudentSchedulePage() {
           </p>
         )}
       </section>
+
+      {/* Calendar + Checklist: two-column on larger screens */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        {/* Mini calendar */}
+        <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <svg className="h-4 w-4 text-ember" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h2 className="text-base font-semibold text-ink">시험 일정 달력</h2>
+          </div>
+          <ExamCalendar examDates={calendarExamDates} />
+        </section>
+
+        {/* Subject preparation checklist */}
+        <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <svg className="h-4 w-4 text-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 className="text-base font-semibold text-ink">과목별 준비 체크리스트</h2>
+          </div>
+          {nextExamDate ? (
+            <p className="mb-3 text-xs text-slate">
+              다음 시험({formatDateWithWeekday(nextExamDate)}) 준비 과목을 체크하세요.
+              브라우저에 저장됩니다.
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-slate">
+              예정된 시험이 없을 때도 자유롭게 과목을 체크할 수 있습니다.
+            </p>
+          )}
+          <SubjectChecklist
+            subjects={nextExamSubjects}
+            nextExamDateKey={nextExamDateKey}
+          />
+        </section>
+      </div>
+
+      {/* Recent scores summary */}
+      {recentExamDates.length > 0 && (
+        <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-slate" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <h2 className="text-base font-semibold text-ink">최근 성적 요약</h2>
+            </div>
+            <Link
+              href="/student/scores"
+              className="text-xs font-semibold text-ember underline underline-offset-2 hover:text-ember/70"
+            >
+              전체 보기
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {recentExamDates.map(({ dateKey, date, week, subjects }) => {
+              const totalScore = subjects.reduce((sum, s) => sum + (s.score ?? 0), 0);
+              const scoredCount = subjects.filter((s) => s.score !== null).length;
+              const avgScore = scoredCount > 0 ? totalScore / scoredCount : null;
+
+              return (
+                <Link
+                  key={dateKey}
+                  href={`/student/scores/${encodeURIComponent(dateKey)}`}
+                  className="block rounded-[20px] border border-ink/10 px-5 py-4 transition hover:border-ember/20 hover:bg-ember/5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">
+                        {formatDateWithWeekday(date)}
+                      </span>
+                      {week !== null && (
+                        <span className="inline-flex rounded-full border border-ink/10 bg-mist px-2 py-0.5 text-[10px] font-semibold text-slate">
+                          {week}주차
+                        </span>
+                      )}
+                    </div>
+                    {avgScore !== null && (
+                      <span
+                        className={`text-sm font-bold ${
+                          avgScore < 60
+                            ? "text-red-600"
+                            : avgScore < 80
+                            ? "text-amber-600"
+                            : "text-forest"
+                        }`}
+                      >
+                        평균 {Math.round(avgScore * 10) / 10}점
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Subject scores */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {subjects.map((s) => (
+                      <span
+                        key={s.label}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                          s.score === null
+                            ? "border-ink/10 bg-mist text-slate"
+                            : s.score < 60
+                            ? "border-red-200 bg-red-50 text-red-700"
+                            : s.score < 80
+                            ? "border-amber-200 bg-amber-50 text-amber-700"
+                            : "border-forest/20 bg-forest/5 text-forest"
+                        }`}
+                      >
+                        <span className="font-medium">{s.label}</span>
+                        <span className="font-bold">
+                          {s.score !== null ? `${Math.round(s.score * 10) / 10}점` : "미응시"}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Schedule content */}
       <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">

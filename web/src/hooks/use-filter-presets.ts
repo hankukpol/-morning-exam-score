@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+export const FILTER_PRESET_MAX = 5;
+
 export type FilterPreset = {
   id: string;
   name: string;
@@ -84,6 +86,10 @@ export function useFilterPresets(storageKey: string) {
   function savePreset(name: string, filters: Record<string, string>): FilterPreset | null {
     const trimmedName = name.trim();
     if (!trimmedName) {
+      return null;
+    }
+
+    if (presets.length >= FILTER_PRESET_MAX) {
       return null;
     }
 

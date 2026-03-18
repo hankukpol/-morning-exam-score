@@ -18,6 +18,9 @@ import {
 } from "@/lib/constants";
 import { toDateInputValue, todayDateInputValue } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useFilterPresets } from "@/hooks/use-filter-presets";
+
+const STUDENT_FILTER_STORAGE_KEY = "students-list-filters";
 
 type StudentRow = {
   examNumber: string;
@@ -150,6 +153,10 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
   const [activeOnly, setActiveOnly] = useState(filters.activeOnly);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [presetNameInput, setPresetNameInput] = useState("");
+  const [showPresetSaveBox, setShowPresetSaveBox] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const { presets, savePreset, deletePreset } = useFilterPresets(STUDENT_FILTER_STORAGE_KEY);
   const [selectedExamNumbers, setSelectedExamNumbers] = useState<string[]>([]);
   const [bulkGeneration, setBulkGeneration] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -191,6 +198,97 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
 
   function getDraft(examNumber: string) {
     return drafts[examNumber] ?? rowDrafts[examNumber];
+  }
+
+  function getCurrentFilterState() {
+    return {
+      examType: filters.examType,
+      search,
+      generation,
+      activeOnly: activeOnly ? "true" : "false",
+    };
+  }
+
+  function handleSavePreset() {
+    const name = presetNameInput.trim();
+    if (!name) return;
+    const preset = savePreset(name, getCurrentFilterState());
+    if (preset) {
+      setSelectedPresetId(preset.id);
+      setPresetNameInput("");
+      setShowPresetSaveBox(false);
+    }
+  }
+
+  function handleApplyPreset(presetId: string) {
+    setSelectedPresetId(presetId);
+    if (!presetId) return;
+    const preset = presets.find((item) => item.id === presetId);
+    if (!preset) return;
+    const f = preset.filters;
+    const nextExamType = (f.examType === "GONGCHAE" || f.examType === "GYEONGCHAE")
+      ? (f.examType as ExamType)
+      : filters.examType;
+    const nextSearch = f.search ?? "";
+    const nextGeneration = f.generation ?? "";
+    const nextActiveOnly = f.activeOnly !== "false";
+    setSearch(nextSearch);
+    setGeneration(nextGeneration);
+    setActiveOnly(nextActiveOnly);
+    refreshWithFiltersImmediate({ examType: nextExamType, search: nextSearch, generation: nextGeneration, activeOnly: nextActiveOnly, page: 1 });
+  }
+
+  function handleDeletePreset() {
+    if (!selectedPresetId) return;
+    const preset = presets.find((item) => item.id === selectedPresetId);
+    if (!preset) return;
+    const confirmed = window.confirm(`"${preset.name}" 프리셋을 삭제할까요?`);
+    if (!confirmed) return;
+    deletePreset(selectedPresetId);
+    setSelectedPresetId("");
+  }
+
+  function refreshWithFiltersImmediate(
+    nextFilters: Partial<
+      Pick<Filters, "examType" | "search" | "generation" | "activeOnly" | "page" | "pageSize">
+    >,
+  ) {
+    const params = new URLSearchParams();
+    const merged = {
+      examType: filters.examType,
+      search,
+      generation,
+      activeOnly,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      ...nextFilters,
+    };
+
+    params.set("examType", merged.examType);
+    params.set("page", String(merged.page));
+    params.set("pageSize", String(merged.pageSize));
+
+    if (merged.search.trim()) {
+      params.set("search", merged.search.trim());
+    }
+
+    if (merged.generation.trim()) {
+      params.set("generation", merged.generation.trim());
+    }
+
+    if (!merged.activeOnly) {
+      params.set("activeOnly", "false");
+    }
+
+    if (filters.sort) {
+      params.set("sort", filters.sort);
+    }
+
+    if (filters.sortDir) {
+      params.set("sortDir", filters.sortDir);
+    }
+
+    router.push(`/admin/students?${params.toString()}`);
   }
 
   function refreshWithFilters(
@@ -637,6 +735,72 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
       </section>
 
       <section className="rounded-[28px] border border-ink/10 bg-white p-6">
+        {/* Filter Preset Bar */}
+        <div className="mb-4 rounded-[20px] border border-ink/10 bg-mist px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-slate">필터 프리셋</span>
+            <select
+              value={selectedPresetId}
+              onChange={(event) => handleApplyPreset(event.target.value)}
+              className="min-w-[180px] flex-1 rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">프리셋 선택...</option>
+              {presets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowPresetSaveBox((current) => !current)}
+              className="inline-flex items-center rounded-full border border-ink/10 bg-white px-3 py-2 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              현재 필터 저장
+            </button>
+            <button
+              type="button"
+              onClick={handleDeletePreset}
+              disabled={!selectedPresetId}
+              className="inline-flex items-center rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              프리셋 삭제
+            </button>
+          </div>
+          {showPresetSaveBox && (
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={presetNameInput}
+                onChange={(event) => setPresetNameInput(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") handleSavePreset(); }}
+                placeholder={presets.length >= 5 ? "최대 5개 저장 가능합니다" : "프리셋 이름 입력"}
+                disabled={presets.length >= 5}
+                className="flex-1 rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleSavePreset}
+                disabled={!presetNameInput.trim() || presets.length >= 5}
+                className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                저장
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPresetSaveBox(false); setPresetNameInput(""); }}
+                className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-xs font-semibold transition hover:border-ink/30"
+              >
+                취소
+              </button>
+            </div>
+          )}
+          {presets.length >= 5 && (
+            <p className="mt-2 text-xs text-amber-700">최대 5개까지 저장할 수 있습니다. 기존 프리셋을 삭제한 후 저장하세요.</p>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="mb-2 block text-sm font-medium">직렬</label>

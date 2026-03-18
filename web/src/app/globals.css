@@ -272,13 +272,29 @@ table tbody tr:hover td {
 }
 
 /* ─── Print styles ──────────────────────────────────────────────────────────── */
+
+/* Default print page: A4 landscape for wide score tables */
+@page {
+  size: A4 landscape;
+  margin: 12mm 10mm;
+}
+
+/* Portrait override: wrap a section with class="print-portrait" */
+@page print-portrait {
+  size: A4 portrait;
+  margin: 15mm 12mm;
+}
+
 @media print {
+  /* ── Page setup ─────────────────────────────────────────── */
+
   /* Hide non-essential UI elements */
   aside,
   nav,
   [data-sidebar],
   .no-print,
   button:not(.print-show),
+  .filter-bar,
   .pagination-controls,
   [class*="TopLoader"],
   [role="navigation"],
@@ -289,8 +305,9 @@ table tbody tr:hover td {
   /* Reset page layout */
   body {
     background: white !important;
-    font-size: 11pt;
+    font-size: 10pt;
     line-height: 1.4;
+    color: #111827;
   }
 
   html {
@@ -305,7 +322,7 @@ table tbody tr:hover td {
     background: white !important;
   }
 
-  /* Remove shadows and decorative borders */
+  /* ── Color accuracy ─────────────────────────────────────── */
   * {
     box-shadow: none !important;
     -webkit-print-color-adjust: exact !important;
@@ -317,7 +334,12 @@ table tbody tr:hover td {
     border-radius: 0 !important;
   }
 
-  /* Table print optimization */
+  /* ── Typography ─────────────────────────────────────────── */
+  h1 { font-size: 14pt !important; font-weight: 700 !important; margin-bottom: 6pt !important; }
+  h2 { font-size: 12pt !important; font-weight: 600 !important; margin-bottom: 4pt !important; }
+  h3 { font-size: 11pt !important; font-weight: 600 !important; }
+
+  /* ── Table print optimization ───────────────────────────── */
   table {
     page-break-inside: auto;
     width: 100%;
@@ -338,50 +360,95 @@ table tbody tr:hover td {
   }
 
   th, td {
-    padding: 4pt 6pt !important;
-    font-size: 9pt !important;
+    padding: 4pt 5pt !important;
+    font-size: 8.5pt !important;
   }
 
-  /* Ensure text colors print correctly */
+  /* ── Score color badges (print-safe) ────────────────────── */
+  .score-high,
+  [class*="score-high"] {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+  }
+
+  .score-mid,
+  [class*="score-mid"] {
+    background-color: #fef9c3 !important;
+    color: #854d0e !important;
+  }
+
+  .score-low,
+  [class*="score-low"] {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+
+  /* ── Text colors ────────────────────────────────────────── */
   .text-forest, [class*="text-forest"] { color: #1F4D3A !important; }
   .text-ember, [class*="text-ember"] { color: #C55A11 !important; }
   .text-slate, [class*="text-slate"] { color: #4B5563 !important; }
   .text-ink { color: #111827 !important; }
+  .text-red-700, [class*="text-red-7"] { color: #b91c1c !important; }
+  .text-amber-700, [class*="text-amber-7"] { color: #b45309 !important; }
+  .text-green-700, [class*="text-green-7"] { color: #15803d !important; }
 
-  /* Ensure background colors print */
+  /* ── Background colors ──────────────────────────────────── */
   .bg-mist, [class*="bg-mist"] { background-color: #F7F4EF !important; }
   .bg-forest\/10 { background-color: rgba(31, 77, 58, 0.1) !important; }
 
-  /* Page break helpers */
-  .page-break-before { page-break-before: always; }
-  .page-break-after { page-break-after: always; }
-  .no-page-break { page-break-inside: avoid; }
+  /* Badge/tag tint colors */
+  [class*="bg-amber"] { background-color: rgba(217, 119, 6, 0.15) !important; }
+  [class*="bg-red"]   { background-color: rgba(239, 68, 68, 0.15) !important; }
+  [class*="bg-green"], [class*="bg-forest"] { background-color: rgba(31, 77, 58, 0.15) !important; }
+  [class*="bg-sky"]   { background-color: rgba(14, 165, 233, 0.15) !important; }
+  [class*="bg-purple"]{ background-color: rgba(124, 58, 237, 0.15) !important; }
 
-  /* Print title */
+  /* ── Page break helpers ─────────────────────────────────── */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after: always; }
+  .no-page-break     { page-break-inside: avoid; }
+
+  /* ── Print title area ───────────────────────────────────── */
+
+  /* .print-title elements become visible block headers in print */
+  .print-title {
+    display: block !important;
+  }
+
+  /* data-print-title attribute pattern used by result sheets */
   .print-title::before {
     content: attr(data-print-title);
     display: block;
-    font-size: 14pt;
+    font-size: 13pt;
     font-weight: bold;
-    margin-bottom: 12pt;
+    margin-bottom: 10pt;
     border-bottom: 1pt solid #111827;
-    padding-bottom: 6pt;
+    padding-bottom: 5pt;
+    color: #111827;
   }
+
+  /* School header shown only in print */
+  .print-header-area {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 8pt;
+    font-size: 10pt;
+    color: #4B5563;
+  }
+
+  /* ── Misc ───────────────────────────────────────────────── */
 
   /* Links: suppress URL expansion for internal admin links */
-  a[href^="/admin"]::after {
-    content: none;
-  }
-
-  /* Keep badge/tag colors */
-  [class*="bg-amber"] { background-color: rgba(217, 119, 6, 0.15) !important; }
-  [class*="bg-red"] { background-color: rgba(239, 68, 68, 0.15) !important; }
-  [class*="bg-green"], [class*="bg-forest"] { background-color: rgba(31, 77, 58, 0.15) !important; }
-  [class*="bg-sky"] { background-color: rgba(14, 165, 233, 0.15) !important; }
-  [class*="bg-purple"] { background-color: rgba(124, 58, 237, 0.15) !important; }
+  a[href^="/admin"]::after { content: none; }
+  a[href^="/student"]::after { content: none; }
 
   .print-sheet-heading {
     display: none !important;
+  }
+
+  /* Ensure overflow-x tables render fully */
+  .overflow-x-auto {
+    overflow: visible !important;
   }
 }
 

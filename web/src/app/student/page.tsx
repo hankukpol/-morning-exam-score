@@ -559,6 +559,16 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 ),
                 color: "text-pink-600 bg-pink-50",
               },
+              {
+                href: "/student/history",
+                label: "활동이력",
+                icon: (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
+                  </svg>
+                ),
+                color: "text-cyan-600 bg-cyan-50",
+              },
             ].map((item) => (
               <Link
                 key={item.href}

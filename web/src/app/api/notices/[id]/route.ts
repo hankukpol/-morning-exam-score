@@ -13,6 +13,7 @@ type RequestBody = {
   title?: string;
   content?: string;
   targetType?: NoticeTargetType;
+  isPinned?: boolean;
 };
 
 function parseNoticeId(value: string) {
@@ -64,6 +65,7 @@ export async function PUT(request: Request, context: RouteContext) {
         title: String(body.title ?? ""),
         content: String(body.content ?? ""),
         targetType: body.targetType ?? NoticeTargetType.ALL,
+        isPinned: typeof body.isPinned === "boolean" ? body.isPinned : undefined,
       },
       ipAddress: request.headers.get("x-forwarded-for"),
     });

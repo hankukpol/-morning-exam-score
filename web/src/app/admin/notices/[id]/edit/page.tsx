@@ -59,6 +59,7 @@ export default async function EditNoticePage({ params }: PageProps) {
             content: notice.content,
             targetType: notice.targetType,
             isPinned: notice.isPinned,
+            isPublished: notice.isPublished,
           }}
         />
       </div>

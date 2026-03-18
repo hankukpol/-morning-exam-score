@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useFilterPresets } from "@/hooks/use-filter-presets";
 
+const MAX_PRESETS = 5;
+
 type AbsenceNoteFilterPresetControlsProps = {
   formId: string;
   storageKey: string;
@@ -61,24 +63,22 @@ export function AbsenceNoteFilterPresetControls({
 }: AbsenceNoteFilterPresetControlsProps) {
   const { presets, savePreset, deletePreset } = useFilterPresets(storageKey);
   const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [showSaveBox, setShowSaveBox] = useState(false);
+  const [presetNameInput, setPresetNameInput] = useState("");
 
   function handleSavePreset() {
+    const name = presetNameInput.trim();
+    if (!name) return;
+
     const form = getForm(formId);
-    if (!form) {
-      return;
-    }
+    if (!form) return;
 
-    const name = window.prompt("프리셋 이름을 입력하세요.");
-    if (!name || name.trim().length === 0) {
-      return;
-    }
-
-    const preset = savePreset(name.trim(), readFilters(form, fieldNames));
-    if (!preset) {
-      return;
-    }
+    const preset = savePreset(name, readFilters(form, fieldNames));
+    if (!preset) return;
 
     setSelectedPresetId(preset.id);
+    setPresetNameInput("");
+    setShowSaveBox(false);
   }
 
   function handleApplyPreset(presetId: string) {
@@ -120,6 +120,8 @@ export function AbsenceNoteFilterPresetControls({
     setSelectedPresetId("");
   }
 
+  const atLimit = presets.length >= MAX_PRESETS;
+
   return (
     <div className="mt-5 rounded-[20px] border border-ink/10 bg-white px-4 py-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -140,8 +142,9 @@ export function AbsenceNoteFilterPresetControls({
         </div>
         <button
           type="button"
-          onClick={handleSavePreset}
-          className="inline-flex items-center justify-center rounded-full border border-ink/10 bg-white px-4 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+          onClick={() => setShowSaveBox((current) => !current)}
+          disabled={atLimit}
+          className="inline-flex items-center justify-center rounded-full border border-ink/10 bg-white px-4 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
         >
           현재 필터 저장
         </button>
@@ -154,8 +157,44 @@ export function AbsenceNoteFilterPresetControls({
           프리셋 삭제
         </button>
       </div>
+
+      {showSaveBox && (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="text"
+            value={presetNameInput}
+            onChange={(event) => setPresetNameInput(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") handleSavePreset(); }}
+            placeholder="프리셋 이름 입력"
+            className="flex-1 rounded-2xl border border-ink/10 bg-mist px-4 py-2 text-sm"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleSavePreset}
+            disabled={!presetNameInput.trim()}
+            className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            저장
+          </button>
+          <button
+            type="button"
+            onClick={() => { setShowSaveBox(false); setPresetNameInput(""); }}
+            className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ink/30"
+          >
+            취소
+          </button>
+        </div>
+      )}
+
+      {atLimit && (
+        <p className="mt-2 text-xs text-amber-700">
+          최대 {MAX_PRESETS}개까지 저장할 수 있습니다. 기존 프리셋을 먼저 삭제하세요.
+        </p>
+      )}
+
       <p className="mt-3 text-xs leading-6 text-slate">
-        자주 쓰는 조회 조건을 저장해 두고, 목록에서 선택하면 즉시 적용됩니다.
+        자주 쓰는 조회 조건을 저장해 두고, 목록에서 선택하면 즉시 적용됩니다. (최대 {MAX_PRESETS}개)
       </p>
     </div>
   );
