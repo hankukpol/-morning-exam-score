@@ -1,4 +1,5 @@
 import { AdminRole } from "@prisma/client";
+import Link from "next/link";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { LockerGrid } from "./locker-grid";
@@ -71,11 +72,21 @@ export default async function LockersPage() {
       <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-800">
         시설 관리
       </div>
-      <h1 className="mt-5 text-3xl font-semibold">사물함 관리</h1>
-      <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
-        구역별 사물함 현황을 조회하고 대여·반납을 처리합니다. 사물함을 클릭하면
-        상세 정보와 배정 처리를 할 수 있습니다.
-      </p>
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">사물함 관리</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-8 text-slate sm:text-base">
+            구역별 사물함 현황을 조회하고 대여·반납을 처리합니다. 사물함을
+            클릭하면 상세 정보와 배정 처리를 할 수 있습니다.
+          </p>
+        </div>
+        <Link
+          href="/admin/lockers/new"
+          className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
+        >
+          + 새 사물함 등록
+        </Link>
+      </div>
 
       {/* Stats row */}
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">

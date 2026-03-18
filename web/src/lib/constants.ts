@@ -501,6 +501,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'scores',
   },
   {
+    href: "/admin/score-corrections",
+    label: "성적 오류 신고",
+    description: "학생 포털에서 접수된 성적 오류 신고 목록 및 처리",
+    minRole: AdminRole.TEACHER,
+    group: "성적 관리",
+    module: 'scores',
+  },
+  {
     href: "/admin/attendance/calendar",
     label: "출결 캘린더",
     description: "날짜별 경고, 결시, 탈락 현황",

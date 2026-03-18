@@ -1,6 +1,8 @@
 import { AdminRole } from "@prisma/client";
 import { ExportPanel } from "@/components/export/export-panel";
 import { WeeklyReportGeneratePanel } from "@/components/export/weekly-report-archive-panel";
+import { PaymentExportPanel } from "@/components/export/payment-export-panel";
+import { AttendanceExportPanel } from "@/components/export/attendance-export-panel";
 import { requireAdminContext } from "@/lib/auth";
 import { getActiveWeeklyReportSurfaceState } from "@/lib/export/weekly-report-archive";
 import { listPeriods } from "@/lib/periods/service";
@@ -38,6 +40,8 @@ export default async function AdminExportPage() {
             isActive: period.isActive,
           }))}
         />
+        <PaymentExportPanel />
+        <AttendanceExportPanel />
       </div>
     </div>
   );

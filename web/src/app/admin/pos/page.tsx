@@ -76,12 +76,20 @@ export default async function PosPage() {
             단과 특강 즉석 결제를 처리합니다.
           </p>
         </div>
-        <Link
-          href="/admin/pos/new"
-          className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
-        >
-          + 새 결제
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/settlements/daily?date=${now.toISOString().slice(0, 10)}`}
+            className="inline-flex items-center gap-2 rounded-full border border-ink/20 px-5 py-3 text-sm font-medium text-slate transition hover:border-ink/40 hover:bg-mist"
+          >
+            일계표 보기
+          </Link>
+          <Link
+            href="/admin/pos/new"
+            className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            + 새 결제
+          </Link>
+        </div>
       </div>
 
       {/* KPI row */}
