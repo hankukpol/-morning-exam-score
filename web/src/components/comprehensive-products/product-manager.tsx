@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ExamCategory } from "@prisma/client";
 import { useState, useTransition } from "react";
 import { ActionModal } from "@/components/ui/action-modal";
@@ -274,6 +275,7 @@ export function ProductManager({ initialProducts }: ProductManagerProps) {
                 </td>
               </tr>
             ) : null}
+
             {filteredProducts.map((product) => (
               <tr key={product.id} className="transition hover:bg-mist/30">
                 <td className="px-4 py-3 font-medium text-ink">
@@ -312,6 +314,12 @@ export function ProductManager({ initialProducts }: ProductManagerProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
+                    <Link
+                      href={`/admin/settings/comprehensive-products/${product.id}`}
+                      className="inline-flex items-center rounded-full border border-forest/20 px-3 py-1 text-xs font-semibold text-forest transition hover:border-forest/40 hover:bg-forest/5"
+                    >
+                      상세
+                    </Link>
                     <button
                       type="button"
                       onClick={() => openEdit(product)}

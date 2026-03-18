@@ -570,6 +570,13 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             <p className="font-semibold text-ink group-hover:text-forest">할인코드 분석</p>
             <p className="mt-1 text-xs text-slate">코드별 사용 현황, 할인 총액, 미사용 코드 파악</p>
           </Link>
+          <Link
+            href="/admin/analytics/cohorts"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">기수별 비교 분석</p>
+            <p className="mt-1 text-xs text-slate">기수별 등록수·휴원율·성적·출석률·수납액 비교</p>
+          </Link>
         </div>
       </div>
     </div>

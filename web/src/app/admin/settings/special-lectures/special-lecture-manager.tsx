@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ActionModal } from "@/components/ui/action-modal";
@@ -313,6 +314,12 @@ export function SpecialLectureManager({ initialRows, instructors }: Props) {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/admin/settings/special-lectures/${row.id}`}
+                    className="text-xs text-forest font-medium hover:text-ink"
+                  >
+                    상세
+                  </Link>
                   <button onClick={() => openAddSubject(row)} className="text-xs text-forest hover:text-ink font-medium">
                     + 과목 추가
                   </button>

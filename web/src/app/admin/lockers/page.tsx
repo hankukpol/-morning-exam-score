@@ -80,12 +80,20 @@ export default async function LockersPage() {
             클릭하면 상세 정보와 배정 처리를 할 수 있습니다.
           </p>
         </div>
-        <Link
-          href="/admin/lockers/new"
-          className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
-        >
-          + 새 사물함 등록
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/lockers/expiring"
+            className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+          >
+            만료 임박
+          </Link>
+          <Link
+            href="/admin/lockers/new"
+            className="inline-flex items-center gap-2 rounded-full bg-ember px-6 py-3 text-sm font-semibold text-white transition hover:bg-ember/90"
+          >
+            + 새 사물함 등록
+          </Link>
+        </div>
       </div>
 
       {/* Stats row */}
