@@ -162,9 +162,28 @@ export default async function TextbookSalesPage({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-slate">내보내기:</span>
-          <span className="rounded-full border border-ink/10 px-4 py-2 text-xs text-slate">
-            /api/export/textbooks (준비 예정)
-          </span>
+          <a
+            href={(() => {
+              if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+                const [y, m] = monthParam.split("-").map(Number);
+                const startDate = `${y}-${String(m).padStart(2, "0")}-01`;
+                const lastDay = new Date(y, m, 0).getDate();
+                const endDate = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+                return `/api/export/textbooks?startDate=${startDate}&endDate=${endDate}`;
+              }
+              // No month filter: export current month
+              const n = new Date();
+              const y = n.getFullYear();
+              const m = n.getMonth() + 1;
+              const startDate = `${y}-${String(m).padStart(2, "0")}-01`;
+              const lastDay = new Date(y, m, 0).getDate();
+              const endDate = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+              return `/api/export/textbooks?startDate=${startDate}&endDate=${endDate}`;
+            })()}
+            className="rounded-full border border-forest/30 bg-forest/10 px-4 py-2 text-xs font-medium text-forest transition hover:bg-forest/20"
+          >
+            CSV 내보내기
+          </a>
           <Link
             href="/admin/settings/textbooks"
             className="inline-flex items-center gap-2 rounded-full border border-ink/10 px-5 py-2.5 text-sm font-medium text-slate transition hover:border-ink/30 hover:text-ink"

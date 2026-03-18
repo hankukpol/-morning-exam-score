@@ -376,8 +376,15 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
                     상세
                   </a>
                   <a
+                    href={`/admin/periods/${period.id}/stats`}
+                    className="inline-flex items-center rounded-full border border-ember/20 bg-ember/5 px-3 py-1 text-xs font-semibold text-ember transition hover:border-ember/50 hover:bg-ember/10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    성적 통계
+                  </a>
+                  <a
                     href={`/admin/periods/${period.id}/edit`}
-                    className="inline-flex items-center rounded-full border border-ember/20 px-3 py-1 text-xs font-semibold text-ember transition hover:border-ember/50 hover:bg-ember/5"
+                    className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ink/30 hover:text-ink"
                     onClick={(e) => e.stopPropagation()}
                   >
                     수정

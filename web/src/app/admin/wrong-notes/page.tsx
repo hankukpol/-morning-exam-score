@@ -531,12 +531,20 @@ export default async function AdminWrongNotesPage({ searchParams }: PageProps) {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/admin/students/${entry.examNumber}`}
-                          className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ember/30 hover:text-ember"
-                        >
-                          학생 상세
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/admin/students/${entry.examNumber}/wrong-notes`}
+                            className="inline-flex items-center rounded-full border border-ember/30 bg-ember/5 px-3 py-1 text-xs font-semibold text-ember transition hover:bg-ember/15"
+                          >
+                            오답 상세
+                          </Link>
+                          <Link
+                            href={`/admin/students/${entry.examNumber}`}
+                            className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ember/30 hover:text-ember"
+                          >
+                            학생 상세
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

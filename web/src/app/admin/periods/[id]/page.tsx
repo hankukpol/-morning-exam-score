@@ -89,6 +89,12 @@ export default async function PeriodDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href={`/admin/periods/${period.id}/stats`}
+            className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-medium text-ember transition hover:bg-ember/20"
+          >
+            성적 통계
+          </Link>
+          <Link
             href={`/admin/periods/${period.id}/sessions`}
             className="inline-flex items-center rounded-full border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/20"
           >

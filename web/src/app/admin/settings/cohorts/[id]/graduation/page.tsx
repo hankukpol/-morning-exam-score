@@ -17,18 +17,25 @@ export default async function CohortGraduationPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const cohort = await getPrisma().cohort.findUnique({
-    where: { id },
-    include: {
-      enrollments: {
-        where: { status: { in: ["ACTIVE", "PENDING"] } },
-        include: {
-          student: { select: { name: true, phone: true } },
+  const prisma = getPrisma();
+
+  const [cohort, completedCount] = await Promise.all([
+    prisma.cohort.findUnique({
+      where: { id },
+      include: {
+        enrollments: {
+          where: { status: { in: ["ACTIVE", "PENDING"] } },
+          include: {
+            student: { select: { name: true, phone: true } },
+          },
+          orderBy: { createdAt: "asc" },
         },
-        orderBy: { createdAt: "asc" },
       },
-    },
-  });
+    }),
+    prisma.courseEnrollment.count({
+      where: { cohortId: id, status: "COMPLETED" },
+    }),
+  ]);
 
   if (!cohort) notFound();
 
@@ -49,6 +56,8 @@ export default async function CohortGraduationPage({ params }: PageProps) {
     createdAt: e.createdAt.toISOString(),
     finalFee: e.finalFee,
   }));
+
+  const activeCount = cohort.enrollments.filter((e) => e.status === "ACTIVE").length;
 
   return (
     <div className="p-8 sm:p-10">
@@ -93,12 +102,17 @@ export default async function CohortGraduationPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Info cards */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      {/* KPI row */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-4">
+        <div className="rounded-[24px] border border-forest/20 bg-forest/5 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate">수강중</p>
+          <p className="mt-2 text-3xl font-bold text-forest tabular-nums">{activeCount}명</p>
+          <p className="mt-1 text-xs text-slate">ACTIVE 상태</p>
+        </div>
         <div className="rounded-[24px] border border-ink/10 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate">재원생 수</p>
-          <p className="mt-2 text-3xl font-bold text-ink tabular-nums">{activeEnrollments.length}</p>
-          <p className="mt-1 text-xs text-slate">수료·퇴원 처리 대상</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate">수료</p>
+          <p className="mt-2 text-3xl font-bold text-ink tabular-nums">{completedCount}명</p>
+          <p className="mt-1 text-xs text-slate">이미 완료 처리됨</p>
         </div>
         <div className={`rounded-[24px] border p-5 ${diffDays <= 0 ? "border-red-200 bg-red-50" : diffDays <= 7 ? "border-amber-200 bg-amber-50" : "border-ink/10 bg-white"}`}>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate">종료일까지</p>
@@ -126,6 +140,7 @@ export default async function CohortGraduationPage({ params }: PageProps) {
           cohortId={id}
           cohortName={cohort.name}
           enrollments={activeEnrollments}
+          activeCount={activeCount}
         />
       ) : (
         <div className="mt-8 rounded-[28px] border border-dashed border-slate/20 bg-slate/5 px-6 py-10 text-center">

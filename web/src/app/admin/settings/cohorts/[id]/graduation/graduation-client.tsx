@@ -18,6 +18,7 @@ type Props = {
   cohortId: string;
   cohortName: string;
   enrollments: EnrollmentRow[];
+  activeCount: number;
 };
 
 type Step = "checklist" | "confirm" | "done";
@@ -28,7 +29,7 @@ type GraduateResult = {
   withdrawnCount: number;
 };
 
-export function GraduationClient({ cohortId, cohortName, enrollments }: Props) {
+export function GraduationClient({ cohortId, cohortName, enrollments, activeCount }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("checklist");
   const [checked, setChecked] = useState<Set<string>>(
@@ -36,6 +37,10 @@ export function GraduationClient({ cohortId, cohortName, enrollments }: Props) {
   );
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<GraduateResult | null>(null);
+
+  // Batch graduation modal state
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [isBatchPending, startBatchTransition] = useTransition();
 
   const graduateCount = checked.size;
   const withdrawCount = enrollments.length - checked.size;
@@ -78,6 +83,27 @@ export function GraduationClient({ cohortId, cohortName, enrollments }: Props) {
         toast.success(`${cohortName} 수료 처리 완료`);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "수료 처리 중 오류가 발생했습니다.");
+      }
+    });
+  }
+
+  function handleBatchGraduate() {
+    startBatchTransition(async () => {
+      try {
+        const res = await fetch(`/api/cohorts/${cohortId}/graduate-all`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sendNotification: false }),
+          cache: "no-store",
+        });
+        const payload = await res.json() as { data?: { completedCount: number }; error?: string };
+        if (!res.ok) throw new Error(payload.error ?? "일괄 수료 처리 실패");
+        const count = payload.data?.completedCount ?? 0;
+        setShowBatchModal(false);
+        toast.success(`${count}명 수료 처리 완료`);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "일괄 수료 처리 중 오류가 발생했습니다.");
       }
     });
   }
@@ -200,6 +226,71 @@ export function GraduationClient({ cohortId, cohortName, enrollments }: Props) {
 
   return (
     <div className="mt-8 space-y-6">
+      {/* Batch graduation quick action */}
+      {activeCount > 0 && (
+        <div className="flex items-center justify-between rounded-[24px] border border-forest/20 bg-forest/5 px-6 py-4">
+          <div>
+            <p className="text-sm font-semibold text-forest">전체 수료 일괄 처리</p>
+            <p className="mt-0.5 text-xs text-forest/70">
+              수강 중인 학생 {activeCount}명을 선택 없이 모두 수료 처리합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowBatchModal(true)}
+            disabled={activeCount === 0}
+            className="inline-flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            수강 중 학생 {activeCount}명 전체 수료 처리
+          </button>
+        </div>
+      )}
+
+      {/* Batch graduation confirm modal */}
+      {showBatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-ink/10 bg-white p-7 shadow-xl">
+            <h2 className="text-lg font-semibold text-ink">전체 수료 처리 확인</h2>
+            <p className="mt-3 text-sm text-slate">
+              총 <strong className="text-ink">{activeCount}명</strong>을 수료 처리합니다.
+              이 작업은 되돌릴 수 없습니다.
+            </p>
+            <p className="mt-2 text-xs text-slate">
+              · ACTIVE 상태 학생만 COMPLETED로 변경됩니다.<br />
+              · PENDING / WAITING 학생은 변경되지 않습니다.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                disabled={isBatchPending}
+                className="inline-flex items-center rounded-full border border-ink/20 px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-mist disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchGraduate}
+                disabled={isBatchPending}
+                className="inline-flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isBatchPending ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    처리 중...
+                  </>
+                ) : (
+                  "확인"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-[28px] border border-ink/10 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

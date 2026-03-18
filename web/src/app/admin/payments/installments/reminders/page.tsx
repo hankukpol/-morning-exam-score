@@ -242,6 +242,7 @@ export default async function InstallmentRemindersPage() {
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">만기일</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">연체</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">수신동의</th>
+                  <th className="px-5 py-3.5 text-left font-semibold text-ink">상세</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">알림</th>
                 </tr>
               </thead>
@@ -293,6 +294,14 @@ export default async function InstallmentRemindersPage() {
                         )}
                       </td>
                       <td className="px-5 py-4">
+                        <Link
+                          href={`/admin/payments/installments/${item.id}`}
+                          className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-medium text-ink transition hover:border-ember/40 hover:text-ember"
+                        >
+                          상세보기
+                        </Link>
+                      </td>
+                      <td className="px-5 py-4">
                         <SendReminderButton
                           installmentId={item.id}
                           studentName={item.payment.student?.name ?? "학생"}
@@ -331,6 +340,7 @@ export default async function InstallmentRemindersPage() {
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">만기일</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">D-Day</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">수신동의</th>
+                  <th className="px-5 py-3.5 text-left font-semibold text-ink">상세</th>
                   <th className="px-5 py-3.5 text-left font-semibold text-ink">알림</th>
                 </tr>
               </thead>
@@ -380,6 +390,14 @@ export default async function InstallmentRemindersPage() {
                             미동의
                           </span>
                         )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <Link
+                          href={`/admin/payments/installments/${item.id}`}
+                          className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1 text-xs font-medium text-ink transition hover:border-ember/40 hover:text-ember"
+                        >
+                          상세보기
+                        </Link>
                       </td>
                       <td className="px-5 py-4">
                         <SendReminderButton

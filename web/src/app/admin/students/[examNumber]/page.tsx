@@ -938,7 +938,18 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
         {/* 오답노트 탭 */}
         {tab === "wrong-notes" && (
-          <WrongNotesAdminView examNumber={params.examNumber} wrongNotes={wrongNotesData} />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate">요약 보기입니다. 상세 페이지에서 필터·정렬을 사용할 수 있습니다.</p>
+              <Link
+                href={`/admin/students/${params.examNumber}/wrong-notes`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-ember/30 bg-ember/10 px-4 py-1.5 text-xs font-semibold text-ember transition hover:bg-ember/20"
+              >
+                전체 오답노트 →
+              </Link>
+            </div>
+            <WrongNotesAdminView examNumber={params.examNumber} wrongNotes={wrongNotesData} />
+          </div>
         )}
 
         {/* 메모 탭 */}

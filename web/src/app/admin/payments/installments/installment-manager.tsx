@@ -269,6 +269,7 @@ export function InstallmentManager({ initialItems, initialStatus, summary }: Pro
                     "예정일",
                     "금액",
                     "상태",
+                    "상세",
                     "처리",
                   ].map((h) => (
                     <th
@@ -376,6 +377,16 @@ export function InstallmentManager({ initialItems, initialStatus, summary }: Pro
                         >
                           {badge.label}
                         </span>
+                      </td>
+
+                      {/* 상세 링크 */}
+                      <td className="px-5 py-4">
+                        <a
+                          href={`/admin/payments/installments/${item.id}`}
+                          className="inline-flex items-center rounded-full border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-ember/40 hover:text-ember whitespace-nowrap"
+                        >
+                          상세보기
+                        </a>
                       </td>
 
                       {/* 납부 처리 버튼 */}
