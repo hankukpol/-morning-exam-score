@@ -131,7 +131,16 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
   // Today's date string for lecture attendance lookup
   const todayDateStr = todayForStudentExams.toISOString().slice(0, 10);
 
-  const [activeEnrollment, upcomingStudentExams, todayLectureAttendances, recentNotices] = await Promise.all([
+  // Compute start of current week (Monday) and end (Sunday) for weekly attendance
+  const weekStart = new Date(todayForStudentExams);
+  const dayOfWeek = weekStart.getDay(); // 0=Sun, 1=Mon...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  weekStart.setDate(weekStart.getDate() + diffToMonday);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const [activeEnrollment, upcomingStudentExams, todayLectureAttendances, recentNotices, pointBalance, weeklyMorningAttendance, unpaidEnrollmentData] = await Promise.all([
     getPrisma().courseEnrollment.findFirst({
       where: {
         examNumber: data.student.examNumber,
@@ -209,6 +218,49 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
     listStudentNotices(data.student.examType)
       .then((notices) => notices.slice(0, 3))
       .catch(() => [] as never[]),
+    // Point balance
+    getPrisma().pointBalance.findUnique({
+      where: { examNumber: data.student.examNumber },
+      select: { balance: true },
+    }).catch(() => null),
+    // This week's morning exam attendance records (ExamScore)
+    getPrisma().examScore.findMany({
+      where: {
+        examNumber: data.student.examNumber,
+        session: {
+          examDate: { gte: weekStart, lte: weekEnd },
+          isCancelled: false,
+        },
+      },
+      select: {
+        attendType: true,
+        session: { select: { examDate: true } },
+      },
+    }).catch(() => [] as never[]),
+    // Unpaid enrollment data: active enrollment with finalFee vs total approved payments
+    getPrisma().courseEnrollment.findFirst({
+      where: {
+        examNumber: data.student.examNumber,
+        status: { in: ["ACTIVE", "SUSPENDED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        finalFee: true,
+      },
+    }).then(async (enrollment) => {
+      if (!enrollment) return null;
+      const paidSum = await getPrisma().payment.aggregate({
+        where: {
+          enrollmentId: enrollment.id,
+          status: { in: ["APPROVED", "PARTIAL_REFUNDED"] },
+        },
+        _sum: { netAmount: true },
+      }).catch(() => ({ _sum: { netAmount: 0 } }));
+      const paid = paidSum._sum.netAmount ?? 0;
+      const unpaid = enrollment.finalFee - paid;
+      return unpaid > 0 ? { unpaidAmount: unpaid } : null;
+    }).catch(() => null),
   ]);
 
   function getEnrollmentCourseName(
@@ -265,6 +317,21 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
     ABSENT: "border-red-200 bg-red-50 text-red-700",
     EXCUSED: "border-sky-200 bg-sky-50 text-sky-700",
   };
+
+  // Weekly morning exam attendance summary
+  const weeklyAttendDays = new Set(
+    weeklyMorningAttendance
+      .filter((s) => s.attendType === "NORMAL" || s.attendType === "LIVE" || s.attendType === "EXCUSED")
+      .map((s) => new Date(s.session.examDate).toDateString()),
+  ).size;
+  const weeklyTotalDays = new Set(
+    weeklyMorningAttendance.map((s) => new Date(s.session.examDate).toDateString()),
+  ).size;
+  const weeklyAbsentDays = new Set(
+    weeklyMorningAttendance
+      .filter((s) => s.attendType === "ABSENT")
+      .map((s) => new Date(s.session.examDate).toDateString()),
+  ).size;
 
   const wrongNoteQuestionIds = new Set(data.wrongNoteQuestionIds);
   const classLabel = data.student.className ?? "반 정보 없음";
@@ -353,6 +420,49 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             examType: data.student.examType,
           }}
         />
+
+        {/* ── 미납 수강료 알림 배너 ── */}
+        {unpaidEnrollmentData && (
+          <Link
+            href="/student/payments"
+            className="flex items-center gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-5 w-5 shrink-0 text-amber-600"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-semibold">
+                미납 수강료{" "}
+                <span className="text-amber-700">
+                  ₩{unpaidEnrollmentData.unpaidAmount.toLocaleString()}
+                </span>{" "}
+                이 있습니다
+              </span>
+              <span className="ml-1 text-xs text-amber-600">→ 납부 현황 보기</span>
+            </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4 shrink-0 text-amber-500"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </Link>
+        )}
 
         {/* ── 빠른 메뉴 아이콘 그리드 ── */}
         <section className="rounded-[28px] border border-ink/10 bg-white p-4">
@@ -703,6 +813,87 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
             </div>
           )}
         </section>
+
+        {/* ── 이번 주 모의고사 출석 + 포인트 요약 ── */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* 이번 주 모의고사 출석 요약 */}
+          <Link
+            href="/student/attendance"
+            className="rounded-[28px] border border-ink/10 bg-white p-5 transition hover:border-forest/20 hover:shadow-sm"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+              This Week
+            </p>
+            <h2 className="mt-1 text-lg font-semibold">이번 주 모의고사 출석</h2>
+            {weeklyTotalDays === 0 ? (
+              <p className="mt-3 text-sm text-slate">이번 주 시험 기록이 없습니다.</p>
+            ) : (
+              <>
+                <div className="mt-3 flex items-end gap-2">
+                  <span className="text-3xl font-bold text-ink">
+                    {weeklyAttendDays}
+                  </span>
+                  <span className="mb-0.5 text-sm text-slate">/ {weeklyTotalDays}일 응시</span>
+                  {weeklyAbsentDays > 0 && (
+                    <span className="mb-0.5 ml-auto text-xs font-semibold text-red-500">
+                      결시 {weeklyAbsentDays}일
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10">
+                  <div
+                    className="h-full rounded-full bg-forest transition-all"
+                    style={{
+                      width: `${weeklyTotalDays > 0 ? Math.round((weeklyAttendDays / weeklyTotalDays) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-1.5 text-right text-xs text-slate">
+                  응시율{" "}
+                  {weeklyTotalDays > 0
+                    ? Math.round((weeklyAttendDays / weeklyTotalDays) * 100)
+                    : 0}
+                  %
+                </p>
+              </>
+            )}
+          </Link>
+
+          {/* 포인트 현황 */}
+          <Link
+            href="/student/points"
+            className="rounded-[28px] border border-ink/10 bg-white p-5 transition hover:border-ember/20 hover:shadow-sm"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+              Points
+            </p>
+            <h2 className="mt-1 text-lg font-semibold">포인트 현황</h2>
+            <div className="mt-3 flex items-end gap-2">
+              <span className="text-3xl font-bold text-ember">
+                {(pointBalance?.balance ?? 0).toLocaleString()}
+              </span>
+              <span className="mb-0.5 text-sm text-slate">점</span>
+            </div>
+            <p className="mt-2 text-xs text-slate">
+              포인트는 단과 강좌 및 시설 이용에 사용할 수 있습니다.
+            </p>
+            <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-ember">
+              내역 보기
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-3.5 w-3.5"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+          </Link>
+        </div>
 
         {/* ── 최신 공지사항 (상위 3건) ── */}
         {recentNotices.length > 0 && (

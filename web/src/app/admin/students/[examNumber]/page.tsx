@@ -41,6 +41,8 @@ import { SuspendButton } from "./suspend-button";
 import { ToggleActiveButton } from "./toggle-active-button";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 import { WrongNotesAdminView } from "./wrong-notes-admin-view";
+import { PercentileChart, type PercentileSessionData } from "./analysis/percentile-chart";
+import { CounselingScoreSummary } from "@/components/students/counseling-score-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -771,6 +773,36 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
                 <MonthlySummary rows={monthlyAnalysisData.monthlyRows} />
               )}
 
+              {/* 백분위 추이 차트 */}
+              {(() => {
+                const percentileSessions: PercentileSessionData[] = analysisData.trendData
+                  .filter(
+                    (row) =>
+                      row.studentScore !== null &&
+                      row.studentRank !== null &&
+                      row.participantCount > 0 &&
+                      row.percentile !== null,
+                  )
+                  .map((row) => ({
+                    sessionLabel: row.label,
+                    examDate: row.examDate instanceof Date
+                      ? row.examDate.toISOString()
+                      : String(row.examDate),
+                    rank: row.studentRank!,
+                    totalStudents: row.participantCount,
+                    avgScore: row.studentScore!,
+                    // Convert from "lower is better" to "higher is better" (upper percentile)
+                    percentile: Math.round((1 - row.studentRank! / row.participantCount) * 100),
+                  }));
+                if (percentileSessions.length === 0) return null;
+                return (
+                  <PercentileChart
+                    sessions={percentileSessions}
+                    studentName={student.name}
+                  />
+                );
+              })()}
+
               <form className="flex flex-wrap gap-3 rounded-[28px] border border-ink/10 bg-mist p-6">
                 <input type="hidden" name="tab" value="analysis" />
                 <select
@@ -1049,6 +1081,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
         {tab === "counseling" && counselingProfile && (
           <div className="space-y-6">
+            {briefingData && (
+              <CounselingScoreSummary
+                examNumber={params.examNumber}
+                briefing={briefingData}
+              />
+            )}
             {briefingData && <CounselingBriefingCard briefing={briefingData} />}
             <CounselingPanel
               examNumber={counselingProfile.student.examNumber}

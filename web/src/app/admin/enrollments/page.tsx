@@ -46,15 +46,19 @@ export default async function EnrollmentsPage() {
       <div className="mt-5 flex items-start justify-between gap-4">
         <h1 className="text-3xl font-semibold">수강 등록 목록</h1>
         <div className="flex items-center gap-3 flex-wrap">
-          {expiringCount > 0 && (
-            <Link
-              href="/admin/enrollments/expiring"
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
-            >
+          <Link
+            href="/admin/enrollments/expiring"
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
+              expiringCount > 0
+                ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                : "border-ink/20 bg-white text-slate hover:border-ink/40 hover:text-ink"
+            }`}
+          >
+            {expiringCount > 0 && (
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-              만료 임박 {expiringCount}건
-            </Link>
-          )}
+            )}
+            만료 임박 현황{expiringCount > 0 ? ` (${expiringCount}건)` : ""}
+          </Link>
           <Link
             href="/admin/enrollments/suspension-dashboard"
             className="shrink-0 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
