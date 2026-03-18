@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,6 +141,13 @@ function RemindButton({ row }: { row: UnpaidInstallmentRow }) {
   );
 }
 
+// ─── Bulk Remind Toast ────────────────────────────────────────────────────────
+
+type BulkToast = {
+  type: "success" | "error" | "partial";
+  message: string;
+};
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const TABS: { value: FilterTab; labelKey: keyof Summary; label: string }[] = [
@@ -158,6 +165,9 @@ export function UnpaidListClient({
   summary: Summary;
 }) {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [toast, setToast] = useState<BulkToast | null>(null);
 
   const filtered = rows.filter((row) => {
     if (activeTab === "all") return true;
@@ -169,8 +179,138 @@ export function UnpaidListClient({
 
   const filteredUnpaidAmount = filtered.reduce((s, r) => s + r.amount, 0);
 
+  // Rows that can be reminded (have examNumber)
+  const remindableFiltered = filtered.filter((r) => r.examNumber);
+
+  const allRemindableSelected =
+    remindableFiltered.length > 0 &&
+    remindableFiltered.every((r) => selectedIds.has(r.id));
+
+  const someSelected = selectedIds.size > 0;
+
+  const handleSelectAll = useCallback(() => {
+    if (allRemindableSelected) {
+      // Deselect all currently visible remindable rows
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        remindableFiltered.forEach((r) => next.delete(r.id));
+        return next;
+      });
+    } else {
+      // Select all currently visible remindable rows
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        remindableFiltered.forEach((r) => next.add(r.id));
+        return next;
+      });
+    }
+  }, [allRemindableSelected, remindableFiltered]);
+
+  const handleToggleRow = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  function showToast(t: BulkToast) {
+    setToast(t);
+    setTimeout(() => setToast(null), 5000);
+  }
+
+  async function handleBulkRemind() {
+    if (bulkLoading || selectedIds.size === 0) return;
+
+    const selectedRows = rows.filter((r) => selectedIds.has(r.id) && r.examNumber);
+    if (selectedRows.length === 0) {
+      showToast({ type: "error", message: "학번이 없는 항목은 발송할 수 없습니다." });
+      return;
+    }
+
+    setBulkLoading(true);
+
+    try {
+      const items = selectedRows.map((r) => ({
+        examNumber: r.examNumber as string,
+        enrollmentId: r.enrollmentId ?? undefined,
+        unpaidAmount: r.amount,
+        courseName: r.courseName,
+      }));
+
+      const res = await fetch("/api/payments/remind-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+
+      const json = (await res.json()) as {
+        data?: { sent: number; failed: number; errors: string[] };
+        error?: string;
+      };
+
+      if (!res.ok || json.error) {
+        showToast({ type: "error", message: json.error ?? "일괄 발송 실패" });
+        return;
+      }
+
+      const { sent, failed } = json.data ?? { sent: 0, failed: 0 };
+
+      if (failed === 0) {
+        showToast({
+          type: "success",
+          message: `${sent}건 발송 완료`,
+        });
+        // Clear selection on full success
+        setSelectedIds(new Set());
+      } else if (sent > 0) {
+        showToast({
+          type: "partial",
+          message: `${sent}건 발송 완료, ${failed}건 실패`,
+        });
+      } else {
+        showToast({ type: "error", message: `전체 ${failed}건 발송 실패` });
+      }
+    } catch {
+      showToast({ type: "error", message: "네트워크 오류" });
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div
+          className={[
+            "mb-4 flex items-center justify-between rounded-2xl border px-5 py-3 text-sm font-medium shadow-sm",
+            toast.type === "success"
+              ? "border-forest/30 bg-forest/10 text-forest"
+              : toast.type === "partial"
+                ? "border-amber-300 bg-amber-50 text-amber-800"
+                : "border-red-300 bg-red-50 text-red-700",
+          ].join(" ")}
+        >
+          <span>
+            {toast.type === "success" ? "✓ " : toast.type === "partial" ? "⚠ " : "✕ "}
+            {toast.message}
+          </span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="ml-4 text-current opacity-60 hover:opacity-100"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {TABS.map((tab) => {
@@ -215,6 +355,42 @@ export function UnpaidListClient({
         </span>
       </div>
 
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <span className="text-sm font-medium text-amber-800">
+            {selectedIds.size}건 선택됨
+          </span>
+          <button
+            type="button"
+            onClick={handleBulkRemind}
+            disabled={bulkLoading}
+            className={[
+              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+              bulkLoading
+                ? "cursor-not-allowed bg-ink/10 text-ink/40"
+                : "bg-amber-500 text-white hover:bg-amber-600 shadow-sm",
+            ].join(" ")}
+          >
+            {bulkLoading ? (
+              <>
+                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                발송 중…
+              </>
+            ) : (
+              `선택한 항목에 독촉 알림 발송 (${selectedIds.size}건)`
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-xs text-amber-700 underline hover:text-amber-900"
+          >
+            선택 해제
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-hidden rounded-[20px] border border-ink/10 bg-white shadow-sm">
         {filtered.length === 0 ? (
@@ -233,9 +409,20 @@ export function UnpaidListClient({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-sm">
+            <table className="w-full min-w-[1020px] text-sm">
               <thead>
                 <tr className="border-b border-ink/10 bg-mist">
+                  {/* 전체 선택 checkbox */}
+                  <th className="w-10 px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allRemindableSelected}
+                      onChange={handleSelectAll}
+                      disabled={remindableFiltered.length === 0}
+                      title="전체 선택"
+                      className="h-4 w-4 cursor-pointer rounded border-ink/30 text-amber-500 accent-amber-500"
+                    />
+                  </th>
                   {[
                     "이름",
                     "학번",
@@ -258,109 +445,128 @@ export function UnpaidListClient({
               </thead>
 
               <tbody className="divide-y divide-ink/5">
-                {filtered.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={[
-                      rowAccentClass(row.installmentStatus),
-                      "transition-colors hover:bg-mist/60",
-                    ].join(" ")}
-                  >
-                    {/* 이름 */}
-                    <td className="px-5 py-4">
-                      {row.examNumber ? (
-                        <Link
-                          href={`/admin/students/${row.examNumber}`}
-                          className="font-medium text-ink hover:text-forest hover:underline"
-                        >
-                          {row.studentName ?? "—"}
-                        </Link>
-                      ) : (
-                        <span className="text-slate">{row.studentName ?? "—"}</span>
-                      )}
-                    </td>
+                {filtered.map((row) => {
+                  const isChecked = selectedIds.has(row.id);
+                  const canSelect = !!row.examNumber;
+                  return (
+                    <tr
+                      key={row.id}
+                      className={[
+                        rowAccentClass(row.installmentStatus),
+                        isChecked ? "bg-amber-50/60" : "transition-colors hover:bg-mist/60",
+                      ].join(" ")}
+                    >
+                      {/* Checkbox */}
+                      <td className="w-10 px-3 py-4 text-center">
+                        {canSelect ? (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleRow(row.id)}
+                            className="h-4 w-4 cursor-pointer rounded border-ink/30 text-amber-500 accent-amber-500"
+                          />
+                        ) : (
+                          <span className="text-xs text-slate/30">—</span>
+                        )}
+                      </td>
 
-                    {/* 학번 */}
-                    <td className="px-5 py-4">
-                      {row.examNumber ? (
-                        <Link
-                          href={`/admin/students/${row.examNumber}`}
-                          className="font-mono text-xs font-medium text-forest hover:underline"
-                        >
-                          {row.examNumber}
-                        </Link>
-                      ) : (
-                        <span className="text-slate">—</span>
-                      )}
-                    </td>
+                      {/* 이름 */}
+                      <td className="px-5 py-4">
+                        {row.examNumber ? (
+                          <Link
+                            href={`/admin/students/${row.examNumber}`}
+                            className="font-medium text-ink hover:text-forest hover:underline"
+                          >
+                            {row.studentName ?? "—"}
+                          </Link>
+                        ) : (
+                          <span className="text-slate">{row.studentName ?? "—"}</span>
+                        )}
+                      </td>
 
-                    {/* 강좌 */}
-                    <td className="px-5 py-4 text-ink">{row.courseName}</td>
+                      {/* 학번 */}
+                      <td className="px-5 py-4">
+                        {row.examNumber ? (
+                          <Link
+                            href={`/admin/students/${row.examNumber}`}
+                            className="font-mono text-xs font-medium text-forest hover:underline"
+                          >
+                            {row.examNumber}
+                          </Link>
+                        ) : (
+                          <span className="text-slate">—</span>
+                        )}
+                      </td>
 
-                    {/* 분납 회차 */}
-                    <td className="px-5 py-4 text-center">
-                      <span className="inline-flex items-center gap-0.5 rounded-full border border-ink/20 bg-ink/5 px-2.5 py-0.5 font-mono text-xs font-semibold text-ink">
-                        {row.seq}
-                        <span className="text-slate/60">/{row.totalRounds}</span>
-                      </span>
-                    </td>
+                      {/* 강좌 */}
+                      <td className="px-5 py-4 text-ink">{row.courseName}</td>
 
-                    {/* 예정일 */}
-                    <td className="px-5 py-4 font-mono text-xs text-ink">
-                      {row.dueDate}
-                      {row.isThisWeek && row.installmentStatus !== "OVERDUE" && (
-                        <span className="ml-1.5 inline-flex rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
-                          이번 주
+                      {/* 분납 회차 */}
+                      <td className="px-5 py-4 text-center">
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-ink/20 bg-ink/5 px-2.5 py-0.5 font-mono text-xs font-semibold text-ink">
+                          {row.seq}
+                          <span className="text-slate/60">/{row.totalRounds}</span>
                         </span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* 금액 */}
-                    <td className="px-5 py-4 font-mono text-sm font-semibold text-ink tabular-nums">
-                      {formatKRW(row.amount)}
-                    </td>
+                      {/* 예정일 */}
+                      <td className="px-5 py-4 font-mono text-xs text-ink">
+                        {row.dueDate}
+                        {row.isThisWeek && row.installmentStatus !== "OVERDUE" && (
+                          <span className="ml-1.5 inline-flex rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                            이번 주
+                          </span>
+                        )}
+                      </td>
 
-                    {/* 상태 */}
-                    <td className="px-5 py-4">
-                      <span
-                        className={[
-                          "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                          statusBadgeClass(row.installmentStatus),
-                        ].join(" ")}
-                      >
-                        {statusLabel(row.installmentStatus)}
-                      </span>
-                    </td>
+                      {/* 금액 */}
+                      <td className="px-5 py-4 font-mono text-sm font-semibold text-ink tabular-nums">
+                        {formatKRW(row.amount)}
+                      </td>
 
-                    {/* 수납하기 */}
-                    <td className="px-5 py-4">
-                      <Link
-                        href={
-                          row.enrollmentId
-                            ? `/admin/payments/new?enrollmentId=${row.enrollmentId}`
-                            : `/admin/payments/new`
-                        }
-                        className="inline-flex items-center gap-1 rounded-lg border border-ember/30 bg-ember/5 px-3 py-1.5 text-xs font-medium text-ember transition-colors hover:border-ember hover:bg-ember hover:text-white"
-                      >
-                        수납하기
-                      </Link>
-                    </td>
+                      {/* 상태 */}
+                      <td className="px-5 py-4">
+                        <span
+                          className={[
+                            "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                            statusBadgeClass(row.installmentStatus),
+                          ].join(" ")}
+                        >
+                          {statusLabel(row.installmentStatus)}
+                        </span>
+                      </td>
 
-                    {/* 독촉 발송 */}
-                    <td className="px-5 py-4">
-                      {row.examNumber ? (
-                        <RemindButton row={row} />
-                      ) : (
-                        <span className="text-xs text-slate">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      {/* 수납하기 */}
+                      <td className="px-5 py-4">
+                        <Link
+                          href={
+                            row.enrollmentId
+                              ? `/admin/payments/new?enrollmentId=${row.enrollmentId}`
+                              : `/admin/payments/new`
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-ember/30 bg-ember/5 px-3 py-1.5 text-xs font-medium text-ember transition-colors hover:border-ember hover:bg-ember hover:text-white"
+                        >
+                          수납하기
+                        </Link>
+                      </td>
+
+                      {/* 독촉 발송 */}
+                      <td className="px-5 py-4">
+                        {row.examNumber ? (
+                          <RemindButton row={row} />
+                        ) : (
+                          <span className="text-xs text-slate">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
 
               {/* Footer total */}
               <tfoot>
                 <tr className="border-t-2 border-ink/10 bg-mist/80">
+                  <td className="px-3 py-3" />
                   <td colSpan={5} className="px-5 py-3 text-xs font-semibold text-slate">
                     합계 ({filtered.length.toLocaleString()}건)
                   </td>

@@ -1,4 +1,5 @@
 import { AdminRole, Subject } from "@prisma/client";
+import Link from "next/link";
 import {
   BarComparisonChart,
   DistributionChart,
@@ -513,6 +514,43 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
       {tab === "cohort" ? (
         <GenerationCohortAnalysisPanel data={cohortData} />
       ) : null}
+
+      {/* 분석 허브 바로가기 */}
+      <div className="mt-8 rounded-[28px] border border-ink/10 bg-mist p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-slate">
+          관련 분석
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/admin/analytics/enrollments"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">수강 등록 통계</p>
+            <p className="mt-1 text-xs text-slate">월별 신규 등록 추이 및 상태별 현황</p>
+          </Link>
+          <Link
+            href="/admin/analytics/retention"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">재원율 분석</p>
+            <p className="mt-1 text-xs text-slate">수강생 유지율·중도탈락·재등록 현황</p>
+          </Link>
+          <Link
+            href="/admin/analytics/prospects"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">상담·전환 분석</p>
+            <p className="mt-1 text-xs text-slate">신규 상담부터 수강 전환까지의 전환율 및 추이</p>
+          </Link>
+          <Link
+            href="/admin/analytics/revenue"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-forest/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-forest">수납 분석</p>
+            <p className="mt-1 text-xs text-slate">연간 수납 카테고리·결제수단 분석</p>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

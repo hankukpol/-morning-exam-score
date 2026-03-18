@@ -613,6 +613,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'scores',
   },
   {
+    href: "/admin/analytics/prospects",
+    label: "상담·전환 분석",
+    description: "신규 상담부터 수강 전환까지의 전환율 및 추이 분석",
+    minRole: AdminRole.MANAGER,
+    group: "결과 분석",
+    module: 'scores',
+  },
+  {
     href: "/admin/dropout",
     label: "경고·탈락 판정",
     description: "주 3회 및 월 8회 기준 자동 판정",
