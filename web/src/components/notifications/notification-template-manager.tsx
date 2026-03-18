@@ -6,6 +6,7 @@ import {
   renderNotificationTemplateContent,
   type NotificationTemplateSummary,
 } from "@/lib/notifications/templates";
+import { NotificationType } from "@prisma/client";
 
 type NotificationTemplateManagerProps = {
   initialTemplates: NotificationTemplateSummary[];
@@ -44,6 +45,7 @@ export function NotificationTemplateManager({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [testingTemplateId, setTestingTemplateId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const templateCards = useMemo(
@@ -135,6 +137,45 @@ export function NotificationTemplateManager({
         );
       } finally {
         setActiveTemplateId(null);
+      }
+    });
+  }
+
+  function handleTestSend(templateType: NotificationType) {
+    setNotice(null);
+    setErrorMessage(null);
+    setTestingTemplateId(templateType);
+
+    startTransition(async () => {
+      try {
+        const response = await fetchJson<{
+          success: boolean;
+          simulated: boolean;
+          sentTo: string;
+          channel: string;
+          message: string;
+          note?: string;
+        }>(
+          "/api/notifications/test",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ templateType }),
+          },
+          { defaultError: "테스트 발송에 실패했습니다." },
+        );
+
+        const channelLabel = response.channel === "ALIMTALK" ? "알림톡" : "SMS";
+        const modeLabel = response.simulated ? " (시뮬레이션)" : "";
+        setNotice(
+          `테스트 발송 완료${modeLabel}: ${response.sentTo} (${channelLabel})${response.note ? ` — ${response.note}` : ""}`,
+        );
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error ? error.message : "테스트 발송에 실패했습니다.",
+        );
+      } finally {
+        setTestingTemplateId(null);
       }
     });
   }
@@ -244,6 +285,14 @@ export function NotificationTemplateManager({
                 className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink transition hover:border-forest hover:text-forest"
               >
                 {previewTemplateId === template.id ? "Hide preview" : "Preview"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTestSend(template.type)}
+                disabled={isPending}
+                className="inline-flex items-center rounded-full border border-ember/30 bg-ember/10 px-4 py-2 text-sm font-semibold text-ember transition hover:bg-ember/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {testingTemplateId === template.type && isPending ? "발송 중..." : "테스트 발송"}
               </button>
               <button
                 type="button"

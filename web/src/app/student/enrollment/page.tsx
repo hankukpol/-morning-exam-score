@@ -292,6 +292,12 @@ export default async function StudentEnrollmentPage() {
                 납부 이력 전체 보기
               </Link>
               <Link
+                href="/student/contract"
+                className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+              >
+                수강계약서 보기
+              </Link>
+              <Link
                 href="/student/documents"
                 className="inline-flex items-center rounded-full border border-forest/30 bg-forest/5 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-forest/10"
               >
