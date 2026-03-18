@@ -162,15 +162,23 @@ export default async function ApprovalsPage({ searchParams }: PageProps) {
             승인이 필요한 환불·할인·현금 수납 내역을 검토합니다.
           </p>
         </div>
-        <span
-          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
-            totalCount > 0
-              ? "border-amber-200 bg-amber-50 text-amber-800"
-              : "border-forest/30 bg-forest/10 text-forest"
-          }`}
-        >
-          전체 {totalCount}건
-        </span>
+        <div className="flex items-center gap-3">
+          <a
+            href="/admin/approvals/bulk-absence"
+            className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+          >
+            결석계 일괄 처리 →
+          </a>
+          <span
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+              totalCount > 0
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-forest/30 bg-forest/10 text-forest"
+            }`}
+          >
+            전체 {totalCount}건
+          </span>
+        </div>
       </div>
 
       {/* Tab navigation */}

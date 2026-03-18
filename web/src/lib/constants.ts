@@ -358,6 +358,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'payments',
   },
   {
+    href: "/admin/reports/discount-codes",
+    label: "할인코드 사용 현황",
+    description: "월별 할인코드 발급 수·사용 수·총 할인액 집계 보고서",
+    minRole: AdminRole.MANAGER,
+    group: "보고서",
+    module: 'payments',
+  },
+  {
     href: "/admin/reports/weekly",
     label: "주간 리포트",
     description: "주간 수강생·수납·출결·성적 종합 운영 현황 보고서",
@@ -644,6 +652,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     minRole: AdminRole.MANAGER,
     group: "결과 분석",
     module: 'scores',
+  },
+  {
+    href: "/admin/alerts/attendance-risk",
+    label: "출결 위험 알림",
+    description: "이번 달 결석 빈도·성적 기준 위험·경고·주의 학생 목록 및 알림 발송",
+    minRole: AdminRole.COUNSELOR,
+    group: "판정 관리",
+    module: 'attendance',
   },
   {
     href: "/admin/dropout",
