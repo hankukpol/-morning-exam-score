@@ -1,15 +1,44 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AdminRole } from "@prisma/client";
+import { AdminRole, PassType } from "@prisma/client";
 import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { ProspectDetailClient, type ProspectDetail } from "./prospect-detail-client";
+import { BenchmarkPanel } from "./benchmark-panel";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
 };
+
+// Compute subject averages from GraduateRecord score snapshots
+function calcSubjectAveragesFromSnapshots(
+  records: Array<{
+    passType: PassType;
+    scoreSnapshots: Array<{ snapshotType: PassType; subjectAverages: unknown }>;
+  }>,
+): Record<string, number> {
+  const sums: Record<string, { sum: number; count: number }> = {};
+  for (const record of records) {
+    const snap =
+      record.scoreSnapshots.find((s) => s.snapshotType === record.passType) ??
+      record.scoreSnapshots[0];
+    if (!snap) continue;
+    const subj = snap.subjectAverages as Record<string, number>;
+    for (const [subject, avg] of Object.entries(subj)) {
+      if (typeof avg !== "number") continue;
+      if (!sums[subject]) sums[subject] = { sum: 0, count: 0 };
+      sums[subject]!.sum += avg;
+      sums[subject]!.count += 1;
+    }
+  }
+  const result: Record<string, number> = {};
+  for (const [subject, { sum, count }] of Object.entries(sums)) {
+    result[subject] = Math.round((sum / count) * 10) / 10;
+  }
+  return result;
+}
 
 export default async function ProspectDetailPage({ params }: PageProps) {
   await requireAdminContext(AdminRole.COUNSELOR);
@@ -80,6 +109,84 @@ export default async function ProspectDetailPage({ params }: PageProps) {
     enrollment: enrollmentData,
   };
 
+  // ── Benchmark data: query recent 50 graduate records ───────────────────────
+  const graduateRecords = await prisma.graduateRecord.findMany({
+    take: 50,
+    include: {
+      scoreSnapshots: {
+        select: {
+          snapshotType: true,
+          subjectAverages: true,
+          overallAverage: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const benchmarkSubjectAverages = calcSubjectAveragesFromSnapshots(graduateRecords);
+
+  // Compute overall pass average from overallAverage field
+  const avgScoreArr = graduateRecords
+    .flatMap((r) => r.scoreSnapshots.map((s) => s.overallAverage))
+    .filter((v): v is number => typeof v === "number");
+  const passAvgScore =
+    avgScoreArr.length > 0
+      ? Math.round((avgScoreArr.reduce((a, b) => a + b, 0) / avgScoreArr.length) * 10) / 10
+      : 0;
+
+  const monthsArr = graduateRecords
+    .map((r) => r.enrolledMonths)
+    .filter((m): m is number => typeof m === "number");
+  const avgMonths =
+    monthsArr.length > 0
+      ? Math.round(monthsArr.reduce((a, b) => a + b, 0) / monthsArr.length)
+      : 0;
+
+  const benchmarkData = {
+    totalGraduates: graduateRecords.length,
+    subjectAverages: benchmarkSubjectAverages,
+    passAvgScore,
+    avgMonths,
+  };
+
+  // ── Prospect's recent exam scores (last 3 months) ──────────────────────────
+  // Only available if the prospect has already registered as a student
+  let prospectSubjectScores: Record<string, number> | null = null;
+  if (enrollmentData?.student?.examNumber) {
+    const examNumber = enrollmentData.student.examNumber;
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const recentScores = await prisma.score.findMany({
+      where: {
+        examNumber,
+        session: { examDate: { gte: threeMonthsAgo } },
+        finalScore: { not: null },
+      },
+      include: {
+        session: { select: { subject: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (recentScores.length > 0) {
+      // Group by subject and average
+      const subjectSums: Record<string, { sum: number; count: number }> = {};
+      for (const score of recentScores) {
+        const subject = score.session.subject as string;
+        if (score.finalScore === null) continue;
+        if (!subjectSums[subject]) subjectSums[subject] = { sum: 0, count: 0 };
+        subjectSums[subject]!.sum += score.finalScore;
+        subjectSums[subject]!.count += 1;
+      }
+      prospectSubjectScores = {};
+      for (const [subject, { sum, count }] of Object.entries(subjectSums)) {
+        prospectSubjectScores[subject] = Math.round((sum / count) * 10) / 10;
+      }
+    }
+  }
+
   return (
     <div className="p-8 sm:p-10">
       {/* Breadcrumb */}
@@ -123,8 +230,15 @@ export default async function ProspectDetailPage({ params }: PageProps) {
 
       {/* Main content (2-col on xl) */}
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,2fr)_300px]">
-        {/* Left: interactive client component */}
-        <ProspectDetailClient initialProspect={prospect} />
+        {/* Left: interactive client component + benchmark */}
+        <div className="space-y-6">
+          <ProspectDetailClient initialProspect={prospect} />
+          <BenchmarkPanel
+            subjectScores={prospectSubjectScores}
+            benchmarkData={benchmarkData}
+            prospectName={prospect.name}
+          />
+        </div>
 
         {/* Right: sidebar */}
         <aside className="self-start space-y-4 xl:sticky xl:top-6">

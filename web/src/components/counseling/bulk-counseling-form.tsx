@@ -3,6 +3,7 @@
 import { ExamType, StudentStatus } from "@prisma/client";
 import { createPortal } from "react-dom";
 import { useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { EXAM_TYPE_LABEL } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/format";
@@ -221,7 +222,9 @@ export function BulkCounselingForm({ defaultCounselorName, students }: Props) {
         }
 
         if (succeeded > 0 && errors.length === 0) {
-          setNotice(`${succeeded}명의 면담 기록을 등록했습니다.`);
+          const msg = `${succeeded}명의 면담 기록을 등록했습니다.`;
+          setNotice(msg);
+          toast.success(msg);
           setSelectedExamNumbers(new Set());
           setContent("");
           setRecommendation("");
@@ -230,11 +233,15 @@ export function BulkCounselingForm({ defaultCounselorName, students }: Props) {
         }
 
         if (succeeded > 0) {
-          setNotice(`${succeeded}명의 면담 기록을 등록했습니다. 실패한 학생은 선택 상태로 유지했습니다.`);
+          const msg = `${succeeded}명의 면담 기록을 등록했습니다. 실패한 학생은 선택 상태로 유지했습니다.`;
+          setNotice(msg);
+          toast.success(msg);
           setSelectedExamNumbers(new Set(errors.map((error) => error.examNumber)));
         }
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "일괄 등록에 실패했습니다.");
+        const msg = error instanceof Error ? error.message : "일괄 등록에 실패했습니다.";
+        setErrorMessage(msg);
+        toast.error(msg);
       }
     });
   }

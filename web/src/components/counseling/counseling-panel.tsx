@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Subject } from "@prisma/client";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 import { useSubmitShortcut } from "@/hooks/use-submit-shortcut";
@@ -294,11 +295,11 @@ export function CounselingPanel({
         });
 
         setNotice("목표 점수를 저장했습니다.");
+        toast.success("목표 점수를 저장했습니다.");
       } catch (error) {
-        setMessage(
-          null,
-          error instanceof Error ? error.message : "목표 점수 저장에 실패했습니다.",
-        );
+        const msg = error instanceof Error ? error.message : "목표 점수 저장에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -328,11 +329,11 @@ export function CounselingPanel({
         // 목록 앞에 추가
         setRecords((prev) => [record, ...prev]);
         setNotice("면담 기록을 저장했습니다.");
+        toast.success("면담 기록을 저장했습니다.");
       } catch (error) {
-        setMessage(
-          null,
-          error instanceof Error ? error.message : "면담 기록 저장에 실패했습니다.",
-        );
+        const msg = error instanceof Error ? error.message : "면담 기록 저장에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -356,11 +357,11 @@ export function CounselingPanel({
             await requestJson(`/api/counseling/${recordId}`, { method: "DELETE" });
             setRecords((prev) => prev.filter((r) => r.id !== recordId));
             setNotice("면담 기록을 삭제했습니다.");
+            toast.success("면담 기록을 삭제했습니다.");
           } catch (error) {
-            setMessage(
-              null,
-              error instanceof Error ? error.message : "면담 기록 삭제에 실패했습니다.",
-            );
+            const msg = error instanceof Error ? error.message : "면담 기록 삭제에 실패했습니다.";
+            setMessage(null, msg);
+            toast.error(msg);
           }
         });
       },
@@ -385,11 +386,11 @@ export function CounselingPanel({
 
         setRecords((prev) => prev.map((r) => (r.id === recordId ? record : r)));
         setNotice("면담 기록을 수정했습니다.");
+        toast.success("면담 기록을 수정했습니다.");
       } catch (error) {
-        setMessage(
-          null,
-          error instanceof Error ? error.message : "면담 기록 수정에 실패했습니다.",
-        );
+        const msg = error instanceof Error ? error.message : "면담 기록 수정에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -413,14 +414,13 @@ export function CounselingPanel({
 
         // 다른 학생으로 이전됐으므로 현재 패널 목록에서 제거
         setRecords((prev) => prev.filter((r) => r.id !== recordId));
-        setNotice(
-          `면담 기록(#${recordId})을 수험번호 "${record.examNumber}"으로 이전했습니다. 이 학생의 목록에서는 제거됩니다.`,
-        );
+        const successMsg = `면담 기록(#${recordId})을 수험번호 "${record.examNumber}"으로 이전했습니다. 이 학생의 목록에서는 제거됩니다.`;
+        setNotice(successMsg);
+        toast.success(`면담 기록을 "${record.examNumber}"으로 이전했습니다.`);
       } catch (error) {
-        setMessage(
-          null,
-          error instanceof Error ? error.message : "학생 변경에 실패했습니다.",
-        );
+        const msg = error instanceof Error ? error.message : "학생 변경에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }

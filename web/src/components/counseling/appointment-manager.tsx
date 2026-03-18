@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import { useActionModalState } from "@/components/ui/use-action-modal-state";
 
@@ -236,8 +237,11 @@ export function AppointmentManager({
         closeCreateForm();
         setTab("SCHEDULED");
         setMessage("예약이 등록되었습니다.", null);
+        toast.success("면담 예약이 등록되었습니다.");
       } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "예약 저장에 실패했습니다.");
+        const msg = error instanceof Error ? error.message : "예약 저장에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -255,8 +259,11 @@ export function AppointmentManager({
         setCompletedExamNumber(examNumber);
         setNotice(null);
         setErrorMessage(null);
+        toast.success("면담이 완료 처리되었습니다.");
       } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "완료 처리에 실패했습니다.");
+        const msg = error instanceof Error ? error.message : "완료 처리에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -276,8 +283,11 @@ export function AppointmentManager({
         setCancelingId(null);
         setCancelReason("");
         setMessage("예약이 취소되었습니다.", null);
+        toast.success("면담 예약이 취소되었습니다.");
       } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "취소에 실패했습니다.");
+        const msg = error instanceof Error ? error.message : "취소에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -297,8 +307,11 @@ export function AppointmentManager({
         setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, ...record } : a)));
         setEditingId(null);
         setMessage("예약이 수정되었습니다.", null);
+        toast.success("면담 예약이 수정되었습니다.");
       } catch (error) {
-        setMessage(null, error instanceof Error ? error.message : "수정에 실패했습니다.");
+        const msg = error instanceof Error ? error.message : "수정에 실패했습니다.";
+        setMessage(null, msg);
+        toast.error(msg);
       }
     });
   }
@@ -320,8 +333,11 @@ export function AppointmentManager({
             await requestJson(`/api/counseling/appointments/${id}`, { method: "DELETE" });
             setAppointments((prev) => prev.filter((a) => a.id !== id));
             setMessage("예약이 삭제되었습니다.", null);
+            toast.success("면담 예약이 삭제되었습니다.");
           } catch (error) {
-            setMessage(null, error instanceof Error ? error.message : "삭제에 실패했습니다.");
+            const msg = error instanceof Error ? error.message : "삭제에 실패했습니다.";
+            setMessage(null, msg);
+            toast.error(msg);
           }
         });
       },

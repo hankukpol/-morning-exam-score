@@ -141,6 +141,12 @@ export default async function ClassroomDetailPage({
         >
           출결 내역
         </Link>
+        <Link
+          href={`/admin/classrooms/${params.id}/attendance/parse`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+        >
+          카카오 출결 파싱
+        </Link>
       </div>
 
       <div className="mt-8">

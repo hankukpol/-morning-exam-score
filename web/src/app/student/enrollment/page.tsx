@@ -9,6 +9,10 @@ import {
 } from "@prisma/client";
 import QRCode from "qrcode";
 import { StudentLookupForm } from "@/components/student-portal/student-lookup-form";
+import {
+  EnrollmentDetailCard,
+  type EnrollmentDetail,
+} from "@/components/student-portal/enrollment-detail-card";
 import { hasDatabaseConfig } from "@/lib/env";
 import { formatDate, formatDateWithWeekday } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
@@ -973,64 +977,98 @@ export default async function StudentEnrollmentPage() {
               </section>
             )}
 
-            {/* ── Other enrollments (history) ── */}
-            {result.allEnrollments.length > 1 && (
-              <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
-                <h2 className="text-xl font-semibold">전체 수강 이력</h2>
-                <p className="mt-2 text-sm leading-7 text-slate">
-                  과거 수강 등록 내역을 포함한 전체 목록입니다.
-                </p>
+            {/* ── Enrollment detail cards ── */}
+            {result.allEnrollments.length > 0 && (() => {
+              // Build per-enrollment detail objects
+              const enrollmentDetails: EnrollmentDetail[] = result.allEnrollments.map((enrollment) => {
+                // Payments linked to this enrollment
+                const linkedPayments = result.payments.filter(
+                  (p) => p.enrollmentId === enrollment.id,
+                );
+                const approvedPayments = linkedPayments.filter(
+                  (p) =>
+                    p.status === PaymentStatus.APPROVED ||
+                    p.status === PaymentStatus.PARTIAL_REFUNDED,
+                );
+                const totalPaid = approvedPayments.reduce((sum, p) => sum + p.netAmount, 0);
+                const unpaidInst = linkedPayments.flatMap((p) =>
+                  p.installments.filter((inst) => inst.paidAt === null),
+                );
+                const outstandingAmount = unpaidInst.reduce((sum, inst) => sum + inst.amount, 0);
+                const lastPayment = approvedPayments[0] ?? null;
 
-                <div className="mt-6 overflow-x-auto rounded-[24px] border border-ink/10">
-                  <table className="min-w-full divide-y divide-ink/10 text-sm">
-                    <thead className="bg-mist/80 text-left">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">과정</th>
-                        <th className="px-4 py-3 font-semibold">기수</th>
-                        <th className="px-4 py-3 font-semibold">상태</th>
-                        <th className="px-4 py-3 font-semibold">수강료</th>
-                        <th className="px-4 py-3 font-semibold">등록일</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink/10">
-                      {result.allEnrollments.map((enrollment) => (
-                        <tr
-                          key={enrollment.id}
-                          className={
-                            enrollment.id === result.primary.id ? "bg-forest/5" : undefined
-                          }
-                        >
-                          <td className="px-4 py-3 font-medium">
-                            {COURSE_TYPE_LABEL[enrollment.courseType]}
-                            {enrollment.product
-                              ? ` · ${enrollment.product.name}`
-                              : enrollment.specialLecture
-                                ? ` · ${enrollment.specialLecture.name}`
-                                : ""}
-                          </td>
-                          <td className="px-4 py-3 text-slate">
-                            {enrollment.cohort?.name ?? "-"}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${ENROLLMENT_STATUS_COLOR[enrollment.status]}`}
-                            >
-                              {ENROLLMENT_STATUS_LABEL[enrollment.status]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-semibold">
-                            {formatAmount(enrollment.finalFee)}
-                          </td>
-                          <td className="px-4 py-3 text-slate">
-                            {formatDateWithWeekday(enrollment.createdAt)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
+                return {
+                  id: enrollment.id,
+                  courseType: enrollment.courseType,
+                  courseTypeLabel: COURSE_TYPE_LABEL[enrollment.courseType],
+                  productName: enrollment.product?.name ?? null,
+                  specialLectureName: enrollment.specialLecture?.name ?? null,
+                  cohortName: enrollment.cohort?.name ?? null,
+                  cohortStartDate: enrollment.cohort?.startDate
+                    ? enrollment.cohort.startDate instanceof Date
+                      ? enrollment.cohort.startDate.toISOString()
+                      : String(enrollment.cohort.startDate)
+                    : null,
+                  cohortEndDate: enrollment.cohort?.endDate
+                    ? enrollment.cohort.endDate instanceof Date
+                      ? enrollment.cohort.endDate.toISOString()
+                      : String(enrollment.cohort.endDate)
+                    : null,
+                  status: enrollment.status,
+                  statusLabel: ENROLLMENT_STATUS_LABEL[enrollment.status],
+                  statusColor: ENROLLMENT_STATUS_COLOR[enrollment.status],
+                  startDate: enrollment.startDate
+                    ? enrollment.startDate instanceof Date
+                      ? enrollment.startDate.toISOString()
+                      : String(enrollment.startDate)
+                    : null,
+                  endDate: enrollment.endDate
+                    ? enrollment.endDate instanceof Date
+                      ? enrollment.endDate.toISOString()
+                      : String(enrollment.endDate)
+                    : null,
+                  regularFee: enrollment.regularFee,
+                  discountAmount: enrollment.discountAmount,
+                  finalFee: enrollment.finalFee,
+                  createdAt: enrollment.createdAt instanceof Date
+                    ? enrollment.createdAt.toISOString()
+                    : String(enrollment.createdAt),
+                  isPrimary: enrollment.id === result.primary.id,
+                  totalPaid,
+                  outstandingAmount,
+                  lastPaymentAt: lastPayment?.processedAt
+                    ? lastPayment.processedAt instanceof Date
+                      ? lastPayment.processedAt.toISOString()
+                      : String(lastPayment.processedAt)
+                    : null,
+                  unpaidInstallments: unpaidInst.map((inst) => ({
+                    id: inst.id,
+                    seq: inst.seq,
+                    amount: inst.amount,
+                    dueDate: inst.dueDate
+                      ? inst.dueDate instanceof Date
+                        ? inst.dueDate.toISOString()
+                        : String(inst.dueDate)
+                      : null,
+                  })),
+                };
+              });
+
+              return (
+                <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+                  <h2 className="text-xl font-semibold">전체 수강 이력</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate">
+                    과정을 클릭하면 수강 기간, 수납 요약, 분할납부 일정을 확인할 수 있습니다.
+                  </p>
+
+                  <div className="mt-6 space-y-3">
+                    {enrollmentDetails.map((detail) => (
+                      <EnrollmentDetailCard key={detail.id} enrollment={detail} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })()}
           </>
         )}
       </div>

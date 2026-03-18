@@ -2,6 +2,7 @@
 
 import { AbsenceCategory, AbsenceStatus, StudentStatus, Subject } from "@prisma/client";
 import { useState, useMemo, useTransition } from "react";
+import { toast } from "sonner";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/analytics/presentation";
 import { ABSENCE_CATEGORY_LABEL, SUBJECT_LABEL } from "@/lib/constants";
 import { ActionModal } from "@/components/ui/action-modal";
@@ -220,17 +221,18 @@ export function AbsenceNotesListClient({ notes }: AbsenceNotesListClientProps) {
               method: "POST",
               body: JSON.stringify({ action, ids: selectedIds }),
             });
-            reloadPage(
-              `${result.succeeded ?? 0}건 ${label} 완료${(result.failed ?? 0) > 0 ? `, ${result.failed}건 실패` : ""}`,
-              `일괄 ${label} 완료`,
-            );
+            const successMsg = `${result.succeeded ?? 0}건 ${label} 완료${(result.failed ?? 0) > 0 ? `, ${result.failed}건 실패` : ""}`;
+            toast.success(successMsg);
+            reloadPage(successMsg, `일괄 ${label} 완료`);
           } catch (error) {
+            const errMsg = error instanceof Error ? error.message : `${label} 처리에 실패했습니다.`;
+            toast.error(errMsg);
             // Show error in completion modal
             completionModal.openModal({
               badgeLabel: "오류",
               badgeTone: "warning",
               title: `${label} 처리 실패`,
-              description: error instanceof Error ? error.message : `${label} 처리에 실패했습니다.`,
+              description: errMsg,
               confirmLabel: "확인",
             });
           }

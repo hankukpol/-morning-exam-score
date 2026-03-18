@@ -39,6 +39,17 @@ export default async function AttendanceParsePage({
         카카오톡 단체 채팅방에서 내보낸 텍스트를 붙여넣어 출석을 자동으로 파싱합니다.
         "52기 윤정원 / 동원했습니다 / 오전 5:51" 형식을 인식합니다.
       </p>
+
+      {/* Link to the newer client-side dedicated parse page */}
+      <div className="mt-4">
+        <Link
+          href={`/admin/classrooms/${params.id}/attendance/parse`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+        >
+          카카오 출결 전용 파서 (신규) →
+        </Link>
+      </div>
+
       <div className="mt-8">
         <AttendanceParse classroomId={classroom.id} classroomName={classroom.name} />
       </div>

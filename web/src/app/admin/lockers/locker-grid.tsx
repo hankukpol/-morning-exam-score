@@ -4,6 +4,7 @@ import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LockerStatus, LockerZone, RentalFeeUnit } from "@prisma/client";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import {
   LOCKER_ZONE_LABEL,
@@ -174,11 +175,14 @@ export function LockerGrid({ initialLockers }: Props) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "대여 실패");
+        toast.success("사물함 배정이 완료되었습니다.");
         setRentOpen(false);
         setSelected(null);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "대여 실패");
+        const msg = e instanceof Error ? e.message : "대여 실패";
+        setError(msg);
+        toast.error(msg);
       }
     });
   }
@@ -198,11 +202,13 @@ export function LockerGrid({ initialLockers }: Props) {
           }),
         });
         if (!res.ok) throw new Error("반납 실패");
+        toast.success("사물함 반납이 처리되었습니다.");
         setReturnOpen(false);
         setSelected(null);
         router.refresh();
       } catch {
         setError("반납 실패");
+        toast.error("반납 처리에 실패했습니다.");
       }
     });
   }
@@ -217,11 +223,13 @@ export function LockerGrid({ initialLockers }: Props) {
           body: JSON.stringify({ id: selected.id, status: newStatus }),
         });
         if (!res.ok) throw new Error("상태 변경 실패");
+        toast.success("사물함 상태가 변경되었습니다.");
         setStatusOpen(false);
         setSelected(null);
         router.refresh();
       } catch {
         setError("상태 변경 실패");
+        toast.error("상태 변경에 실패했습니다.");
       }
     });
   }

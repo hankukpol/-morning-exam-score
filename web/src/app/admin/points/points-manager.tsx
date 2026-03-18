@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import type { PointType } from "@prisma/client";
 import type { PointLogRow, PointsKpi } from "./page";
 
@@ -108,10 +109,13 @@ function ManualGrantModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             reason: reason.trim(),
           }),
         });
+        toast.success(`${numPoints.toLocaleString()}P 지급이 완료되었습니다.`);
         onSuccess();
         onClose();
       } catch (e) {
-        setGrantError(e instanceof Error ? e.message : "지급 실패");
+        const msg = e instanceof Error ? e.message : "지급 실패";
+        setGrantError(msg);
+        toast.error(msg);
       }
     });
   }

@@ -3,7 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { AdminRole } from "@prisma/client";
 import { requireAdminContext, roleAtLeast } from "@/lib/auth";
 import { getStudentHistory } from "@/lib/students/service";
-import { getStudentCumulativeAnalysis, getStudentDetailAnalysis, getStudentCounselingBriefing } from "@/lib/analytics/analysis";
+import { getStudentCumulativeAnalysis, getStudentDetailAnalysis, getStudentCounselingBriefing, getStudentMonthlyBreakdown } from "@/lib/analytics/analysis";
+import { CounselingBriefing, type MonthlyScoreEntry } from "./analysis/counseling-briefing";
+import { MonthlySummary, type MonthlySummaryRow } from "./analysis/monthly-summary";
 import { getCounselingProfile } from "@/lib/counseling/service";
 import { getStudentTimeline } from "@/lib/students/timeline";
 import { StudentScoreHistoryManager } from "@/components/students/student-score-history-manager";
@@ -114,6 +116,13 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
 
   let cumulativeData = null;
   let analysisData = null;
+  let monthlyAnalysisData: {
+    monthlyRows: MonthlySummaryRow[];
+    counselingRows: MonthlyScoreEntry[];
+    currentEnrollment: { cohortName: string; status: string; endDate: string | null } | null;
+    hasOverduePayment: boolean;
+    lastScoreDate: string | null;
+  } | null = null;
   let timelineData = null;
   let counselingProfile = null;
   let briefingData = null;
@@ -174,7 +183,130 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
   } else if (tab === "analysis") {
     const periodId = Number(readParam(searchParams, "periodId")) || undefined;
     const recent = Number(readParam(searchParams, "recent")) || undefined;
-    analysisData = await getStudentDetailAnalysis({ examNumber: params.examNumber, periodId, recent });
+
+    // Load analysis data and monthly breakdown in parallel
+    const [detailResult, activePeriodResult] = await Promise.all([
+      getStudentDetailAnalysis({ examNumber: params.examNumber, periodId, recent }),
+      getPrisma().examPeriod.findFirst({
+        where: {
+          isActive: true,
+          sessions: { some: { examType: student.examType } },
+        },
+        orderBy: { startDate: "desc" },
+        select: { id: true },
+      }),
+    ]);
+    analysisData = detailResult;
+
+    if (activePeriodResult?.id) {
+      const [monthlyRows, currentEnrollmentRaw, overdueCount, lastSession] = await Promise.all([
+        getStudentMonthlyBreakdown({ examNumber: params.examNumber, periodId: activePeriodResult.id }),
+        getPrisma().courseEnrollment.findFirst({
+          where: { examNumber: params.examNumber, status: { in: ["ACTIVE", "SUSPENDED"] } },
+          orderBy: { createdAt: "desc" },
+          include: {
+            cohort: { select: { name: true } },
+            product: { select: { name: true } },
+          },
+        }),
+        getPrisma().installment.count({
+          where: {
+            payment: { examNumber: params.examNumber },
+            dueDate: { lt: new Date() },
+            paidAt: null,
+          },
+        }),
+        getPrisma().examSession.findFirst({
+          where: {
+            examType: student.examType,
+            isCancelled: false,
+            scores: { some: { examNumber: params.examNumber, attendType: { not: "ABSENT" } } },
+          },
+          orderBy: { examDate: "desc" },
+          select: { examDate: true },
+        }),
+      ]);
+
+      const last6Monthly = monthlyRows.slice(-6);
+
+      // Build per-month subject averages from student.scores (already loaded)
+      const subjectLabelMap: Record<string, string> = {
+        CONSTITUTIONAL_LAW: "헌법",
+        CRIMINAL_LAW: "형법",
+        CRIMINAL_PROCEDURE: "형소법",
+        POLICE_SCIENCE: "경찰학",
+        CRIMINOLOGY: "범죄학",
+        CUMULATIVE: "누적",
+      };
+
+      const monthSubjectMap = new Map<string, Map<string, number[]>>();
+      for (const score of student.scores) {
+        if (score.attendType === "ABSENT") continue;
+        const val = score.finalScore ?? score.rawScore ?? null;
+        if (val === null) continue;
+        const d = score.session.examDate;
+        const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const subjectLabel = subjectLabelMap[score.session.subject] ?? score.session.subject;
+        const subMap = monthSubjectMap.get(mk) ?? new Map<string, number[]>();
+        const existing = subMap.get(subjectLabel) ?? [];
+        existing.push(val);
+        subMap.set(subjectLabel, existing);
+        monthSubjectMap.set(mk, subMap);
+      }
+
+      const toMonthlySummaryRow = (row: typeof last6Monthly[number]): MonthlySummaryRow => ({
+        month: `${row.year}-${String(row.month).padStart(2, "0")}`,
+        monthLabel: row.monthLabel,
+        sessionCount: row.sessionCount,
+        attendedCount: row.attendedCount,
+        absentCount: row.absentCount,
+        excusedCount: row.excusedCount,
+        studentAverage: row.studentAverage,
+        cohortAverage: row.cohortAverage,
+        studentRank: row.studentRank,
+        totalParticipants: row.totalParticipants,
+        changeFromPrevMonth: row.changeFromPrevMonth,
+        participationRate:
+          row.sessionCount > 0 ? Math.round((row.attendedCount / row.sessionCount) * 100) : 0,
+      });
+
+      const toCounselingRow = (row: typeof last6Monthly[number]): MonthlyScoreEntry => {
+        const mk = `${row.year}-${String(row.month).padStart(2, "0")}`;
+        const subMap = monthSubjectMap.get(mk);
+        const subjectScores: Record<string, number | null> = {};
+        if (subMap) {
+          for (const [subject, scores] of Array.from(subMap.entries())) {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            subjectScores[subject] = Math.round(avg * 10) / 10;
+          }
+        }
+        return {
+          month: mk,
+          monthLabel: row.monthLabel,
+          avg: row.studentAverage,
+          participationRate:
+            row.sessionCount > 0 ? Math.round((row.attendedCount / row.sessionCount) * 100) : 0,
+          subjectScores,
+          attendedCount: row.attendedCount,
+          sessionCount: row.sessionCount,
+          changeFromPrev: row.changeFromPrevMonth,
+        };
+      };
+
+      monthlyAnalysisData = {
+        monthlyRows: last6Monthly.map(toMonthlySummaryRow),
+        counselingRows: last6Monthly.map(toCounselingRow),
+        currentEnrollment: currentEnrollmentRaw
+          ? {
+              cohortName: currentEnrollmentRaw.cohort?.name ?? currentEnrollmentRaw.product?.name ?? "수강",
+              status: currentEnrollmentRaw.status,
+              endDate: currentEnrollmentRaw.endDate ? currentEnrollmentRaw.endDate.toISOString() : null,
+            }
+          : null,
+        hasOverduePayment: overdueCount > 0,
+        lastScoreDate: lastSession ? lastSession.examDate.toISOString() : null,
+      };
+    }
   } else if (tab === "timeline") {
     if (!canEdit) redirect(`/admin/students/${params.examNumber}?tab=history`);
     timelineData = await getStudentTimeline({ examNumber: params.examNumber });
@@ -616,6 +748,23 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             </div>
           ) : (
             <div className="space-y-6">
+              {/* 면담 브리핑 카드 */}
+              {monthlyAnalysisData && (
+                <CounselingBriefing
+                  examNumber={params.examNumber}
+                  studentName={student.name}
+                  monthlyScores={monthlyAnalysisData.counselingRows}
+                  currentEnrollment={monthlyAnalysisData.currentEnrollment}
+                  hasOverduePayment={monthlyAnalysisData.hasOverduePayment}
+                  lastScoreDate={monthlyAnalysisData.lastScoreDate}
+                />
+              )}
+
+              {/* 월별 성적 요약 */}
+              {monthlyAnalysisData && monthlyAnalysisData.monthlyRows.length > 0 && (
+                <MonthlySummary rows={monthlyAnalysisData.monthlyRows} />
+              )}
+
               <form className="flex flex-wrap gap-3 rounded-[28px] border border-ink/10 bg-mist p-6">
                 <input type="hidden" name="tab" value="analysis" />
                 <select
