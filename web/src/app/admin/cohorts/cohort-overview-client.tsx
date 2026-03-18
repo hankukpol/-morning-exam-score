@@ -131,7 +131,12 @@ function CohortCard({ cohort }: { cohort: CohortItem }) {
       </div>
 
       {/* Name */}
-      <h3 className="mt-3 text-base font-semibold text-ink leading-tight">{cohort.name}</h3>
+      <Link
+        href={`/admin/cohorts/${cohort.id}`}
+        className="mt-3 block text-base font-semibold text-ink leading-tight transition hover:text-ember hover:underline"
+      >
+        {cohort.name}
+      </Link>
 
       {/* Period */}
       <p className="mt-1 text-xs text-slate">
@@ -211,7 +216,7 @@ function CohortCard({ cohort }: { cohort: CohortItem }) {
           )}
         </div>
         <Link
-          href={`/admin/settings/cohorts/${cohort.id}`}
+          href={`/admin/cohorts/${cohort.id}`}
           className="rounded-full border border-ink/10 px-3.5 py-1.5 text-xs font-medium text-ink transition hover:border-ink/30 hover:bg-mist"
         >
           상세 &rarr;

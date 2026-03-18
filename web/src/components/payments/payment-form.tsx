@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PaymentCategory, PaymentMethod } from "@prisma/client";
 import { PAYMENT_CATEGORY_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/constants";
+import { CardPaymentWidget, type CardPaymentInitData } from "@/components/payments/card-payment-widget";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,7 +101,7 @@ const CATEGORY_LABEL_OVERRIDE: Partial<Record<PaymentCategory, string>> = {
 const SUPPORTED_METHODS: Array<{ value: PaymentMethod; label: string; disabled?: boolean }> = [
   { value: "CASH", label: "현금" },
   { value: "TRANSFER", label: "계좌이체" },
-  { value: "CARD", label: "카드 (준비 중)", disabled: true },
+  { value: "CARD", label: "카드" },
 ];
 
 const CATEGORY_ICONS: Record<PaymentCategory, string> = {
@@ -149,6 +150,9 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
   // Submit
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Card payment widget state (shown after card-initiate succeeds)
+  const [cardPaymentInitData, setCardPaymentInitData] = useState<CardPaymentInitData | null>(null);
 
   const netAmount = grossAmount - discountAmount;
 
@@ -316,6 +320,33 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
       return;
     }
 
+    // 카드 결제: card-initiate API 호출 후 CardPaymentWidget 표시
+    if (method === "CARD") {
+      setSubmitting(true);
+      try {
+        const result = await requestJson<{
+          data: CardPaymentInitData;
+        }>("/api/payments/card-initiate", {
+          method: "POST",
+          body: JSON.stringify({
+            enrollmentId: selectedEnrollmentId || null,
+            amount: netAmount,
+            category,
+            studentExamNumber: selectedStudent?.examNumber ?? null,
+            note: note.trim() || null,
+            items: buildItems(),
+          }),
+        });
+        setCardPaymentInitData(result.data);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "카드 결제 시작 실패");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // 현금 / 계좌이체 기존 흐름
     setSubmitting(true);
     try {
       await requestJson("/api/payments", {
@@ -668,6 +699,19 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
         </div>
       </div>
 
+      {/* Card payment widget overlay */}
+      {cardPaymentInitData ? (
+        <CardPaymentWidget
+          paymentInitData={cardPaymentInitData}
+          onSuccess={(paymentId) => {
+            router.push(`/admin/payments/${paymentId}`);
+          }}
+          onCancel={() => {
+            setCardPaymentInitData(null);
+          }}
+        />
+      ) : null}
+
       {/* Error */}
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -686,7 +730,7 @@ export function PaymentForm({ initialTextbooks, initialExamNumber = "" }: Props)
         <button
           type="submit"
           form={formId}
-          disabled={submitting}
+          disabled={submitting || cardPaymentInitData !== null}
           className="inline-flex items-center gap-2 rounded-full bg-ember px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "처리 중..." : `수납 등록 (${PAYMENT_METHOD_LABEL[method]})`}
