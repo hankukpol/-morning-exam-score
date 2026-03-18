@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 type RateEntry = { adminUserId: string; rate: number };
 
@@ -28,7 +29,7 @@ export function SettlementExcelButton({ year, month, rates }: Props) {
       const res = await fetch(`/api/staff-settlements/export?${params.toString()}`);
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        alert((json as { error?: string }).error ?? "엑셀 다운로드에 실패했습니다.");
+        toast.error((json as { error?: string }).error ?? "엑셀 다운로드에 실패했습니다.");
         return;
       }
 

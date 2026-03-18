@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface Props {
   memoId: string
@@ -23,7 +24,7 @@ export function ResolveButton({ memoId }: Props) {
       router.push('/admin/score-corrections')
       router.refresh()
     } catch {
-      alert('처리에 실패했습니다.')
+      toast.error('처리에 실패했습니다.')
       setLoading(false)
     }
   }

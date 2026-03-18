@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { RefundType } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
+import { toast } from "sonner";
 
 const REFUND_TYPE_LABEL: Record<RefundType, string> = {
   CARD_CANCEL: "카드취소",
@@ -50,7 +51,7 @@ export function RefundApproveManager({ refunds: initial }: { refunds: PendingRef
       );
       const json = await res.json();
       if (!res.ok) {
-        alert(json.error ?? "승인 처리에 실패했습니다.");
+        toast.error(json.error ?? "승인 처리에 실패했습니다.");
         return;
       }
       setRefunds((prev) => prev.filter((r) => r.id !== refund.id));

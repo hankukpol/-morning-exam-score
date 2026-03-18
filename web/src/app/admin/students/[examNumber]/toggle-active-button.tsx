@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Props {
   examNumber: string;
@@ -30,7 +31,7 @@ export function ToggleActiveButton({ examNumber, isActive }: Props) {
       setCurrent(json.data.isActive);
       router.refresh();
     } catch {
-      alert("상태 변경에 실패했습니다.");
+      toast.error("상태 변경에 실패했습니다.");
     } finally {
       setLoading(false);
     }

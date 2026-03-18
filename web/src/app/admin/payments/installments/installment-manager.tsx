@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { PaymentCategory } from "@prisma/client";
 import { PAYMENT_CATEGORY_LABEL } from "@/lib/constants";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ export function InstallmentManager({ initialItems, initialStatus, summary }: Pro
       const res = await fetch(`/api/payments/installments?status=${status}&page=1`);
       const json = await res.json();
       if (!res.ok) {
-        alert(json.error ?? "조회 실패");
+        toast.error(json.error ?? "조회 실패");
         return;
       }
       setItems(json.data.items);
@@ -148,7 +149,7 @@ export function InstallmentManager({ initialItems, initialStatus, summary }: Pro
       );
       const json = await res.json();
       if (!res.ok) {
-        alert(json.error ?? "납부 처리 실패");
+        toast.error(json.error ?? "납부 처리 실패");
         return;
       }
 

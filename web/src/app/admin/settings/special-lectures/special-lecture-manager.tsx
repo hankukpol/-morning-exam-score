@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ActionModal } from "@/components/ui/action-modal";
 import type { SpecialLectureRow, InstructorOption } from "./page";
 
@@ -252,7 +253,7 @@ export function SpecialLectureManager({ initialRows, instructors }: Props) {
           throw new Error(data.error ?? "삭제 실패");
         }
         router.refresh();
-      } catch (e) { alert(e instanceof Error ? e.message : "삭제 실패"); }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "삭제 실패"); }
     });
   }
 

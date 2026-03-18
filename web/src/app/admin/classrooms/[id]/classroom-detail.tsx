@@ -208,7 +208,7 @@ export function ClassroomDetail({ classroom, todayLogMap, todayDate, attendanceL
         <h2 className="text-lg font-semibold">재적 학생 ({classroom.students.length}명)</h2>
         <div className="flex gap-2">
           <Link
-            href={`/admin/classrooms/${classroom.id}/attendance`}
+            href={`/admin/classrooms/${classroom.id}/attendance/parse`}
             className="rounded-[28px] border border-forest/30 bg-forest/10 px-4 py-2 text-sm font-medium text-forest hover:bg-forest/20"
           >
             카카오 출석 파싱

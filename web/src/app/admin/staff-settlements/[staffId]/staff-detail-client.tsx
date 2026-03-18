@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   BarChart,
@@ -91,7 +92,7 @@ function CommissionPanel({
       const res = await fetch(`/api/staff-settlements/export?${params.toString()}`);
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        alert((json as { error?: string }).error ?? "엑셀 다운로드에 실패했습니다.");
+        toast.error((json as { error?: string }).error ?? "엑셀 다운로드에 실패했습니다.");
         return;
       }
       const blob = await res.blob();

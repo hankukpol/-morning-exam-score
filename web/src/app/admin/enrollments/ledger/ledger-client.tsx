@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 import { CourseType, EnrollmentStatus } from "@prisma/client";
+import { toast } from "sonner";
 
 /* ── 타입 ───────────────────────────────────────────────────────────────────── */
 export type LedgerEnrollment = {
@@ -142,7 +143,7 @@ export function LedgerClient({ enrollments, cohorts, initialFilters }: Props) {
       link.click();
       URL.revokeObjectURL(link.href);
     } catch {
-      alert("Excel 내보내기에 실패했습니다.");
+      toast.error("Excel 내보내기에 실패했습니다.");
     } finally {
       setIsExporting(false);
     }

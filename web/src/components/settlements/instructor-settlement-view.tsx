@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { InstructorSettlementRow } from "@/app/admin/settlements/instructors/page";
 
 type Props = {
@@ -51,12 +52,12 @@ export function InstructorSettlementView({ month, rows }: Props) {
       );
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        alert(body?.error ?? "정산 처리 실패");
+        toast.error(body?.error ?? "정산 처리 실패");
         return;
       }
       router.refresh();
     } catch {
-      alert("정산 처리 중 오류가 발생했습니다.");
+      toast.error("정산 처리 중 오류가 발생했습니다.");
     } finally {
       setMarkingPaidId(null);
     }
@@ -80,7 +81,7 @@ export function InstructorSettlementView({ month, rows }: Props) {
       );
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        alert(body?.error ?? "내보내기 실패");
+        toast.error(body?.error ?? "내보내기 실패");
         return;
       }
       const blob = await res.blob();
@@ -93,7 +94,7 @@ export function InstructorSettlementView({ month, rows }: Props) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert("내보내기 중 오류가 발생했습니다.");
+      toast.error("내보내기 중 오류가 발생했습니다.");
     } finally {
       setExporting(false);
     }

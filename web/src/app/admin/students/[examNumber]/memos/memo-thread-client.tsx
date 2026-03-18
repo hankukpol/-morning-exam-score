@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminMemoColor, AdminMemoScope, AdminMemoStatus } from "@prisma/client";
+import { toast } from "sonner";
 
 export type MemoRow = {
   id: number;
@@ -237,7 +238,7 @@ export function MemoThreadClient({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: string };
-        alert(body.error ?? "삭제에 실패했습니다.");
+        toast.error(body.error ?? "삭제에 실패했습니다.");
         return;
       }
       setMemos((prev) => prev.filter((m) => m.id !== memoId));

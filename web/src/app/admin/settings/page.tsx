@@ -90,6 +90,14 @@ const SETTINGS_CARDS: SettingsCard[] = [
     badgeColor: "border-sky-200 bg-sky-50 text-sky-700",
   },
   {
+    href: "/admin/settings/refund-policies",
+    label: "환불 정책",
+    description: "학원법 제18조 기준 환불 비율 설정 및 법정 기준 참조",
+    group: "결제·할인",
+    minRole: AdminRole.MANAGER,
+    badgeColor: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  {
     href: "/admin/settings/discount-codes",
     label: "할인 코드 관리",
     description: "추천인·입소·캠페인 할인 코드 발급 및 관리",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminMemoColor, AdminMemoScope, AdminMemoStatus } from "@prisma/client";
+import { toast } from "sonner";
 
 export type AdminMemoRow = {
   id: number;
@@ -233,7 +234,7 @@ export function StudentAdminMemos({ examNumber, initialMemos, currentAdminId, cu
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        alert((body as { error?: string }).error ?? "삭제에 실패했습니다.");
+        toast.error((body as { error?: string }).error ?? "삭제에 실패했습니다.");
         return;
       }
       setMemos((prev) => prev.filter((m) => m.id !== memoId));

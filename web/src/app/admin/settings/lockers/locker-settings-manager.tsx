@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import type { LockerRow } from "./page";
 
 type Props = {
@@ -96,7 +97,7 @@ export function LockerSettingsManager({ initialLockers }: Props) {
   function handleDelete(id: string) {
     const target = lockers.find((l) => l.id === id);
     if (target?.hasActiveRental) {
-      alert("대여 중인 사물함은 삭제할 수 없습니다.");
+      toast.error("대여 중인 사물함은 삭제할 수 없습니다.");
       return;
     }
     setDeletingId(id);

@@ -5,6 +5,7 @@ import { StudentLookupForm } from "@/components/student-portal/student-lookup-fo
 import { hasDatabaseConfig } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { getStudentPortalViewer } from "@/lib/student-portal/service";
+import { LockerExtendForm } from "./extend-form";
 
 export const dynamic = "force-dynamic";
 
@@ -226,6 +227,54 @@ export default async function StudentLockerPage() {
             <p className="text-sm font-semibold text-ink">현재 배정된 사물함이 없습니다</p>
             <p className="mt-2 text-sm text-slate">
               사물함 배정을 원하시면 학원 직원에게 문의해 주세요.
+            </p>
+            <a
+              href="tel:053-241-0112"
+              className="mt-4 inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              053-241-0112
+            </a>
+          </div>
+        )}
+      </section>
+
+      {/* Locker extension request */}
+      <section className="rounded-[28px] border border-ink/10 bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate">
+              Extension
+            </p>
+            <h2 className="mt-1 text-xl font-semibold">사물함 연장 신청</h2>
+          </div>
+          {currentRental && (
+            <span className="inline-flex rounded-full border border-ember/20 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
+              연장 가능
+            </span>
+          )}
+        </div>
+
+        {currentRental ? (
+          <>
+            <p className="mt-3 text-sm text-slate">
+              현재 대여 중인{" "}
+              <span className="font-semibold text-ink">
+                {ZONE_LABEL[currentRental.locker.zone] ?? currentRental.locker.zone}{" "}
+                {currentRental.locker.lockerNumber}번
+              </span>{" "}
+              사물함의 이용 기간을 연장 신청할 수 있습니다.
+            </p>
+            <LockerExtendForm
+              lockerNumber={currentRental.locker.lockerNumber}
+              zone={ZONE_LABEL[currentRental.locker.zone] ?? currentRental.locker.zone}
+              currentEndDate={currentRental.endDate}
+            />
+          </>
+        ) : (
+          <div className="mt-4 rounded-[24px] border border-dashed border-ink/10 px-5 py-8 text-center">
+            <p className="text-sm font-semibold text-ink">현재 대여 중인 사물함이 없습니다</p>
+            <p className="mt-2 text-sm text-slate">
+              사물함을 먼저 배정받아야 연장 신청이 가능합니다.
             </p>
             <a
               href="tel:053-241-0112"
