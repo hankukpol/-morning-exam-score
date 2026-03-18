@@ -36,6 +36,7 @@ import { AbsenceRiskBanner } from "@/components/students/absence-risk-banner";
 import { StudentAttendanceCalendar } from "@/components/students/student-attendance-calendar";
 import { ConsentToggle } from "./consent-toggle";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
+import { WrongNotesAdminView } from "./wrong-notes-admin-view";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ const TABS = [
   "payments",
   "points",
   "attendance",
+  "wrong-notes",
   "memos",
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -65,6 +67,7 @@ const TAB_LABELS: Record<Tab, string> = {
   payments: "수납",
   points: "포인트",
   attendance: "출결 이력",
+  "wrong-notes": "오답노트",
   memos: "메모",
 };
 
@@ -105,6 +108,24 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
     attendType: import("@prisma/client").AttendType;
     classroom: { name: string; generation: number | null } | null;
   }[] = [];
+  type WrongNoteBookmarkWithQuestion = {
+    id: number;
+    memo: string | null;
+    createdAt: Date;
+    question: {
+      id: number;
+      questionNo: number;
+      correctAnswer: string;
+      correctRate: number | null;
+      difficulty: string | null;
+      questionSession: {
+        subject: import("@prisma/client").Subject;
+        examType: string;
+        examDate: Date;
+      };
+    };
+  };
+  let wrongNotesData: WrongNoteBookmarkWithQuestion[] = [];
 
   if (tab === "score-chart") {
     // student.scores는 이미 로드됨 — AttendType이 ABSENT이 아닌 것만 차트에 표시
@@ -246,6 +267,30 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
         take: 200,
       })
       .catch(() => []);
+  } else if (tab === "wrong-notes") {
+    const bookmarks = await getPrisma().wrongNoteBookmark.findMany({
+      where: { examNumber: params.examNumber },
+      include: {
+        question: {
+          select: {
+            id: true,
+            questionNo: true,
+            correctAnswer: true,
+            correctRate: true,
+            difficulty: true,
+            questionSession: {
+              select: {
+                subject: true,
+                examType: true,
+                examDate: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    wrongNotesData = bookmarks;
   } else if (tab === "memos") {
     const viewerId = context.adminUser.id;
     const rows = await getPrisma().adminMemo.findMany({
@@ -289,6 +334,7 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
     ...(canViewPayments ? (["enrollments", "payments"] as Tab[]) : []),
     "points",
     "attendance",
+    "wrong-notes",
     ...(canEdit ? (["memos"] as Tab[]) : []),
   ];
 
@@ -803,6 +849,11 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
         {/* 출결 이력 탭 */}
         {tab === "attendance" && (
           <AttendanceHistorySection logs={attendanceLogs} />
+        )}
+
+        {/* 오답노트 탭 */}
+        {tab === "wrong-notes" && (
+          <WrongNotesAdminView examNumber={params.examNumber} wrongNotes={wrongNotesData} />
         )}
 
         {/* 메모 탭 */}
