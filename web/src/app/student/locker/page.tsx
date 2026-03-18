@@ -111,8 +111,60 @@ export default async function StudentLockerPage() {
   const currentRental = allRentals.find((r) => r.status === RentalStatus.ACTIVE) ?? null;
   const pastRentals = allRentals.filter((r) => r.status !== RentalStatus.ACTIVE);
 
+  // Compute days until expiry for warning banner
+  const expiryDaysLeft = (() => {
+    if (!currentRental?.endDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(currentRental.endDate);
+    end.setHours(0, 0, 0, 0);
+    return Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  })();
+
+  const showExpiryWarning = expiryDaysLeft !== null && expiryDaysLeft <= 14;
+
   return (
     <main className="space-y-6 px-0 py-6">
+      {/* Expiry warning banner */}
+      {showExpiryWarning && (
+        <section className="rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-5 w-5 shrink-0 text-amber-600"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">
+                {expiryDaysLeft === 0
+                  ? "사물함 이용 기간이 오늘 만료됩니다!"
+                  : expiryDaysLeft! < 0
+                    ? "사물함 이용 기간이 만료되었습니다."
+                    : `사물함 이용 기간이 ${expiryDaysLeft}일 후 만료됩니다.`}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                만료 예정일:{" "}
+                {currentRental?.endDate ? formatDateKR(currentRental.endDate) : ""}
+                &nbsp;· 아래에서 연장 신청하거나 학원에 문의해 주세요.
+              </p>
+            </div>
+            <a
+              href="tel:053-241-0112"
+              className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-200"
+            >
+              전화 문의
+            </a>
+          </div>
+        </section>
+      )}
+
       {/* Header */}
       <section className="rounded-[32px] border border-ink/10 bg-white p-6 shadow-panel sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
