@@ -220,6 +220,14 @@ export default async function ScoreSessionDetailPage({ params }: PageProps) {
           </h2>
           <div className="flex items-center gap-2">
             <Link
+              href={`/admin/scores/sessions/${session.id}/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-full border border-ink/20 px-4 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/40 hover:bg-ink/5"
+            >
+              성적표 인쇄
+            </Link>
+            <Link
               href={`/admin/scores/edit?sessionId=${session.id}`}
               className="inline-flex items-center rounded-full border border-forest/30 px-4 py-1.5 text-xs font-semibold text-forest transition hover:bg-forest/10"
             >

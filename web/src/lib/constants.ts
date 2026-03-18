@@ -245,7 +245,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     module: 'payments',
   },
   {
-    href: "/admin/payments/links",
+    href: "/admin/payment-links",
     label: "결제 링크",
     description: "온라인 결제 링크 생성·관리 (카카오톡·문자 전송용)",
     minRole: AdminRole.COUNSELOR,
@@ -568,6 +568,14 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/graduates",
     label: "합격자 관리",
     description: "필기합격·최종합격 등록 및 합격자 성적 기록 관리",
+    minRole: AdminRole.TEACHER,
+    group: "판정 관리",
+    module: 'members',
+  },
+  {
+    href: "/admin/graduates/benchmark",
+    label: "합격자 벤치마크",
+    description: "합격자 수강 기간 분포, 월별 추이, 과목별 평균 성적 분석",
     minRole: AdminRole.TEACHER,
     group: "판정 관리",
     module: 'members',
