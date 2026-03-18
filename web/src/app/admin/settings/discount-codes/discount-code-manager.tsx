@@ -552,14 +552,22 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
         </div>
 
         {activeTab === "list" && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
-          >
-            <span>+</span>
-            <span>생성</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/admin/settings/discount-codes/new"
+              className="inline-flex items-center gap-2 rounded-full border border-ember/30 px-4 py-2 text-sm font-medium text-ember transition hover:border-ember/60 hover:bg-ember/5"
+            >
+              새 할인코드 등록
+            </a>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
+            >
+              <span>+</span>
+              <span>빠른 생성</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -734,14 +742,12 @@ export function DiscountCodeManager({ initialCodes, codeStats = {} }: DiscountCo
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(record)}
-                            disabled={isPending}
-                            className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember disabled:cursor-not-allowed disabled:opacity-50"
+                          <a
+                            href={`/admin/settings/discount-codes/${record.id}/edit`}
+                            className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-ember/30 hover:text-ember"
                           >
                             수정
-                          </button>
+                          </a>
                           <a
                             href={`/admin/settings/discount-codes/${record.id}`}
                             className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold transition hover:border-forest/30 hover:text-forest"

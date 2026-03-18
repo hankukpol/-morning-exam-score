@@ -140,6 +140,14 @@ const SETTINGS_CARDS: SettingsCard[] = [
   },
   // 학사·출결
   {
+    href: "/admin/settings/academic-years",
+    label: "학사연도 관리",
+    description: "현재 운영 기수 현황 및 학사일정 관련 설정 허브",
+    group: "학사·출결",
+    minRole: AdminRole.DIRECTOR,
+    badgeColor: "border-amber-200 bg-amber-50 text-amber-700",
+  },
+  {
     href: "/admin/settings/absence-policies",
     label: "사유 정책",
     description: "사유별 출석 포함 및 개근 인정 기본값 관리",

@@ -401,6 +401,12 @@ export default async function StudentHubPage({ params, searchParams }: PageProps
             성적통지표
           </Link>
           <Link
+            href={`/admin/students/${params.examNumber}/score-trend`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ember/20 px-3 py-1.5 text-xs font-semibold text-ember transition hover:border-ember/50"
+          >
+            성적 추이
+          </Link>
+          <Link
             href={`/admin/students/${params.examNumber}/contact-info`}
             className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ink/30"
           >

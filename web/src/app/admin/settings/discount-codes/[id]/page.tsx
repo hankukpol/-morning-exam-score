@@ -102,6 +102,12 @@ export default async function DiscountCodeDetailPage({
           <h1 className="mt-3 text-3xl font-semibold font-mono">{code.code}</h1>
         </div>
         <Link
+          href={`/admin/settings/discount-codes/${code.id}/edit`}
+          className="inline-flex items-center rounded-full bg-ember px-4 py-2 text-sm font-medium text-white transition hover:bg-ember/90"
+        >
+          수정
+        </Link>
+        <Link
           href="/admin/settings/discount-codes"
           className="inline-flex items-center rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/30"
         >

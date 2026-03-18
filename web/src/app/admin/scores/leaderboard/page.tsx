@@ -236,6 +236,14 @@ export default async function ScoreLeaderboardPage({ searchParams }: PageProps) 
       <p className="mt-4 max-w-3xl text-sm leading-8 text-slate sm:text-base">
         세션별 학생 성적 순위를 확인합니다. 과목 필터로 특정 과목의 순위를 조회할 수 있습니다.
       </p>
+      <div className="mt-4">
+        <Link
+          href="/admin/scores/percentile"
+          className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1.5 text-xs font-semibold text-slate transition hover:border-ember/30 hover:text-ember"
+        >
+          백분위 분포 분석 →
+        </Link>
+      </div>
 
       {/* ── 과목 필터 + 세션 선택 ────────────────────────────────────────── */}
       <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-end">

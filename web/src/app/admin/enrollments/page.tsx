@@ -61,6 +61,12 @@ export default async function EnrollmentsPage() {
             휴원 현황 보기
           </Link>
           <Link
+            href="/admin/enrollments/re-enrollment"
+            className="shrink-0 rounded-xl border border-forest/30 bg-forest/10 px-4 py-2.5 text-sm font-semibold text-forest hover:bg-forest/20 transition-colors"
+          >
+            재등록 관리
+          </Link>
+          <Link
             href="/admin/enrollments/bulk-status"
             className="shrink-0 rounded-xl border border-forest/30 bg-forest/10 px-4 py-2.5 text-sm font-semibold text-forest hover:bg-forest/20 transition-colors"
           >

@@ -356,16 +356,34 @@ export function PeriodManager({ periods }: PeriodManagerProps) {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visiblePeriods.map((period) => (
-              <button key={period.id} type="button" onClick={() => selectPeriod(period.id)} className={`relative w-full rounded-[28px] border p-6 text-left transition hover:shadow-md ${period.isActive ? "border-forest/40 bg-forest/5 hover:border-forest/60" : "border-ink/10 bg-white hover:border-ink/20"}`}>
-                {period.isActive ? <span className="absolute right-4 top-4 rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">현재 활성</span> : null}
-                <h3 className="pr-20 text-base font-semibold">{period.name}</h3>
-                <p className="mt-2 text-xs text-slate">{formatDate(period.startDate)} ~ {formatDate(period.endDate)}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">{period.totalWeeks}주</span>
-                  <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">회차 {period._count.sessions}개</span>
-                  <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">수강생 {period._count.enrollments}명</span>
+              <div key={period.id} className={`relative flex flex-col rounded-[28px] border transition hover:shadow-md ${period.isActive ? "border-forest/40 bg-forest/5 hover:border-forest/60" : "border-ink/10 bg-white hover:border-ink/20"}`}>
+                <button type="button" onClick={() => selectPeriod(period.id)} className="flex-1 p-6 text-left">
+                  {period.isActive ? <span className="absolute right-4 top-4 rounded-full border border-forest/20 bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest">현재 활성</span> : null}
+                  <h3 className="pr-20 text-base font-semibold">{period.name}</h3>
+                  <p className="mt-2 text-xs text-slate">{formatDate(period.startDate)} ~ {formatDate(period.endDate)}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">{period.totalWeeks}주</span>
+                    <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">회차 {period._count.sessions}개</span>
+                    <span className="rounded-full border border-ink/10 bg-mist px-2.5 py-0.5 text-xs text-slate">수강생 {period._count.enrollments}명</span>
+                  </div>
+                </button>
+                <div className="flex items-center gap-2 border-t border-ink/10 px-6 py-3">
+                  <a
+                    href={`/admin/periods/${period.id}`}
+                    className="inline-flex items-center rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-slate transition hover:border-ink/30 hover:text-ink"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    상세
+                  </a>
+                  <a
+                    href={`/admin/periods/${period.id}/edit`}
+                    className="inline-flex items-center rounded-full border border-ember/20 px-3 py-1 text-xs font-semibold text-ember transition hover:border-ember/50 hover:bg-ember/5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    수정
+                  </a>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
