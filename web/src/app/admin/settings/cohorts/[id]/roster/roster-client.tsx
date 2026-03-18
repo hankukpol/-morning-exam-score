@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { RosterRow } from "./page";
+import type { RosterRow, AttendBar } from "./page";
 
-type SortKey = "examNumber" | "name" | "enrolledAt" | "finalFee" | "paidAmount";
+type SortKey = "examNumber" | "name" | "enrolledAt" | "finalFee" | "paidAmount" | "scoreAttendRate";
 type SortDir = "asc" | "desc";
 type PaymentFilter = "ALL" | "PAID" | "UNPAID" | "PARTIAL";
 type AttendanceFilter = "ALL" | "NORMAL" | "WARNING";
@@ -25,6 +25,7 @@ function downloadCsv(rows: RosterRow[], cohortName: string) {
     "수강료",
     "납부액",
     "납부상태",
+    "4주출석률",
     "출석상태",
     "수강상태",
   ];
@@ -38,6 +39,7 @@ function downloadCsv(rows: RosterRow[], cohortName: string) {
     r.finalFee,
     r.paidAmount,
     r.paymentStatusLabel,
+    r.scoreAttendRate !== null ? `${r.scoreAttendRate}%` : "-",
     r.attendanceStatusLabel,
     r.statusLabel,
   ]);
@@ -84,7 +86,43 @@ const SORT_LABELS: Record<SortKey, string> = {
   enrolledAt: "등록일",
   finalFee: "수강료",
   paidAmount: "납부액",
+  scoreAttendRate: "출석률",
 };
+
+const ATTEND_DOT_COLOR: Record<string, string> = {
+  NORMAL: "bg-[#1F4D3A]",
+  LIVE: "bg-sky-500",
+  EXCUSED: "bg-amber-400",
+  ABSENT: "bg-red-500",
+};
+
+const ATTEND_SHORT: Record<string, string> = {
+  NORMAL: "출",
+  LIVE: "라",
+  EXCUSED: "인",
+  ABSENT: "결",
+};
+
+function AttendanceBars({ bars }: { bars: AttendBar[] }) {
+  // Show up to 20 most recent sessions as colored dots
+  const recent = bars.slice(-20);
+  if (recent.length === 0) {
+    return <span className="text-xs text-slate/40">-</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-0.5">
+      {recent.map((b, i) => (
+        <span
+          key={i}
+          title={`${b.date} ${b.subject} - ${b.attendType === "ABSENT" ? "결석" : b.attendType === "LIVE" ? "라이브" : b.attendType === "EXCUSED" ? "인정" : "출석"}`}
+          className={`inline-flex h-4 w-4 items-center justify-center rounded-sm text-[8px] font-bold text-white ${ATTEND_DOT_COLOR[b.attendType] ?? "bg-ink/20"}`}
+        >
+          {ATTEND_SHORT[b.attendType] ?? "?"}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function RosterClient({ rows, cohortName, cohortId }: Props) {
   const [search, setSearch] = useState("");
@@ -130,6 +168,8 @@ export function RosterClient({ rows, cohortName, cohortId }: Props) {
         cmp = a.finalFee - b.finalFee;
       } else if (sortKey === "paidAmount") {
         cmp = a.paidAmount - b.paidAmount;
+      } else if (sortKey === "scoreAttendRate") {
+        cmp = (a.scoreAttendRate ?? -1) - (b.scoreAttendRate ?? -1);
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -337,6 +377,13 @@ export function RosterClient({ rows, cohortName, cohortId }: Props) {
                 납부액 <SortIcon k="paidAmount" />
               </th>
               <th className="px-3 py-3 text-center font-semibold text-ink text-xs">납부상태</th>
+              <th className="px-3 py-3 text-left font-semibold text-ink text-xs">4주 출결</th>
+              <th
+                className="cursor-pointer px-3 py-3 text-center font-semibold text-ink text-xs hover:text-ember"
+                onClick={() => toggleSort("scoreAttendRate")}
+              >
+                출석률 <SortIcon k="scoreAttendRate" />
+              </th>
               <th className="px-3 py-3 text-center font-semibold text-ink text-xs">출석상태</th>
               <th className="px-3 py-3 text-center font-semibold text-ink text-xs">수강상태</th>
             </tr>
@@ -344,7 +391,7 @@ export function RosterClient({ rows, cohortName, cohortId }: Props) {
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate">
+                <td colSpan={12} className="px-4 py-10 text-center text-sm text-slate">
                   조건에 해당하는 수강생이 없습니다.
                 </td>
               </tr>
@@ -380,6 +427,26 @@ export function RosterClient({ rows, cohortName, cohortId }: Props) {
                       {row.paymentStatusLabel}
                     </span>
                   </td>
+                  <td className="px-3 py-2.5">
+                    <AttendanceBars bars={row.recentAttend} />
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {row.scoreAttendRate !== null ? (
+                      <span
+                        className={`font-semibold text-xs ${
+                          row.scoreAttendRate >= 80
+                            ? "text-[#1F4D3A]"
+                            : row.scoreAttendRate >= 60
+                            ? "text-amber-700"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {row.scoreAttendRate}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate/40">-</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-center">
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${attendanceBadgeClass(row.attendanceStatus)}`}>
                       {row.attendanceStatusLabel}
@@ -398,6 +465,21 @@ export function RosterClient({ rows, cohortName, cohortId }: Props) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Attendance bar legend */}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate">
+        <span className="font-medium">4주 출결 범례:</span>
+        {(["NORMAL", "LIVE", "EXCUSED", "ABSENT"] as const).map((type) => (
+          <span key={type} className="flex items-center gap-1">
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded-sm text-[8px] font-bold text-white ${ATTEND_DOT_COLOR[type]}`}
+            >
+              {ATTEND_SHORT[type]}
+            </span>
+            {type === "NORMAL" ? "출석" : type === "LIVE" ? "라이브" : type === "EXCUSED" ? "인정" : "결석"}
+          </span>
+        ))}
       </div>
     </div>
   );

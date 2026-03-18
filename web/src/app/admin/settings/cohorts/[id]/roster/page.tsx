@@ -41,6 +41,12 @@ function formatAmount(value: number): string {
   return value.toLocaleString("ko-KR") + "원";
 }
 
+export type AttendBar = {
+  date: string; // YYYY-MM-DD
+  subject: string;
+  attendType: "NORMAL" | "LIVE" | "EXCUSED" | "ABSENT";
+};
+
 export type RosterRow = {
   idx: number;
   enrollmentId: string;
@@ -60,6 +66,9 @@ export type RosterRow = {
   attendanceStatus: "NORMAL" | "WARNING" | "UNKNOWN";
   attendanceStatusLabel: string;
   absenceCount: number;
+  // 4-week attendance bars from Score.attendType
+  recentAttend: AttendBar[];
+  scoreAttendRate: number | null; // 0-100, null if no scores
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -131,13 +140,47 @@ export default async function CohortRosterPage({ params }: PageProps) {
     );
   }
 
-  // Fetch absence notes for this week per student (attendance warning = 2+ absences in last 7 days)
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  // Fetch recent 4 weeks of Score data for attendance bars
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
   const examNumbers = cohort.enrollments
     .map((e) => e.student?.examNumber ?? e.examNumber)
     .filter(Boolean);
+
+  // Score.attendType for last 4 weeks
+  const recentScores = examNumbers.length > 0
+    ? await prisma.score.findMany({
+        where: {
+          examNumber: { in: examNumbers },
+          session: {
+            examDate: { gte: fourWeeksAgo },
+            isCancelled: false,
+          },
+        },
+        include: {
+          session: {
+            select: {
+              examDate: true,
+              subject: true,
+            },
+          },
+        },
+        orderBy: { session: { examDate: "asc" } },
+      })
+    : [];
+
+  // Group by examNumber
+  const scoresByExam = new Map<string, typeof recentScores>();
+  for (const sc of recentScores) {
+    const arr = scoresByExam.get(sc.examNumber) ?? [];
+    arr.push(sc);
+    scoresByExam.set(sc.examNumber, arr);
+  }
+
+  // Fetch absence notes for this week per student (attendance warning = 2+ absences in last 7 days)
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
   const recentAbsences = examNumbers.length > 0
     ? await prisma.absenceNote.findMany({
@@ -198,6 +241,21 @@ export default async function CohortRosterPage({ params }: PageProps) {
       attendanceStatusLabel = "정상";
     }
 
+    // Build 4-week attendance bars
+    const examScores = scoresByExam.get(examNum) ?? [];
+    const recentAttend: AttendBar[] = examScores.map((sc) => ({
+      date: sc.session.examDate.toISOString().slice(0, 10),
+      subject: sc.session.subject,
+      attendType: sc.attendType as "NORMAL" | "LIVE" | "EXCUSED" | "ABSENT",
+    }));
+
+    // Score-based attendance rate
+    let scoreAttendRate: number | null = null;
+    if (examScores.length > 0) {
+      const attended = examScores.filter((sc) => sc.attendType !== "ABSENT").length;
+      scoreAttendRate = Math.round((attended / examScores.length) * 100);
+    }
+
     return {
       idx: idx + 1,
       enrollmentId: enrollment.id,
@@ -217,6 +275,8 @@ export default async function CohortRosterPage({ params }: PageProps) {
       attendanceStatus,
       attendanceStatusLabel,
       absenceCount,
+      recentAttend,
+      scoreAttendRate,
     };
   });
 
