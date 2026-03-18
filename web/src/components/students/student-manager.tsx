@@ -715,9 +715,9 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
           <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full divide-y divide-ink/10 text-sm">
             <caption className="sr-only">Student list with generation, portal access, and management actions.</caption>
-            <thead className="bg-mist text-left">
+            <thead className="text-left">
               <tr>
-                <th className="px-4 py-3 font-semibold">
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">
                   <BulkSelectHeaderCheckbox
                     checked={allCurrentPageSelected}
                     indeterminate={someCurrentPageSelected}
@@ -726,7 +726,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     ariaLabel="현재 페이지 수강생 전체 선택"
                   />
                 </th>
-                <th className="px-4 py-3 font-semibold">
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">
                   <SortableHeader
                     column="examNumber"
                     label="수험번호"
@@ -735,7 +735,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="px-4 py-3 font-semibold">
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">
                   <SortableHeader
                     column="name"
                     label="이름"
@@ -744,13 +744,13 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="px-4 py-3 font-semibold">연락처</th>
-                <th className="px-4 py-3 font-semibold">기수</th>
-                <th className="px-4 py-3 font-semibold">반</th>
-                <th className="px-4 py-3 font-semibold">구분</th>
-                <th className="px-4 py-3 font-semibold">포털 접근</th>
-                <th className="px-4 py-3 font-semibold">성적 수</th>
-                <th className="px-4 py-3 font-semibold">
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">연락처</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">기수</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">반</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">구분</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">포털 접근</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">성적 수</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">
                   <SortableHeader
                     column="registeredAt"
                     label="등록일"
@@ -759,7 +759,7 @@ export function StudentManager({ students, filters }: StudentManagerProps) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="px-4 py-3 font-semibold">동작</th>
+                <th className="sticky top-0 z-10 px-4 py-3 font-semibold bg-mist/95 backdrop-blur-sm">동작</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10 bg-white">

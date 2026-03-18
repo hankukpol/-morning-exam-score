@@ -9,6 +9,7 @@ import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { MobileNavWrapper } from "@/components/admin/mobile-nav-wrapper";
 import { SidebarCollapseToggle } from "@/components/admin/sidebar-collapse-toggle";
 import { TopModuleNav } from "@/components/admin/top-module-nav";
+import { CommandPalette } from "@/components/ui/command-palette";
 import {
   getDisplayErrorDetails,
   getDisplayErrorMessage,
@@ -119,6 +120,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F4F6]">
+      <CommandPalette />
       <NextTopLoader color="#C55A11" showSpinner={false} height={2} />
       <a
         href="#main-content"

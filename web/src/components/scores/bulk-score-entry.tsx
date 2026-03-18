@@ -492,19 +492,19 @@ export function BulkScoreEntry({ periods, students }: BulkScoreEntryProps) {
           {tableStudents.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm divide-y divide-ink/10">
-                <thead className="bg-mist text-left text-xs">
+                <thead className="text-left text-xs">
                   <tr>
-                    <th className="px-5 py-3 font-semibold text-slate">학번</th>
-                    <th className="px-4 py-3 font-semibold text-slate">이름</th>
-                    <th className="px-4 py-3 font-semibold text-slate">반</th>
-                    <th className="px-4 py-3 font-semibold text-slate">
+                    <th className="sticky top-0 z-10 px-5 py-3 font-semibold text-slate bg-mist/95 backdrop-blur-sm">학번</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 font-semibold text-slate bg-mist/95 backdrop-blur-sm">이름</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 font-semibold text-slate bg-mist/95 backdrop-blur-sm">반</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 font-semibold text-slate bg-mist/95 backdrop-blur-sm">
                       {getSubjectDisplayLabel(
                         selectedSession.subject,
                         selectedSession.displaySubjectName,
                       )}{" "}
                       <span className="font-normal text-slate/70">(0–100, 빈값=미응시)</span>
                     </th>
-                    <th className="px-4 py-3 font-semibold text-slate">응시유형</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 font-semibold text-slate bg-mist/95 backdrop-blur-sm">응시유형</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink/10">

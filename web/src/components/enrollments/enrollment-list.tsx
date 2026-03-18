@@ -448,7 +448,7 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
             <thead>
               <tr>
                 {canBulkComplete && (
-                  <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50">
+                  <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm">
                     <input
                       type="checkbox"
                       checked={allFilteredSelected}
@@ -459,7 +459,7 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     />
                   </th>
                 )}
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   <SortableHeader
                     col="studentName"
                     label="학생"
@@ -468,13 +468,13 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   수강 유형
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   강좌/기수
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   <SortableHeader
                     col="startDate"
                     label="기간"
@@ -483,7 +483,7 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   <SortableHeader
                     col="finalFee"
                     label="수강료"
@@ -492,13 +492,13 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   상태
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   등록 경로
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   <SortableHeader
                     col="createdAt"
                     label="등록일"
@@ -507,7 +507,7 @@ export function EnrollmentList({ initialEnrollments, adminRole }: Props) {
                     onSort={handleSort}
                   />
                 </th>
-                <th className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap">
+                <th className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap">
                   액션
                 </th>
               </tr>

@@ -302,7 +302,7 @@ export function PaymentList({ initialPayments }: Props) {
                 ].map((header) => (
                   <th
                     key={header}
-                    className="text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/50 text-left whitespace-nowrap"
+                    className="sticky top-0 z-10 text-xs font-medium text-slate uppercase px-4 py-3 bg-mist/95 backdrop-blur-sm text-left whitespace-nowrap"
                   >
                     {header}
                   </th>
