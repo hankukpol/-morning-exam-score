@@ -4,6 +4,7 @@ import { requireAdminContext } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/admin/breadcrumbs";
 import { formatDate } from "@/lib/format";
+import { ReturnButton } from "./return-button";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,21 @@ export default async function LeavesPage({ searchParams }: PageProps) {
       new Date(r.returnDate) < nextMonthStart,
   );
 
+  // Average leave duration (completed records only)
+  const completedRows = rows.filter((r) => !r.isActive && r.returnDate);
+  const avgLeaveDays =
+    completedRows.length > 0
+      ? Math.round(
+          completedRows.reduce((sum, r) => {
+            const days = Math.ceil(
+              (new Date(r.returnDate!).getTime() - r.leaveDate.getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            return sum + days;
+          }, 0) / completedRows.length,
+        )
+      : null;
+
   const activeFiltered = filtered.filter((r) => r.isActive);
   const completedFiltered = filtered.filter((r) => !r.isActive);
 
@@ -190,18 +206,25 @@ export default async function LeavesPage({ searchParams }: PageProps) {
       </div>
 
       {/* KPI */}
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-panel">
           <p className="text-xs font-medium uppercase tracking-widest text-slate">현재 휴원 중</p>
           <p className="mt-2 text-2xl font-bold text-amber-600">{activeRows.length}명</p>
         </div>
         <div className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-panel">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate">이번 달 신청</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-slate">이번달 신규 휴원</p>
           <p className="mt-2 text-2xl font-bold text-ink">{thisMonthLeaves.length}건</p>
         </div>
         <div className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-panel">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate">이번 달 복귀</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-slate">이번달 복귀</p>
           <p className="mt-2 text-2xl font-bold text-forest">{thisMonthReturns.length}건</p>
+        </div>
+        <div className="rounded-[24px] border border-ink/10 bg-white p-5 shadow-panel">
+          <p className="text-xs font-medium uppercase tracking-widest text-slate">평균 휴원 기간</p>
+          <p className="mt-2 text-2xl font-bold text-slate">
+            {avgLeaveDays !== null ? `${avgLeaveDays}일` : "—"}
+          </p>
+          <p className="mt-1 text-xs text-slate">완료 건 기준</p>
         </div>
       </div>
 
@@ -307,9 +330,11 @@ export default async function LeavesPage({ searchParams }: PageProps) {
                       <th className="px-5 py-3.5 font-semibold">수강반</th>
                       <th className="px-5 py-3.5 font-semibold">휴원 시작일</th>
                       <th className="px-5 py-3.5 font-semibold">복귀 예정일</th>
+                      <th className="px-5 py-3.5 font-semibold">D-day</th>
                       <th className="px-5 py-3.5 font-semibold">경과일</th>
                       <th className="px-5 py-3.5 font-semibold">사유</th>
                       <th className="px-5 py-3.5 font-semibold">승인자</th>
+                      <th className="px-5 py-3.5 font-semibold">복귀</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/10 bg-white">
@@ -317,6 +342,32 @@ export default async function LeavesPage({ searchParams }: PageProps) {
                       const elapsed = Math.ceil(
                         (now.getTime() - row.leaveDate.getTime()) / (1000 * 60 * 60 * 24),
                       );
+                      // D-day: days until expected return (positive = days remaining, negative = overdue)
+                      let ddayBadge = <span className="text-slate text-xs">—</span>;
+                      if (row.returnDate) {
+                        const returnMs = new Date(row.returnDate).setHours(0, 0, 0, 0);
+                        const todayMs = new Date(now).setHours(0, 0, 0, 0);
+                        const dday = Math.ceil((returnMs - todayMs) / (1000 * 60 * 60 * 24));
+                        if (dday === 0) {
+                          ddayBadge = (
+                            <span className="inline-flex rounded-full border border-forest/30 bg-forest/10 px-2.5 py-0.5 text-xs font-bold text-forest">
+                              D-day
+                            </span>
+                          );
+                        } else if (dday > 0) {
+                          ddayBadge = (
+                            <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                              D-{dday}
+                            </span>
+                          );
+                        } else {
+                          ddayBadge = (
+                            <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                              D+{Math.abs(dday)}
+                            </span>
+                          );
+                        }
+                      }
                       return (
                         <tr key={row.id} className="hover:bg-mist/30 transition-colors">
                           <td className="px-5 py-3.5">
@@ -341,6 +392,7 @@ export default async function LeavesPage({ searchParams }: PageProps) {
                           <td className="px-5 py-3.5 text-slate">
                             {row.returnDate ? formatDate(row.returnDate) : "미정"}
                           </td>
+                          <td className="px-5 py-3.5">{ddayBadge}</td>
                           <td className="px-5 py-3.5">
                             <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                               {elapsed}일
@@ -350,6 +402,9 @@ export default async function LeavesPage({ searchParams }: PageProps) {
                             {row.reason ?? "—"}
                           </td>
                           <td className="px-5 py-3.5 text-slate">{row.approvedByName ?? "—"}</td>
+                          <td className="px-5 py-3.5">
+                            <ReturnButton leaveId={row.id} studentName={row.studentName} />
+                          </td>
                         </tr>
                       );
                     })}

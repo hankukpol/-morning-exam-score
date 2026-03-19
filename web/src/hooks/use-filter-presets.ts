@@ -113,9 +113,15 @@ export function useFilterPresets(storageKey: string) {
     persist(presets.filter((preset) => preset.id !== id));
   }
 
+  function loadPreset(id: string): Record<string, string> | null {
+    const preset = presets.find((p) => p.id === id);
+    return preset ? { ...preset.filters } : null;
+  }
+
   return {
     presets,
     savePreset,
+    loadPreset,
     deletePreset,
   };
 }
