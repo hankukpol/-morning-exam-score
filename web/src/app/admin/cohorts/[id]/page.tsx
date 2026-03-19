@@ -136,6 +136,12 @@ export default async function CohortDetailPage({ params }: PageProps) {
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href={`/admin/cohorts/${rawCohort.id}/score-distribution`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-forest/5 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest/10"
+            >
+              성적 분포
+            </Link>
+            <Link
               href={`/admin/settings/cohorts/${rawCohort.id}`}
               className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-mist"
             >

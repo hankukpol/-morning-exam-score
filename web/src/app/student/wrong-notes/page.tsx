@@ -74,7 +74,7 @@ export default async function StudentWrongNotesPage() {
             </div>
           </section>
 
-          <StudentLookupForm redirectPath="/student/wrong-notes" />
+          <StudentLookupForm redirectPath="/student/scores/wrong-questions" />
         </div>
       </main>
     );
@@ -388,7 +388,7 @@ export default async function StudentWrongNotesPage() {
             name: student.name,
             examType: student.examType,
           }}
-          redirectPath="/student/wrong-notes"
+          redirectPath="/student/scores/wrong-questions"
         />
 
         <WrongNoteManager initialNotes={mappedNotes} />

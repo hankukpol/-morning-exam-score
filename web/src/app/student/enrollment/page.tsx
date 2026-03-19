@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import {
   CourseType,
   EnrollmentStatus,
@@ -302,7 +302,7 @@ export default async function StudentEnrollmentPage() {
                 수강계약서 보기
               </Link>
               <Link
-                href="/student/documents"
+                href="/student/enrollment/certificate"
                 className="inline-flex items-center rounded-full border border-forest/30 bg-forest/5 px-5 py-3 text-sm font-semibold text-forest transition hover:bg-forest/10"
               >
                 수강확인서 출력
@@ -1075,3 +1075,4 @@ export default async function StudentEnrollmentPage() {
     </main>
   );
 }
+

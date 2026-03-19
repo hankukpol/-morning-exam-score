@@ -322,6 +322,12 @@ export default async function RevenueAnalyticsPage({ searchParams }: PageProps) 
           >
             환불 내역 →
           </Link>
+          <Link
+            href="/admin/analytics/special-lecture-revenue"
+            className="text-sm text-ember hover:underline"
+          >
+            ?? ?? ?? ?
+          </Link>
         </div>
       </div>
     </div>

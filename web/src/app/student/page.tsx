@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AttendStatus, CourseType, Subject } from "@prisma/client";
 import {
   BarComparisonChart,
@@ -223,8 +223,8 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
       where: { examNumber: data.student.examNumber },
       select: { balance: true },
     }).catch(() => null),
-    // This week's morning exam attendance records (ExamScore)
-    getPrisma().examScore.findMany({
+    // This week's morning exam attendance records
+    getPrisma().score.findMany({
       where: {
         examNumber: data.student.examNumber,
         session: {
@@ -629,7 +629,7 @@ export default async function StudentPortalPage({ searchParams }: PageProps) {
                 color: "text-orange-600 bg-orange-50",
               },
               {
-                href: "/student/documents",
+                href: "/student/enrollment/certificate",
                 label: "증명서",
                 icon: (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">

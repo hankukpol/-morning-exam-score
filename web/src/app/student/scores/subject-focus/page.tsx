@@ -471,7 +471,7 @@ export default async function SubjectFocusPage({ searchParams }: PageProps) {
                   이 과목 오답노트 <strong className="text-ink">{wrongNoteCount}개</strong>
                 </p>
                 <Link
-                  href={`/student/wrong-notes?subject=${selectedSubject}`}
+                  href={`/student/scores/wrong-questions?subject=${selectedSubject}`}
                   className="inline-flex items-center gap-1 text-sm font-semibold text-ember transition hover:text-ember/80"
                 >
                   오답노트 보기

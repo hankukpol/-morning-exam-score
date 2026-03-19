@@ -577,6 +577,13 @@ export default async function AdminAnalyticsPage({ searchParams }: PageProps) {
             <p className="font-semibold text-ink group-hover:text-forest">기수별 코호트 분석</p>
             <p className="mt-1 text-xs text-slate">기수별 등록수·탈락률·성적·출석률 비교, 전기수 대비 ▲▼ 배지</p>
           </Link>
+          <Link
+            href="/admin/analytics/special-lecture-revenue"
+            className="group rounded-[20px] border border-ink/10 bg-white p-4 shadow-sm transition-all hover:border-ember/30 hover:shadow-md"
+          >
+            <p className="font-semibold text-ink group-hover:text-ember">?? ?? ??</p>
+            <p className="mt-1 text-xs text-slate">??? ??, ?? ?? ???, ?? ?? ?? ??</p>
+          </Link>
         </div>
       </div>
     </div>

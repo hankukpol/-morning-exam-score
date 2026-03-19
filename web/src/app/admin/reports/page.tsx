@@ -110,6 +110,27 @@ export default async function ReportsPage() {
         </Link>
 
         <Link
+          href={
+            "/admin/reports/year-end?year=" + year
+          }
+          className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ember/30 hover:shadow-lg transition-all"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">{"\uC5F0\uB9D0"}</div>
+              <h2 className="mt-4 text-xl font-semibold text-ink">{"\uC5F0\uB9D0 \uC2E4\uC801 \uBCF4\uACE0\uC11C"}</h2>
+              <p className="mt-2 text-sm text-slate leading-6">
+                {"\uC5F0\uAC04 \uC2E4\uC218\uB0A9, \uAE30\uC218, \uD2B9\uAC15, \uC8FC\uC694 \uB4F1\uB85D \uD559\uC0DD\uC744 \uACB0\uC0B0\uD615\uC73C\uB85C \uBCF4\uB294 \uBCF4\uACE0\uC11C\uC785\uB2C8\uB2E4."}
+              </p>
+            </div>
+            <svg className="mt-1 h-6 w-6 text-slate group-hover:text-ember transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 text-xs text-slate">{"\uD5C8\uBE0C \uAE30\uC900 \uC5F0\uAC04 \uACB0\uC0B0 \uD654\uBA74 \u2192"}</div>
+        </Link>
+
+        <Link
           href="/admin/reports/weekly"
           className="group rounded-[28px] border border-ink/10 bg-white p-8 shadow-panel hover:border-ink/30 hover:shadow-lg transition-all"
         >

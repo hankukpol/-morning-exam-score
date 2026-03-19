@@ -395,6 +395,14 @@ export function EnrollmentDetailClient({ enrollment: initial }: Props) {
           )}
         </Link>
         <Link
+          href={`/admin/enrollments/${enrollment.id}/payment-plan`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-full border border-forest/20 px-4 py-2 text-sm font-semibold text-forest transition hover:border-forest/50"
+        >
+          납부 계획서
+        </Link>
+        <Link
           href={`/admin/payments/new?examNumber=${enrollment.examNumber}`}
           className="inline-flex items-center rounded-full border border-ember/20 px-4 py-2 text-sm font-semibold text-ember transition hover:border-ember/50"
         >

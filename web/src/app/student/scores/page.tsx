@@ -144,7 +144,7 @@ export default async function StudentScoresPage({ searchParams }: PageProps) {
                 포털로 돌아가기
               </Link>
               <Link
-                href="/student/wrong-notes"
+                href="/student/scores/wrong-questions"
                 className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
               >
                 오답 노트 보기

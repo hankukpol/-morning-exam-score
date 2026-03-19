@@ -74,6 +74,12 @@ export default async function StudentPreferencesPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
+              href="/student/notifications"
+              className="inline-flex items-center rounded-full border border-ember/20 bg-ember/5 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
+            >
+              ?? ??
+            </Link>
+            <Link
               href="/student/settings"
               className="inline-flex items-center rounded-full border border-ink/10 px-5 py-3 text-sm font-semibold transition hover:border-ember/30 hover:text-ember"
             >
